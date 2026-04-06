@@ -2,14 +2,30 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia.
 
 (* ===== Phase 0: Design Decisions ===== *)
 
-Definition JobId : Type := nat.
-Definition CPU   : Type := nat.
-Definition Time  : Type := nat.
+Definition JobId  : Type := nat.
+Definition TaskId : Type := nat.
+Definition CPU    : Type := nat.
+Definition Time   : Type := nat.
 
+(* Task: periodic task as a generation rule for jobs.
+   Not yet used in proofs; defined here as a skeleton for future
+   periodic scheduling theory (utilization bounds, EDF optimality, etc.). *)
+Record Task : Type := mkTask {
+  task_cost     : nat;  (* WCET: worst-case execution time per job *)
+  task_period   : nat;  (* period: minimum inter-arrival time *)
+  task_deadline : nat;  (* relative deadline *)
+}.
+
+(* Job: a concrete execution instance, optionally tied to a Task.
+   job_task / job_arrival are unused by current lemmas and may be
+   set to 0 for standalone jobs.  They exist so that periodic-task
+   extensions can attach identity without restructuring this record. *)
 Record Job : Type := mkJob {
-  job_release  : Time;
-  job_cost     : nat;
-  job_deadline : Time;
+  job_task     : TaskId; (* which task generated this job (0 = anonymous) *)
+  job_arrival  : nat;    (* k-th job of that task, 0-indexed *)
+  job_release  : Time;   (* absolute release time *)
+  job_cost     : nat;    (* execution time required by this job *)
+  job_deadline : Time;   (* absolute deadline *)
 }.
 
 (* time -> CPU -> option JobId: multicore schedule *)

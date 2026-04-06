@@ -41,7 +41,7 @@ Require Import scheduling.
                  ↑ deadline=3 のとき、累積実行量 = 2 ≥ cost=2 → 完了 ✓
 *)
 
-Definition job_ex1 : Job := mkJob 0 2 3.
+Definition job_ex1 : Job := mkJob 0 0 0 2 3. (* task=0, arrival=0, release=0, cost=2, deadline=3 *)
 
 (** 全 JobId に対して同じジョブを返す定数関数 *)
 Definition jobs_ex1 (j : JobId) : Job := job_ex1.
@@ -116,7 +116,7 @@ Qed.
               ↑ 最大でも 2 タイムスロット実行できるが cost=3 には足りない ✗
 *)
 
-Definition job_ex2 : Job := mkJob 0 3 2.
+Definition job_ex2 : Job := mkJob 0 0 0 3 2. (* task=0, arrival=0, release=0, cost=3, deadline=2 *)
 
 Definition jobs_ex2 (j : JobId) : Job := job_ex2.
 
