@@ -28,19 +28,19 @@ Definition Time   : Type := nat.
 Record Task : Type := mkTask {
   task_cost     : nat;  (* WCET: worst-case execution time per job *)
   task_period   : nat;  (* period: minimum inter-arrival time *)
-  task_deadline : nat;  (* relative deadline *)
+  task_relative_deadline : nat;  (* relative deadline *)
 }.
 
 (* Job: a concrete execution instance, optionally tied to a Task.
-   job_task / job_arrival are unused by current lemmas and may be
+   job_task / job_index are unused by current lemmas and may be
    set to 0 for standalone jobs.  They exist so that periodic-task
    extensions can attach identity without restructuring this record. *)
 Record Job : Type := mkJob {
-  job_task     : TaskId; (* which task generated this job (0 = anonymous) *)
-  job_arrival  : nat;    (* k-th job of that task, 0-indexed *)
-  job_release  : Time;   (* absolute release time *)
-  job_cost     : nat;    (* execution time required by this job *)
-  job_deadline : Time;   (* absolute deadline *)
+  job_task         : TaskId; (* which task generated this job (0 = anonymous) *)
+  job_index        : nat;    (* k-th job of that task, 0-indexed (instance number) *)
+  job_release      : Time;   (* absolute release time *)
+  job_cost         : nat;    (* execution time required by this job *)
+  job_abs_deadline : Time;   (* absolute deadline *)
 }.
 
 (* time -> CPU -> option JobId: multicore schedule.
@@ -73,6 +73,8 @@ Fixpoint service (m : nat) (sched : Schedule) (j : JobId) (t : Time) : nat :=
   | S t' => cpu_count sched j t' m + service m sched j t'
   end.
 
+(* `completed jobs m sched j t` means job j has received >= job_cost units of
+   service in [0,t).  Equivalently: "completed by the start of time slot t". *)
 Definition completed (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
   service m sched j t >= job_cost (jobs j).
@@ -116,14 +118,23 @@ Definition valid_schedule (jobs : JobId -> Job) (m : nat) (sched : Schedule) : P
 Definition valid_jobs (jobs : JobId -> Job) : Prop :=
   forall j, 0 < job_cost (jobs j).
 
-(* A job misses its deadline if it is not completed by job_deadline. *)
+(* Relationship between Task and Job: a job j belongs to task τ if
+   job_task (jobs j) = τ.  Periodic-task constraints (release pattern,
+   relative deadline → absolute deadline) will be expressed via a
+   future `valid_job_of_task` predicate using task_relative_deadline. *)
+
+(* A job misses its deadline if it is not completed by job_abs_deadline. *)
 Definition missed_deadline (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) : Prop :=
-  ~completed jobs m sched j (job_deadline (jobs j)).
+  ~completed jobs m sched j (job_abs_deadline (jobs j)).
 
 (* A schedule is feasible if no job misses its deadline. *)
-Definition schedulable (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
+Definition feasible (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
   forall j, ~missed_deadline jobs m sched j.
+
+(* A job set is schedulable if there exists a valid, feasible schedule. *)
+Definition schedulable (jobs : JobId -> Job) (m : nat) : Prop :=
+  exists sched, valid_schedule jobs m sched /\ feasible jobs m sched.
 
 (* ===== Lv.0 Lemmas ===== *)
 
@@ -242,8 +253,10 @@ Lemma cpu_count_nonzero_iff_executed : forall m sched j t,
 Proof.
   intros m sched j t.
   split.
-  - intros H. apply cpu_count_pos_iff_executed. lia.
-  - intros H. apply cpu_count_pos_iff_executed in H. lia.
+  - intros Hnz. apply cpu_count_pos_iff_executed. lia.
+  - intros Hex.
+    pose proof (proj2 (cpu_count_pos_iff_executed m sched j t) Hex) as Hpos.
+    lia.
 Qed.
 
 (* Under no_duplication, cpu_count <= 1 *)
