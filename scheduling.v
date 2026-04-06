@@ -35,7 +35,7 @@ Fixpoint cpu_count (sched : Schedule) (j : JobId) (t : Time) (m : nat) : nat :=
 Fixpoint service (m : nat) (sched : Schedule) (j : JobId) (t : Time) : nat :=
   match t with
   | O    => 0
-  | S t' => service m sched j t' + cpu_count sched j t' m
+  | S t' => cpu_count sched j t' m + service m sched j t'
   end.
 
 Definition completed (jobs : JobId -> Job) (m : nat) (sched : Schedule)
