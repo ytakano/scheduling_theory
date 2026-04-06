@@ -261,6 +261,78 @@
 
 ---
 
+---
+
+### `generated_job_release`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma generated_job_release :
+    forall tasks offset jobs j,
+      generated_by_periodic_task tasks offset jobs j ->
+      job_release (jobs j) =
+        expected_release tasks offset (job_task (jobs j)) (job_index (jobs j)).
+  ```
+- **Proof Strategy**: `exact (proj1 Hgen)` — `generated_by_periodic_task` is a conjunction whose first component is exactly the goal.
+- **Key Tactics**: `proj1`
+- **Dependencies**: `generated_by_periodic_task`
+- **Notes**: Trivial extraction from the first conjunct.
+- **Date**: 2026-04-06
+
+---
+
+### `generated_job_deadline`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma generated_job_deadline :
+    forall tasks offset jobs j,
+      generated_by_periodic_task tasks offset jobs j ->
+      job_abs_deadline (jobs j) =
+        job_release (jobs j) + task_relative_deadline (tasks (job_task (jobs j))).
+  ```
+- **Proof Strategy**: Destruct `Hgen` into `[Hrel [Hdl _]]`. `Hdl` has `expected_abs_deadline` on the RHS — `unfold expected_abs_deadline in Hdl` to expose `expected_release + relative_deadline`. Then `rewrite <- Hrel in Hdl` to replace `expected_release ...` with `job_release (jobs j)`. Result matches goal: `exact Hdl`.
+- **Key Tactics**: `destruct Hgen as [Hrel [Hdl _]]`, `unfold expected_abs_deadline in Hdl`, `rewrite <- Hrel in Hdl`, `exact Hdl`
+- **Dependencies**: `generated_by_periodic_task`, `expected_abs_deadline`, `expected_release`
+- **Notes**: ⚠️ `rewrite Hrel in Hdl` (forward) doesn't help because `Hdl` contains `expected_abs_deadline` not `job_release`. Must unfold `expected_abs_deadline` first, then rewrite `<-` to substitute `expected_release` back to `job_release`.
+- **Date**: 2026-04-06
+
+---
+
+### `generated_job_cost_bounded`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma generated_job_cost_bounded :
+    forall tasks offset jobs j,
+      generated_by_periodic_task tasks offset jobs j ->
+      job_cost (jobs j) <= task_cost (tasks (job_task (jobs j))).
+  ```
+- **Proof Strategy**: `exact (proj2 (proj2 Hgen))` — third conjunct of `generated_by_periodic_task`.
+- **Key Tactics**: `proj2`
+- **Dependencies**: `generated_by_periodic_task`
+- **Notes**: The conjunction structure is `A /\ B /\ C` = `A /\ (B /\ C)`, so cost is `proj2 (proj2 Hgen)`.
+- **Date**: 2026-04-06
+
+---
+
+### `generated_implies_valid_job_of_task`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma generated_implies_valid_job_of_task :
+    forall tasks offset jobs j,
+      generated_by_periodic_task tasks offset jobs j ->
+      valid_job_of_task tasks jobs j.
+  ```
+- **Proof Strategy**: `unfold valid_job_of_task`, then `split` into the two conjuncts. First conjunct: `generated_job_deadline`. Second conjunct: `generated_job_cost_bounded`.
+- **Key Tactics**: `unfold valid_job_of_task`, `split`, `exact (generated_job_deadline ...)`, `exact (generated_job_cost_bounded ...)`
+- **Dependencies**: `generated_job_deadline`, `generated_job_cost_bounded`, `valid_job_of_task`
+- **Notes**: Clean delegation to the already-proven sub-lemmas. This is the key connection between `PeriodicTasks.v` and `Base.v`.
+- **Date**: 2026-04-06
+
+---
+
 ## Global Notes
 
 ### Rocq 9 Syntax Issues
