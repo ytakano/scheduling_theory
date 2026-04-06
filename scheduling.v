@@ -2,6 +2,21 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia.
 
 (* ===== Phase 0: Design Decisions ===== *)
 
+(* === DAG 拡張に向けた設計メモ ===
+   将来的には実行単位を 3 層に分ける:
+     Task  : 周期的な生成ルール
+     Job   : Task の具体的な実行インスタンス
+     Node  : Job 内部の並列実行ノード（DAG ノード）
+
+   現在は Node を導入しておらず、実行単位 = Job。
+   DAG 導入時には Schedule の型が
+     Time -> CPU -> option JobId
+   から
+     Time -> CPU -> option NodeId  (または option (JobId * NodeId))
+   へ移行する可能性がある。
+
+   各定義の DAG 拡張方針は個別のコメントに記載する。 *)
+
 Definition JobId  : Type := nat.
 Definition TaskId : Type := nat.
 Definition CPU    : Type := nat.
@@ -28,7 +43,9 @@ Record Job : Type := mkJob {
   job_deadline : Time;   (* absolute deadline *)
 }.
 
-(* time -> CPU -> option JobId: multicore schedule *)
+(* time -> CPU -> option JobId: multicore schedule.
+   Sequential-job モデルでは実行単位 = job。
+   DAG 導入時には option NodeId または option (JobId * NodeId) に移行予定。 *)
 Definition Schedule : Type := Time -> CPU -> option JobId.
 
 (* ===== Phase 1: Core Definitions ===== *)
@@ -47,7 +64,9 @@ Fixpoint cpu_count (sched : Schedule) (j : JobId) (t : Time) (m : nat) : nat :=
   | S m' => (if runs_on sched j t m' then 1 else 0) + cpu_count sched j t m'
   end.
 
-(* Cumulative execution of j in [0,t) across all CPUs 0..m-1 *)
+(* job-level 累積実行量: [0,t) の全 CPU での job j の総実行ステップ数。
+   DAG では node ごとの service (service_node) が別途必要になる。
+   この定義は job 全体の work を測る service_job として残す。 *)
 Fixpoint service (m : nat) (sched : Schedule) (j : JobId) (t : Time) : nat :=
   match t with
   | O    => 0
@@ -70,14 +89,18 @@ Definition pending (jobs : JobId -> Job) (m : nat) (sched : Schedule)
   released jobs j t /\ ~completed jobs m sched j t.
 
 (* A job is ready to execute.
-   Currently equivalent to pending; can be strengthened later to capture
-   precedence constraints, non-preemptive sections, affinity, etc. *)
+   現在は pending と等価。DAG 拡張時には node 単位の ready になる:
+     ready_node n t = pending_node n t /\ preds_completed n t
+   job-level ready はその後 "すべての ready node を持つ" などに変わる可能性がある。 *)
 Definition ready (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
   pending jobs m sched j t.
 
-(* Sequential job model: same job never runs on two CPUs simultaneously.
-   For parallel jobs, remove this constraint; service increment bound becomes m. *)
+(* Sequential-job 仮定: 同じ job は同時に複数 CPU で走らない。
+   DAG job ではこの制約は job 単位ではなく node 単位になる:
+     - 同じ node は同時に複数 CPU で走らない
+     - 同じ job の異なる ready node は別 CPU で同時に走ってよい
+   DAG 導入時にはこの定義を node-level に置き換える。 *)
 Definition no_duplication (m : nat) (sched : Schedule) : Prop :=
   forall j t c1 c2,
     c1 < m -> c2 < m ->
