@@ -1,0 +1,8 @@
+*.cache
+*.aux
+*.vok
+*.vo
+*.vos
+*.glob
+todo.txt
+skills-lock.json

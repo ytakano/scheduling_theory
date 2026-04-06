@@ -1,0 +1,15 @@
+version: '3'
+services:
+  scheduling_theory:
+    build:
+      context: .
+      args:
+        USERNAME: ${USERNAME}
+        UID: ${UID}
+        GID: ${GID}
+    user: "${UID}:${GID}"
+    stdin_open: true
+    tty: true
+    working_dir: "/scheduling_theory"
+    volumes:
+      - "../:/scheduling_theory"
