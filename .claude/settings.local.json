@@ -14,7 +14,7 @@
       "Bash(rocq --version)",
       "WebFetch(domain:rocq-prover.org)",
       "Bash(rocq query:*)",
-      "Bash(grep -v \"^/galois_theory/\\\\.$\\\\|^/galois_theory/\\\\.\\\\.$ \\\\|\\\\.git\")",
+      "Bash(grep -v \"^/scheduling_theory/\\\\.$\\\\|^/scheduling_theory/\\\\.\\\\.$ \\\\|\\\\.git\")",
       "Bash(git:*)",
       "Bash(ocamlfind list:*)",
       "Bash(coqc --version)",
