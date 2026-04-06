@@ -125,8 +125,16 @@ Definition valid_jobs (jobs : JobId -> Job) : Prop :=
    relative deadline → absolute deadline) will be expressed via
    valid_job_of_task below. *)
 
-(* Skeleton predicate: job j is a valid instance of its task.
-   To be filled in during periodic-task theory (Phase 12+). *)
+(* Skeleton predicate: job j is consistent with its task's parameters.
+   This captures "parameter compatibility" only:
+     - absolute deadline = release + relative deadline
+     - job cost ≤ task WCET
+   It does NOT encode the periodic generation rule
+     job_release = offset + job_index * task_period
+   nor job_index monotonicity nor intra-task job uniqueness.
+   Those constraints belong to a separate `periodic_job_generation`
+   predicate, introduced in Phase 12 (periodic task theory).
+   See also: plan/roadmap.md §12.5. *)
 Definition valid_job_of_task (tasks : TaskId -> Task) (jobs : JobId -> Job)
     (j : JobId) : Prop :=
   let τ := job_task (jobs j) in
@@ -385,13 +393,8 @@ Lemma service_job_increases_iff_executed : forall m sched j t,
 Proof.
   intros m sched j t Hnd.
   rewrite service_job_step.
-  split.
-  - intros Heq.
-    apply (proj1 (cpu_count_pos_iff_executed m sched j t)).
-    pose proof (cpu_count_le_1 m sched j t Hnd). lia.
-  - intros Hexists.
-    apply (proj2 (cpu_count_pos_iff_executed m sched j t)) in Hexists.
-    pose proof (cpu_count_le_1 m sched j t Hnd). lia.
+  rewrite <- (cpu_count_eq_1_iff_executed m sched j t Hnd).
+  lia.
 Qed.
 
 (* --- Lv.0-2: completed/ready consistency --- *)
@@ -464,8 +467,12 @@ Proof.
 Qed.
 
 (* Convenience form: directly obtains pending without unfolding ready.
-   Since ready = pending, this is definitionally equal to
-   valid_running_implies_ready, but avoids the ready layer in proofs. *)
+   Currently valid because ready = pending definitionally
+   (both reduce to released /\ ~completed).
+   WARNING: this lemma may break when DAG tasks are introduced,
+   since ready will gain a preds_completed clause and will no longer
+   be definitionally equal to pending.  Treat as a convenience lemma
+   for the current sequential-job layer only. *)
 Lemma valid_running_implies_pending : forall jobs m sched j t c,
     valid_schedule jobs m sched ->
     c < m ->
