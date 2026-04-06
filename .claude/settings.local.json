@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat > /tmp:*)",
+      "Bash(*:/tmp/*)",
+      "Bash(rocq compile:*)",
+      "Bash(rocq -v)",
+      "Bash(rocq repl:*)",
+      "Bash(rocq config:*)",
+      "Bash(jobs)",
+      "Bash(rocqc -where)",
+      "Bash(coqc -where)",
+      "Bash(opam list:*)",
+      "Bash(rocq --version)",
+      "WebFetch(domain:rocq-prover.org)",
+      "Bash(rocq query:*)",
+      "Bash(grep -v \"^/galois_theory/\\\\.$\\\\|^/galois_theory/\\\\.\\\\.$ \\\\|\\\\.git\")",
+      "Bash(git:*)",
+      "Bash(ocamlfind list:*)",
+      "Bash(coqc --version)",
+      "Bash(grep -v \"^Warning\\\\|^\\\\[deprecated\\\\|^\\\\[warn\\\\|Use Z\\\\.\\\\|Use instead\\\\|see$\\\\|theories/Vectors\")",
+      "Bash(awk:*)",
+      "Bash(rocq check:*)",
+      "Bash(~/.opam/default/bin/rocq compile:*)",
+      "Bash(opam env:*)",
+      "Bash(command -v opam)",
+      "Bash(opam switch:*)",
+      "Bash(gpgconf --kill all)",
+      "Bash(tty)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(echo \"exit: $?\")"
+    ]
+  },
+  "deny": [
+    "Read(docker/*)"
+  ]
+}
