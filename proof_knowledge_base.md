@@ -272,3 +272,33 @@
 - When `c` is already in scope as a local variable, `apply (f : A -> forall c, P c) in H` can fail with "Unable to find an instance for variable c".
 - **Fix**: Apply on the goal instead: `apply (f H_premise)` or `apply (proj1 (IH ...) H)`.
 - **Alternative**: Use fresh names in destruct: `destruct (proj1 (IH ...) H) as [c' ...]`.
+
+---
+
+### `cpu_count_le_m`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma cpu_count_le_m : forall m sched j t,
+      cpu_count sched j t m <= m.
+  ```
+- **Proof Strategy**: induction on m. Base: trivial. Step: `pose proof (IH ...)`, `destruct (runs_on ...)`, `lia`.
+- **Key Tactics**: `induction m`, `pose proof`, `destruct (runs_on ...)`, `lia`
+- **Dependencies**: `cpu_count`, `runs_on`
+- **Notes**: 上界。`no_duplication` なし。`cpu_count_le_1` とは異なり前提不要。
+- **Date**: 2026-04-06
+
+---
+
+### `service_le_m_mul_t`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma service_le_m_mul_t : forall m sched j t,
+      service m sched j t <= m * t.
+  ```
+- **Proof Strategy**: induction on t. Base: trivial. Step: `rewrite service_step`, `pose proof (cpu_count_le_m ...)`, `lia`.
+- **Key Tactics**: `induction t`, `rewrite service_step`, `pose proof`, `lia`
+- **Dependencies**: `service_step`, `cpu_count_le_m`
+- **Notes**: not-schedulable の証明（上界による矛盾）に有用。`service_le_m_mul_t 1 sched j 2` → `service ≤ 2`。
+- **Date**: 2026-04-06
