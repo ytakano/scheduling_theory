@@ -1,52 +1,5 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia.
-
-(* ===== Phase 0: Design Decisions ===== *)
-
-(* === DAG 拡張に向けた設計メモ ===
-   将来的には実行単位を 3 層に分ける:
-     Task  : 周期的な生成ルール
-     Job   : Task の具体的な実行インスタンス
-     Node  : Job 内部の並列実行ノード（DAG ノード）
-
-   現在は Node を導入しておらず、実行単位 = Job。
-   DAG 導入時には Schedule の型が
-     Time -> CPU -> option JobId
-   から
-     Time -> CPU -> option NodeId  (または option (JobId * NodeId))
-   へ移行する可能性がある。
-
-   各定義の DAG 拡張方針は個別のコメントに記載する。 *)
-
-Definition JobId  : Type := nat.
-Definition TaskId : Type := nat.
-Definition CPU    : Type := nat.
-Definition Time   : Type := nat.
-
-(* Task: periodic task as a generation rule for jobs.
-   Not yet used in proofs; defined here as a skeleton for future
-   periodic scheduling theory (utilization bounds, EDF optimality, etc.). *)
-Record Task : Type := mkTask {
-  task_cost     : nat;  (* WCET: worst-case execution time per job *)
-  task_period   : nat;  (* period: minimum inter-arrival time *)
-  task_relative_deadline : nat;  (* relative deadline *)
-}.
-
-(* Job: a concrete execution instance, optionally tied to a Task.
-   job_task / job_index are unused by current lemmas and may be
-   set to 0 for standalone jobs.  They exist so that periodic-task
-   extensions can attach identity without restructuring this record. *)
-Record Job : Type := mkJob {
-  job_task         : TaskId; (* which task generated this job (0 = anonymous) *)
-  job_index        : nat;    (* k-th job of that task, 0-indexed (instance number) *)
-  job_release      : Time;   (* absolute release time *)
-  job_cost         : nat;    (* execution time required by this job *)
-  job_abs_deadline : Time;   (* absolute deadline *)
-}.
-
-(* time -> CPU -> option JobId: multicore schedule.
-   Sequential-job モデルでは実行単位 = job。
-   DAG 導入時には option NodeId または option (JobId * NodeId) に移行予定。 *)
-Definition Schedule : Type := Time -> CPU -> option JobId.
+Require Import Base.
 
 (* ===== Phase 1: Core Definitions ===== *)
 
@@ -79,10 +32,6 @@ Definition completed (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
   service_job m sched j t >= job_cost (jobs j).
 
-(* A job has been released at time t *)
-Definition released (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop :=
-  job_release (jobs j) <= t.
-
 (* A job is pending: released and not yet completed.
    Note: a zero-cost job is immediately completed at t=0, so it is never pending.
    Use valid_jobs to exclude zero-cost jobs when needed. *)
@@ -113,50 +62,32 @@ Definition sequential_jobs (m : nat) (sched : Schedule) : Prop :=
 Definition valid_schedule (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
   forall j t c, c < m -> sched t c = Some j -> ready jobs m sched j t.
 
-(* A job set is valid when every job has positive cost.
-   Zero-cost jobs are immediately completed at t=0 and thus never pending/ready.
-   This predicate will be used by periodic job generation (Phase 12+):
-   e.g. "released directly implies potentially ready" relies on 0 < job_cost. *)
-Definition valid_jobs (jobs : JobId -> Job) : Prop :=
-  forall j, 0 < job_cost (jobs j).
-
-(* Relationship between Task and Job: a job j belongs to task τ if
-   job_task (jobs j) = τ.  Periodic-task constraints (release pattern,
-   relative deadline → absolute deadline) will be expressed via
-   valid_job_of_task below. *)
-
-(* Skeleton predicate: job j is consistent with its task's parameters.
-   This captures "parameter compatibility" only:
-     - absolute deadline = release + relative deadline
-     - job cost ≤ task WCET
-   It does NOT encode the periodic generation rule
-     job_release = offset + job_index * task_period
-   nor job_index monotonicity nor intra-task job uniqueness.
-   Those constraints belong to a separate `periodic_job_generation`
-   predicate, introduced in Phase 12 (periodic task theory).
-   See also: plan/roadmap.md §12.5. *)
-Definition valid_job_of_task (tasks : TaskId -> Task) (jobs : JobId -> Job)
-    (j : JobId) : Prop :=
-  let τ := job_task (jobs j) in
-  job_abs_deadline (jobs j) =
-    job_release (jobs j) + task_relative_deadline (tasks τ) /\
-  job_cost (jobs j) <= task_cost (tasks τ).
-
 (* A job misses its deadline if it is not completed by job_abs_deadline. *)
 Definition missed_deadline (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) : Prop :=
   ~completed jobs m sched j (job_abs_deadline (jobs j)).
 
-(* A schedule is feasible if no job misses its deadline. *)
+(* A schedule is feasible if no job misses its deadline.
+   Total-function version: quantifies over all JobId. *)
 Definition feasible (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
   forall j, ~missed_deadline jobs m sched j.
 
 (* A job set is schedulable if there exists a valid, feasible schedule.
-   Currently quantifies over all JobId (total function model).
-   Future: restrict to a finite job set J : JobId -> Prop or a list,
-   so that schedulable / feasible apply only to the jobs in J. *)
+   Total-function version: quantifies over all JobId.
+   For finite/subset reasoning, use schedulable_on. *)
 Definition schedulable (jobs : JobId -> Job) (m : nat) : Prop :=
   exists sched, valid_schedule jobs m sched /\ feasible jobs m sched.
+
+(* Restrict feasibility/schedulability to a designated job set J.
+   This is a forward-compatible layer for moving from the current
+   total-function model to finite job-set reasoning. *)
+Definition feasible_on (J : JobId -> Prop)
+    (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
+  forall j, J j -> ~missed_deadline jobs m sched j.
+
+Definition schedulable_on (J : JobId -> Prop)
+    (jobs : JobId -> Job) (m : nat) : Prop :=
+  exists sched, valid_schedule jobs m sched /\ feasible_on J jobs m sched.
 
 (* ===== Lv.0 Lemmas ===== *)
 
@@ -466,13 +397,14 @@ Proof.
   exact (Hv j t c Hlt Hrun).
 Qed.
 
-(* Convenience form: directly obtains pending without unfolding ready.
-   Currently valid because ready = pending definitionally
-   (both reduce to released /\ ~completed).
-   WARNING: this lemma may break when DAG tasks are introduced,
-   since ready will gain a preds_completed clause and will no longer
-   be definitionally equal to pending.  Treat as a convenience lemma
-   for the current sequential-job layer only. *)
+(* Convenience lemma for the current job-level model:
+   since ready = pending definitionally at this stage,
+   valid_schedule immediately implies pending for any running job.
+
+   Warning:
+   this lemma may need to be reproved (rather than remain definitional)
+   once DAG semantics are introduced and ready becomes strictly stronger
+   than pending at the node/job level. *)
 Lemma valid_running_implies_pending : forall jobs m sched j t c,
     valid_schedule jobs m sched ->
     c < m ->

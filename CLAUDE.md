@@ -28,7 +28,18 @@ Use the `/rocq-prover` skill (`.claude/skills/ROCQ.md`) when proving theorems. T
 
 If a sub-lemma repeatedly fails, classify the cause (script/tactic issue, missing intermediate lemma, or wrong/too-strong statement). After 2-3 failed attempts with the same strategy, revise the plan instead of retrying unchanged. For likely false or out-of-scope statements, record diagnostics in `progress/<theorem>_progress.md` and remove/replace them in `progress/<theorem>_plan.md`.
 
-Verify each step with `rocq compile scheduling.v` (no compilation errors = proof accepted). All proofs live in the single file `scheduling.v` at the project root.
+Verify each step with the following compilation sequence (no errors = proof accepted):
+
+```bash
+rocq compile Base.v && rocq compile Schedule.v && rocq compile scheduling.v
+```
+
+The codebase is now modular:
+- `Base.v` — types (`JobId`, `TaskId`, `CPU`, `Time`), `Task`/`Job` records, `Schedule` type, and schedule-independent notions (`released`, `valid_jobs`, `valid_job_of_task`)
+- `Schedule.v` — schedule-dependent definitions (`runs_on`, `cpu_count`, `service_job`, `completed`, `pending`, `ready`, `sequential_jobs`, `valid_schedule`, `missed_deadline`, `feasible`, `schedulable`) and all Lv.0 lemmas
+- `scheduling.v` — umbrella re-export (`Require Export Base. Require Export Schedule.`); provides backward compatibility for any file using `Require Import scheduling`
+
+New proofs and lemmas go in `Schedule.v` (or `Base.v` if they depend only on types/records).
 
 **Token management**: Use `/clear` between sub-lemma proofs to avoid hitting context limits. The progress file persists state across sessions.
 

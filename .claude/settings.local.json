@@ -28,7 +28,8 @@
       "Bash(gpgconf --kill all)",
       "Bash(tty)",
       "Bash(echo \"Exit: $?\")",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(echo \"EXIT:$?\")"
     ]
   },
   "deny": [
