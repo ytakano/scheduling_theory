@@ -66,18 +66,18 @@ Fixpoint cpu_count (sched : Schedule) (j : JobId) (t : Time) (m : nat) : nat :=
 
 (* job-level 累積実行量: [0,t) の全 CPU での job j の総実行ステップ数。
    DAG では node ごとの service (service_node) が別途必要になる。
-   この定義は job 全体の work を測る service_job として残す。 *)
-Fixpoint service (m : nat) (sched : Schedule) (j : JobId) (t : Time) : nat :=
+   この定義は job 全体の work を測る service_job として命名する。 *)
+Fixpoint service_job (m : nat) (sched : Schedule) (j : JobId) (t : Time) : nat :=
   match t with
   | O    => 0
-  | S t' => cpu_count sched j t' m + service m sched j t'
+  | S t' => cpu_count sched j t' m + service_job m sched j t'
   end.
 
 (* `completed jobs m sched j t` means job j has received >= job_cost units of
    service in [0,t).  Equivalently: "completed by the start of time slot t". *)
 Definition completed (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
-  service m sched j t >= job_cost (jobs j).
+  service_job m sched j t >= job_cost (jobs j).
 
 (* A job has been released at time t *)
 Definition released (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop :=
@@ -103,7 +103,7 @@ Definition ready (jobs : JobId -> Job) (m : nat) (sched : Schedule)
      - 同じ node は同時に複数 CPU で走らない
      - 同じ job の異なる ready node は別 CPU で同時に走ってよい
    DAG 導入時にはこの定義を node-level に置き換える。 *)
-Definition no_duplication (m : nat) (sched : Schedule) : Prop :=
+Definition sequential_jobs (m : nat) (sched : Schedule) : Prop :=
   forall j t c1 c2,
     c1 < m -> c2 < m ->
     sched t c1 = Some j -> sched t c2 = Some j -> c1 = c2.
@@ -114,14 +114,25 @@ Definition valid_schedule (jobs : JobId -> Job) (m : nat) (sched : Schedule) : P
   forall j t c, c < m -> sched t c = Some j -> ready jobs m sched j t.
 
 (* A job set is valid when every job has positive cost.
-   Zero-cost jobs are immediately completed at t=0 and thus never pending/ready. *)
+   Zero-cost jobs are immediately completed at t=0 and thus never pending/ready.
+   This predicate will be used by periodic job generation (Phase 12+):
+   e.g. "released directly implies potentially ready" relies on 0 < job_cost. *)
 Definition valid_jobs (jobs : JobId -> Job) : Prop :=
   forall j, 0 < job_cost (jobs j).
 
 (* Relationship between Task and Job: a job j belongs to task τ if
    job_task (jobs j) = τ.  Periodic-task constraints (release pattern,
-   relative deadline → absolute deadline) will be expressed via a
-   future `valid_job_of_task` predicate using task_relative_deadline. *)
+   relative deadline → absolute deadline) will be expressed via
+   valid_job_of_task below. *)
+
+(* Skeleton predicate: job j is a valid instance of its task.
+   To be filled in during periodic-task theory (Phase 12+). *)
+Definition valid_job_of_task (tasks : TaskId -> Task) (jobs : JobId -> Job)
+    (j : JobId) : Prop :=
+  let τ := job_task (jobs j) in
+  job_abs_deadline (jobs j) =
+    job_release (jobs j) + task_relative_deadline (tasks τ) /\
+  job_cost (jobs j) <= task_cost (tasks τ).
 
 (* A job misses its deadline if it is not completed by job_abs_deadline. *)
 Definition missed_deadline (jobs : JobId -> Job) (m : nat) (sched : Schedule)
@@ -132,7 +143,10 @@ Definition missed_deadline (jobs : JobId -> Job) (m : nat) (sched : Schedule)
 Definition feasible (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
   forall j, ~missed_deadline jobs m sched j.
 
-(* A job set is schedulable if there exists a valid, feasible schedule. *)
+(* A job set is schedulable if there exists a valid, feasible schedule.
+   Currently quantifies over all JobId (total function model).
+   Future: restrict to a finite job set J : JobId -> Prop or a list,
+   so that schedulable / feasible apply only to the jobs in J. *)
 Definition schedulable (jobs : JobId -> Job) (m : nat) : Prop :=
   exists sched, valid_schedule jobs m sched /\ feasible jobs m sched.
 
@@ -166,20 +180,20 @@ Proof.
     + intros _. reflexivity.
 Qed.
 
-(* --- service lemmas --- *)
+(* --- service_job lemmas --- *)
 
 (* Matches the Fixpoint definition order exactly *)
-Lemma service_unfold : forall m sched j t,
-    service m sched j (S t) = cpu_count sched j t m + service m sched j t.
+Lemma service_job_unfold : forall m sched j t,
+    service_job m sched j (S t) = cpu_count sched j t m + service_job m sched j t.
 Proof.
   intros. simpl. reflexivity.
 Qed.
 
 (* Commuted form; use this for rewriting when the sum order matters *)
-Lemma service_step : forall m sched j t,
-    service m sched j (S t) = service m sched j t + cpu_count sched j t m.
+Lemma service_job_step : forall m sched j t,
+    service_job m sched j (S t) = service_job m sched j t + cpu_count sched j t m.
 Proof.
-  intros. rewrite service_unfold. lia.
+  intros. rewrite service_job_unfold. lia.
 Qed.
 
 (* --- cpu_count characterization lemmas --- *)
@@ -259,9 +273,9 @@ Proof.
     lia.
 Qed.
 
-(* Under no_duplication, cpu_count <= 1 *)
+(* Under sequential_jobs, cpu_count <= 1 *)
 Lemma cpu_count_le_1 : forall m sched j t,
-    no_duplication m sched ->
+    sequential_jobs m sched ->
     cpu_count sched j t m <= 1.
 Proof.
   induction m as [| m' IH]; intros sched j t Hnd.
@@ -284,7 +298,7 @@ Proof.
       lia.
     + (* runs_on = false *)
       simpl.
-      assert (Hnd' : no_duplication m' sched).
+      assert (Hnd' : sequential_jobs m' sched).
       { intros j0 t0 c1 c2 H1 H2 H3 H4.
         apply (Hnd j0 t0 c1 c2).
         - lia.
@@ -294,9 +308,9 @@ Proof.
       exact (IH sched j t Hnd').
 Qed.
 
-(* Stronger form: cpu_count is exactly 0 or 1 under no_duplication *)
+(* Stronger form: cpu_count is exactly 0 or 1 under sequential_jobs *)
 Lemma cpu_count_0_or_1 : forall m sched j t,
-    no_duplication m sched ->
+    sequential_jobs m sched ->
     cpu_count sched j t m = 0 \/ cpu_count sched j t m = 1.
 Proof.
   intros m sched j t Hnd.
@@ -306,53 +320,71 @@ Proof.
   - right. lia.
 Qed.
 
-(* --- Lv.0-1: service basics --- *)
-
-Lemma service_le_succ : forall m sched j t,
-    service m sched j t <= service m sched j (S t).
+(* Under sequential_jobs, cpu_count = 1 iff the job is executing.
+   More precise than cpu_count_pos_iff_executed when the sequential-job
+   assumption is available; useful in service_job_increases_iff_executed proofs. *)
+Lemma cpu_count_eq_1_iff_executed : forall m sched j t,
+    sequential_jobs m sched ->
+    (cpu_count sched j t m = 1 <->
+     exists c, c < m /\ sched t c = Some j).
 Proof.
-  intros. rewrite service_step. lia.
+  intros m sched j t Hnd.
+  split.
+  - intros Heq.
+    apply cpu_count_pos_iff_executed. lia.
+  - intros Hex.
+    pose proof (cpu_count_le_1 m sched j t Hnd).
+    pose proof (proj2 (cpu_count_pos_iff_executed m sched j t) Hex).
+    lia.
 Qed.
 
-Lemma service_monotone : forall m sched j t1 t2,
+(* --- Lv.0-1: service_job basics --- *)
+
+Lemma service_job_le_succ : forall m sched j t,
+    service_job m sched j t <= service_job m sched j (S t).
+Proof.
+  intros. rewrite service_job_step. lia.
+Qed.
+
+Lemma service_job_monotone : forall m sched j t1 t2,
     t1 <= t2 ->
-    service m sched j t1 <= service m sched j t2.
+    service_job m sched j t1 <= service_job m sched j t2.
 Proof.
   intros m sched j t1 t2 Hle.
   induction t2 as [| t2' IH].
   - assert (t1 = 0) by lia. subst. lia.
   - apply Nat.le_succ_r in Hle.
     destruct Hle as [Hle | Heq].
-    + eapply Nat.le_trans. apply IH. exact Hle. apply service_le_succ.
+    + eapply Nat.le_trans. apply IH. exact Hle. apply service_job_le_succ.
     + subst. lia.
 Qed.
 
-Lemma service_increase_at_most_1 : forall m sched j t,
-    no_duplication m sched ->
-    service m sched j (S t) <= service m sched j t + 1.
+Lemma service_job_increase_at_most_1 : forall m sched j t,
+    sequential_jobs m sched ->
+    service_job m sched j (S t) <= service_job m sched j t + 1.
 Proof.
   intros m sched j t Hnd.
-  rewrite service_step.
+  rewrite service_job_step.
   pose proof (cpu_count_le_1 m sched j t Hnd). lia.
 Qed.
 
-Lemma service_no_increase_if_not_executed : forall m sched j t,
+Lemma service_job_no_increase_if_not_executed : forall m sched j t,
     (forall c, c < m -> sched t c <> Some j) ->
-    service m sched j (S t) = service m sched j t.
+    service_job m sched j (S t) = service_job m sched j t.
 Proof.
   intros m sched j t Hnone.
-  rewrite service_step.
+  rewrite service_job_step.
   apply (proj2 (cpu_count_zero_iff_not_executed m sched j t)) in Hnone.
   lia.
 Qed.
 
-Lemma service_increases_iff_executed : forall m sched j t,
-    no_duplication m sched ->
-    (service m sched j (S t) = service m sched j t + 1 <->
+Lemma service_job_increases_iff_executed : forall m sched j t,
+    sequential_jobs m sched ->
+    (service_job m sched j (S t) = service_job m sched j t + 1 <->
      exists c, c < m /\ sched t c = Some j).
 Proof.
   intros m sched j t Hnd.
-  rewrite service_step.
+  rewrite service_job_step.
   split.
   - intros Heq.
     apply (proj1 (cpu_count_pos_iff_executed m sched j t)).
@@ -387,7 +419,7 @@ Proof.
   unfold completed.
   intros jobs m sched j t1 t2 Hle Hcomp.
   eapply Nat.le_trans. exact Hcomp.
-  apply service_monotone. exact Hle.
+  apply service_job_monotone. exact Hle.
 Qed.
 
 Lemma ready_iff_released_and_not_completed : forall jobs m sched j t,
@@ -426,6 +458,19 @@ Lemma valid_running_implies_ready : forall jobs m sched j t c,
     c < m ->
     sched t c = Some j ->
     ready jobs m sched j t.
+Proof.
+  intros jobs m sched j t c Hv Hlt Hrun.
+  exact (Hv j t c Hlt Hrun).
+Qed.
+
+(* Convenience form: directly obtains pending without unfolding ready.
+   Since ready = pending, this is definitionally equal to
+   valid_running_implies_ready, but avoids the ready layer in proofs. *)
+Lemma valid_running_implies_pending : forall jobs m sched j t c,
+    valid_schedule jobs m sched ->
+    c < m ->
+    sched t c = Some j ->
+    pending jobs m sched j t.
 Proof.
   intros jobs m sched j t c Hv Hlt Hrun.
   exact (Hv j t c Hlt Hrun).
