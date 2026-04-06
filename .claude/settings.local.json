@@ -29,7 +29,8 @@
       "Bash(tty)",
       "Bash(echo \"Exit: $?\")",
       "Bash(echo \"exit: $?\")",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(ls:*)"
     ]
   },
   "deny": [
