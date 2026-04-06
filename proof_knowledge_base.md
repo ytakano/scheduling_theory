@@ -205,11 +205,58 @@
 
 ### `valid_no_run_before_release`, `valid_no_run_after_completion`, `valid_running_implies_ready`
 - **Type**: Lemma
-- **Statement**: Three similar lemmas extracting conjuncts from `valid_schedule`.
-- **Proof Strategy**: `unfold valid_schedule; intros ... [H _] / [_ [H _]] / [_ [_ H]] ...; apply (H j t c); assumption`.
-- **Key Tactics**: `unfold valid_schedule`, destruct conjunction, `apply (H j t c)`
-- **Dependencies**: `valid_schedule`
-- **Notes**: Pattern `apply (H j t c); assumption` works because `valid_schedule` conjuncts have the form `forall j t c, c < m -> sched t c = Some j -> P`.
+- **Statement**: Three lemmas extracting consequences from `valid_schedule`.
+- **Proof Strategy**: `valid_schedule` is now a single `forall j t c, c < m -> sched t c = Some j -> ready jobs m sched j t`. Extract via `Hv j t c Hlt Hrun : ready ...`, then unfold `ready`/`pending`/`released` and use `proj1`/`proj2`. `valid_running_implies_ready` is trivially `exact (Hv j t c Hlt Hrun)`.
+- **Key Tactics**: `unfold valid_schedule, ready, pending, released`, `proj1`, `proj2`, `exact (Hv j t c Hlt Hrun)`
+- **Dependencies**: `valid_schedule`, `ready`, `pending`, `released`
+- **Notes**: After 2026-04-06 refactoring, `valid_schedule` is a single `forall` (not a conjunction). The old 3-conjunct form was redundant (3rd followed from first two). Now `valid_running_implies_ready` is a direct application.
+- **Date**: 2026-04-06
+
+---
+
+### `service_unfold`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma service_unfold : forall m sched j t,
+      service m sched j (S t) = cpu_count sched j t m + service m sched j t.
+  ```
+- **Proof Strategy**: `simpl; reflexivity` — matches the Fixpoint definition exactly (cpu_count first).
+- **Key Tactics**: `simpl`, `reflexivity`
+- **Dependencies**: `service`, `cpu_count`
+- **Notes**: `service_step` is the commuted form (`service t + cpu_count`). Use `service_unfold` when you want the definitional order; use `service_step` when you want `service t + ...` for `lia`.
+- **Date**: 2026-04-06
+
+---
+
+### `cpu_count_nonzero_iff_executed`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma cpu_count_nonzero_iff_executed : forall m sched j t,
+      cpu_count sched j t m <> 0 <->
+      exists c, c < m /\ sched t c = Some j.
+  ```
+- **Proof Strategy**: Bridge from `cpu_count_pos_iff_executed` via `lia` in both directions.
+- **Key Tactics**: `cpu_count_pos_iff_executed`, `lia`
+- **Dependencies**: `cpu_count_pos_iff_executed`
+- **Notes**: Companion to `cpu_count_pos_iff_executed`; prefer this when the goal has `<> 0` rather than `0 <`.
+- **Date**: 2026-04-06
+
+---
+
+### `cpu_count_0_or_1`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma cpu_count_0_or_1 : forall m sched j t,
+      no_duplication m sched ->
+      cpu_count sched j t m = 0 \/ cpu_count sched j t m = 1.
+  ```
+- **Proof Strategy**: `pose proof (cpu_count_le_1 ...)` then `destruct (cpu_count ...)` — `O` gives `left; reflexivity`; `S n` gives `right; lia` (since `S n <= 1` forces `n = 0`).
+- **Key Tactics**: `cpu_count_le_1`, `destruct (cpu_count ...)`, `lia`
+- **Dependencies**: `cpu_count_le_1`, `no_duplication`
+- **Notes**: Stronger than `cpu_count_le_1`; useful when downstream proofs need the disjunction explicitly.
 - **Date**: 2026-04-06
 
 ---

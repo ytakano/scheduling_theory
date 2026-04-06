@@ -42,20 +42,49 @@ Definition completed (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
   service m sched j t >= job_cost (jobs j).
 
+(* A job has been released at time t *)
+Definition released (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop :=
+  job_release (jobs j) <= t.
+
+(* A job is pending: released and not yet completed.
+   Note: a zero-cost job is immediately completed at t=0, so it is never pending.
+   Use valid_jobs to exclude zero-cost jobs when needed. *)
+Definition pending (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+    (j : JobId) (t : Time) : Prop :=
+  released jobs j t /\ ~completed jobs m sched j t.
+
+(* A job is ready to execute.
+   Currently equivalent to pending; can be strengthened later to capture
+   precedence constraints, non-preemptive sections, affinity, etc. *)
 Definition ready (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
-  job_release (jobs j) <= t /\ ~completed jobs m sched j t.
+  pending jobs m sched j t.
 
-(* Same job never runs on two CPUs simultaneously *)
+(* Sequential job model: same job never runs on two CPUs simultaneously.
+   For parallel jobs, remove this constraint; service increment bound becomes m. *)
 Definition no_duplication (m : nat) (sched : Schedule) : Prop :=
   forall j t c1 c2,
     c1 < m -> c2 < m ->
     sched t c1 = Some j -> sched t c2 = Some j -> c1 = c2.
 
+(* A schedule is valid if every scheduled job is ready at that time.
+   This subsumes: no running before release, no running after completion. *)
 Definition valid_schedule (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
-  (forall j t c, c < m -> sched t c = Some j -> job_release (jobs j) <= t) /\
-  (forall j t c, c < m -> sched t c = Some j -> ~completed jobs m sched j t) /\
-  (forall j t c, c < m -> sched t c = Some j -> ready jobs m sched j t).
+  forall j t c, c < m -> sched t c = Some j -> ready jobs m sched j t.
+
+(* A job set is valid when every job has positive cost.
+   Zero-cost jobs are immediately completed at t=0 and thus never pending/ready. *)
+Definition valid_jobs (jobs : JobId -> Job) : Prop :=
+  forall j, 0 < job_cost (jobs j).
+
+(* A job misses its deadline if it is not completed by job_deadline. *)
+Definition missed_deadline (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+    (j : JobId) : Prop :=
+  ~completed jobs m sched j (job_deadline (jobs j)).
+
+(* A schedule is feasible if no job misses its deadline. *)
+Definition schedulable (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
+  forall j, ~missed_deadline jobs m sched j.
 
 (* ===== Lv.0 Lemmas ===== *)
 
@@ -87,12 +116,20 @@ Proof.
     + intros _. reflexivity.
 Qed.
 
-(* --- service_step: definitional lemma --- *)
+(* --- service lemmas --- *)
 
+(* Matches the Fixpoint definition order exactly *)
+Lemma service_unfold : forall m sched j t,
+    service m sched j (S t) = cpu_count sched j t m + service m sched j t.
+Proof.
+  intros. simpl. reflexivity.
+Qed.
+
+(* Commuted form; use this for rewriting when the sum order matters *)
 Lemma service_step : forall m sched j t,
     service m sched j (S t) = service m sched j t + cpu_count sched j t m.
 Proof.
-  intros. simpl. reflexivity.
+  intros. rewrite service_unfold. lia.
 Qed.
 
 (* --- cpu_count characterization lemmas --- *)
@@ -158,6 +195,18 @@ Proof.
         destruct (runs_on sched j t m'); simpl; lia.
 Qed.
 
+(* Equivalent to cpu_count_pos_iff_executed; useful when lia cannot close goals
+   involving strict positivity, e.g. when rewriting with Nat.neq_0_lt_0. *)
+Lemma cpu_count_nonzero_iff_executed : forall m sched j t,
+    cpu_count sched j t m <> 0 <->
+    exists c, c < m /\ sched t c = Some j.
+Proof.
+  intros m sched j t.
+  split.
+  - intros H. apply cpu_count_pos_iff_executed. lia.
+  - intros H. apply cpu_count_pos_iff_executed in H. lia.
+Qed.
+
 (* Under no_duplication, cpu_count <= 1 *)
 Lemma cpu_count_le_1 : forall m sched j t,
     no_duplication m sched ->
@@ -191,6 +240,18 @@ Proof.
         - exact H3.
         - exact H4. }
       exact (IH sched j t Hnd').
+Qed.
+
+(* Stronger form: cpu_count is exactly 0 or 1 under no_duplication *)
+Lemma cpu_count_0_or_1 : forall m sched j t,
+    no_duplication m sched ->
+    cpu_count sched j t m = 0 \/ cpu_count sched j t m = 1.
+Proof.
+  intros m sched j t Hnd.
+  pose proof (cpu_count_le_1 m sched j t Hnd) as Hle.
+  destruct (cpu_count sched j t m) as [| n].
+  - left. reflexivity.
+  - right. lia.
 Qed.
 
 (* --- Lv.0-1: service basics --- *)
@@ -254,7 +315,7 @@ Qed.
 Lemma completed_not_ready : forall jobs m sched j t,
     completed jobs m sched j t -> ~ready jobs m sched j t.
 Proof.
-  unfold completed, ready.
+  unfold completed, ready, pending.
   intros jobs m sched j t Hcomp [_ Hnot].
   exact (Hnot Hcomp).
 Qed.
@@ -262,7 +323,7 @@ Qed.
 Lemma not_ready_before_release : forall jobs m sched j t,
     t < job_release (jobs j) -> ~ready jobs m sched j t.
 Proof.
-  unfold ready.
+  unfold ready, pending, released.
   intros jobs m sched j t Hlt [Hrel _]. lia.
 Qed.
 
@@ -279,9 +340,9 @@ Qed.
 
 Lemma ready_iff_released_and_not_completed : forall jobs m sched j t,
     ready jobs m sched j t <->
-    job_release (jobs j) <= t /\ ~completed jobs m sched j t.
+    released jobs j t /\ ~completed jobs m sched j t.
 Proof.
-  unfold ready. tauto.
+  unfold ready, pending. tauto.
 Qed.
 
 (* --- Lv.0-3: valid_schedule basics --- *)
@@ -292,9 +353,9 @@ Lemma valid_no_run_before_release : forall jobs m sched j t c,
     sched t c = Some j ->
     job_release (jobs j) <= t.
 Proof.
-  unfold valid_schedule.
-  intros jobs m sched j t c [H1 _] Hlt Hrun.
-  apply (H1 j t c); assumption.
+  unfold valid_schedule, ready, pending, released.
+  intros jobs m sched j t c Hv Hlt Hrun.
+  exact (proj1 (Hv j t c Hlt Hrun)).
 Qed.
 
 Lemma valid_no_run_after_completion : forall jobs m sched j t c,
@@ -303,9 +364,9 @@ Lemma valid_no_run_after_completion : forall jobs m sched j t c,
     sched t c = Some j ->
     ~completed jobs m sched j t.
 Proof.
-  unfold valid_schedule.
-  intros jobs m sched j t c [_ [H2 _]] Hlt Hrun.
-  apply (H2 j t c); assumption.
+  unfold valid_schedule, ready, pending.
+  intros jobs m sched j t c Hv Hlt Hrun.
+  exact (proj2 (Hv j t c Hlt Hrun)).
 Qed.
 
 Lemma valid_running_implies_ready : forall jobs m sched j t c,
@@ -314,7 +375,6 @@ Lemma valid_running_implies_ready : forall jobs m sched j t c,
     sched t c = Some j ->
     ready jobs m sched j t.
 Proof.
-  unfold valid_schedule.
-  intros jobs m sched j t c [_ [_ H3]] Hlt Hrun.
-  apply (H3 j t c); assumption.
+  intros jobs m sched j t c Hv Hlt Hrun.
+  exact (Hv j t c Hlt Hrun).
 Qed.
