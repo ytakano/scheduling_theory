@@ -615,6 +615,66 @@ operational state trace から
 
 * per-core or global mixed-criticality scheduling
 
+## 12.5 周期タスク (Periodic Tasks)
+
+### 前提条件
+
+* Phase 3–4（単一CPU EDF）完了
+
+### モデル拡張
+
+* `Task` レコードの `task_period` / `task_cost` / `task_deadline` を活用
+* 周期的 job 生成規則: task τ の k 番目 job の release = τ.arrival + k * τ.period
+* hyperperiod: 全タスクの period の lcm
+
+### 証明対象
+
+* 生成規則の well-formedness（release 単調増加など）
+* 利用率上限定理 (Liu & Layland): Σ(cost_i / period_i) ≤ 1 ならば EDF で schedulable
+* EDF の周期タスクに対する最適性（feasible な job set を EDF がすべてスケジュール可能）
+* RM (Rate Monotonic) の schedulability 条件（オプション）
+
+### 進め方
+
+まず `Task -> Job` 生成関数を定義し、生成された job 列が `valid_jobs` を満たすことを示す。
+その上で利用率計算と EDF schedulability を証明する。
+骨格（生成規則・valid_jobs との整合）を先に入れ、schedulability 証明は後。
+
+## 12.6 DAG タスク (DAG Tasks)
+
+### 前提条件
+
+* Phase 5–8（マルチコア基盤・partitioned/global scheduling）完了
+
+### モデル拡張（3層化）
+
+* `NodeId := nat` を導入
+* `Node` レコード: 所属 job、実行コスト、先行 node 集合
+* `Schedule` の移行候補: `Time -> CPU -> option (JobId * NodeId)`
+* node-level ready: `ready_node n t = pending_node n t /\ preds_completed n t`
+* node-level service / completed を job-level と分離
+
+### no_duplication の変更
+
+現在の「同じ job は同時に複数 CPU で走らない」を
+「同じ node は同時に複数 CPU で走らない」に置き換える。
+（同じ job の異なる ready node は別 CPU で同時に走ってよい）
+
+### 証明対象
+
+* precedence relation の well-formedness（DAG、循環なし）
+* critical path / span の定式化
+* node-level service の monotonicity・整合性
+* parallel speedup の下界: span ≤ makespan ≤ work
+* federated / work-stealing scheduling の健全性（オプション）
+
+### 進め方
+
+まず sequential job の証明群を固め、node レベルの定義を導入してから
+job-level 性質との整合性補題を積み上げる。
+一気に DAG 全体を入れず、node / ready_node / completed_node を段階的に追加する。
+抽象化の骨格（コメント）はすでに `scheduling.v` に記載済み。
+
 ---
 
 # 難易度順に見る実装・証明順序
