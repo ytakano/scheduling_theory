@@ -374,3 +374,111 @@
 - **Dependencies**: `service_step`, `cpu_count_le_m`
 - **Notes**: not-schedulable の証明（上界による矛盾）に有用。`service_le_m_mul_t 1 sched j 2` → `service ≤ 2`。
 - **Date**: 2026-04-06
+
+---
+
+### `readyb_iff`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma readyb_iff : forall jobs m sched j t,
+      readyb jobs m sched j t = true <-> ready jobs m sched j t.
+  ```
+- **Proof Strategy**: Unfold `readyb`, `ready`, `pending`, `released`, `completed`. Rewrite `Bool.andb_true_iff`, `Nat.leb_le`, `Bool.negb_true_iff`. Split: forward uses `Nat.leb_le` + `discriminate`; backward uses `Bool.not_true_iff_false` + `Nat.leb_le`.
+- **Key Tactics**: `Bool.andb_true_iff`, `Nat.leb_le`, `Bool.negb_true_iff`, `Bool.not_true_iff_false`, `discriminate`
+- **Dependencies**: `readyb`, `ready`, `pending`, `released`, `completed`
+- **Notes**: Bridge between bool world (filter) and Prop world (ready). Pattern: `negb (a <=? b) = true` → `Bool.negb_true_iff` gives `a <=? b = false` → `rewrite Nat.leb_le in H; rewrite H in ...; discriminate`.
+- **Date**: 2026-04-07
+
+---
+
+### `min_dl_job_none_iff`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma min_dl_job_none_iff : forall jobs l,
+      min_dl_job jobs l = None <-> l = [].
+  ```
+- **Proof Strategy**: Induction on `l`. Base: `tauto`. Step: forward — case analysis on `min_dl_job rest` and comparison; always `Some _`, so `None = Some _` is `discriminate`. Backward: `discriminate` (j :: rest ≠ []).
+- **Key Tactics**: `induction l`, `destruct (min_dl_job ...)`, `destruct (...<=?...); discriminate`, `discriminate`
+- **Dependencies**: `min_dl_job`
+- **Date**: 2026-04-07
+
+---
+
+### `min_dl_job_in`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma min_dl_job_in : forall jobs l j,
+      min_dl_job jobs l = Some j -> In j l.
+  ```
+- **Proof Strategy**: Induction on `l`. Step: destruct on `min_dl_job rest` (eqn:Erest) and comparison (eqn:Ecmp). True branch: `injection Hsome; subst; left; reflexivity`. False branch: `injection Hsome; subst; right; apply IH; reflexivity`.
+- **Key Tactics**: `induction l`, `destruct ... eqn:`, `injection Hsome as Heq`, `subst`, `apply IH; reflexivity`
+- **Dependencies**: `min_dl_job`
+- **Notes**: ⚠️ **Critical**: After `destruct (min_dl_job jobs rest) as [j'|] eqn:Erest`, the IH changes from `forall j, min_dl_job jobs rest = Some j -> In j rest` to `forall j, Some j' = Some j -> In j rest` (because Rocq rewrites the IH with Erest). Therefore, to apply IH, use `apply IH; reflexivity` (not `exact Erest`). Same issue applies to `min_dl_job_min`.
+- **Date**: 2026-04-07
+
+---
+
+### `min_dl_job_min`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma min_dl_job_min : forall jobs l j,
+      min_dl_job jobs l = Some j ->
+      forall j', In j' l ->
+      job_abs_deadline (jobs j) <= job_abs_deadline (jobs j').
+  ```
+- **Proof Strategy**: Induction on `l`. Step: destruct on `min_dl_job rest` (eqn:Erest) and comparison (eqn:Ecmp). True case (`j = j0`): `Nat.leb_le`; for `j' ∈ rest` use `pose proof (IH jmin eq_refl j' Hin'); lia`. False case (`j = jmin_orig`): `Bool.not_true_iff_false` + `Nat.leb_le`; for `j' = j0` use `lia`; for `j' ∈ rest` use `apply IH; reflexivity; exact Hin'`. None case: `min_dl_job_none_iff` shows rest is empty → contradiction.
+- **Key Tactics**: `Nat.leb_le`, `Bool.not_true_iff_false`, `pose proof (IH jmin eq_refl j' Hin')`, `apply IH; reflexivity`, `min_dl_job_none_iff`, `lia`
+- **Dependencies**: `min_dl_job`, `min_dl_job_none_iff`
+- **Notes**: ⚠️ Same IH rewriting issue as `min_dl_job_in`. Use `eq_refl` (not the `eqn` hypothesis) when applying IH.
+- **Date**: 2026-04-07
+
+---
+
+### `choose_edf_ready`
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem choose_edf_ready : forall jobs m sched t candidates j,
+      choose_edf jobs m sched t candidates = Some j ->
+      ready jobs m sched j t.
+  ```
+- **Proof Strategy**: Unfold `choose_edf`. Chain: `min_dl_job_in` → `filter_In` → `readyb_iff`.
+- **Key Tactics**: `unfold choose_edf`, `min_dl_job_in`, `filter_In`, `readyb_iff`
+- **Dependencies**: `choose_edf`, `min_dl_job_in`, `filter_In`, `readyb_iff`
+- **Date**: 2026-04-07
+
+---
+
+### `choose_edf_min_deadline`
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem choose_edf_min_deadline : forall jobs m sched t candidates j,
+      choose_edf jobs m sched t candidates = Some j ->
+      forall j', In j' candidates ->
+      ready jobs m sched j' t ->
+      job_abs_deadline (jobs j) <= job_abs_deadline (jobs j').
+  ```
+- **Proof Strategy**: Unfold `choose_edf`. Apply `min_dl_job_min`. Show `j'` is in the filtered list via `filter_In` + `readyb_iff`.
+- **Key Tactics**: `unfold choose_edf`, `min_dl_job_min`, `filter_In`, `readyb_iff`
+- **Dependencies**: `choose_edf`, `min_dl_job_min`, `filter_In`, `readyb_iff`
+- **Date**: 2026-04-07
+
+---
+
+### `choose_edf_some_if_exists`
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem choose_edf_some_if_exists : forall jobs m sched t candidates,
+      (exists j, In j candidates /\ ready jobs m sched j t) ->
+      exists j', choose_edf jobs m sched t candidates = Some j'.
+  ```
+- **Proof Strategy**: Show the filtered list is non-empty via `filter_In` + `readyb_iff`. Then destruct on `min_dl_job` result: `Some j'` gives witness; `None` contradicts `min_dl_job_none_iff`.
+- **Key Tactics**: `filter_In`, `readyb_iff`, `destruct ... eqn:Hmin`, `min_dl_job_none_iff`, `contradiction`
+- **Dependencies**: `choose_edf`, `filter_In`, `readyb_iff`, `min_dl_job_none_iff`
+- **Date**: 2026-04-07
