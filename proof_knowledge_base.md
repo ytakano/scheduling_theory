@@ -482,3 +482,94 @@
 - **Key Tactics**: `filter_In`, `readyb_iff`, `destruct ... eqn:Hmin`, `min_dl_job_none_iff`, `contradiction`
 - **Dependencies**: `choose_edf`, `filter_In`, `readyb_iff`, `min_dl_job_none_iff`
 - **Date**: 2026-04-07
+
+---
+
+### `choose_edf_none_if_no_ready`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma choose_edf_none_if_no_ready : forall jobs m sched t candidates,
+      (forall j, In j candidates -> ~ready jobs m sched j t) ->
+      choose_edf jobs m sched t candidates = None.
+  ```
+- **Proof Strategy**: Unfold `choose_edf`. Apply `min_dl_job_none_iff` — it suffices to show the filtered list is `[]`. Induction on `candidates`: base is trivial; step destructs `readyb` on the head. If `readyb = true`, derive contradiction via `readyb_iff` and the hypothesis applied to `or_introl eq_refl`. If `readyb = false`, apply IH with `right`.
+- **Key Tactics**: `unfold choose_edf`, `apply min_dl_job_none_iff`, `induction candidates`, `destruct (readyb ...) eqn:Erb`, `readyb_iff`, `or_introl eq_refl`
+- **Dependencies**: `min_dl_job_none_iff`, `readyb_iff`
+- **Notes**: No `filter_nil` stdlib lemma exists with exactly the right form — prove filter-yields-nil by inline induction on `candidates`. This is the opposite direction of `choose_edf_some_if_exists`.
+- **Date**: 2026-04-07
+
+---
+
+### `choose_edf_complete`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma choose_edf_complete : forall jobs m sched t candidates,
+      NoDup candidates ->
+      (forall j, ready jobs m sched j t <-> In j candidates) ->
+      (exists j, ready jobs m sched j t) ->
+      exists j', choose_edf jobs m sched t candidates = Some j'.
+  ```
+- **Proof Strategy**: Trivial corollary of `choose_edf_some_if_exists`. Use the `<->` hypothesis to convert `ready ... j` to `In j candidates`. `NoDup` is in the precondition for interface uniformity but unused in this proof.
+- **Key Tactics**: `apply choose_edf_some_if_exists`, `apply Href`
+- **Dependencies**: `choose_edf_some_if_exists`
+- **Date**: 2026-04-07
+
+---
+
+### `choose_edf_optimal`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma choose_edf_optimal : forall jobs m sched t candidates j,
+      NoDup candidates ->
+      (forall j', ready jobs m sched j' t <-> In j' candidates) ->
+      choose_edf jobs m sched t candidates = Some j ->
+      forall j', ready jobs m sched j' t ->
+      job_abs_deadline (jobs j) <= job_abs_deadline (jobs j').
+  ```
+- **Proof Strategy**: Trivial corollary of `choose_edf_min_deadline`. Use `<->` to convert `ready ... j'` to `In j' candidates`. `NoDup` unused but included for interface uniformity.
+- **Key Tactics**: `apply choose_edf_min_deadline`, `apply Href`
+- **Dependencies**: `choose_edf_min_deadline`
+- **Date**: 2026-04-07
+
+---
+
+### `choose_edf_unique_min`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma choose_edf_unique_min : forall jobs m sched t candidates j,
+      In j candidates ->
+      ready jobs m sched j t ->
+      (forall j', In j' candidates -> ready jobs m sched j' t ->
+                  j' <> j ->
+                  job_abs_deadline (jobs j) < job_abs_deadline (jobs j')) ->
+      choose_edf jobs m sched t candidates = Some j.
+  ```
+- **Proof Strategy**: Get witness `j'` from `choose_edf_some_if_exists`. Prove `j'` is ready (`choose_edf_ready`) and in candidates (`min_dl_job_in` + `filter_In`). Get `deadline(j') <= deadline(j)` from `choose_edf_min_deadline`. Case-split via `Nat.eq_dec j' j`. If `j' = j`: rewrite and done. If `j' ≠ j`: strict hypothesis gives `deadline(j) < deadline(j')`, contradiction with `<=` via `lia`.
+- **Key Tactics**: `choose_edf_some_if_exists`, `choose_edf_ready`, `min_dl_job_in`, `filter_In`, `choose_edf_min_deadline`, `Nat.eq_dec`, `lia`
+- **Dependencies**: `choose_edf_some_if_exists`, `choose_edf_ready`, `choose_edf_min_deadline`, `min_dl_job_in`, `filter_In`
+- **Notes**: `Nat.eq_dec` available because `JobId = nat`. The strict inequality `<` in the hypothesis plus `<=` from `choose_edf_min_deadline` yields contradiction via `lia`.
+- **Date**: 2026-04-07
+
+---
+
+### `edf_scheduler_spec`
+- **Type**: Definition (Record instantiation)
+- **Statement**:
+  ```coq
+  Definition edf_scheduler_spec : UniSchedulerSpec :=
+    mkUniSchedulerSpec
+      choose_edf
+      choose_edf_ready
+      choose_edf_min_deadline
+      choose_edf_some_if_exists
+      choose_edf_none_if_no_ready.
+  ```
+- **Proof Strategy**: Definitional — no `Proof`/`Qed` needed. Rocq verifies types match record fields automatically.
+- **Key Tactics**: N/A (definitional)
+- **Dependencies**: `UniSchedulerInterface`, `choose_edf`, all 4 spec lemmas
+- **Notes**: `UniSchedulerSpec` is defined in `UniSchedulerInterface.v` as a `Record`. EDF imports it via `Require Import UniSchedulerInterface`. `choose_edf_unique_min` is intentionally excluded from the record — its strict-inequality hypothesis is EDF-specific and not universal.
+- **Date**: 2026-04-07

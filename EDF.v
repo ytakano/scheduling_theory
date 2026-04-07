@@ -1,6 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import Schedule.
+Require Import UniSchedulerInterface.
 Import ListNotations.
 
 (* ===== EDF Dispatcher: Definitions ===== *)
@@ -104,6 +105,25 @@ Proof.
       * apply min_dl_job_none_iff in Erest. subst rest. contradiction.
 Qed.
 
+(* ===== Phase 2b: Additional min_dl_job / filter lemmas ===== *)
+
+(* If no candidate is ready, choose_edf returns None.
+   This is the opposite direction of choose_edf_some_if_exists. *)
+Lemma choose_edf_none_if_no_ready : forall jobs m sched t candidates,
+    (forall j, In j candidates -> ~ready jobs m sched j t) ->
+    choose_edf jobs m sched t candidates = None.
+Proof.
+  intros jobs m sched t candidates Hnone.
+  unfold choose_edf.
+  apply min_dl_job_none_iff.
+  induction candidates as [| j0 rest IH].
+  - reflexivity.
+  - simpl. destruct (readyb jobs m sched j0 t) eqn:Erb.
+    + exfalso. apply (Hnone j0 (or_introl eq_refl)).
+      apply readyb_iff. exact Erb.
+    + apply IH. intros j Hin. apply Hnone. right. exact Hin.
+Qed.
+
 (* ===== Phase 3: EDF Dispatch Correctness ===== *)
 
 (* Theorem 1: The chosen job is ready. *)
@@ -151,3 +171,76 @@ Proof.
   - exists j'. reflexivity.
   - apply min_dl_job_none_iff in Hmin. contradiction.
 Qed.
+
+(* ===== Phase 4: Explicit Precondition Lemmas (NoDup + ready-set coverage) ===== *)
+
+(* B1: If candidates exactly represents the ready set and a ready job exists,
+   choose_edf always returns Some. *)
+Lemma choose_edf_complete : forall jobs m sched t candidates,
+    NoDup candidates ->
+    (forall j, ready jobs m sched j t <-> In j candidates) ->
+    (exists j, ready jobs m sched j t) ->
+    exists j', choose_edf jobs m sched t candidates = Some j'.
+Proof.
+  intros jobs m sched t candidates Hnd Href [j Hready].
+  apply choose_edf_some_if_exists.
+  exists j. split.
+  - apply Href. exact Hready.
+  - exact Hready.
+Qed.
+
+(* B2: If candidates exactly represents the ready set, the chosen job has
+   minimum deadline in the entire ready set. *)
+Lemma choose_edf_optimal : forall jobs m sched t candidates j,
+    NoDup candidates ->
+    (forall j', ready jobs m sched j' t <-> In j' candidates) ->
+    choose_edf jobs m sched t candidates = Some j ->
+    forall j', ready jobs m sched j' t ->
+    job_abs_deadline (jobs j) <= job_abs_deadline (jobs j').
+Proof.
+  intros jobs m sched t candidates j Hnd Href Hchoose j' Hready.
+  apply (choose_edf_min_deadline jobs m sched t candidates j Hchoose).
+  - apply Href. exact Hready.
+  - exact Hready.
+Qed.
+
+(* ===== Phase 5: Uniqueness / Determinism ===== *)
+
+(* A2: If job j has strictly smaller deadline than every other ready candidate,
+   EDF is forced to return j. *)
+Lemma choose_edf_unique_min : forall jobs m sched t candidates j,
+    In j candidates ->
+    ready jobs m sched j t ->
+    (forall j', In j' candidates -> ready jobs m sched j' t ->
+                j' <> j ->
+                job_abs_deadline (jobs j) < job_abs_deadline (jobs j')) ->
+    choose_edf jobs m sched t candidates = Some j.
+Proof.
+  intros jobs m sched t candidates j Hin Hready Hstrict.
+  destruct (choose_edf_some_if_exists jobs m sched t candidates) as [j' Hchoose].
+  { exists j. split. exact Hin. exact Hready. }
+  assert (Hj'_ready : ready jobs m sched j' t).
+  { apply (choose_edf_ready jobs m sched t candidates). exact Hchoose. }
+  assert (Hj'_in : In j' candidates).
+  { unfold choose_edf in Hchoose.
+    apply min_dl_job_in in Hchoose.
+    apply filter_In in Hchoose. exact (proj1 Hchoose). }
+  assert (Hle : job_abs_deadline (jobs j') <= job_abs_deadline (jobs j)).
+  { apply (choose_edf_min_deadline jobs m sched t candidates j' Hchoose j Hin Hready). }
+  destruct (Nat.eq_dec j' j) as [Heq | Hneq].
+  - rewrite Heq in Hchoose. exact Hchoose.
+  - exfalso.
+    pose proof (Hstrict j' Hj'_in Hj'_ready Hneq) as Hlt.
+    lia.
+Qed.
+
+(* ===== Phase 6: EDF satisfies UniSchedulerSpec ===== *)
+
+(* EDF is a concrete instance of the abstract single-CPU scheduler interface. *)
+Definition edf_scheduler_spec : UniSchedulerSpec :=
+  mkUniSchedulerSpec
+    choose_edf
+    choose_edf_ready
+    choose_edf_min_deadline
+    choose_edf_some_if_exists
+    choose_edf_none_if_no_ready.
