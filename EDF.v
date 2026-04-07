@@ -236,6 +236,17 @@ Qed.
 
 (* ===== Phase 6: EDF satisfies UniSchedulerSpec ===== *)
 
+(* The chosen job is always a member of the candidate list. *)
+Lemma choose_edf_in_candidates : forall jobs m sched t candidates j,
+    choose_edf jobs m sched t candidates = Some j -> In j candidates.
+Proof.
+  intros jobs m sched t candidates j Hchoose.
+  unfold choose_edf in Hchoose.
+  apply min_dl_job_in in Hchoose.
+  apply filter_In in Hchoose.
+  exact (proj1 Hchoose).
+Qed.
+
 (* EDF is a concrete instance of the abstract single-CPU scheduler interface. *)
 Definition edf_scheduler_spec : UniSchedulerSpec :=
   mkUniSchedulerSpec
@@ -243,4 +254,5 @@ Definition edf_scheduler_spec : UniSchedulerSpec :=
     choose_edf_ready
     choose_edf_min_deadline
     choose_edf_some_if_exists
-    choose_edf_none_if_no_ready.
+    choose_edf_none_if_no_ready
+    choose_edf_in_candidates.

@@ -41,4 +41,10 @@ Record UniSchedulerSpec : Type := mkUniSchedulerSpec {
     forall jobs m sched t candidates,
       (forall j, In j candidates -> ~ready jobs m sched j t) ->
       choose jobs m sched t candidates = None ;
+
+  (* Spec 5: the chosen job is always a member of the candidate list. *)
+  choose_in_candidates :
+    forall jobs m sched t candidates j,
+      choose jobs m sched t candidates = Some j ->
+      In j candidates ;
 }.

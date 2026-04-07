@@ -1,4 +1,4 @@
-From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia Classical.
 Require Import Base.
 Require Import Schedule.
 Require Import UniSchedulerInterface.
@@ -7,6 +7,19 @@ Import ListNotations.
 (* Policy-independent lemmas derived from UniSchedulerSpec.
    All results hold for any concrete scheduler satisfying the interface.
    No EDF-specific facts, no readyb, no min_dl_job. *)
+
+(* ===== Coverage Predicates ===== *)
+(* These predicates characterise how well the candidate list covers the ready set. *)
+
+(* candidates_sound: every candidate is ready. *)
+Definition candidates_sound (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+    (t : Time) (candidates : list JobId) : Prop :=
+  forall j, In j candidates -> ready jobs m sched j t.
+
+(* candidates_complete: every ready job is in the candidate list. *)
+Definition candidates_complete (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+    (t : Time) (candidates : list JobId) : Prop :=
+  forall j, ready jobs m sched j t -> In j candidates.
 
 Section UniSchedulerLemmasSection.
 
@@ -171,6 +184,72 @@ Section UniSchedulerLemmasSection.
   Proof.
     intros Hvj j _Hchoose.
     exact (Hvj j).
+  Qed.
+
+  (* ===== E. Membership Lemmas ===== *)
+  (* Consequences of the choose_in_candidates spec field. *)
+
+  (* E1: the chosen job is always in the candidate list. *)
+  Lemma choose_some_implies_in_candidates :
+      forall j,
+        spec.(choose) jobs m sched t candidates = Some j ->
+        In j candidates.
+  Proof.
+    intros j H.
+    exact (spec.(choose_in_candidates) jobs m sched t candidates j H).
+  Qed.
+
+  (* E2: if a ready candidate exists, choose does not return None. *)
+  Lemma exists_ready_candidate_implies_not_none :
+      (exists j, In j candidates /\ ready jobs m sched j t) ->
+      spec.(choose) jobs m sched t candidates <> None.
+  Proof.
+    intros Hex Hnone.
+    destruct (ready_exists_implies_choose_some Hex) as [j' Hj'].
+    rewrite Hnone in Hj'. discriminate.
+  Qed.
+
+  (* E3: if choose returns None, each candidate is either unreleased or completed. *)
+  Lemma choose_none_implies_each_candidate_unreleased_or_completed :
+      spec.(choose) jobs m sched t candidates = None ->
+      forall j, In j candidates ->
+        ~released jobs j t \/ completed jobs m sched j t.
+  Proof.
+    intros Hnone j Hin.
+    pose proof (choose_none_implies_no_ready Hnone j Hin) as Hnready.
+    unfold ready, pending in Hnready.
+    destruct (classic (released jobs j t)) as [Hrel | Hnrel].
+    - right. apply NNPP. intro Hnc. apply Hnready. split; assumption.
+    - left. exact Hnrel.
+  Qed.
+
+  (* ===== F. Coverage Lemmas ===== *)
+  (* Lemmas parametrised over the coverage predicates defined above. *)
+
+  (* F3: under sound candidates, the chosen job is in the list and ready. *)
+  Lemma choose_some_under_sound_candidates :
+      candidates_sound jobs m sched t candidates ->
+      forall j,
+        spec.(choose) jobs m sched t candidates = Some j ->
+        In j candidates /\ ready jobs m sched j t.
+  Proof.
+    intros Hsound j Hchoose.
+    split.
+    - exact (choose_some_implies_in_candidates j Hchoose).
+    - exact (choose_some_implies_ready j Hchoose).
+  Qed.
+
+  (* F4: under complete candidates, any ready job implies choose returns Some. *)
+  Lemma choose_some_if_any_ready_under_complete_candidates :
+      candidates_complete jobs m sched t candidates ->
+      (exists j, ready jobs m sched j t) ->
+      exists j', spec.(choose) jobs m sched t candidates = Some j'.
+  Proof.
+    intros Hcomplete [j Hready].
+    apply ready_exists_implies_choose_some.
+    exists j. split.
+    - apply Hcomplete. exact Hready.
+    - exact Hready.
   Qed.
 
 End UniSchedulerLemmasSection.

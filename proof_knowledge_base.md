@@ -571,5 +571,73 @@
 - **Proof Strategy**: Definitional — no `Proof`/`Qed` needed. Rocq verifies types match record fields automatically.
 - **Key Tactics**: N/A (definitional)
 - **Dependencies**: `UniSchedulerInterface`, `choose_edf`, all 4 spec lemmas
-- **Notes**: `UniSchedulerSpec` is defined in `UniSchedulerInterface.v` as a `Record`. EDF imports it via `Require Import UniSchedulerInterface`. `choose_edf_unique_min` is intentionally excluded from the record — its strict-inequality hypothesis is EDF-specific and not universal.
+- **Notes**: `UniSchedulerSpec` is defined in `UniSchedulerInterface.v` as a `Record`. EDF imports it via `Require Import UniSchedulerInterface`. `choose_edf_unique_min` is intentionally excluded from the record — its strict-inequality hypothesis is EDF-specific and not universal. Updated 2026-04-07: extended to 6-field record by adding `choose_in_candidates` (Spec 5), proved by `choose_edf_in_candidates` via `min_dl_job_in` + `filter_In` proj1.
+- **Date**: 2026-04-07
+
+---
+
+### `choose_in_candidates` (UniSchedulerSpec field 5)
+- **Type**: Spec field (interface extension)
+- **Statement**:
+  ```coq
+  choose_in_candidates :
+    forall jobs m sched t candidates j,
+      choose jobs m sched t candidates = Some j ->
+      In j candidates
+  ```
+- **Proof Strategy**: For EDF: `unfold choose_edf`, apply `min_dl_job_in`, then `filter_In` proj1.
+- **Key Tactics**: `min_dl_job_in`, `filter_In`, `proj1`
+- **Dependencies**: `min_dl_job_in`, `filter_In`
+- **Notes**: Added to `UniSchedulerSpec` record as 5th field (after `choose_none_if_no_ready`). Previously missing from the interface — without it, `choose_some_implies_in_candidates` cannot be stated as a general lemma.
+- **Date**: 2026-04-07
+
+---
+
+### `candidates_sound` / `candidates_complete` (UniSchedulerLemmas.v)
+- **Type**: Definition (coverage predicates)
+- **Statement**:
+  ```coq
+  Definition candidates_sound jobs m sched t candidates :=
+    forall j, In j candidates -> ready jobs m sched j t.
+  Definition candidates_complete jobs m sched t candidates :=
+    forall j, ready jobs m sched j t -> In j candidates.
+  ```
+- **Proof Strategy**: Pure definitions — no proof needed.
+- **Key Tactics**: N/A
+- **Dependencies**: `ready`
+- **Notes**: Defined outside the Section in `UniSchedulerLemmas.v` so they can be used as explicit parameters in coverage lemmas F3/F4. Bridge to `Partitioned.v`.
+- **Date**: 2026-04-07
+
+---
+
+### `choose_none_implies_each_candidate_unreleased_or_completed` (E3)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma choose_none_implies_each_candidate_unreleased_or_completed :
+      spec.(choose) jobs m sched t candidates = None ->
+      forall j, In j candidates ->
+        ~released jobs j t \/ completed jobs m sched j t.
+  ```
+- **Proof Strategy**: Use `choose_none_implies_no_ready` to get `~ready j t`. Unfold `ready`/`pending`. Use `classic (released j t)` from Classical: if released, use NNPP to derive completed; if not released, left branch directly.
+- **Key Tactics**: `classic`, `NNPP`, `unfold ready, pending`
+- **Dependencies**: `choose_none_implies_no_ready`, `Classical`
+- **Notes**: Requires `From Stdlib Require Import Classical.` — `~(A /\ ~B) -> ~A \/ B` is not constructively derivable. Use `destruct (classic (released ...))` pattern.
+- **Date**: 2026-04-07
+
+---
+
+### `ready_implies_released` / `ready_implies_not_completed` (Schedule.v)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma ready_implies_released : forall jobs m sched j t,
+      ready jobs m sched j t -> released jobs j t.
+  Lemma ready_implies_not_completed : forall jobs m sched j t,
+      ready jobs m sched j t -> ~completed jobs m sched j t.
+  ```
+- **Proof Strategy**: `unfold ready, pending` then `proj1`/`proj2`.
+- **Key Tactics**: `unfold ready, pending`, `proj1`, `proj2`
+- **Dependencies**: `ready`, `pending`, `released`, `completed`
+- **Notes**: Simple decomposition lemmas. These were derivable from `choose_some_implies_pending` in the lemmas section, but as standalone Schedule.v lemmas they are useful for other proofs.
 - **Date**: 2026-04-07
