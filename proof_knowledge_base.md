@@ -372,7 +372,7 @@
 - **Proof Strategy**: induction on t. Base: trivial. Step: `rewrite service_step`, `pose proof (cpu_count_le_m ...)`, `lia`.
 - **Key Tactics**: `induction t`, `rewrite service_step`, `pose proof`, `lia`
 - **Dependencies**: `service_step`, `cpu_count_le_m`
-- **Notes**: not-schedulable の証明（上界による矛盾）に有用。`service_le_m_mul_t 1 sched j 2` → `service ≤ 2`。
+- **Notes**: not-feasible の証明（上界による矛盾）に有用。`service_le_m_mul_t 1 sched j 2` → `service ≤ 2`。
 - **Date**: 2026-04-06
 
 ---

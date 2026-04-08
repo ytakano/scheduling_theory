@@ -409,7 +409,7 @@ measure 減少や有限性仮定が必要になります。
 
 最初に狙うべきです。
 
-* 各 CPU が schedulable なら全体 schedulable
+* 各 CPU が feasible なら全体 feasible
 * per-CPU EDF, per-CPU fixed-priority, per-CPU prioritized FIFO など
 
 ## 10-2. global EDF schedulability

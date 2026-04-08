@@ -11,7 +11,7 @@
   - Schedule : Time -> CPU -> option JobId
                「時刻 t に CPU c でどのジョブが動いているか」を返す関数。
                Some j なら job j が動いている、None なら何も動いていない。
-  - feasible jobs m sched
+  - feasible_schedule jobs m sched
                CPUが m 台のスケジュール sched において、
                全ジョブが締切を守る（missed_deadline になるジョブがない）こと。
 *)
@@ -132,11 +132,11 @@ Proof.
   lia.
 Qed.
 
-(** したがって、jobs_ex2 は schedulable ではない *)
-Lemma ex2_not_schedulable : ~schedulable jobs_ex2 1.
+(** したがって、jobs_ex2 は feasible ではない *)
+Lemma ex2_not_feasible : ~feasible jobs_ex2 1.
 Proof.
-  unfold schedulable.
+  unfold feasible.
   intros [sched [_ Hfeas]].
-  unfold feasible in Hfeas.
+  unfold feasible_schedule in Hfeas.
   exact (Hfeas 0 (ex2_any_sched_misses sched)).
 Qed.

@@ -84,25 +84,42 @@ Definition missed_deadline (jobs : JobId -> Job) (m : nat) (sched : Schedule)
 
 (* A schedule is feasible if no job misses its deadline.
    Total-function version: quantifies over all JobId. *)
-Definition feasible (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
+Definition feasible_schedule (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
   forall j, ~missed_deadline jobs m sched j.
 
-(* A job set is schedulable if there exists a valid, feasible schedule.
+(* A job set is feasible if there exists a valid, feasible schedule.
    Total-function version: quantifies over all JobId.
-   For finite/subset reasoning, use schedulable_on. *)
-Definition schedulable (jobs : JobId -> Job) (m : nat) : Prop :=
-  exists sched, valid_schedule jobs m sched /\ feasible jobs m sched.
+   For finite/subset reasoning, use feasible_on. *)
+Definition feasible (jobs : JobId -> Job) (m : nat) : Prop :=
+  exists sched, valid_schedule jobs m sched /\ feasible_schedule jobs m sched.
 
-(* Restrict feasibility/schedulability to a designated job set J.
+(* Restrict feasibility to a designated job set J.
    This is a forward-compatible layer for moving from the current
    total-function model to finite job-set reasoning. *)
-Definition feasible_on (J : JobId -> Prop)
+Definition feasible_schedule_on (J : JobId -> Prop)
     (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
   forall j, J j -> ~missed_deadline jobs m sched j.
 
-Definition schedulable_on (J : JobId -> Prop)
+Definition feasible_on (J : JobId -> Prop)
     (jobs : JobId -> Job) (m : nat) : Prop :=
-  exists sched, valid_schedule jobs m sched /\ feasible_on J jobs m sched.
+  exists sched, valid_schedule jobs m sched /\ feasible_schedule_on J jobs m sched.
+
+(* Abstract scheduler: maps a job set and CPU count to a schedule. *)
+Parameter Scheduler : Type.
+Parameter run_scheduler : Scheduler -> (JobId -> Job) -> nat -> Schedule.
+
+(* A job set is schedulable by algorithm alg if the produced schedule
+   is valid and feasible. *)
+Definition schedulable_by
+    (alg : Scheduler) (jobs : JobId -> Job) (m : nat) : Prop :=
+  valid_schedule jobs m (run_scheduler alg jobs m) /\
+  feasible_schedule jobs m (run_scheduler alg jobs m).
+
+(* Subset variant: schedulable by alg restricted to job set J. *)
+Definition schedulable_by_on (J : JobId -> Prop)
+    (alg : Scheduler) (jobs : JobId -> Job) (m : nat) : Prop :=
+  valid_schedule jobs m (run_scheduler alg jobs m) /\
+  feasible_schedule_on J jobs m (run_scheduler alg jobs m).
 
 (* ===== Lv.0 Lemmas ===== *)
 

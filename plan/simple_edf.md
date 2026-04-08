@@ -1,6 +1,6 @@
 確認しました。結論からいうと、**次にやるべきことは「単一CPU policy の導入」よりも一段手前の、“共通基盤を使って最初のまとまった定理を一本きれいに立てること”**です。そのうえで、中間目標としては **「有限ジョブ集合に対する EDF の単純な正しさ」** か **「周期タスク生成規則の整合性」** が最もおすすめです。 
 
-現状の実装はかなり良い位置にあります。`Base.v` / `Schedule.v` には、ロードマップ上の Phase 1 に対応する核である `Task`・`Job`・`Schedule`・`service`・`completed`・`ready`・`missed_deadline`・`feasible`・`schedulable` がすでに入っていて、さらに `service` の単調性、1ステップ増分、`completed` と `ready` の整合性、`valid_schedule` から導かれる基本性質まで揃っています。これは `what_to_prove.md` の Lv.0 にかなり対応しています。加えて、`sequential_jobs` もあり、将来のマルチコア no-duplication へ自然につながる形になっています。`PeriodicTasks.v` も、周期タスクを「job生成規則の拡張」として扱う骨格がすでにあり、ロードマップの方針とも一致しています。 
+現状の実装はかなり良い位置にあります。`Base.v` / `Schedule.v` には、ロードマップ上の Phase 1 に対応する核である `Task`・`Job`・`Schedule`・`service`・`completed`・`ready`・`missed_deadline`・`feasible_schedule`・`feasible` がすでに入っていて、さらに `service` の単調性、1ステップ増分、`completed` と `ready` の整合性、`valid_schedule` から導かれる基本性質まで揃っています。これは `what_to_prove.md` の Lv.0 にかなり対応しています。加えて、`sequential_jobs` もあり、将来のマルチコア no-duplication へ自然につながる形になっています。`PeriodicTasks.v` も、周期タスクを「job生成規則の拡張」として扱う骨格がすでにあり、ロードマップの方針とも一致しています。 
 
 一方で、**まだ手を出さない方がよいもの**もはっきりしています。
 いまの段階では、global scheduling、OS寄り operational semantics、refinement、DAG は早いです。ロードマップでも、DAG は「job 内部構造の拡張」なので multicore / global 基盤のあと、周期タスクは「job 生成規則の拡張」なので単一CPU基盤のあと、と整理されています。したがって、現時点で最も自然なのは、

@@ -38,7 +38,7 @@ Definition periodic_job_model
   forall j, generated_by_periodic_task tasks offset jobs j.
 
 (* Restrict the periodic generation requirement to a designated job set J.
-   Pairs naturally with schedulable_on / feasible_on. *)
+   Pairs naturally with feasible_on / feasible_schedule_on. *)
 Definition periodic_job_model_on
     (J : JobId -> Prop)
     (tasks : TaskId -> Task)

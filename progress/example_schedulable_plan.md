@@ -2,13 +2,13 @@
 
 ## Goal
 
-`example_schedulable.v` として、Job・Schedule・schedulable の具体例を Rocq で示す。
-- **Example 1**: schedulable な例（job 0 が締切を守る）
-- **Example 2**: not schedulable な例（どんなスケジュールでも job 0 が締切を守れない）
+`example_feasible.v` として、Job・Schedule・feasible_schedule の具体例を Rocq で示す。
+- **Example 1**: feasible_schedule な例（job 0 が締切を守る）
+- **Example 2**: not feasible な例（どんなスケジュールでも job 0 が締切を守れない）
 
 ## 注意点: JobId の全域性
 
-`schedulable jobs m sched := forall j, ~missed_deadline jobs m sched j`
+`feasible_schedule jobs m sched := forall j, ~missed_deadline jobs m sched j`
 は**全 JobId** に対する命題。
 
 教育目的では、個々のジョブについて締切を証明する方が直感的。

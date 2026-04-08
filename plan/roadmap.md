@@ -218,15 +218,15 @@ Task 基本属性（将来の周期タスク用）:
 ## 1.5 deadline miss
 
 * `missed_deadline`
+* `feasible_schedule`
 * `feasible`
-* `schedulable`
 
 を定義する。
 
 ここで
 
-* **feasible** = ある具体 schedule が締切違反を起こさない
-* **schedulable** = 条件を満たす schedule が存在する
+* **feasible_schedule** = ある具体 schedule が締切違反を起こさない
+* **feasible** = 条件を満たす schedule が存在する
 
 を区別しておくと、後の理論が整理しやすい。
 
@@ -237,7 +237,7 @@ Task 基本属性（将来の周期タスク用）:
 * `Schedule`
 * `service`
 * `completed / pending / ready`
-* `missed_deadline / feasible / schedulable`
+* `missed_deadline / feasible_schedule / feasible`
 
 ---
 
@@ -413,8 +413,8 @@ ready は job-level では基本的に変わらないが、OS 寄りモデルを
 ### 証明対象
 
 * 各 CPU が valid なら全体も valid
+* 各 CPU が feasible_schedule なら全体も feasible_schedule
 * 各 CPU が feasible なら全体も feasible
-* 各 CPU が schedulable なら全体も schedulable
 * migration がないこと
 
 ---
