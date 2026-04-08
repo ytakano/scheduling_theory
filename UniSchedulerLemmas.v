@@ -43,36 +43,25 @@ Section UniSchedulerLemmasSection.
     exact (spec.(choose_ready) jobs m sched t candidates j Hchoose).
   Qed.
 
-  (* A2: the chosen job is runnable (follows from ready = runnable). *)
-  Lemma choose_some_implies_runnable :
-      forall j,
-        spec.(choose) jobs m sched t candidates = Some j ->
-        runnable jobs m sched j t.
-  Proof.
-    intros j Hchoose.
-    apply ready_implies_runnable.
-    apply choose_some_implies_ready. exact Hchoose.
-  Qed.
-
-  (* A3: the chosen job has been released by time t. *)
+  (* A2: the chosen job has been released by time t. *)
   Lemma choose_some_implies_released :
       forall j,
         spec.(choose) jobs m sched t candidates = Some j ->
         released jobs j t.
   Proof.
     intros j Hchoose.
-    apply choose_some_implies_runnable in Hchoose.
+    apply choose_some_implies_ready in Hchoose.
     exact (proj1 (proj1 Hchoose)).
   Qed.
 
-  (* A4: the chosen job has not completed by time t. *)
+  (* A3: the chosen job has not completed by time t. *)
   Lemma choose_some_implies_not_completed :
       forall j,
         spec.(choose) jobs m sched t candidates = Some j ->
         ~completed jobs m sched j t.
   Proof.
     intros j Hchoose.
-    apply choose_some_implies_runnable in Hchoose.
+    apply choose_some_implies_ready in Hchoose.
     exact (proj2 (proj1 Hchoose)).
   Qed.
 
@@ -210,8 +199,8 @@ Section UniSchedulerLemmasSection.
 
   (* E3: if choose returns None, each candidate is either unreleased, completed,
      or currently running on some CPU.
-     (With runnable = eligible AND NOT running = (released AND NOT completed) AND NOT running,
-      NOT runnable means NOT eligible OR running, i.e., unreleased OR completed OR running.) *)
+     (ready = eligible AND NOT running = (released AND NOT completed) AND NOT running,
+      NOT ready means NOT eligible OR running, i.e., unreleased OR completed OR running.) *)
   Lemma choose_none_implies_each_candidate_unreleased_or_completed :
       spec.(choose) jobs m sched t candidates = None ->
       forall j, In j candidates ->
@@ -219,7 +208,7 @@ Section UniSchedulerLemmasSection.
   Proof.
     intros Hnone j Hin.
     pose proof (choose_none_implies_no_ready Hnone j Hin) as Hnready.
-    unfold ready, runnable, eligible in Hnready.
+    unfold ready, eligible in Hnready.
     destruct (classic (released jobs j t)) as [Hrel | Hnrel].
     - destruct (classic (running sched m j t)) as [Hrun | Hnrun].
       + right. right. exact Hrun.

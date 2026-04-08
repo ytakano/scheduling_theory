@@ -44,7 +44,7 @@ Lemma readyb_iff : forall jobs m sched j t,
     readyb jobs m sched j t = true <-> ready jobs m sched j t.
 Proof.
   intros jobs m sched j t.
-  unfold readyb, ready, runnable, running, released, completed.
+  unfold readyb, ready, eligible, running, released, completed.
   rewrite Bool.andb_true_iff, Bool.andb_true_iff, Nat.leb_le,
           Bool.negb_true_iff, Nat.eqb_eq.
   split.
