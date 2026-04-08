@@ -43,7 +43,7 @@ Section UniSchedulerLemmasSection.
     exact (spec.(choose_ready) jobs m sched t candidates j Hchoose).
   Qed.
 
-  (* A2: the chosen job is runnable (follows from ready ⊆ runnable). *)
+  (* A2: the chosen job is runnable (follows from ready = runnable). *)
   Lemma choose_some_implies_runnable :
       forall j,
         spec.(choose) jobs m sched t candidates = Some j ->
@@ -62,7 +62,7 @@ Section UniSchedulerLemmasSection.
   Proof.
     intros j Hchoose.
     apply choose_some_implies_runnable in Hchoose.
-    exact (proj1 Hchoose).
+    exact (proj1 (proj1 Hchoose)).
   Qed.
 
   (* A4: the chosen job has not completed by time t. *)
@@ -73,7 +73,7 @@ Section UniSchedulerLemmasSection.
   Proof.
     intros j Hchoose.
     apply choose_some_implies_runnable in Hchoose.
-    exact (proj2 Hchoose).
+    exact (proj2 (proj1 Hchoose)).
   Qed.
 
   (* A5: the chosen job has minimum absolute deadline among all ready candidates. *)
@@ -210,7 +210,8 @@ Section UniSchedulerLemmasSection.
 
   (* E3: if choose returns None, each candidate is either unreleased, completed,
      or currently running on some CPU.
-     (With ready = runnable AND NOT running, NOT ready means NOT runnable OR running.) *)
+     (With runnable = eligible AND NOT running = (released AND NOT completed) AND NOT running,
+      NOT runnable means NOT eligible OR running, i.e., unreleased OR completed OR running.) *)
   Lemma choose_none_implies_each_candidate_unreleased_or_completed :
       spec.(choose) jobs m sched t candidates = None ->
       forall j, In j candidates ->
@@ -218,12 +219,12 @@ Section UniSchedulerLemmasSection.
   Proof.
     intros Hnone j Hin.
     pose proof (choose_none_implies_no_ready Hnone j Hin) as Hnready.
-    unfold ready, runnable in Hnready.
+    unfold ready, runnable, eligible in Hnready.
     destruct (classic (released jobs j t)) as [Hrel | Hnrel].
     - destruct (classic (running sched m j t)) as [Hrun | Hnrun].
       + right. right. exact Hrun.
       + right. left. apply NNPP. intro Hnc. apply Hnready.
-        split; [split|]; assumption.
+        split. split. exact Hrel. exact Hnc. exact Hnrun.
     - left. exact Hnrel.
   Qed.
 

@@ -1,7 +1,9 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia.
 Require Import Base.
 (* Note: Base.pending (pre-release, schedule-independent) is now in scope.
-   Schedule.runnable (released AND NOT completed) replaces the old pending here. *)
+   Schedule.eligible (released AND NOT completed) is the dispatch condition for
+   valid_schedule; running jobs satisfy eligible but NOT runnable.
+   Schedule.runnable (eligible AND NOT running) is the classical ready-queue state. *)
 
 (* ===== Phase 1: Core Definitions ===== *)
 
@@ -38,24 +40,32 @@ Definition completed (jobs : JobId -> Job) (m : nat) (sched : Schedule)
 Definition running (sched : Schedule) (m : nat) (j : JobId) (t : Time) : Prop :=
   exists c : CPU, c < m /\ sched t c = Some j.
 
-(* A job is runnable: released and not yet completed.
-   This is the dispatch-eligible state: the scheduler may assign CPU time to
-   runnable jobs.  Zero-cost jobs are immediately completed at t=0 and thus
-   never runnable; use valid_jobs to exclude them when needed. *)
-Definition runnable (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+(* A job is eligible: released and not yet completed.
+   This is the minimum condition for CPU assignment; running jobs satisfy
+   eligible. valid_schedule is stated in terms of eligible, not runnable,
+   because a running job is eligible but NOT runnable (runnable requires
+   NOT running). Zero-cost jobs are immediately completed at t=0 and thus
+   never eligible; use valid_jobs to exclude them when needed. *)
+Definition eligible (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
   released jobs j t /\ ~completed jobs m sched j t.
 
-(* A job is ready: runnable AND not currently executing on any valid CPU.
-   Models the classical "ready queue" concept: a job waiting to be assigned a CPU.
-   A running job is NOT ready; it would re-enter the ready state if preempted.
-   valid_schedule is stated in terms of runnable (not ready), because scheduled
-   jobs (which are running) satisfy runnable but not ready.
-   Future DAG extensions will refine this to: runnable AND all predecessors
+(* A job is runnable: eligible AND not currently executing on any CPU.
+   This is the classical "ready queue" state: a job waiting to be scheduled.
+   Contrast with eligible, which covers both running and waiting jobs.
+   Future DAG extensions will refine this to: eligible AND all predecessors
    completed AND not running. *)
+Definition runnable (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+    (j : JobId) (t : Time) : Prop :=
+  eligible jobs m sched j t /\ ~running sched m j t.
+
+(* A job is ready: identical to runnable.
+   Retained as an alias for compatibility with UniSchedulerInterface and EDF.
+   A running job is NOT ready; it would re-enter the ready/runnable state if
+   preempted. *)
 Definition ready (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
-  runnable jobs m sched j t /\ ~running sched m j t.
+  runnable jobs m sched j t.
 
 (* Sequential-job 仮定: 同じ job は同時に複数 CPU で走らない。
    DAG job ではこの制約は job 単位ではなく node 単位になる:
@@ -67,12 +77,13 @@ Definition sequential_jobs (m : nat) (sched : Schedule) : Prop :=
     c1 < m -> c2 < m ->
     sched t c1 = Some j -> sched t c2 = Some j -> c1 = c2.
 
-(* A schedule is valid if every scheduled job is runnable at that time.
+(* A schedule is valid if every scheduled job is eligible at that time.
    This subsumes: no running before release, no running after completion.
-   Note: scheduled (running) jobs are NOT ready (ready requires NOT running),
-   so valid_schedule is expressed in terms of runnable, not ready. *)
+   Note: scheduled (running) jobs satisfy eligible (released AND NOT completed)
+   but NOT runnable (runnable additionally requires NOT running), so
+   valid_schedule is expressed in terms of eligible, not runnable. *)
 Definition valid_schedule (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
-  forall j t c, c < m -> sched t c = Some j -> runnable jobs m sched j t.
+  forall j t c, c < m -> sched t c = Some j -> eligible jobs m sched j t.
 
 (* A job misses its deadline if it is not completed by job_abs_deadline. *)
 Definition missed_deadline (jobs : JobId -> Job) (m : nat) (sched : Schedule)
@@ -345,7 +356,7 @@ Qed.
 Lemma completed_not_ready : forall jobs m sched j t,
     completed jobs m sched j t -> ~ready jobs m sched j t.
 Proof.
-  unfold completed, ready, runnable.
+  unfold completed, ready, runnable, eligible.
   intros jobs m sched j t Hcomp [[_ Hnot] _].
   exact (Hnot Hcomp).
 Qed.
@@ -353,21 +364,21 @@ Qed.
 Lemma ready_implies_released : forall jobs m sched j t,
     ready jobs m sched j t -> released jobs j t.
 Proof.
-  unfold ready, runnable.
+  unfold ready, runnable, eligible.
   intros jobs m sched j t Hr. exact (proj1 (proj1 Hr)).
 Qed.
 
 Lemma ready_implies_not_completed : forall jobs m sched j t,
     ready jobs m sched j t -> ~completed jobs m sched j t.
 Proof.
-  unfold ready, runnable.
+  unfold ready, runnable, eligible.
   intros jobs m sched j t Hr. exact (proj2 (proj1 Hr)).
 Qed.
 
 Lemma not_ready_before_release : forall jobs m sched j t,
     t < job_release (jobs j) -> ~ready jobs m sched j t.
 Proof.
-  unfold ready, runnable, released.
+  unfold ready, runnable, eligible, released.
   intros jobs m sched j t Hlt [[Hrel _] _]. lia.
 Qed.
 
@@ -386,12 +397,19 @@ Lemma ready_iff_runnable_and_not_running : forall jobs m sched j t,
     ready jobs m sched j t <->
     runnable jobs m sched j t /\ ~running sched m j t.
 Proof.
-  unfold ready. tauto.
+  unfold ready, runnable. tauto.
 Qed.
 
-Lemma runnable_iff_released_and_not_completed : forall jobs m sched j t,
-    runnable jobs m sched j t <->
+Lemma eligible_iff_released_and_not_completed : forall jobs m sched j t,
+    eligible jobs m sched j t <->
     released jobs j t /\ ~completed jobs m sched j t.
+Proof.
+  unfold eligible. tauto.
+Qed.
+
+Lemma runnable_iff_eligible_and_not_running : forall jobs m sched j t,
+    runnable jobs m sched j t <->
+    eligible jobs m sched j t /\ ~running sched m j t.
 Proof.
   unfold runnable. tauto.
 Qed.
@@ -404,7 +422,7 @@ Lemma valid_no_run_before_release : forall jobs m sched j t c,
     sched t c = Some j ->
     job_release (jobs j) <= t.
 Proof.
-  unfold valid_schedule, runnable, released.
+  unfold valid_schedule, eligible, released.
   intros jobs m sched j t c Hv Hlt Hrun.
   exact (proj1 (Hv j t c Hlt Hrun)).
 Qed.
@@ -415,32 +433,41 @@ Lemma valid_no_run_after_completion : forall jobs m sched j t c,
     sched t c = Some j ->
     ~completed jobs m sched j t.
 Proof.
-  unfold valid_schedule, runnable.
+  unfold valid_schedule, eligible.
   intros jobs m sched j t c Hv Hlt Hrun.
   exact (proj2 (Hv j t c Hlt Hrun)).
 Qed.
 
-(* valid_schedule directly implies runnable for any running job.
-   (valid_schedule is now stated in terms of runnable, not ready.) *)
-Lemma valid_running_implies_runnable : forall jobs m sched j t c,
+(* valid_schedule directly implies eligible for any running job.
+   (Running jobs satisfy eligible but NOT runnable; valid_schedule uses eligible.) *)
+Lemma valid_running_implies_eligible : forall jobs m sched j t c,
     valid_schedule jobs m sched ->
     c < m ->
     sched t c = Some j ->
-    runnable jobs m sched j t.
+    eligible jobs m sched j t.
 Proof.
   intros jobs m sched j t c Hv Hlt Hrun.
   exact (Hv j t c Hlt Hrun).
 Qed.
 
-(* --- Lv.0-4: pending / runnable / running relationships --- *)
+(* --- Lv.0-4: pending / eligible / runnable / running relationships --- *)
+
+(* A pre-release (pending) job is not eligible. *)
+Lemma pending_not_eligible : forall jobs m sched j t,
+    pending jobs j t ->
+    ~eligible jobs m sched j t.
+Proof.
+  unfold pending, eligible, released.
+  intros jobs m sched j t Hpend [Hrel _]. lia.
+Qed.
 
 (* A pre-release (pending) job is not runnable. *)
 Lemma pending_not_runnable : forall jobs m sched j t,
     pending jobs j t ->
     ~runnable jobs m sched j t.
 Proof.
-  unfold pending, runnable, released.
-  intros jobs m sched j t Hpend [Hrel _]. lia.
+  unfold pending, runnable, eligible, released.
+  intros jobs m sched j t Hpend [[Hrel _] _]. lia.
 Qed.
 
 (* A pre-release (pending) job is not ready. *)
@@ -450,22 +477,22 @@ Lemma pending_not_ready : forall jobs m sched j t,
 Proof.
   intros jobs m sched j t Hpend Hready.
   apply (pending_not_runnable jobs m sched j t Hpend).
-  exact (proj1 Hready).
+  exact Hready.
 Qed.
 
-(* ready implies runnable: ready is strictly stronger than runnable. *)
+(* ready implies runnable: ready is an alias for runnable. *)
 Lemma ready_implies_runnable : forall jobs m sched j t,
     ready jobs m sched j t ->
     runnable jobs m sched j t.
 Proof.
-  unfold ready. intros jobs m sched j t H. exact (proj1 H).
+  unfold ready. intros jobs m sched j t H. exact H.
 Qed.
 
-(* ready implies not running: a job waiting in the ready queue is not on a CPU. *)
+(* ready implies not running: a job in the ready/runnable state is not on a CPU. *)
 Lemma ready_implies_not_running : forall jobs m sched j t,
     ready jobs m sched j t -> ~running sched m j t.
 Proof.
-  unfold ready. intros jobs m sched j t [_ H]. exact H.
+  unfold ready, runnable. intros jobs m sched j t [_ H]. exact H.
 Qed.
 
 (* running implies not ready: a job currently on a CPU is not in the ready queue. *)
@@ -476,14 +503,33 @@ Proof.
   exact (ready_implies_not_running jobs m sched j t Hready Hrun).
 Qed.
 
+(* completed implies not eligible. *)
+Lemma completed_not_eligible : forall jobs m sched j t,
+    completed jobs m sched j t ->
+    ~eligible jobs m sched j t.
+Proof.
+  unfold completed, eligible.
+  intros jobs m sched j t Hcomp [_ Hnot].
+  exact (Hnot Hcomp).
+Qed.
+
 (* completed implies not runnable. *)
 Lemma completed_not_runnable : forall jobs m sched j t,
     completed jobs m sched j t ->
     ~runnable jobs m sched j t.
 Proof.
-  unfold completed, runnable.
-  intros jobs m sched j t Hcomp [_ Hnot].
+  unfold completed, runnable, eligible.
+  intros jobs m sched j t Hcomp [[_ Hnot] _].
   exact (Hnot Hcomp).
+Qed.
+
+(* eligible implies released. *)
+Lemma eligible_after_release : forall jobs m sched j t,
+    eligible jobs m sched j t ->
+    job_release (jobs j) <= t.
+Proof.
+  unfold eligible, released.
+  intros jobs m sched j t [Hrel _]. exact Hrel.
 Qed.
 
 (* runnable implies released. *)
@@ -491,8 +537,8 @@ Lemma runnable_after_release : forall jobs m sched j t,
     runnable jobs m sched j t ->
     job_release (jobs j) <= t.
 Proof.
-  unfold runnable, released.
-  intros jobs m sched j t [Hrel _]. exact Hrel.
+  unfold runnable, eligible, released.
+  intros jobs m sched j t [[Hrel _] _]. exact Hrel.
 Qed.
 
 (* ready implies released. *)
