@@ -43,16 +43,15 @@ Section UniSchedulerLemmasSection.
     exact (spec.(choose_ready) jobs m sched t candidates j Hchoose).
   Qed.
 
-  (* A2: the chosen job is runnable (= ready in the current model). *)
+  (* A2: the chosen job is runnable (follows from ready ⊆ runnable). *)
   Lemma choose_some_implies_runnable :
       forall j,
         spec.(choose) jobs m sched t candidates = Some j ->
         runnable jobs m sched j t.
   Proof.
     intros j Hchoose.
-    apply choose_some_implies_ready in Hchoose.
-    unfold ready in Hchoose.
-    exact Hchoose.
+    apply ready_implies_runnable.
+    apply choose_some_implies_ready. exact Hchoose.
   Qed.
 
   (* A3: the chosen job has been released by time t. *)
@@ -209,17 +208,22 @@ Section UniSchedulerLemmasSection.
     rewrite Hnone in Hj'. discriminate.
   Qed.
 
-  (* E3: if choose returns None, each candidate is either unreleased or completed. *)
+  (* E3: if choose returns None, each candidate is either unreleased, completed,
+     or currently running on some CPU.
+     (With ready = runnable AND NOT running, NOT ready means NOT runnable OR running.) *)
   Lemma choose_none_implies_each_candidate_unreleased_or_completed :
       spec.(choose) jobs m sched t candidates = None ->
       forall j, In j candidates ->
-        ~released jobs j t \/ completed jobs m sched j t.
+        ~released jobs j t \/ completed jobs m sched j t \/ running sched m j t.
   Proof.
     intros Hnone j Hin.
     pose proof (choose_none_implies_no_ready Hnone j Hin) as Hnready.
     unfold ready, runnable in Hnready.
     destruct (classic (released jobs j t)) as [Hrel | Hnrel].
-    - right. apply NNPP. intro Hnc. apply Hnready. split; assumption.
+    - destruct (classic (running sched m j t)) as [Hrun | Hnrun].
+      + right. right. exact Hrun.
+      + right. left. apply NNPP. intro Hnc. apply Hnready.
+        split; [split|]; assumption.
     - left. exact Hnrel.
   Qed.
 

@@ -384,11 +384,11 @@
   Lemma readyb_iff : forall jobs m sched j t,
       readyb jobs m sched j t = true <-> ready jobs m sched j t.
   ```
-- **Proof Strategy**: Unfold `readyb`, `ready`, `pending`, `released`, `completed`. Rewrite `Bool.andb_true_iff`, `Nat.leb_le`, `Bool.negb_true_iff`. Split: forward uses `Nat.leb_le` + `discriminate`; backward uses `Bool.not_true_iff_false` + `Nat.leb_le`.
-- **Key Tactics**: `Bool.andb_true_iff`, `Nat.leb_le`, `Bool.negb_true_iff`, `Bool.not_true_iff_false`, `discriminate`
-- **Dependencies**: `readyb`, `ready`, `pending`, `released`, `completed`
-- **Notes**: Bridge between bool world (filter) and Prop world (ready). Pattern: `negb (a <=? b) = true` → `Bool.negb_true_iff` gives `a <=? b = false` → `rewrite Nat.leb_le in H; rewrite H in ...; discriminate`.
-- **Date**: 2026-04-07
+- **Proof Strategy**: After `ready = runnable AND NOT running` refactor, `readyb` has 3 conjuncts: `released`, `NOT completed`, `cpu_count = 0`. Unfold all definitions, rewrite `Bool.andb_true_iff` (twice), `Nat.leb_le`, `Bool.negb_true_iff`, `Nat.eqb_eq`. Forward: for NOT-running, use `cpu_count_zero_iff_not_executed` to derive contradiction from the witness in `running`. Backward: for `cpu_count = 0`, use `proj2 (cpu_count_zero_iff_not_executed)` driven by `~running`.
+- **Key Tactics**: `Bool.andb_true_iff` (applied twice), `Nat.leb_le`, `Bool.negb_true_iff`, `Nat.eqb_eq`, `cpu_count_zero_iff_not_executed`, `proj1`, `proj2`, `discriminate`
+- **Dependencies**: `readyb`, `ready`, `runnable`, `running`, `released`, `completed`, `cpu_count_zero_iff_not_executed`
+- **Notes**: ⚠️ `intro [c [Hlt Hc]]` fails with syntax error for negated existential (`~exists c, ...`); use `intros [c [Hlt Hc]]` instead. Bridge pattern: `running sched m j t = exists c, c < m /\ sched t c = Some j` ↔ `0 < cpu_count sched j t m` via `cpu_count_pos_iff_executed`; `cpu_count = 0` ↔ `forall c, c < m -> sched t c <> Some j` via `cpu_count_zero_iff_not_executed`.
+- **Date**: 2026-04-08
 
 ---
 

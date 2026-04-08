@@ -34,9 +34,9 @@ Definition completed (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
   service_job m sched j t >= job_cost (jobs j).
 
-(* A job is running at time t: it occupies some CPU. *)
-Definition running (sched : Schedule) (j : JobId) (t : Time) : Prop :=
-  exists c : CPU, sched t c = Some j.
+(* A job is running at time t on some valid CPU in 0..m-1. *)
+Definition running (sched : Schedule) (m : nat) (j : JobId) (t : Time) : Prop :=
+  exists c : CPU, c < m /\ sched t c = Some j.
 
 (* A job is runnable: released and not yet completed.
    This is the dispatch-eligible state: the scheduler may assign CPU time to
@@ -46,13 +46,16 @@ Definition runnable (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
   released jobs j t /\ ~completed jobs m sched j t.
 
-(* A job is ready to execute: equivalent to runnable in the current model.
+(* A job is ready: runnable AND not currently executing on any valid CPU.
+   Models the classical "ready queue" concept: a job waiting to be assigned a CPU.
+   A running job is NOT ready; it would re-enter the ready state if preempted.
+   valid_schedule is stated in terms of runnable (not ready), because scheduled
+   jobs (which are running) satisfy runnable but not ready.
    Future DAG extensions will refine this to: runnable AND all predecessors
-   completed.  The valid_schedule invariant is stated in terms of ready, so
-   changing this definition automatically propagates to all downstream proofs. *)
+   completed AND not running. *)
 Definition ready (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
-  runnable jobs m sched j t.
+  runnable jobs m sched j t /\ ~running sched m j t.
 
 (* Sequential-job 仮定: 同じ job は同時に複数 CPU で走らない。
    DAG job ではこの制約は job 単位ではなく node 単位になる:
@@ -64,10 +67,12 @@ Definition sequential_jobs (m : nat) (sched : Schedule) : Prop :=
     c1 < m -> c2 < m ->
     sched t c1 = Some j -> sched t c2 = Some j -> c1 = c2.
 
-(* A schedule is valid if every scheduled job is ready at that time.
-   This subsumes: no running before release, no running after completion. *)
+(* A schedule is valid if every scheduled job is runnable at that time.
+   This subsumes: no running before release, no running after completion.
+   Note: scheduled (running) jobs are NOT ready (ready requires NOT running),
+   so valid_schedule is expressed in terms of runnable, not ready. *)
 Definition valid_schedule (jobs : JobId -> Job) (m : nat) (sched : Schedule) : Prop :=
-  forall j t c, c < m -> sched t c = Some j -> ready jobs m sched j t.
+  forall j t c, c < m -> sched t c = Some j -> runnable jobs m sched j t.
 
 (* A job misses its deadline if it is not completed by job_abs_deadline. *)
 Definition missed_deadline (jobs : JobId -> Job) (m : nat) (sched : Schedule)
@@ -341,7 +346,7 @@ Lemma completed_not_ready : forall jobs m sched j t,
     completed jobs m sched j t -> ~ready jobs m sched j t.
 Proof.
   unfold completed, ready, runnable.
-  intros jobs m sched j t Hcomp [_ Hnot].
+  intros jobs m sched j t Hcomp [[_ Hnot] _].
   exact (Hnot Hcomp).
 Qed.
 
@@ -349,21 +354,21 @@ Lemma ready_implies_released : forall jobs m sched j t,
     ready jobs m sched j t -> released jobs j t.
 Proof.
   unfold ready, runnable.
-  intros jobs m sched j t Hr. exact (proj1 Hr).
+  intros jobs m sched j t Hr. exact (proj1 (proj1 Hr)).
 Qed.
 
 Lemma ready_implies_not_completed : forall jobs m sched j t,
     ready jobs m sched j t -> ~completed jobs m sched j t.
 Proof.
   unfold ready, runnable.
-  intros jobs m sched j t Hr. exact (proj2 Hr).
+  intros jobs m sched j t Hr. exact (proj2 (proj1 Hr)).
 Qed.
 
 Lemma not_ready_before_release : forall jobs m sched j t,
     t < job_release (jobs j) -> ~ready jobs m sched j t.
 Proof.
   unfold ready, runnable, released.
-  intros jobs m sched j t Hlt [Hrel _]. lia.
+  intros jobs m sched j t Hlt [[Hrel _] _]. lia.
 Qed.
 
 Lemma completed_monotone : forall jobs m sched j t1 t2,
@@ -377,11 +382,18 @@ Proof.
   apply service_job_monotone. exact Hle.
 Qed.
 
-Lemma ready_iff_released_and_not_completed : forall jobs m sched j t,
+Lemma ready_iff_runnable_and_not_running : forall jobs m sched j t,
     ready jobs m sched j t <->
+    runnable jobs m sched j t /\ ~running sched m j t.
+Proof.
+  unfold ready. tauto.
+Qed.
+
+Lemma runnable_iff_released_and_not_completed : forall jobs m sched j t,
+    runnable jobs m sched j t <->
     released jobs j t /\ ~completed jobs m sched j t.
 Proof.
-  unfold ready, runnable. tauto.
+  unfold runnable. tauto.
 Qed.
 
 (* --- Lv.0-3: valid_schedule basics --- *)
@@ -392,7 +404,7 @@ Lemma valid_no_run_before_release : forall jobs m sched j t c,
     sched t c = Some j ->
     job_release (jobs j) <= t.
 Proof.
-  unfold valid_schedule, ready, runnable, released.
+  unfold valid_schedule, runnable, released.
   intros jobs m sched j t c Hv Hlt Hrun.
   exact (proj1 (Hv j t c Hlt Hrun)).
 Qed.
@@ -403,29 +415,13 @@ Lemma valid_no_run_after_completion : forall jobs m sched j t c,
     sched t c = Some j ->
     ~completed jobs m sched j t.
 Proof.
-  unfold valid_schedule, ready, runnable.
+  unfold valid_schedule, runnable.
   intros jobs m sched j t c Hv Hlt Hrun.
   exact (proj2 (Hv j t c Hlt Hrun)).
 Qed.
 
-Lemma valid_running_implies_ready : forall jobs m sched j t c,
-    valid_schedule jobs m sched ->
-    c < m ->
-    sched t c = Some j ->
-    ready jobs m sched j t.
-Proof.
-  intros jobs m sched j t c Hv Hlt Hrun.
-  exact (Hv j t c Hlt Hrun).
-Qed.
-
-(* Convenience lemma for the current job-level model:
-   since ready = runnable definitionally at this stage,
-   valid_schedule immediately implies runnable for any running job.
-
-   Warning:
-   this lemma may need to be reproved (rather than remain definitional)
-   once DAG semantics are introduced and ready becomes strictly stronger
-   than runnable at the node/job level. *)
+(* valid_schedule directly implies runnable for any running job.
+   (valid_schedule is now stated in terms of runnable, not ready.) *)
 Lemma valid_running_implies_runnable : forall jobs m sched j t c,
     valid_schedule jobs m sched ->
     c < m ->
@@ -454,15 +450,30 @@ Lemma pending_not_ready : forall jobs m sched j t,
 Proof.
   intros jobs m sched j t Hpend Hready.
   apply (pending_not_runnable jobs m sched j t Hpend).
-  unfold ready in Hready. exact Hready.
+  exact (proj1 Hready).
 Qed.
 
-(* ready implies runnable (definitional, but useful as a named lemma). *)
+(* ready implies runnable: ready is strictly stronger than runnable. *)
 Lemma ready_implies_runnable : forall jobs m sched j t,
     ready jobs m sched j t ->
     runnable jobs m sched j t.
 Proof.
-  unfold ready. intros jobs m sched j t H. exact H.
+  unfold ready. intros jobs m sched j t H. exact (proj1 H).
+Qed.
+
+(* ready implies not running: a job waiting in the ready queue is not on a CPU. *)
+Lemma ready_implies_not_running : forall jobs m sched j t,
+    ready jobs m sched j t -> ~running sched m j t.
+Proof.
+  unfold ready. intros jobs m sched j t [_ H]. exact H.
+Qed.
+
+(* running implies not ready: a job currently on a CPU is not in the ready queue. *)
+Lemma running_implies_not_ready : forall jobs m sched j t,
+    running sched m j t -> ~ready jobs m sched j t.
+Proof.
+  intros jobs m sched j t Hrun Hready.
+  exact (ready_implies_not_running jobs m sched j t Hready Hrun).
 Qed.
 
 (* completed implies not runnable. *)
@@ -494,12 +505,13 @@ Proof.
   exact (ready_implies_runnable jobs m sched j t Hr).
 Qed.
 
-(* Scheduling implies running. *)
-Lemma scheduled_implies_running : forall sched j t c,
+(* Scheduling on a valid CPU implies running. *)
+Lemma scheduled_implies_running : forall sched m j t c,
+    c < m ->
     sched t c = Some j ->
-    running sched j t.
+    running sched m j t.
 Proof.
   unfold running.
-  intros sched j t c Hrun.
-  exists c. exact Hrun.
+  intros sched m j t c Hlt Hrun.
+  exists c. split. exact Hlt. exact Hrun.
 Qed.
