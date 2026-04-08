@@ -14,7 +14,7 @@
 Lemma ready_implies_released : forall jobs m sched j t,
     ready jobs m sched j t -> released jobs j t.
 Proof.
-  unfold ready, pending.
+  unfold ready, waiting.
   intros jobs m sched j t Hr. exact (proj1 Hr).
 Qed.
 ```
@@ -25,7 +25,7 @@ Qed.
 Lemma ready_implies_not_completed : forall jobs m sched j t,
     ready jobs m sched j t -> ~completed jobs m sched j t.
 Proof.
-  unfold ready, pending.
+  unfold ready, waiting.
   intros jobs m sched j t Hr. exact (proj2 Hr).
 Qed.
 ```

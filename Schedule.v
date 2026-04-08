@@ -1,6 +1,6 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia.
 Require Import Base.
-(* Note: Base.pending (pre-release, schedule-independent) is now in scope.
+(* Note: Base.waiting (pre-release, schedule-independent) is now in scope.
    Schedule.eligible (released AND NOT completed) is the dispatch condition for
    valid_schedule; running jobs satisfy eligible but NOT ready.
    Schedule.ready (eligible AND NOT running) is the classical ready-queue state. *)
@@ -435,23 +435,23 @@ Proof.
   exact (Hv j t c Hlt Hrun).
 Qed.
 
-(* --- Lv.0-4: pending / eligible / ready / running relationships --- *)
+(* --- Lv.0-4: waiting / eligible / ready / running relationships --- *)
 
-(* A pre-release (pending) job is not eligible. *)
-Lemma pending_not_eligible : forall jobs m sched j t,
-    pending jobs j t ->
+(* A pre-release (waiting) job is not eligible. *)
+Lemma waiting_not_eligible : forall jobs m sched j t,
+    waiting jobs j t ->
     ~eligible jobs m sched j t.
 Proof.
-  unfold pending, eligible, released.
+  unfold waiting, eligible, released.
   intros jobs m sched j t Hpend [Hrel _]. lia.
 Qed.
 
-(* A pre-release (pending) job is not ready. *)
-Lemma pending_not_ready : forall jobs m sched j t,
-    pending jobs j t ->
+(* A pre-release (waiting) job is not ready. *)
+Lemma waiting_not_ready : forall jobs m sched j t,
+    waiting jobs j t ->
     ~ready jobs m sched j t.
 Proof.
-  unfold pending, ready, eligible, released.
+  unfold waiting, ready, eligible, released.
   intros jobs m sched j t Hpend [[Hrel _] _]. lia.
 Qed.
 

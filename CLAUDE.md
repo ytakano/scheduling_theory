@@ -36,7 +36,7 @@ rocq compile Base.v && rocq compile Schedule.v && rocq compile scheduling.v
 
 The codebase is now modular:
 - `Base.v` — types (`JobId`, `TaskId`, `CPU`, `Time`), `Task`/`Job` records, `Schedule` type, and schedule-independent notions (`released`, `valid_jobs`, `valid_job_of_task`)
-- `Schedule.v` — schedule-dependent definitions (`runs_on`, `cpu_count`, `service_job`, `completed`, `pending`, `ready`, `sequential_jobs`, `valid_schedule`, `missed_deadline`, `feasible`, `schedulable`) and all Lv.0 lemmas
+- `Schedule.v` — schedule-dependent definitions (`runs_on`, `cpu_count`, `service_job`, `completed`, `waiting`, `ready`, `sequential_jobs`, `valid_schedule`, `missed_deadline`, `feasible`, `schedulable`) and all Lv.0 lemmas
 - `scheduling.v` — umbrella re-export (`Require Export Base. Require Export Schedule.`); provides backward compatibility for any file using `Require Import scheduling`
 
 New proofs and lemmas go in `Schedule.v` (or `Base.v` if they depend only on types/records).

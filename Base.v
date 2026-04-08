@@ -50,15 +50,15 @@ Definition Schedule : Type := Time -> CPU -> option JobId.
 Definition released (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop :=
   job_release (jobs j) <= t.
 
-(* A job is pending (pre-release): not yet released at time t.
+(* A job is waiting (pre-release): not yet released at time t.
    This predicate is schedule-independent and depends only on the job's
    release time. Contrast with runnable (released but not completed) in
    Schedule.v. *)
-Definition pending (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop :=
+Definition waiting (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop :=
   t < job_release (jobs j).
 
 (* A job set is valid when every job has positive cost.
-   Zero-cost jobs are immediately completed at t=0 and thus never pending/ready.
+   Zero-cost jobs are immediately completed at t=0 and thus never waiting/ready.
    This predicate will be used by periodic job generation (Phase 12+):
    e.g. "released directly implies potentially ready" relies on 0 < job_cost. *)
 Definition valid_jobs (jobs : JobId -> Job) : Prop :=
