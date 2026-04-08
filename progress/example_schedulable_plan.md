@@ -1,4 +1,4 @@
-# Proof Plan: example_schedulable
+# Proof Plan: example_schedulable (v2 — schedulable_by / schedulable_by_on)
 
 ## Goal
 

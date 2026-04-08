@@ -1,4 +1,4 @@
-all: EDF.vo example_feasible.vo
+all: EDF.vo example_feasible.vo example_schedulable.vo
 
 Base.vo: Base.v
 	rocq compile Base.v
@@ -17,6 +17,9 @@ EDF.vo: EDF.v Schedule.vo Base.vo UniSchedulerInterface.vo
 
 example_feasible.vo: example_feasible.v Schedule.vo
 	rocq compile example_feasible.v
+
+example_schedulable.vo: example_schedulable.v Schedule.vo
+	rocq compile example_schedulable.v
 
 clean:
 	rm -f *.vo *.glob *.vok *.vos *.aux

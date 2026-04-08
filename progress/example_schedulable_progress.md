@@ -1,8 +1,8 @@
 # Proof Progress: example_schedulable
 
-## Status Overview
+## Status Overview (v2 — schedulable_by / schedulable_by_on)
 - Overall: Complete
-- Complete Lemmas: 4/4
+- Complete Lemmas: 11/11 (v2) + 4/4 (v1 example_feasible)
 - Unproven (`Admitted`): none
 - Failed/Abandoned Items: none
 
@@ -62,5 +62,63 @@ Proof.
 Qed.
 ```
 
+### `schedulable_by_implies_feasible` (v2)
+
+```coq
+Lemma schedulable_by_implies_feasible :
+    forall alg jobs m,
+      schedulable_by alg jobs m -> feasible jobs m.
+Proof.
+  intros alg jobs m [Hvalid Hfeas].
+  unfold feasible.
+  exists (run_scheduler alg jobs m).
+  split; assumption.
+Qed.
+```
+
+### `schedulable_by_implies_schedulable_by_on` (v2)
+
+```coq
+Lemma schedulable_by_implies_schedulable_by_on :
+    forall (J : JobId -> Prop) alg jobs m,
+      schedulable_by alg jobs m -> schedulable_by_on J alg jobs m.
+Proof.
+  intros J alg jobs m [Hvalid Hfeas].
+  unfold schedulable_by_on, feasible_schedule_on.
+  split.
+  - exact Hvalid.
+  - intros j _HJ. exact (Hfeas j).
+Qed.
+```
+
+### `schedulable_by_on_monotone` (v2)
+
+```coq
+Lemma schedulable_by_on_monotone :
+    forall (J J' : JobId -> Prop) alg jobs m,
+      (forall j, J j -> J' j) ->
+      schedulable_by_on J' alg jobs m ->
+      schedulable_by_on J alg jobs m.
+Proof.
+  intros J J' alg jobs m Hsubset [Hvalid Hfeas].
+  unfold schedulable_by_on, feasible_schedule_on.
+  split.
+  - exact Hvalid.
+  - intros j HJ. exact (Hfeas j (Hsubset j HJ)).
+Qed.
+```
+
+### Section SchedulableExample lemmas (v2)
+
+All compiled successfully in first attempt (2026-04-08):
+- `sc_cpu_count_le_1`: `simpl; unfold runs_on, sched_sc; rewrite Nat.eqb_refl; destruct; lia`
+- `sc_service_le_t`: induction + `service_job_step` + `sc_cpu_count_le_1` + `lia`
+- `sc_valid_schedule`: `c < 1 → c = 0`; `injection Hrun as Hj; subst j`; `Nat.ltb_lt`; `sc_service_le_t`
+- `sc_job0_completed`: `unfold ...; simpl; lia`
+- `sc_job0_meets_deadline`: `intro Hmiss; exact (Hmiss sc_job0_completed)`
+- `sc_feasible_schedule_on`: `intros j Hj; subst j; exact sc_job0_meets_deadline`
+- `sc_schedulable_by_on`: `rewrite alg_sc_runs_sched_sc; split; [exact ... | exact ...]`
+- `sc_schedulable_by_on_empty`: `apply schedulable_by_on_monotone`; `False_ind`
+
 ## TODO
-(すべて完了)
+(すべて完了 — v1 + v2)
