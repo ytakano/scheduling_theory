@@ -1,3 +1,5 @@
+all: EDF.vo example_feasible.vo
+
 Base.vo: Base.v
 	rocq compile Base.v
 

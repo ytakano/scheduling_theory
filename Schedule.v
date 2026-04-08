@@ -1,5 +1,7 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia.
 Require Import Base.
+(* Note: Base.pending (pre-release, schedule-independent) is now in scope.
+   Schedule.runnable (released AND NOT completed) replaces the old pending here. *)
 
 (* ===== Phase 1: Core Definitions ===== *)
 
@@ -32,20 +34,25 @@ Definition completed (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
   service_job m sched j t >= job_cost (jobs j).
 
-(* A job is pending: released and not yet completed.
-   Note: a zero-cost job is immediately completed at t=0, so it is never pending.
-   Use valid_jobs to exclude zero-cost jobs when needed. *)
-Definition pending (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+(* A job is running at time t: it occupies some CPU. *)
+Definition running (sched : Schedule) (j : JobId) (t : Time) : Prop :=
+  exists c : CPU, sched t c = Some j.
+
+(* A job is runnable: released and not yet completed.
+   This is the dispatch-eligible state: the scheduler may assign CPU time to
+   runnable jobs.  Zero-cost jobs are immediately completed at t=0 and thus
+   never runnable; use valid_jobs to exclude them when needed. *)
+Definition runnable (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
   released jobs j t /\ ~completed jobs m sched j t.
 
-(* A job is ready to execute.
-   現在は pending と等価。DAG 拡張時には node 単位の ready になる:
-     ready_node n t = pending_node n t /\ preds_completed n t
-   job-level ready はその後 "すべての ready node を持つ" などに変わる可能性がある。 *)
+(* A job is ready to execute: equivalent to runnable in the current model.
+   Future DAG extensions will refine this to: runnable AND all predecessors
+   completed.  The valid_schedule invariant is stated in terms of ready, so
+   changing this definition automatically propagates to all downstream proofs. *)
 Definition ready (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
-  pending jobs m sched j t.
+  runnable jobs m sched j t.
 
 (* Sequential-job 仮定: 同じ job は同時に複数 CPU で走らない。
    DAG job ではこの制約は job 単位ではなく node 単位になる:
@@ -333,7 +340,7 @@ Qed.
 Lemma completed_not_ready : forall jobs m sched j t,
     completed jobs m sched j t -> ~ready jobs m sched j t.
 Proof.
-  unfold completed, ready, pending.
+  unfold completed, ready, runnable.
   intros jobs m sched j t Hcomp [_ Hnot].
   exact (Hnot Hcomp).
 Qed.
@@ -341,21 +348,21 @@ Qed.
 Lemma ready_implies_released : forall jobs m sched j t,
     ready jobs m sched j t -> released jobs j t.
 Proof.
-  unfold ready, pending.
+  unfold ready, runnable.
   intros jobs m sched j t Hr. exact (proj1 Hr).
 Qed.
 
 Lemma ready_implies_not_completed : forall jobs m sched j t,
     ready jobs m sched j t -> ~completed jobs m sched j t.
 Proof.
-  unfold ready, pending.
+  unfold ready, runnable.
   intros jobs m sched j t Hr. exact (proj2 Hr).
 Qed.
 
 Lemma not_ready_before_release : forall jobs m sched j t,
     t < job_release (jobs j) -> ~ready jobs m sched j t.
 Proof.
-  unfold ready, pending, released.
+  unfold ready, runnable, released.
   intros jobs m sched j t Hlt [Hrel _]. lia.
 Qed.
 
@@ -374,7 +381,7 @@ Lemma ready_iff_released_and_not_completed : forall jobs m sched j t,
     ready jobs m sched j t <->
     released jobs j t /\ ~completed jobs m sched j t.
 Proof.
-  unfold ready, pending. tauto.
+  unfold ready, runnable. tauto.
 Qed.
 
 (* --- Lv.0-3: valid_schedule basics --- *)
@@ -385,7 +392,7 @@ Lemma valid_no_run_before_release : forall jobs m sched j t c,
     sched t c = Some j ->
     job_release (jobs j) <= t.
 Proof.
-  unfold valid_schedule, ready, pending, released.
+  unfold valid_schedule, ready, runnable, released.
   intros jobs m sched j t c Hv Hlt Hrun.
   exact (proj1 (Hv j t c Hlt Hrun)).
 Qed.
@@ -396,7 +403,7 @@ Lemma valid_no_run_after_completion : forall jobs m sched j t c,
     sched t c = Some j ->
     ~completed jobs m sched j t.
 Proof.
-  unfold valid_schedule, ready, pending.
+  unfold valid_schedule, ready, runnable.
   intros jobs m sched j t c Hv Hlt Hrun.
   exact (proj2 (Hv j t c Hlt Hrun)).
 Qed.
@@ -412,19 +419,87 @@ Proof.
 Qed.
 
 (* Convenience lemma for the current job-level model:
-   since ready = pending definitionally at this stage,
-   valid_schedule immediately implies pending for any running job.
+   since ready = runnable definitionally at this stage,
+   valid_schedule immediately implies runnable for any running job.
 
    Warning:
    this lemma may need to be reproved (rather than remain definitional)
    once DAG semantics are introduced and ready becomes strictly stronger
-   than pending at the node/job level. *)
-Lemma valid_running_implies_pending : forall jobs m sched j t c,
+   than runnable at the node/job level. *)
+Lemma valid_running_implies_runnable : forall jobs m sched j t c,
     valid_schedule jobs m sched ->
     c < m ->
     sched t c = Some j ->
-    pending jobs m sched j t.
+    runnable jobs m sched j t.
 Proof.
   intros jobs m sched j t c Hv Hlt Hrun.
   exact (Hv j t c Hlt Hrun).
+Qed.
+
+(* --- Lv.0-4: pending / runnable / running relationships --- *)
+
+(* A pre-release (pending) job is not runnable. *)
+Lemma pending_not_runnable : forall jobs m sched j t,
+    pending jobs j t ->
+    ~runnable jobs m sched j t.
+Proof.
+  unfold pending, runnable, released.
+  intros jobs m sched j t Hpend [Hrel _]. lia.
+Qed.
+
+(* A pre-release (pending) job is not ready. *)
+Lemma pending_not_ready : forall jobs m sched j t,
+    pending jobs j t ->
+    ~ready jobs m sched j t.
+Proof.
+  intros jobs m sched j t Hpend Hready.
+  apply (pending_not_runnable jobs m sched j t Hpend).
+  unfold ready in Hready. exact Hready.
+Qed.
+
+(* ready implies runnable (definitional, but useful as a named lemma). *)
+Lemma ready_implies_runnable : forall jobs m sched j t,
+    ready jobs m sched j t ->
+    runnable jobs m sched j t.
+Proof.
+  unfold ready. intros jobs m sched j t H. exact H.
+Qed.
+
+(* completed implies not runnable. *)
+Lemma completed_not_runnable : forall jobs m sched j t,
+    completed jobs m sched j t ->
+    ~runnable jobs m sched j t.
+Proof.
+  unfold completed, runnable.
+  intros jobs m sched j t Hcomp [_ Hnot].
+  exact (Hnot Hcomp).
+Qed.
+
+(* runnable implies released. *)
+Lemma runnable_after_release : forall jobs m sched j t,
+    runnable jobs m sched j t ->
+    job_release (jobs j) <= t.
+Proof.
+  unfold runnable, released.
+  intros jobs m sched j t [Hrel _]. exact Hrel.
+Qed.
+
+(* ready implies released. *)
+Lemma ready_after_release : forall jobs m sched j t,
+    ready jobs m sched j t ->
+    job_release (jobs j) <= t.
+Proof.
+  intros jobs m sched j t Hr.
+  apply (runnable_after_release jobs m sched j t).
+  exact (ready_implies_runnable jobs m sched j t Hr).
+Qed.
+
+(* Scheduling implies running. *)
+Lemma scheduled_implies_running : forall sched j t c,
+    sched t c = Some j ->
+    running sched j t.
+Proof.
+  unfold running.
+  intros sched j t c Hrun.
+  exists c. exact Hrun.
 Qed.

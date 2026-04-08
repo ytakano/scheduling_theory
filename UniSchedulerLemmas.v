@@ -43,11 +43,11 @@ Section UniSchedulerLemmasSection.
     exact (spec.(choose_ready) jobs m sched t candidates j Hchoose).
   Qed.
 
-  (* A2: the chosen job is pending (= ready in the current model). *)
-  Lemma choose_some_implies_pending :
+  (* A2: the chosen job is runnable (= ready in the current model). *)
+  Lemma choose_some_implies_runnable :
       forall j,
         spec.(choose) jobs m sched t candidates = Some j ->
-        pending jobs m sched j t.
+        runnable jobs m sched j t.
   Proof.
     intros j Hchoose.
     apply choose_some_implies_ready in Hchoose.
@@ -62,7 +62,7 @@ Section UniSchedulerLemmasSection.
         released jobs j t.
   Proof.
     intros j Hchoose.
-    apply choose_some_implies_pending in Hchoose.
+    apply choose_some_implies_runnable in Hchoose.
     exact (proj1 Hchoose).
   Qed.
 
@@ -73,7 +73,7 @@ Section UniSchedulerLemmasSection.
         ~completed jobs m sched j t.
   Proof.
     intros j Hchoose.
-    apply choose_some_implies_pending in Hchoose.
+    apply choose_some_implies_runnable in Hchoose.
     exact (proj2 Hchoose).
   Qed.
 
@@ -217,7 +217,7 @@ Section UniSchedulerLemmasSection.
   Proof.
     intros Hnone j Hin.
     pose proof (choose_none_implies_no_ready Hnone j Hin) as Hnready.
-    unfold ready, pending in Hnready.
+    unfold ready, runnable in Hnready.
     destruct (classic (released jobs j t)) as [Hrel | Hnrel].
     - right. apply NNPP. intro Hnc. apply Hnready. split; assumption.
     - left. exact Hnrel.

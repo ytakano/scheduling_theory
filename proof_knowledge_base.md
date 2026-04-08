@@ -641,3 +641,56 @@
 - **Dependencies**: `ready`, `pending`, `released`, `completed`
 - **Notes**: Simple decomposition lemmas. These were derivable from `choose_some_implies_pending` in the lemmas section, but as standalone Schedule.v lemmas they are useful for other proofs.
 - **Date**: 2026-04-07
+
+---
+
+### `pending_not_runnable`, `pending_not_ready`, `ready_implies_runnable`, `completed_not_runnable`, `runnable_after_release`, `ready_after_release`, `scheduled_implies_running` (Schedule.v Lv.0-4)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma pending_not_runnable : forall jobs m sched j t,
+      pending jobs j t -> ~runnable jobs m sched j t.
+  Lemma pending_not_ready : forall jobs m sched j t,
+      pending jobs j t -> ~ready jobs m sched j t.
+  Lemma ready_implies_runnable : forall jobs m sched j t,
+      ready jobs m sched j t -> runnable jobs m sched j t.
+  Lemma completed_not_runnable : forall jobs m sched j t,
+      completed jobs m sched j t -> ~runnable jobs m sched j t.
+  Lemma runnable_after_release : forall jobs m sched j t,
+      runnable jobs m sched j t -> job_release (jobs j) <= t.
+  Lemma ready_after_release : forall jobs m sched j t,
+      ready jobs m sched j t -> job_release (jobs j) <= t.
+  Lemma scheduled_implies_running : forall sched j t c,
+      sched t c = Some j -> running sched j t.
+  ```
+- **Proof Strategy**: All straightforward. `pending_not_runnable`: unfold pending/runnable/released, lia. `pending_not_ready`: apply pending_not_runnable + unfold ready. `ready_implies_runnable`: unfold ready, trivial (ready = runnable). `completed_not_runnable`: unfold, exact contradiction. `runnable_after_release`: unfold runnable/released, proj1. `ready_after_release`: via ready_implies_runnable + runnable_after_release. `scheduled_implies_running`: unfold running, exists c.
+- **Key Tactics**: `unfold pending, runnable, released`, `lia`, `proj1`, `exists c`
+- **Dependencies**: `pending` (Base.v), `runnable`, `ready`, `running`, `completed`, `released`
+- **Notes**: `ready_implies_runnable` requires `intros jobs m sched j t H` not `intros _ _ _ _ _ H` (Rocq 9 rejects wildcard when variable is used in conclusion). `ready_after_release` needs explicit `apply (runnable_after_release jobs m sched j t)` — implicit arguments not inferred for `apply runnable_after_release`.
+- **Date**: 2026-04-08
+
+---
+
+### State refactoring: pending/runnable/running/ready (2026-04-08)
+- **Type**: Definition (refactoring record)
+- **Statement**: Added to Base.v and Schedule.v as part of state vocabulary expansion.
+  ```coq
+  (* Base.v — schedule-independent *)
+  Definition pending (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop :=
+    t < job_release (jobs j).
+
+  (* Schedule.v *)
+  Definition running (sched : Schedule) (j : JobId) (t : Time) : Prop :=
+    exists c : CPU, sched t c = Some j.
+
+  Definition runnable (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+      (j : JobId) (t : Time) : Prop :=
+    released jobs j t /\ ~completed jobs m sched j t.
+
+  Definition ready ... := runnable ...   (* currently equal *)
+  ```
+- **Proof Strategy**: N/A (refactoring, not a theorem)
+- **Key Tactics**: N/A
+- **Dependencies**: N/A
+- **Notes**: The old `Schedule.v::pending` (= released AND NOT completed) was renamed to `runnable`. New `Base.v::pending` = pre-release (t < job_release). `ready = runnable` (unchanged semantics). `ready = runnable AND NOT running` was considered but REJECTED because `valid_schedule: sched t c = Some j → ready j t` would be contradictory (sched t c = Some j implies running, which would require NOT running). Cascading renames: `valid_running_implies_pending` → `valid_running_implies_runnable`; `choose_some_implies_pending` → `choose_some_implies_runnable`; all `unfold ..., pending` in Schedule.v proofs → `unfold ..., runnable`.
+- **Date**: 2026-04-08
