@@ -1,4 +1,4 @@
-From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia Classical.
 Require Import Base.
 Require Import ScheduleModel.
 Require Import SchedulerInterface.
@@ -339,8 +339,141 @@ Proof.
   apply choose_edf_agrees_before. exact Hagree.
 Qed.
 
-(* ===== Section 4: EDF violation の定義と抽出 ===== *)
-(* TODO *)
+(* ===== Section 4: canonical EDF 一致と EDF priority violation の定義と抽出 ===== *)
+
+(* 4-1: canonical な choose_edf と一致している (候補リスト明示版) *)
+Definition matches_choose_edf_at
+    (jobs : JobId -> Job)
+    (sched : Schedule)
+    (t : Time)
+    (candidates : list JobId) : Prop :=
+  sched t 0 = choose_edf jobs 1 sched t candidates.
+
+(* 4-1b: canonical な choose_edf と一致している (candidates_of 版) *)
+Definition matches_choose_edf_at_with
+    (jobs : JobId -> Job)
+    (candidates_of : CandidateSource)
+    (sched : Schedule)
+    (t : Time) : Prop :=
+  sched t 0 = choose_edf jobs 1 sched t (candidates_of jobs 1 sched t).
+
+(* 4-2: horizon H まで canonical choose_edf に一致する *)
+Definition matches_choose_edf_before
+    (jobs : JobId -> Job)
+    (candidates_of : CandidateSource)
+    (sched : Schedule)
+    (H : Time) : Prop :=
+  forall t, t < H ->
+    matches_choose_edf_at_with jobs candidates_of sched t.
+
+(* 4-3: EDF の本質的な priority 性質 (J なし版) *)
+Definition respects_edf_priority_at
+    (jobs : JobId -> Job)
+    (sched : Schedule)
+    (t : Time) : Prop :=
+  forall j j',
+    sched t 0 = Some j ->
+    eligible jobs 1 sched j' t ->
+    job_abs_deadline (jobs j') < job_abs_deadline (jobs j) ->
+    False.
+
+(* 4-3b: EDF の本質的な priority 性質 (J あり版) *)
+Definition respects_edf_priority_at_on
+    (J : JobId -> Prop)
+    (jobs : JobId -> Job)
+    (sched : Schedule)
+    (t : Time) : Prop :=
+  forall j j',
+    J j ->
+    J j' ->
+    sched t 0 = Some j ->
+    eligible jobs 1 sched j' t ->
+    job_abs_deadline (jobs j') < job_abs_deadline (jobs j) ->
+    False.
+
+(* 4-4: EDF violation at t — strict に早い deadline の eligible job を無視している *)
+Definition edf_violation_at
+    (jobs : JobId -> Job)
+    (sched : Schedule)
+    (t : Time) : Prop :=
+  exists j j',
+    sched t 0 = Some j /\
+    eligible jobs 1 sched j' t /\
+    job_abs_deadline (jobs j') < job_abs_deadline (jobs j).
+
+(* 4-5: canonical 不一致なら「別の min-or-better eligible job」がいる *)
+Lemma canonical_non_edf_step_has_other_min_or_better_eligible_job :
+  forall J candidates_of
+         (cand_spec : CandidateSourceSpec J candidates_of)
+         jobs sched t j,
+    valid_schedule jobs 1 sched ->
+    sched t 0 = Some j ->
+    J j ->
+    ~ matches_choose_edf_at_with jobs candidates_of sched t ->
+    exists j',
+      In j' (candidates_of jobs 1 sched t) /\
+      eligible jobs 1 sched j' t /\
+      job_abs_deadline (jobs j') <= job_abs_deadline (jobs j) /\
+      j' <> j.
+Proof.
+  intros J candidates_of cand_spec jobs sched t j Hvalid Hsched HJj Hnot.
+  (* Step 1: eligible jobs 1 sched j t from valid_schedule *)
+  assert (Helig_j : eligible jobs 1 sched j t).
+  { apply (valid_running_implies_eligible jobs 1 sched j t 0).
+    - exact Hvalid.
+    - lia.
+    - exact Hsched. }
+  (* Step 2: In j (candidates_of ...) from candidates_complete *)
+  assert (Hin_j : In j (candidates_of jobs 1 sched t)).
+  { destruct cand_spec as [_ Hcomplete _].
+    exact (Hcomplete jobs 1 sched t j HJj Helig_j). }
+  (* Step 3: choose_edf returns Some j' *)
+  destruct (choose_edf_some_if_exists jobs 1 sched t (candidates_of jobs 1 sched t))
+      as [j' Hchoose].
+  { exists j. split. exact Hin_j. exact Helig_j. }
+  (* Step 4: properties of j' *)
+  assert (Hj'_in : In j' (candidates_of jobs 1 sched t)).
+  { exact (choose_edf_in_candidates jobs 1 sched t _ j' Hchoose). }
+  assert (Hj'_elig : eligible jobs 1 sched j' t).
+  { exact (choose_edf_eligible jobs 1 sched t _ j' Hchoose). }
+  assert (Hj'_le : job_abs_deadline (jobs j') <= job_abs_deadline (jobs j)).
+  { exact (choose_edf_min_deadline jobs 1 sched t _ j' Hchoose j Hin_j Helig_j). }
+  (* Step 5: j' <> j from ~ matches_choose_edf_at_with *)
+  assert (Hneq : j' <> j).
+  { intro Heq. subst j'.
+    apply Hnot. unfold matches_choose_edf_at_with.
+    rewrite Hsched. symmetry. exact Hchoose. }
+  exists j'.
+  split. exact Hj'_in.
+  split. exact Hj'_elig.
+  split. exact Hj'_le.
+  exact Hneq.
+Qed.
+
+(* 4-6: 最初の EDF violation 時刻の抽出 *)
+Lemma exists_first_edf_violation_before :
+  forall jobs sched H,
+    (exists t, t < H /\ edf_violation_at jobs sched t) ->
+    exists t0,
+      t0 < H /\
+      edf_violation_at jobs sched t0 /\
+      (forall t, t < t0 -> ~ edf_violation_at jobs sched t).
+Proof.
+  intros jobs sched H [t [HtH Hviol]].
+  revert H HtH.
+  induction t as [t IH] using (well_founded_induction lt_wf).
+  intros H HtH.
+  destruct (classic (exists t', t' < t /\ edf_violation_at jobs sched t'))
+      as [[t' [Hlt' Hviol']] | Hmin].
+  - (* Smaller violation exists: apply IH to t' *)
+    exact (IH t' Hlt' Hviol' H (Nat.lt_trans _ _ _ Hlt' HtH)).
+  - (* t is the minimum violation *)
+    exists t.
+    split. exact HtH.
+    split. exact Hviol.
+    intros t' Hlt' Hviol'.
+    apply Hmin. exists t'. split. exact Hlt'. exact Hviol'.
+Qed.
 
 (* ===== Section 5: 最適性定理への橋渡し補題 ===== *)
 (* TODO *)

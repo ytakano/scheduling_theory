@@ -1381,3 +1381,65 @@
 - **Dependencies**: `candidates_of_agrees_before`, `choose_edf_agrees_before`
 - **Notes**: `dispatch edf_generic_spec` reduces via `simpl` because `edf_generic_spec = mkGenericDispatchSpec choose_edf ...` and `dispatch` is just the first field projection.
 - **Date**: 2026-04-09
+
+---
+
+### `matches_choose_edf_at` / `matches_choose_edf_at_with` / `matches_choose_edf_before` / `respects_edf_priority_at` / `respects_edf_priority_at_on` / `edf_violation_at`
+- **Type**: Definition (Section 4 definitions, EDFLemmas.v)
+- **Statement**: Six definitions for canonical EDF match and priority violation:
+  - `matches_choose_edf_at jobs sched t candidates`: `sched t 0 = choose_edf jobs 1 sched t candidates`
+  - `matches_choose_edf_at_with jobs candidates_of sched t`: uses `candidates_of` to supply candidates
+  - `matches_choose_edf_before jobs candidates_of sched H`: `forall t, t < H -> matches_choose_edf_at_with ...`
+  - `respects_edf_priority_at jobs sched t`: no earlier-dl eligible job ignored at t
+  - `respects_edf_priority_at_on J jobs sched t`: same with explicit job set J
+  - `edf_violation_at jobs sched t`: `exists j j', sched t 0 = Some j /\ eligible ... j' t /\ dl j' < dl j`
+- **Proof Strategy**: Direct definitions — no proof needed.
+- **Key Tactics**: N/A
+- **Dependencies**: `choose_edf`, `eligible`, `CandidateSource`
+- **Notes**: `matches_choose_edf_at_with` can be false even for EDF-correct choices when a tie-deadline job is chosen instead. It expresses *canonical* agreement, not the EDF semantic property. The semantic property is `respects_edf_priority_at`.
+- **Date**: 2026-04-09
+
+---
+
+### `canonical_non_edf_step_has_other_min_or_better_eligible_job`
+- **Type**: Lemma (4-5, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma canonical_non_edf_step_has_other_min_or_better_eligible_job :
+    forall J candidates_of (cand_spec : CandidateSourceSpec J candidates_of)
+           jobs sched t j,
+      valid_schedule jobs 1 sched ->
+      sched t 0 = Some j ->
+      J j ->
+      ~ matches_choose_edf_at_with jobs candidates_of sched t ->
+      exists j',
+        In j' (candidates_of jobs 1 sched t) /\
+        eligible jobs 1 sched j' t /\
+        job_abs_deadline (jobs j') <= job_abs_deadline (jobs j) /\
+        j' <> j.
+  ```
+- **Proof Strategy**: (1) `valid_running_implies_eligible` (c=0, lia for c<1) → `eligible j`. (2) `candidates_complete` → `In j candidates`. (3) `choose_edf_some_if_exists` → `Some j'`. (4) `choose_edf_in_candidates`, `choose_edf_eligible`, `choose_edf_min_deadline` give properties of j'. (5) `~ matches_choose_edf_at_with` + `Hsched : sched t 0 = Some j` + `Hchoose : choose_edf ... = Some j'`: if `j' = j` then `subst j'` + `rewrite Hsched; symmetry; exact Hchoose` contradicts `Hnot`.
+- **Key Tactics**: `valid_running_implies_eligible`, `destruct cand_spec as [_ Hcomplete _]`, `choose_edf_some_if_exists`, `choose_edf_in_candidates`, `choose_edf_eligible`, `choose_edf_min_deadline`, `subst`, `symmetry`
+- **Dependencies**: `valid_running_implies_eligible`, `CandidateSourceSpec`, `choose_edf_some_if_exists`, `choose_edf_in_candidates`, `choose_edf_eligible`, `choose_edf_min_deadline`
+- **Notes**: ⚠️ `matches_choose_edf_at_with` is `sched t 0 = choose_edf ...`, so to derive contradiction from `Hnot : ~ matches_choose_edf_at_with` we need `sched t 0 = choose_edf ...`. After `subst j'`, `Hchoose : choose_edf ... = Some j`. Use `rewrite Hsched; symmetry; exact Hchoose` (not `rewrite Hchoose`). ⚠️ `CandidateSourceSpec` has 2 explicit parameters — use `destruct cand_spec as [_ Hcomplete _]` not `.()` projection.
+- **Date**: 2026-04-09
+
+---
+
+### `exists_first_edf_violation_before`
+- **Type**: Lemma (4-6, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma exists_first_edf_violation_before :
+    forall jobs sched H,
+      (exists t, t < H /\ edf_violation_at jobs sched t) ->
+      exists t0,
+        t0 < H /\
+        edf_violation_at jobs sched t0 /\
+        (forall t, t < t0 -> ~ edf_violation_at jobs sched t).
+  ```
+- **Proof Strategy**: Intro and destruct the witness `[t [HtH Hviol]]`. Revert `H HtH`. Apply `well_founded_induction lt_wf` on `t`. `classic` on `exists t', t' < t /\ edf_violation_at ... t'`. If yes: apply IH directly. If no: `t` itself is minimal — produce it as the witness.
+- **Key Tactics**: `well_founded_induction lt_wf`, `classic`, `Nat.lt_trans`
+- **Dependencies**: `edf_violation_at`, `Classical` (for `classic`)
+- **Notes**: ⚠️ `well_founded_induction lt_wf` generalizes `Hviol : edf_violation_at ... t` into IH (since it depends on `t`). IH becomes `forall y, y < t -> edf_violation_at ... y -> forall H, y < H -> exists t0, ...`. So the call is `IH t' Hlt' Hviol' H (Nat.lt_trans _ _ _ Hlt' HtH)` — NOT `IH t' Hlt' H (Nat.lt_trans ...)`. ⚠️ Requires `From Stdlib Require Import ... Classical` in the file header.
+- **Date**: 2026-04-09
