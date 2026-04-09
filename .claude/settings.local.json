@@ -34,7 +34,10 @@
       "Bash(echo \"ALL OK EXIT:$?\")",
       "Bash(echo \"All exit: $?\")",
       "Bash(cat /scheduling_theory/progress/*.md)",
-      "Bash(xargs -I{} basename {})"
+      "Bash(xargs -I{} basename {})",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(make)",
+      "Bash(make clean:*)"
     ]
   },
   "deny": [
