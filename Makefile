@@ -1,4 +1,4 @@
-all: EDF.vo FeasibleExamples.vo SchedulableExamples.vo Partitioned.vo FIFO.vo FIFOExamples.vo PeriodicTasks.vo DispatchLemmas.vo DispatchClassicalLemmas.vo
+all: EDF.vo FeasibleExamples.vo SchedulableExamples.vo Partitioned.vo FIFO.vo FIFOExamples.vo PeriodicTasks.vo DispatchLemmas.vo DispatchClassicalLemmas.vo DispatchSchedulerBridge.vo
 
 Base.vo: Base.v
 	rocq compile Base.v
@@ -21,16 +21,19 @@ DispatchLemmas.vo: DispatchLemmas.v DispatchInterface.vo
 DispatchClassicalLemmas.vo: DispatchClassicalLemmas.v DispatchLemmas.vo
 	rocq compile DispatchClassicalLemmas.v
 
-EDF.vo: EDF.v ScheduleModel.vo Base.vo DispatchInterface.vo
+DispatchSchedulerBridge.vo: DispatchSchedulerBridge.v DispatchInterface.vo SchedulerInterface.vo
+	rocq compile DispatchSchedulerBridge.v
+
+EDF.vo: EDF.v ScheduleModel.vo Base.vo SchedulerInterface.vo DispatchInterface.vo DispatchSchedulerBridge.vo
 	rocq compile EDF.v
 
-FIFO.vo: FIFO.v ScheduleModel.vo Base.vo DispatchInterface.vo
+FIFO.vo: FIFO.v ScheduleModel.vo Base.vo SchedulerInterface.vo DispatchInterface.vo DispatchSchedulerBridge.vo
 	rocq compile FIFO.v
 
 FIFOExamples.vo: FIFOExamples.v FIFO.vo ScheduleModel.vo Base.vo
 	rocq compile FIFOExamples.v
 
-Partitioned.vo: Partitioned.v ScheduleModel.vo Base.vo DispatchInterface.vo
+Partitioned.vo: Partitioned.v ScheduleModel.vo Base.vo SchedulerInterface.vo DispatchInterface.vo
 	rocq compile Partitioned.v
 
 FeasibleExamples.vo: FeasibleExamples.v ScheduleModel.vo

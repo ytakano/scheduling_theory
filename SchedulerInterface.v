@@ -2,22 +2,28 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
 Require Import Base.
 Require Import ScheduleModel.
 
-(* Abstract scheduler: maps a job set and CPU count to a schedule. *)
-Parameter Scheduler : Type.
-Parameter run_scheduler : Scheduler -> (JobId -> Job) -> nat -> Schedule.
+(* Abstract scheduler: a relation between a job set, CPU count, and schedule.
+   scheduler_rel alg jobs m sched holds when sched is a valid execution of alg. *)
+Record Scheduler : Type := mkScheduler {
+  scheduler_rel : (JobId -> Job) -> nat -> Schedule -> Prop
+}.
 
-(* A job set is schedulable by algorithm alg if the produced schedule
-   is valid and feasible. *)
+(* A job set is schedulable by algorithm alg if there exists a schedule
+   that the algorithm produces and that is both valid and feasible. *)
 Definition schedulable_by
     (alg : Scheduler) (jobs : JobId -> Job) (m : nat) : Prop :=
-  valid_schedule jobs m (run_scheduler alg jobs m) /\
-  feasible_schedule jobs m (run_scheduler alg jobs m).
+  exists sched,
+    scheduler_rel alg jobs m sched /\
+    valid_schedule jobs m sched /\
+    feasible_schedule jobs m sched.
 
 (* Subset variant: schedulable by alg restricted to job set J. *)
 Definition schedulable_by_on (J : JobId -> Prop)
     (alg : Scheduler) (jobs : JobId -> Job) (m : nat) : Prop :=
-  valid_schedule jobs m (run_scheduler alg jobs m) /\
-  feasible_schedule_on J jobs m (run_scheduler alg jobs m).
+  exists sched,
+    scheduler_rel alg jobs m sched /\
+    valid_schedule jobs m sched /\
+    feasible_schedule_on J jobs m sched.
 
 (* --- Lv.0-5: schedulable_by / schedulable_by_on --- *)
 
@@ -26,9 +32,9 @@ Lemma schedulable_by_implies_feasible :
     forall alg jobs m,
       schedulable_by alg jobs m -> feasible jobs m.
 Proof.
-  intros alg jobs m [Hvalid Hfeas].
+  intros alg jobs m [sched [_Hrel [Hvalid Hfeas]]].
   unfold feasible.
-  exists (run_scheduler alg jobs m).
+  exists sched.
   split; assumption.
 Qed.
 
@@ -37,11 +43,12 @@ Lemma schedulable_by_implies_schedulable_by_on :
     forall (J : JobId -> Prop) alg jobs m,
       schedulable_by alg jobs m -> schedulable_by_on J alg jobs m.
 Proof.
-  intros J alg jobs m [Hvalid Hfeas].
+  intros J alg jobs m [sched [Hrel [Hvalid Hfeas]]].
   unfold schedulable_by_on, feasible_schedule_on.
-  split.
-  - exact Hvalid.
-  - intros j _HJ. exact (Hfeas j).
+  exists sched.
+  split; [exact Hrel |].
+  split; [exact Hvalid |].
+  intros j _HJ. exact (Hfeas j).
 Qed.
 
 (* schedulable_by_on is monotone: narrowing the job set preserves schedulability. *)
@@ -51,9 +58,10 @@ Lemma schedulable_by_on_monotone :
       schedulable_by_on J' alg jobs m ->
       schedulable_by_on J alg jobs m.
 Proof.
-  intros J J' alg jobs m Hsubset [Hvalid Hfeas].
+  intros J J' alg jobs m Hsubset [sched [Hrel [Hvalid Hfeas]]].
   unfold schedulable_by_on, feasible_schedule_on.
-  split.
-  - exact Hvalid.
-  - intros j HJ. exact (Hfeas j (Hsubset j HJ)).
+  exists sched.
+  split; [exact Hrel |].
+  split; [exact Hvalid |].
+  intros j HJ. exact (Hfeas j (Hsubset j HJ)).
 Qed.

@@ -10,10 +10,11 @@
       alg が生成するスケジュールが valid かつ J 上で feasible
       （J に属するジョブのみ締切を守る）
 
-  【Scheduler は抽象 Parameter】
+  【Scheduler は抽象 Record】
   具体的アルゴリズムは定義されていない。
-  本ファイルでは Variable/Hypothesis を用い、あるアルゴリズムが特定の
-  スケジュールを生成すると仮定して schedulable_by_on を導出する。
+  本ファイルでは Variable/Hypothesis を用い、あるアルゴリズムの
+  scheduler_rel が sched_sc を認める（holds for sched_sc）と仮定して
+  schedulable_by_on を導出する。
 
   【注意: jobs_sc の全域性】
   jobs_sc は全 JobId に同じジョブ（cost=2）を返す定数関数。
@@ -69,8 +70,8 @@ Section SchedulableExample.
 
   Variable alg_sc : Scheduler.
 
-  (** 仮説: アルゴリズム alg_sc は jobs_sc・1 CPU で sched_sc を生成する *)
-  Hypothesis alg_sc_runs_sched_sc : run_scheduler alg_sc jobs_sc 1 = sched_sc.
+  (** 仮説: alg_sc の scheduler_rel は jobs_sc・1 CPU で sched_sc を認める *)
+  Hypothesis alg_sc_spec : scheduler_rel alg_sc jobs_sc 1 sched_sc.
 
   (* -------------------------------------------------------------- *)
   (** *** 補助補題: cpu_count の上界                                 *)
@@ -189,17 +190,16 @@ Section SchedulableExample.
 
   (**
     schedulable_by_on (fun j => j = 0) alg_sc jobs_sc 1:
-    alg_sc が生成するスケジュールは job 0 について valid かつ feasible。
-    仮説 alg_sc_runs_sched_sc で run_scheduler を sched_sc に書き換える。
+    alg_sc の scheduler_rel は sched_sc を認め、sched_sc は job 0 について
+    valid かつ feasible。sched_sc を存在証人として提供する。
   *)
   Theorem sc_schedulable_by_on :
       schedulable_by_on (fun j => j = 0) alg_sc jobs_sc 1.
   Proof.
     unfold schedulable_by_on.
-    rewrite alg_sc_runs_sched_sc.
-    split.
-    - exact sc_valid_schedule.
-    - exact sc_feasible_schedule_on.
+    exists sched_sc.
+    split; [exact alg_sc_spec |].
+    split; [exact sc_valid_schedule | exact sc_feasible_schedule_on].
   Qed.
 
   (* -------------------------------------------------------------- *)

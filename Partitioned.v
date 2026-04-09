@@ -1,6 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
+Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Import ListNotations.
 
@@ -319,3 +320,16 @@ Section PartitionedSection.
   Qed.
 
 End PartitionedSection.
+
+(* Lift the partitioned_schedule relation into the Scheduler abstraction.
+   partitioned_scheduler holds for a global schedule whenever that schedule
+   satisfies the static-assignment dispatch policy for xs. *)
+Definition partitioned_scheduler
+    (assign : JobId -> CPU)
+    (n : nat)
+    (spec : GenericDispatchSpec)
+    (xs : list JobId)
+    : Scheduler :=
+  mkScheduler (fun jobs m sched =>
+    m = n /\
+    valid_partitioned_schedule assign n spec jobs sched xs).

@@ -1,7 +1,9 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
+Require Import SchedulerInterface.
 Require Import DispatchInterface.
+Require Import DispatchSchedulerBridge.
 Import ListNotations.
 
 (* ===== EDF Dispatcher: Definitions ===== *)
@@ -310,3 +312,10 @@ Section EDFSchedulerLemmasSection.
   Qed.
 
 End EDFSchedulerLemmasSection.
+
+(* Lift edf_generic_spec into a Scheduler relation for the single-CPU case.
+   candidates_of supplies the candidate list at each time step. *)
+Definition edf_scheduler
+    (candidates_of : (JobId -> Job) -> nat -> Schedule -> Time -> list JobId)
+    : Scheduler :=
+  single_cpu_dispatch_schedule edf_generic_spec candidates_of.
