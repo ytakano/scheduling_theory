@@ -30,7 +30,8 @@ rocq compile Base.v
 rocq compile ScheduleModel.v      # requires Base.vo
 rocq compile SchedulerInterface.v # requires ScheduleModel.vo
 rocq compile Schedule.v           # re-exports ScheduleModel + SchedulerInterface
-rocq compile UniSchedulerInterface.v  # requires Schedule.vo Base.vo
+rocq compile DispatchInterface.v  # requires Schedule.vo Base.vo
+rocq compile UniSchedulerInterface.v  # re-exports DispatchInterface (+ aliases)
 rocq compile EDF.v          # requires UniSchedulerInterface.vo
 rocq compile FIFO.v         # requires UniSchedulerInterface.vo
 rocq compile Partitioned.v  # requires UniSchedulerInterface.vo
@@ -47,11 +48,12 @@ Base.v
   └── ScheduleModel.v               (schedule semantics)
         └── SchedulerInterface.v    (abstract scheduler + schedulability)
               └── Schedule.v        (re-export: ScheduleModel + SchedulerInterface)
-                    └── UniSchedulerInterface.v
-                          ├── UniSchedulerLemmas.v   (policy-independent GenericSchedulerDecisionSpec lemmas)
-                          ├── EDF.v                  (EDF dispatcher + EDFSchedulerSpec)
-                          ├── FIFO.v                 (FIFO dispatcher + fifo_generic_spec)
-                          └── Partitioned.v          (Lv.5 multicore: static assignment lifting)
+                    └── DispatchInterface.v   (GenericDispatchSpec: single-CPU dispatch policy)
+                          └── UniSchedulerInterface.v  (re-export + backward-compat aliases)
+                                ├── UniSchedulerLemmas.v   (policy-independent GenericDispatchSpec lemmas)
+                                ├── EDF.v                  (EDF dispatcher + EDFSchedulerSpec)
+                                ├── FIFO.v                 (FIFO dispatcher + fifo_generic_spec)
+                                └── Partitioned.v          (Lv.5 multicore: static assignment lifting)
   └── PeriodicTasks.v               (periodic task → job generation model)
 ```
 
@@ -61,10 +63,11 @@ Base.v
 | `ScheduleModel.v` | `runs_on`, `cpu_count`, `service_job`, `completed`, `running`, `eligible`, `ready`, `sequential_jobs`, `valid_schedule`, `missed_deadline`, `feasible_schedule`, `feasible`, `feasible_schedule_on`, `feasible_on`, `readyb`; all Lv.0–Lv.0-4 lemmas |
 | `SchedulerInterface.v` | `Scheduler` (Parameter), `run_scheduler` (Parameter), `schedulable_by`, `schedulable_by_on`; Lv.0-5 lemmas |
 | `Schedule.v` | Compatibility re-export: `Require Export ScheduleModel. Require Export SchedulerInterface.` |
-| `UniSchedulerInterface.v` | `GenericSchedulerDecisionSpec` record: `choose_g` function + 4 specs (`choose_g_ready`, `choose_g_some_if_ready`, `choose_g_none_if_no_ready`, `choose_g_in_candidates`) |
-| `UniSchedulerLemmas.v` | Policy-independent lemmas derived from `GenericSchedulerDecisionSpec` (soundness, coverage) |
+| `DispatchInterface.v` | `GenericDispatchSpec` record: `dispatch` function + 4 specs (`dispatch_ready`, `dispatch_some_if_ready`, `dispatch_none_if_no_ready`, `dispatch_in_candidates`) |
+| `UniSchedulerInterface.v` | Compatibility re-export: `Require Export DispatchInterface.` + `Abbreviation` aliases for old names |
+| `UniSchedulerLemmas.v` | Policy-independent lemmas derived from `GenericDispatchSpec` (soundness, coverage) |
 | `EDF.v` | `choose_edf`, `edf_scheduler_spec : EDFSchedulerSpec`, EDF-specific lemmas |
-| `FIFO.v` | `choose_fifo`, `fifo_generic_spec : GenericSchedulerDecisionSpec`, FIFO-specific lemmas |
+| `FIFO.v` | `choose_fifo`, `fifo_generic_spec : GenericDispatchSpec`, FIFO-specific lemmas |
 | `Partitioned.v` | `assign`, `cpu_schedule`, `respects_assignment`, `valid_partitioned_schedule`; theorems: `service_decomposition`, `completed_iff_on_assigned_cpu`, `local_to_global_validity`, `missed_deadline_iff_on_assigned_cpu`, `local_feasible_implies_global_feasible_schedule`, `local_valid_feasible_implies_global` |
 | `PeriodicTasks.v` | `generated_by_periodic_task` predicate, `expected_release`, `expected_abs_deadline` |
 

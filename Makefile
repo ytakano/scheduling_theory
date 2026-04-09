@@ -15,7 +15,10 @@ Schedule.vo: Schedule.v ScheduleModel.vo SchedulerInterface.vo
 PeriodicTasks.vo: PeriodicTasks.v Base.vo
 	rocq compile PeriodicTasks.v
 
-UniSchedulerInterface.vo: UniSchedulerInterface.v Schedule.vo Base.vo
+DispatchInterface.vo: DispatchInterface.v Schedule.vo Base.vo
+	rocq compile DispatchInterface.v
+
+UniSchedulerInterface.vo: UniSchedulerInterface.v DispatchInterface.vo
 	rocq compile UniSchedulerInterface.v
 
 UniSchedulerLemmas.vo: UniSchedulerInterface.vo
