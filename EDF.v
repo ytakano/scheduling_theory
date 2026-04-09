@@ -248,7 +248,7 @@ Proof.
     lia.
 Qed.
 
-(* ===== Phase 6: EDF satisfies UniSchedulerSpec ===== *)
+(* ===== Phase 6: EDF satisfies GenericDispatchSpec and EDFSchedulerSpec ===== *)
 
 (* The chosen job is always a member of the candidate list. *)
 Lemma choose_edf_in_candidates : forall jobs m sched t candidates j,
@@ -261,12 +261,85 @@ Proof.
   exact (proj1 Hchoose).
 Qed.
 
-(* EDF is a concrete instance of the abstract single-CPU scheduler interface. *)
-Definition edf_scheduler_spec : UniSchedulerSpec :=
-  mkUniSchedulerSpec
+(* EDF satisfies the generic (policy-independent) dispatch interface. *)
+Definition edf_generic_spec : GenericDispatchSpec :=
+  mkGenericDispatchSpec
     choose_edf
     choose_edf_ready
-    choose_edf_min_deadline
     choose_edf_some_if_exists
     choose_edf_none_if_no_ready
     choose_edf_in_candidates.
+
+(* EDF-specific scheduler spec: extends GenericDispatchSpec with the
+   minimum-deadline invariant.  This is the full EDF interface. *)
+Record EDFSchedulerSpec : Type := mkEDFSchedulerSpec {
+  (* Sub-record coercion: an EDFSchedulerSpec can be used where a
+     GenericDispatchSpec is expected. *)
+  edf_generic :> GenericDispatchSpec ;
+
+  (* EDF policy invariant: the chosen job has the minimum absolute deadline
+     among all ready candidates. *)
+  edf_choose_min_deadline :
+    forall jobs m sched t candidates j,
+      choose_g edf_generic jobs m sched t candidates = Some j ->
+      forall j', In j' candidates ->
+      ready jobs m sched j' t ->
+      job_abs_deadline (jobs j) <= job_abs_deadline (jobs j') ;
+}.
+
+(* EDF is a concrete instance of EDFSchedulerSpec. *)
+Definition edf_scheduler_spec : EDFSchedulerSpec :=
+  mkEDFSchedulerSpec
+    edf_generic_spec
+    choose_edf_min_deadline.
+
+(* ===== Phase 7: EDF-specific lemmas (policy invariant consequences) ===== *)
+
+Section EDFSchedulerLemmasSection.
+
+  Variable spec        : EDFSchedulerSpec.
+  Variable jobs        : JobId -> Job.
+  Variable m           : nat.
+  Variable sched       : Schedule.
+  Variable t           : Time.
+  Variable candidates  : list JobId.
+
+  (* A5: the chosen job has minimum absolute deadline among all ready candidates. *)
+  Lemma edf_choose_some_implies_min_deadline :
+      forall j j',
+        spec.(choose_g) jobs m sched t candidates = Some j ->
+        In j' candidates ->
+        ready jobs m sched j' t ->
+        job_abs_deadline (jobs j) <= job_abs_deadline (jobs j').
+  Proof.
+    intros j j' Hchoose Hin Hready.
+    exact (spec.(edf_choose_min_deadline) jobs m sched t candidates j Hchoose j' Hin Hready).
+  Qed.
+
+  (* C1: no ready candidate has strictly smaller deadline than the chosen job. *)
+  Lemma edf_choose_some_implies_no_earlier_deadline_candidate :
+      forall j,
+        spec.(choose_g) jobs m sched t candidates = Some j ->
+        ~exists j', In j' candidates /\ ready jobs m sched j' t /\
+                    job_abs_deadline (jobs j') < job_abs_deadline (jobs j).
+  Proof.
+    intros j Hchoose [j' [Hin [Hready Hlt]]].
+    pose proof (edf_choose_some_implies_min_deadline j j' Hchoose Hin Hready) as Hle.
+    lia.
+  Qed.
+
+  (* C2: if a ready candidate has deadline <= chosen deadline, they are equal. *)
+  Lemma edf_choose_some_tie_deadline :
+      forall j j',
+        spec.(choose_g) jobs m sched t candidates = Some j ->
+        In j' candidates ->
+        ready jobs m sched j' t ->
+        job_abs_deadline (jobs j') <= job_abs_deadline (jobs j) ->
+        job_abs_deadline (jobs j) = job_abs_deadline (jobs j').
+  Proof.
+    intros j j' Hchoose Hin Hready Hle.
+    pose proof (edf_choose_some_implies_min_deadline j j' Hchoose Hin Hready) as Hle2.
+    lia.
+  Qed.
+
+End EDFSchedulerLemmasSection.

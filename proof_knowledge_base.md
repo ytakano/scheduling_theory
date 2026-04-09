@@ -694,3 +694,91 @@
 - **Dependencies**: N/A
 - **Notes**: The old `Schedule.v::pending` (= released AND NOT completed) was renamed to `runnable`. New `Base.v::waiting` = pre-release (t < job_release). `ready = runnable` (unchanged semantics). `ready = runnable AND NOT running` was considered but REJECTED because `valid_schedule: sched t c = Some j → ready j t` would be contradictory (sched t c = Some j implies running, which would require NOT running). Cascading renames: `valid_running_implies_pending` → `valid_running_implies_runnable`; `choose_some_implies_pending` → `choose_some_implies_runnable`; all `unfold ..., pending` in Schedule.v proofs → `unfold ..., runnable`.
 - **Date**: 2026-04-08
+
+---
+
+### Interface refactoring: `UniSchedulerSpec` → `GenericDispatchSpec` + `EDFSchedulerSpec` (2026-04-09)
+- **Type**: Definition (refactoring record)
+- **Statement**:
+  ```coq
+  (* UniSchedulerInterface.v *)
+  Record GenericDispatchSpec : Type := mkGenericDispatchSpec {
+    choose_g : (JobId -> Job) -> nat -> Schedule -> Time -> list JobId -> option JobId;
+    choose_g_ready : ...;
+    choose_g_some_if_ready : ...;
+    choose_g_none_if_no_ready : ...;
+    choose_g_in_candidates : ...;
+  }.
+
+  (* EDF.v *)
+  Record EDFSchedulerSpec : Type := mkEDFSchedulerSpec {
+    edf_generic :> GenericDispatchSpec;   (* coercion *)
+    edf_choose_min_deadline : ...;
+  }.
+  ```
+- **Proof Strategy**: N/A (refactoring)
+- **Key Tactics**: N/A
+- **Dependencies**: N/A
+- **Notes**: `UniSchedulerSpec` was removed and replaced by `GenericDispatchSpec` (generic) in `UniSchedulerInterface.v`. `EDFSchedulerSpec` (EDF-specific) lives in `EDF.v`. The `:>` coercion on `edf_generic` lets `EDFSchedulerSpec` be passed wherever `GenericDispatchSpec` is expected. `UniSchedulerLemmas.v` was updated to use `GenericDispatchSpec`; EDF-specific lemmas A5/C1/C2 were moved to `EDFSchedulerLemmasSection` in `EDF.v`. Section name in `Partitioned.v` is `PartitionedSection` (not `Partitioned`) to avoid masking warning.
+- **Date**: 2026-04-09
+
+---
+
+### `cpu_count_assigned_only` (Partitioned.v)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma cpu_count_assigned_only :
+    forall sched,
+      respects_assignment sched ->
+      forall j t,
+        cpu_count sched j t m = if runs_on sched j t (assign j) then 1 else 0.
+  ```
+- **Proof Strategy**: Case split on `runs_on sched j t (assign j)`.
+  - `true`: lower bound via `cpu_count_pos_iff_executed` (witness = assign j, use `valid_assignment j`); upper bound via `cpu_count_le_1` + `partitioned_implies_sequential`. Conclude by `lia`.
+  - `false`: `cpu_count_zero_iff_not_executed`; any c < m with `sched t c = Some j` gives `assign j = c` via `respects_assignment`; then `runs_on_false_iff` + `rewrite Hassign` on `Erun : runs_on ... = false` to derive contradiction.
+- **Key Tactics**: `destruct (runs_on ...) eqn:Erun`, `cpu_count_pos_iff_executed`, `cpu_count_le_1`, `partitioned_implies_sequential`, `cpu_count_zero_iff_not_executed`, `runs_on_true_iff`, `runs_on_false_iff`, `lia`
+- **Dependencies**: `cpu_count_pos_iff_executed`, `cpu_count_le_1`, `cpu_count_zero_iff_not_executed`, `sequential_jobs`, `runs_on_true_iff`, `runs_on_false_iff`
+- **Notes**: ⚠️ Do NOT try `induction m` inside a Section where `m` is a `Variable` — induction on Section variables is not possible in Rocq. Use existing lemmas (`cpu_count_le_1`, `cpu_count_pos_iff_executed`) for the case split instead. ⚠️ `Nat.lt_succ_of_lt` does not exist in Rocq stdlib; use `lia` for `c < m' → c < S m'` steps.
+- **Date**: 2026-04-09
+
+---
+
+### `service_decomposition` (Partitioned.v, Theorem 3)
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem service_decomposition :
+    forall sched,
+      respects_assignment sched ->
+      forall j t,
+        service_job m sched j t =
+          service_job 1 (cpu_schedule sched (assign j)) j t.
+  ```
+- **Proof Strategy**: Induction on `t`. Base: trivial. Step: `simpl; rewrite IH; f_equal; apply service_decomposition_step`. The bridge `service_decomposition_step` uses `runs_on_cpu_schedule` to show `cpu_count sched j t m = cpu_count (cpu_schedule sched (assign j)) j t 1`.
+- **Key Tactics**: `induction t`, `simpl`, `f_equal`, `service_decomposition_step`
+- **Dependencies**: `cpu_count_assigned_only`, `runs_on_cpu_schedule`
+- **Notes**: `runs_on_cpu_schedule` (auxiliary): `runs_on (cpu_schedule sched c) j t 0 = runs_on sched j t c` — proved by `unfold runs_on, cpu_schedule; simpl; reflexivity`. Needed because `rewrite Nat.eqb_refl` alone fails after `simpl` (the `0 =? 0` pattern may already be reduced or not directly visible).
+- **Date**: 2026-04-09
+
+---
+
+### `local_to_global_validity` (Partitioned.v, Theorem 2)
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem local_to_global_validity :
+    forall jobs sched xs,
+      valid_partitioned_schedule jobs sched xs ->
+      (forall c, c < m -> valid_schedule jobs 1 (cpu_schedule sched c)) ->
+      valid_schedule jobs m sched.
+  ```
+- **Proof Strategy**: Unfold `valid_schedule`. Given `sched t c = Some j`:
+  1. `cpu_schedule sched c t 0 = Some j` via `unfold cpu_schedule; rewrite Nat.eqb_refl`.
+  2. Per-CPU validity gives `eligible jobs 1 (cpu_schedule sched c) j t`.
+  3. Release: direct from step 2.
+  4. Non-completion: `rewrite completed_iff_on_assigned_cpu`, then `pose proof (Hresp j t c Hlt Hrun) as Hassign`, then `rewrite Hassign` to convert `assign j` to `c` in the goal.
+- **Key Tactics**: `unfold valid_schedule, eligible`, `Nat.eqb_refl`, `completed_iff_on_assigned_cpu`, `rewrite Hassign`
+- **Dependencies**: `completed_iff_on_assigned_cpu`, `respects_assignment`, `cpu_schedule`
+- **Notes**: ⚠️ After `rewrite completed_iff_on_assigned_cpu`, the goal contains `assign j` (not `c`). Use `rewrite Hassign` (where `Hassign : assign j = c`) to convert — NOT `rewrite <- Hassign`. Using the wrong direction gives "Found no subterm matching c".
+- **Date**: 2026-04-09
