@@ -283,7 +283,61 @@ Proof.
 Qed.
 
 (* ===== Section 3: Bridge / EDF の prefix 安定性 ===== *)
-(* TODO *)
+
+(* Helper: eligibleb は service_job 経由のみ schedule を参照するため prefix 安定 *)
+Lemma eligibleb_agrees_before :
+  forall jobs m s1 s2 j t,
+    agrees_before s1 s2 t ->
+    eligibleb jobs m s1 j t = eligibleb jobs m s2 j t.
+Proof.
+  intros jobs m s1 s2 j t Hagree.
+  unfold eligibleb.
+  rewrite (agrees_before_service_job m s1 s2 j t Hagree).
+  reflexivity.
+Qed.
+
+(* 3-1: candidates_of は prefix で決まる (CandidateSourceSpec.candidates_prefix_extensional のラッパ) *)
+Lemma candidates_of_agrees_before :
+  forall J candidates_of
+         (cand_spec : CandidateSourceSpec J candidates_of)
+         jobs s1 s2 t,
+    agrees_before s1 s2 t ->
+    candidates_of jobs 1 s1 t = candidates_of jobs 1 s2 t.
+Proof.
+  intros J candidates_of cand_spec jobs s1 s2 t Hagree.
+  destruct cand_spec as [_ _ Hpx].
+  exact (Hpx jobs 1 s1 s2 t Hagree).
+Qed.
+
+(* 3-2: choose_edf の選択は prefix で決まる *)
+Lemma choose_edf_agrees_before :
+  forall jobs s1 s2 t candidates,
+    agrees_before s1 s2 t ->
+    choose_edf jobs 1 s1 t candidates =
+    choose_edf jobs 1 s2 t candidates.
+Proof.
+  intros jobs s1 s2 t candidates Hagree.
+  unfold choose_edf.
+  f_equal.
+  apply List.filter_ext.
+  intro j.
+  apply eligibleb_agrees_before. exact Hagree.
+Qed.
+
+(* 3-3: edf_generic_spec の dispatch は時刻 t の選択が prefix で決まる *)
+Lemma edf_dispatch_agrees_before :
+  forall J candidates_of
+         (cand_spec : CandidateSourceSpec J candidates_of)
+         jobs s1 s2 t,
+    agrees_before s1 s2 t ->
+    dispatch edf_generic_spec jobs 1 s1 t (candidates_of jobs 1 s1 t) =
+    dispatch edf_generic_spec jobs 1 s2 t (candidates_of jobs 1 s2 t).
+Proof.
+  intros J candidates_of cand_spec jobs s1 s2 t Hagree.
+  simpl.
+  rewrite (candidates_of_agrees_before J candidates_of cand_spec jobs s1 s2 t Hagree).
+  apply choose_edf_agrees_before. exact Hagree.
+Qed.
 
 (* ===== Section 4: EDF violation の定義と抽出 ===== *)
 (* TODO *)

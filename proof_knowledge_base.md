@@ -1310,3 +1310,74 @@
 - **Dependencies**: `agrees_before_weaken`, `agrees_before_eligible`, `running`
 - **Notes**: ⚠️ `running m s j t` references `s t c` at time `t` directly — `agrees_before s1 s2 t` (strictly before) is INSUFFICIENT. Must use `agrees_before s1 s2 (S t)`. ⚠️ Rewrite directions are non-obvious: in the s1→s2 direction the goal is `s1 t c = Some j` so use `rewrite (Hat c)` (forward); in the s2→s1 direction the goal is `s2 t c = Some j` so use `rewrite <- (Hat c)` (backward).
 - **Date**: 2026-04-09
+
+---
+
+### `eligibleb_agrees_before`
+- **Type**: Lemma (helper)
+- **Statement**:
+  ```coq
+  Lemma eligibleb_agrees_before :
+    forall jobs m s1 s2 j t,
+      agrees_before s1 s2 t ->
+      eligibleb jobs m s1 j t = eligibleb jobs m s2 j t.
+  ```
+- **Proof Strategy**: `unfold eligibleb`, then `rewrite (agrees_before_service_job m s1 s2 j t Hagree)`, `reflexivity`. The `job_release <=? t` part is schedule-independent; only `service_job` needs to be equated.
+- **Key Tactics**: `unfold eligibleb`, `rewrite agrees_before_service_job`, `reflexivity`
+- **Dependencies**: `agrees_before_service_job`
+- **Notes**: Used as the bridge between `agrees_before` and `filter` extensionality for `choose_edf`.
+- **Date**: 2026-04-09
+
+---
+
+### `candidates_of_agrees_before`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma candidates_of_agrees_before :
+    forall J candidates_of (cand_spec : CandidateSourceSpec J candidates_of)
+           jobs s1 s2 t,
+      agrees_before s1 s2 t ->
+      candidates_of jobs 1 s1 t = candidates_of jobs 1 s2 t.
+  ```
+- **Proof Strategy**: `destruct cand_spec as [_ _ Hpx]` to extract `candidates_prefix_extensional`, then `exact (Hpx jobs 1 s1 s2 t Hagree)`.
+- **Key Tactics**: `destruct cand_spec as [_ _ Hpx]`, `exact`
+- **Dependencies**: `CandidateSourceSpec.candidates_prefix_extensional`, `agrees_before`
+- **Notes**: ⚠️ `cand_spec.(candidates_prefix_extensional)` causes "expected 2 explicit parameters" because `CandidateSourceSpec` has 2 explicit record parameters `(J, candidates_of)`. Must use `destruct` instead of `.()` projection syntax. Contrast with `GenericDispatchSpec` (no parameters) where `.()` works fine.
+- **Date**: 2026-04-09
+
+---
+
+### `choose_edf_agrees_before`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma choose_edf_agrees_before :
+    forall jobs s1 s2 t candidates,
+      agrees_before s1 s2 t ->
+      choose_edf jobs 1 s1 t candidates = choose_edf jobs 1 s2 t candidates.
+  ```
+- **Proof Strategy**: `unfold choose_edf`, then `f_equal` to reduce to `filter f l = filter g l`, then `List.filter_ext` + `eligibleb_agrees_before`.
+- **Key Tactics**: `unfold choose_edf`, `f_equal`, `List.filter_ext`, `eligibleb_agrees_before`
+- **Dependencies**: `eligibleb_agrees_before`, `List.filter_ext`
+- **Notes**: `List.filter_ext` is available via `From Stdlib Require Import List`. Signature: `(forall a, f a = g a) -> forall l, filter f l = filter g l`.
+- **Date**: 2026-04-09
+
+---
+
+### `edf_dispatch_agrees_before`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma edf_dispatch_agrees_before :
+    forall J candidates_of (cand_spec : CandidateSourceSpec J candidates_of)
+           jobs s1 s2 t,
+      agrees_before s1 s2 t ->
+      dispatch edf_generic_spec jobs 1 s1 t (candidates_of jobs 1 s1 t) =
+      dispatch edf_generic_spec jobs 1 s2 t (candidates_of jobs 1 s2 t).
+  ```
+- **Proof Strategy**: `simpl` unfolds `dispatch edf_generic_spec` to `choose_edf`. Then `rewrite candidates_of_agrees_before` to equate the candidate lists, then `apply choose_edf_agrees_before`.
+- **Key Tactics**: `simpl`, `rewrite candidates_of_agrees_before`, `apply choose_edf_agrees_before`
+- **Dependencies**: `candidates_of_agrees_before`, `choose_edf_agrees_before`
+- **Notes**: `dispatch edf_generic_spec` reduces via `simpl` because `edf_generic_spec = mkGenericDispatchSpec choose_edf ...` and `dispatch` is just the first field projection.
+- **Date**: 2026-04-09
