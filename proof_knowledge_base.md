@@ -1443,3 +1443,66 @@
 - **Dependencies**: `edf_violation_at`, `Classical` (for `classic`)
 - **Notes**: ⚠️ `well_founded_induction lt_wf` generalizes `Hviol : edf_violation_at ... t` into IH (since it depends on `t`). IH becomes `forall y, y < t -> edf_violation_at ... y -> forall H, y < H -> exists t0, ...`. So the call is `IH t' Hlt' Hviol' H (Nat.lt_trans _ _ _ Hlt' HtH)` — NOT `IH t' Hlt' H (Nat.lt_trans ...)`. ⚠️ Requires `From Stdlib Require Import ... Classical` in the file header.
 - **Date**: 2026-04-09
+
+---
+
+### `edf_violation_exposes_exchange_pair`
+- **Type**: Lemma (5-1, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma edf_violation_exposes_exchange_pair :
+    forall jobs sched t j,
+      sched t 0 = Some j ->
+      edf_violation_at jobs sched t ->
+      exists j',
+        eligible jobs 1 sched j' t /\
+        job_abs_deadline (jobs j') < job_abs_deadline (jobs j).
+  ```
+- **Proof Strategy**: Unfold `edf_violation_at` to get `exists j_run j', ...`. Use `injection` + `subst` on `sched t 0 = Some j` vs `sched t 0 = Some j_run` to identify `j_run = j`. Return `j'` directly.
+- **Key Tactics**: `unfold edf_violation_at`, `destruct ... as [j_run [j' [...]]]`, `rewrite Hsched in Hrun`, `injection Hrun as Heq`, `subst`
+- **Dependencies**: `edf_violation_at`
+- **Notes**: Plan's statement had `J j` hypothesis and `J j'` conclusion, but `J j'` cannot be derived without `CandidateSourceSpec`. Simpler form (no `J`) is the correct provable version.
+- **Date**: 2026-04-09
+
+---
+
+### `matches_choose_edf_at_with_no_earlier_eligible_job`
+- **Type**: Lemma (5-2, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma matches_choose_edf_at_with_no_earlier_eligible_job :
+    forall J candidates_of
+           (cand_spec : CandidateSourceSpec J candidates_of)
+           jobs sched t j,
+      matches_choose_edf_at_with jobs candidates_of sched t ->
+      sched t 0 = Some j ->
+      forall j',
+        J j' ->
+        eligible jobs 1 sched j' t ->
+        job_abs_deadline (jobs j') < job_abs_deadline (jobs j) ->
+        False.
+  ```
+- **Proof Strategy**: `matches_choose_edf_at_with` + `sched t 0 = Some j` → `choose_edf ... = Some j` (by `symmetry`). `candidates_complete` + `J j'` + `eligible` → `In j' candidates`. `choose_edf_min_deadline` → `dl j <= dl j'`. `lia` contradicts `dl j' < dl j`.
+- **Key Tactics**: `unfold matches_choose_edf_at_with`, `rewrite Hsched in Hmatch`, `symmetry`, `destruct cand_spec as [_ Hcomplete _]`, `choose_edf_min_deadline`, `lia`
+- **Dependencies**: `matches_choose_edf_at_with`, `CandidateSourceSpec`, `choose_edf_min_deadline`
+- **Notes**: Pattern `rewrite Hsched in Hmatch; symmetry. exact Hmatch` gives `choose_edf ... = Some j` from `Some j = choose_edf ...`.
+- **Date**: 2026-04-09
+
+---
+
+### `matches_choose_edf_at_with_implies_respects_edf_priority_at_on`
+- **Type**: Lemma (5-3, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma matches_choose_edf_at_with_implies_respects_edf_priority_at_on :
+    forall J candidates_of
+           (cand_spec : CandidateSourceSpec J candidates_of)
+           jobs sched t,
+      matches_choose_edf_at_with jobs candidates_of sched t ->
+      respects_edf_priority_at_on J jobs sched t.
+  ```
+- **Proof Strategy**: Unfold `respects_edf_priority_at_on` (intros j j' _ HJj' Hsched Helig Hlt) then delegate to `matches_choose_edf_at_with_no_earlier_eligible_job`.
+- **Key Tactics**: `unfold respects_edf_priority_at_on`, `exact (matches_choose_edf_at_with_no_earlier_eligible_job ...)`
+- **Dependencies**: `matches_choose_edf_at_with_no_earlier_eligible_job`, `respects_edf_priority_at_on`
+- **Notes**: The first `J j` hypothesis in `respects_edf_priority_at_on` (i.e., `J j` for the running job) is not needed here — use `_` to discard it.
+- **Date**: 2026-04-09
