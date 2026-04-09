@@ -74,7 +74,22 @@ Section PartitionedSection.
       sched t c =
         spec.(dispatch) jobs 1 (cpu_schedule sched c) t (local_candidates c).
 
-  (* valid_partitioned_schedule: alias for partitioned_schedule_on. *)
+  (* valid_partitioned_schedule is the public specification predicate for
+   partitioned schedulers.
+
+   Current status:
+   - At the moment, this is just an alias of [partitioned_schedule_on].
+
+   Design intent:
+   - We keep this name as an abstraction boundary.
+   - In the future, this predicate is expected to be strengthened to include
+     additional well-formedness / validity conditions of a partitioned schedule,
+     such as assignment-respect and global schedule validity.
+
+   Usage guideline:
+   - Client code should preferably state results in terms of
+     [valid_partitioned_schedule] rather than [partitioned_schedule_on],
+     so that future strengthening of the definition causes minimal churn. *)
   Definition valid_partitioned_schedule (jobs : JobId -> Job) (sched : Schedule) : Prop :=
     partitioned_schedule_on jobs sched.
 
