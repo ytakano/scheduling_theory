@@ -18,8 +18,9 @@ Definition single_cpu_dispatch_schedule
     (candidates_of : (JobId -> Job) -> nat -> Schedule -> Time -> list JobId)
     : Scheduler :=
   mkScheduler (fun jobs m sched =>
+    m = 1 /\
     forall t,
-      sched t 0 = spec.(dispatch) jobs m sched t (candidates_of jobs m sched t) /\
+      sched t 0 = spec.(dispatch) jobs 1 sched t (candidates_of jobs 1 sched t) /\
       forall c, 0 < c -> sched t c = None).
 
 (* A schedule produced by single_cpu_dispatch_schedule is valid
@@ -31,6 +32,7 @@ Lemma single_cpu_dispatch_valid :
       valid_schedule jobs 1 sched.
 Proof.
   intros spec cands jobs sched Hrel.
+  destruct Hrel as [_ Hrel].
   unfold valid_schedule.
   intros j t c Hc Hsched.
   (* c < 1 means c = 0 *)
@@ -69,3 +71,92 @@ Record CandidateSourceSpec
       (forall t' c, t' < t -> s1 t' c = s2 t' c) ->
       candidates_of jobs m s1 t = candidates_of jobs m s2 t
 }.
+
+(* Exported single-CPU wrapper for subset schedulability reasoning.
+   The candidate source contract is part of the wrapper API even though the
+   underlying scheduler relation is the plain dispatch bridge. *)
+Definition single_cpu_dispatch_scheduler_on
+    (J : JobId -> Prop)
+    (spec : GenericDispatchSpec)
+    (candidates_of : CandidateSource)
+    (_ : CandidateSourceSpec J candidates_of)
+    : Scheduler :=
+  single_cpu_dispatch_schedule spec candidates_of.
+
+Lemma single_cpu_dispatch_in_subset :
+    forall J spec candidates_of jobs sched t j,
+      CandidateSourceSpec J candidates_of ->
+      scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+      sched t 0 = Some j ->
+      J j.
+Proof.
+  intros J spec candidates_of jobs sched t j Hcand Hrel Hrun.
+  destruct Hcand as [Hsound _ _].
+  destruct Hrel as [_ Hrel].
+  destruct (Hrel t) as [Heq _].
+  apply (Hsound jobs 1 sched t j).
+  eapply spec.(dispatch_in_candidates).
+  rewrite <- Heq.
+  exact Hrun.
+Qed.
+
+Lemma single_cpu_dispatch_some_if_subset_eligible :
+    forall J spec candidates_of jobs sched t,
+      CandidateSourceSpec J candidates_of ->
+      scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+      (exists j, J j /\ eligible jobs 1 sched j t) ->
+      exists j', sched t 0 = Some j'.
+Proof.
+  intros J spec candidates_of jobs sched t Hcand Hrel [j [HJ Helig]].
+  destruct Hcand as [_ Hcomplete _].
+  destruct Hrel as [_ Hrel].
+  destruct (Hrel t) as [Heq _].
+  destruct (spec.(dispatch_some_if_eligible_candidate)
+              jobs 1 sched t (candidates_of jobs 1 sched t))
+      as [j' Hdispatch].
+  - exists j.
+    split.
+    + apply (Hcomplete jobs 1 sched t j HJ Helig).
+    + exact Helig.
+  - exists j'.
+    rewrite Heq.
+    exact Hdispatch.
+Qed.
+
+Lemma single_cpu_dispatch_none_if_no_subset_eligible :
+    forall J spec candidates_of jobs sched t,
+      CandidateSourceSpec J candidates_of ->
+      scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+      (forall j, J j -> ~ eligible jobs 1 sched j t) ->
+      sched t 0 = None.
+Proof.
+  intros J spec candidates_of jobs sched t Hcand Hrel Hnone.
+  destruct Hcand as [Hsound _ _].
+  destruct Hrel as [_ Hrel].
+  destruct (Hrel t) as [Heq _].
+  rewrite Heq.
+  apply spec.(dispatch_none_if_no_eligible_candidate).
+  intros j Hin Helig.
+  exact (Hnone j (Hsound jobs 1 sched t j Hin) Helig).
+Qed.
+
+Lemma single_cpu_dispatch_schedulable_by_on :
+    forall J spec candidates_of cand_spec jobs sched,
+      scheduler_rel
+        (single_cpu_dispatch_scheduler_on J spec candidates_of cand_spec)
+        jobs 1 sched ->
+      feasible_schedule_on J jobs 1 sched ->
+      schedulable_by_on
+        J
+        (single_cpu_dispatch_scheduler_on J spec candidates_of cand_spec)
+        jobs 1.
+Proof.
+  intros J spec candidates_of cand_spec jobs sched Hrel Hfeas.
+  apply (schedulable_by_on_intro
+           J
+           (single_cpu_dispatch_scheduler_on J spec candidates_of cand_spec)
+           jobs 1 sched).
+  - exact Hrel.
+  - exact (single_cpu_dispatch_valid spec candidates_of jobs sched Hrel).
+  - exact Hfeas.
+Qed.

@@ -65,3 +65,18 @@ Proof.
   split; [exact Hvalid |].
   intros j HJ. exact (Hfeas j (Hsubset j HJ)).
 Qed.
+
+(* Build schedulable_by_on directly from a witness schedule. *)
+Lemma schedulable_by_on_intro :
+    forall (J : JobId -> Prop) alg jobs m sched,
+      scheduler_rel alg jobs m sched ->
+      valid_schedule jobs m sched ->
+      feasible_schedule_on J jobs m sched ->
+      schedulable_by_on J alg jobs m.
+Proof.
+  intros J alg jobs m sched Hrel Hvalid Hfeas.
+  unfold schedulable_by_on.
+  exists sched.
+  split; [exact Hrel |].
+  split; assumption.
+Qed.
