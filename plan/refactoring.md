@@ -1,3 +1,9 @@
+> Historical note
+>
+> This roadmap captures earlier refactoring phases. Current filenames are
+> `FeasibleExamples.v` and `SchedulableExamples.v`, and the scheduler API is
+> relation-based (`scheduler_rel`) rather than `run_scheduler`-based.
+
 はい。壊しにくさを優先して、**小さな段階に分けた具体的なリファクタリング計画**にします。
 主眼は次の 3 点です。
 
@@ -550,4 +556,3 @@ total-function 版を消す必要はありません。
 
 * `PeriodicTasks.v`
   periodic generation model
-

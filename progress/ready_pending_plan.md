@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This is a historical refactoring note. The current source of truth is
+> `Base.v`, `ScheduleModel.v`, and `SchedulerInterface.v`.
+
 # Proof Plan: ready/pending 状態分離
 
 ## Goal

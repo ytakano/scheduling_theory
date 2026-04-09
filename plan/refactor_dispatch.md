@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This design note predates the current bridge API. The current source of truth is
+> `DispatchInterface.v`, `DispatchSchedulerBridge.v`, and `Partitioned.v`.
+
 再設計の中心は
 
 **`Dispatch` は「1 step の選択規則」**
@@ -389,4 +394,3 @@ global 側では top-`m` selection という別抽象が必要になるので、
   * `partitioned_dispatch_scheduler_on`
   * `partitioned_schedule_implies_valid_schedule`
   * `local_feasible_on_implies_global_feasible_on`
-

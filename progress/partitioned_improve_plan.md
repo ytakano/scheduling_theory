@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This is a historical improvement plan. The current source of truth is
+> `Partitioned.v`.
+
 # Proof Plan: Partitioned Scheduling — Local/Global Lifting
 
 ## Goal

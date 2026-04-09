@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This is a historical progress log. The current source of truth is
+> `ScheduleModel.v`, `DispatchInterface.v`, and `SchedulerInterface.v`.
+
 # Proof Progress: ready_running_refactor
 
 ## Status Overview

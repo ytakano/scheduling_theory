@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This plan predates the current concrete examples. The current source of truth is
+> `SchedulableExamples.v`, `SchedulerInterface.v`, and `DispatchSchedulerBridge.v`.
+
 # Proof Plan: example_schedulable (v2 — schedulable_by / schedulable_by_on)
 
 ## Goal

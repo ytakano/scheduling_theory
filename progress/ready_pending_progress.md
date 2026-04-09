@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This is a historical progress log. The current source of truth is
+> `Base.v`, `ScheduleModel.v`, and `SchedulerInterface.v`.
+
 # Proof Progress: ready/pending 状態分離
 
 ## Status Overview

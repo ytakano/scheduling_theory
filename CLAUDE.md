@@ -1,115 +1,70 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance for agentic work in this repository.
 
 ## Project Overview
 
-This project formalizes real-time scheduling theory using the Rocq proof assistant.
+This project formalizes real-time scheduling theory in Rocq.
 
-The proof difficulty roadmap is in `plan/what_to_prove.md` (Lv.0–Lv.14: basic model integrity → EDF optimality → multiprocessor). The development methodology is in `plan/roadmap.md`.
-
-### Supporting files
-
-- `progress/` — canonical directory for proof planning and progress tracking:
-  - `progress/<theorem>_plan.md` — proof strategy and sub-lemma proposals
-  - `progress/<theorem>_progress.md` — completed sub-lemmas and remaining TODOs
-- `proof_knowledge_base.md` (root) — accumulated lemma/tactic knowledge across sessions; read at the start of every proof session, update after every lemma attempt.
-- `lessons_learned/`, `docker/` — excluded from Claude's context (denied in `.claude/settings.local.json`); do not attempt to read.
+- Proof roadmap: `plan/what_to_prove.md`
+- Development roadmap: `plan/roadmap.md`
+- Planning/progress notes: `progress/`
+- Accumulated proof notes: `proof_knowledge_base.md`
 
 ## Build
 
 ```bash
-make          # compile all targets (EDF.vo, example_feasible.vo, example_schedulable.vo)
-make clean    # remove .vo .glob .vok .vos .aux files
+make
+make clean
 ```
 
-To compile a single file and its dependencies:
+Representative single-file compilation order:
 
 ```bash
 rocq compile Base.v
-rocq compile ScheduleModel.v      # requires Base.vo
-rocq compile SchedulerInterface.v # requires ScheduleModel.vo
-rocq compile DispatchInterface.v  # requires ScheduleModel.vo SchedulerInterface.vo Base.vo
-rocq compile EDF.v          # requires DispatchInterface.vo
-rocq compile FIFO.v         # requires DispatchInterface.vo
-rocq compile Partitioned.v  # requires DispatchInterface.vo
+rocq compile ScheduleModel.v
+rocq compile SchedulerInterface.v
+rocq compile DispatchInterface.v
+rocq compile DispatchSchedulerBridge.v
+rocq compile EDF.v
+rocq compile FIFO.v
+rocq compile Partitioned.v
+rocq compile SchedulableExamples.v
+rocq compile FeasibleExamples.v
 ```
-
-> **Note**: There is no `scheduling.v` file. Each file imports its dependencies explicitly.
 
 ## Module Architecture
 
-Files are ordered by dependency:
-
-```
+```text
 Base.v
-  └── ScheduleModel.v               (schedule semantics)
-        └── SchedulerInterface.v    (abstract scheduler + schedulability)
-              └── DispatchInterface.v   (GenericDispatchSpec: single-CPU dispatch policy)
-                          ├── DispatchLemmas.v         (policy-independent GenericDispatchSpec lemmas)
-                          ├── DispatchClassicalLemmas.v (classical-logic lemmas for GenericDispatchSpec)
-                          ├── EDF.v                    (EDF dispatcher + EDFSchedulerSpec)
-                          ├── FIFO.v                   (FIFO dispatcher + fifo_generic_spec)
-                          └── Partitioned.v            (Lv.5 multicore: static assignment lifting)
-  └── PeriodicTasks.v               (periodic task → job generation model)
+  -> ScheduleModel.v
+  -> SchedulerInterface.v
+  -> DispatchInterface.v
+  -> DispatchSchedulerBridge.v
+  -> EDF.v / FIFO.v / Partitioned.v
 ```
 
 | File | Contents |
 |------|----------|
-| `Base.v` | `JobId`, `TaskId`, `CPU`, `Time`; `Task`/`Job` records; `Schedule` type; `released`, `valid_jobs`, `valid_job_of_task` |
-| `ScheduleModel.v` | `runs_on`, `cpu_count`, `service_job`, `completed`, `running`, `eligible`, `ready`, `sequential_jobs`, `valid_schedule`, `missed_deadline`, `feasible_schedule`, `feasible`, `feasible_schedule_on`, `feasible_on`, `readyb`; all Lv.0–Lv.0-4 lemmas |
-| `SchedulerInterface.v` | `Scheduler` (Parameter), `run_scheduler` (Parameter), `schedulable_by`, `schedulable_by_on`; Lv.0-5 lemmas |
-| `DispatchInterface.v` | `GenericDispatchSpec` record: `dispatch` function + 4 specs (`dispatch_ready`, `dispatch_some_if_ready`, `dispatch_none_if_no_ready`, `dispatch_in_candidates`) |
-| `DispatchLemmas.v` | Policy-independent lemmas derived from `GenericDispatchSpec` (soundness, coverage) |
-| `DispatchClassicalLemmas.v` | Classical-logic lemmas for `GenericDispatchSpec` (kept separate from constructive core) |
-| `EDF.v` | `choose_edf`, `edf_scheduler_spec : EDFSchedulerSpec`, EDF-specific lemmas |
-| `FIFO.v` | `choose_fifo`, `fifo_generic_spec : GenericDispatchSpec`, FIFO-specific lemmas |
-| `Partitioned.v` | `assign`, `cpu_schedule`, `respects_assignment`, `valid_partitioned_schedule`; theorems: `service_decomposition`, `completed_iff_on_assigned_cpu`, `local_to_global_validity`, `missed_deadline_iff_on_assigned_cpu`, `local_feasible_implies_global_feasible_schedule`, `local_valid_feasible_implies_global` |
-| `PeriodicTasks.v` | `generated_by_periodic_task` predicate, `expected_release`, `expected_abs_deadline` |
-
-### Where new proofs go
-
-- **Schedule semantics (runs_on, completed, feasible, …)** → `ScheduleModel.v`
-- **Abstract scheduler / schedulability** → `SchedulerInterface.v`
-- **Base types/schedule-independent notions** → `Base.v`
-- **Policy-independent single-CPU results** → `DispatchLemmas.v` (constructive), `DispatchClassicalLemmas.v` (classical)
-- **EDF-specific** → `EDF.v`; **FIFO-specific** → `FIFO.v`
-- **Partitioned multicore (Lv.5+)** → `Partitioned.v`
-- **Periodic task model** → `PeriodicTasks.v`
+| `Base.v` | Core types and job/task records |
+| `ScheduleModel.v` | `eligible`, `ready`, `valid_schedule`, `feasible_schedule`, `feasible_schedule_on` and schedule lemmas |
+| `SchedulerInterface.v` | `Scheduler` record with `scheduler_rel`; `schedulable_by`, `schedulable_by_on` |
+| `DispatchInterface.v` | `GenericDispatchSpec` with `dispatch_eligible`, `dispatch_some_if_eligible_candidate`, `dispatch_none_if_no_eligible_candidate`, `dispatch_in_candidates` |
+| `DispatchSchedulerBridge.v` | single-CPU dispatch-to-scheduler bridge, `CandidateSourceSpec`, subset schedulability helpers |
+| `EDF.v` | EDF dispatcher, `edf_generic_spec`, `edf_scheduler` |
+| `FIFO.v` | FIFO dispatcher, `fifo_generic_spec`, `fifo_scheduler` |
+| `Partitioned.v` | partitioned multiprocessor scheduler, `partitioned_scheduler`, validity/feasibility lifting theorems |
+| `SchedulableExamples.v` | concrete `edf_scheduler`, `fifo_scheduler`, `partitioned_scheduler` usage examples |
+| `FeasibleExamples.v` | direct feasibility examples over explicit schedules |
 
 ## Proof Workflow
 
-**IMPORTANT**: Always invoke the `/rocq-prover` skill **before writing any Rocq code**, even after Plan mode. Do not implement proofs directly without going through the skill.
+- Keep schedule semantics in `ScheduleModel.v`
+- Keep abstract scheduler reasoning in `SchedulerInterface.v`
+- Keep policy-independent dispatch reasoning in `DispatchInterface.v` or `DispatchSchedulerBridge.v`
+- Keep policy-specific lemmas in `EDF.v`, `FIFO.v`, and multiprocessor lifting in `Partitioned.v`
+- Validate changes by compiling the edited file and affected dependents
 
-Use the `/rocq-prover` skill (`.claude/skills/ROCQ.md`) when proving theorems. The skill automates the three-step workflow:
+## Notes on Historical Documents
 
-1. **Plan** (`progress/<theorem>_plan.md`): Decompose the theorem into sub-lemmas and record the proof strategy before writing any Rocq.
-2. **Sub-lemmas** (`progress/<theorem>_progress.md`): Prove one sub-lemma at a time; update the progress file after each. Use `Admitted` for not-yet-proven steps to keep the file compiling.
-3. **Assemble**: Once all sub-lemmas are proven, prove the top-level theorem and record completion.
-
-If a sub-lemma repeatedly fails, classify the cause (script/tactic issue, missing intermediate lemma, or wrong/too-strong statement). After 2-3 failed attempts with the same strategy, revise the plan instead of retrying unchanged. For likely false or out-of-scope statements, record diagnostics in `progress/<theorem>_progress.md` and remove/replace them in `progress/<theorem>_plan.md`.
-
-Verify each step by compiling the relevant file (no errors = proof accepted). For example, after editing `Partitioned.v`:
-
-```bash
-rocq compile Base.v && rocq compile ScheduleModel.v && rocq compile SchedulerInterface.v && rocq compile DispatchInterface.v && rocq compile Partitioned.v
-```
-
-**Token management**: Use `/clear` between sub-lemma proofs to avoid hitting context limits. The progress file persists state across sessions.
-
-## Reasoning Policy
-
-Before responding to any request, first assess the required reasoning depth:
-
-- **Simple** (e.g., factual lookup, single-file edit): Respond directly.
-- **Moderate** (e.g., multi-file refactor, debugging): Think through the approach briefly before acting.
-- **Complex** (e.g., architecture design, algorithm design, proof): Use extended reasoning — break the problem into sub-problems, consider trade-offs, then proceed step by step.
-
-Always make your reasoning depth assessment explicit before responding:
-> "This is a [simple/moderate/complex] task because ..."
-
-## External Resources
-
-- Rocq Standard Library
-  - <https://rocq-prover.org/doc/V9.1.0/refman-stdlib/index.html>
-  - <https://rocq-prover.org/doc/V9.1.0/stdlib/index.html>
+Some files in `plan/` and `progress/` are historical refactoring records and may mention superseded names such as `run_scheduler`, `dispatch_ready`, or `local_to_global_validity`. Treat current `.v` files as the source of truth.

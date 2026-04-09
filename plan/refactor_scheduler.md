@@ -1,3 +1,9 @@
+> Obsolete note
+>
+> This design note describes a refactor that has already been carried out.
+> The current source of truth is `SchedulerInterface.v`, `DispatchSchedulerBridge.v`,
+> and `SchedulableExamples.v`.
+
 いまの構造を見ると、
 
 * `DispatchInterface.v` は

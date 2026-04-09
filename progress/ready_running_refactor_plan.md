@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This is a historical refactoring plan. The current source of truth is
+> `ScheduleModel.v`, `DispatchInterface.v`, and `SchedulerInterface.v`.
+
 # Proof Plan: ready_running_refactor
 
 ## Goal

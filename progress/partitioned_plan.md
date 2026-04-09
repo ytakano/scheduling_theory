@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This is a historical planning note. The current source of truth is
+> `Partitioned.v` and `SchedulableExamples.v`.
+
 # Proof Plan: Partitioned Scheduling (Lv.5)
 
 ## Goal

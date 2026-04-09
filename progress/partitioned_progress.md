@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This is a historical progress log. The current source of truth is
+> `Partitioned.v` and `SchedulableExamples.v`.
+
 # Proof Progress: Partitioned Scheduling (Lv.5)
 
 ## Status Overview

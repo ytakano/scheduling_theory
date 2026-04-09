@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This progress log predates the current concrete examples. The current source of truth is
+> `SchedulableExamples.v`, `SchedulerInterface.v`, and `DispatchSchedulerBridge.v`.
+
 # Proof Progress: example_schedulable
 
 ## Status Overview (v2 — schedulable_by / schedulable_by_on)

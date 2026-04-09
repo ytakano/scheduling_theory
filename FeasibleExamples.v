@@ -1,11 +1,11 @@
 (**
-  example_feasible.v
+  FeasibleExamples.v
   ==================
   Job・Schedule・feasible の具体例
 
   【型の説明】
   - Job     : ジョブを表すレコード。
-                job_release  : 解放時刻（いつ実行可能になるか）
+                job_release  : release 時刻
                 job_cost     : 実行に必要なタイムスロット数
                 job_abs_deadline : この時刻までに完了しなければならない
   - Schedule : Time -> CPU -> option JobId
@@ -14,6 +14,8 @@
   - feasible_schedule jobs m sched
                CPUが m 台のスケジュール sched において、
                全ジョブが締切を守る（missed_deadline になるジョブがない）こと。
+  - current model では schedulability の例は `SchedulableExamples.v` に分け、
+    relation-based scheduler と `schedulable_by_on` を扱う。
 *)
 
 From Stdlib Require Import Arith Arith.PeanoNat Lia.

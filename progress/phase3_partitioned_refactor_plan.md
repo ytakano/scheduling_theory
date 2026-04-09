@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This is a historical phase log. The current source of truth is
+> `Partitioned.v`.
+
 # Proof Plan: Phase 3 Partitioned.v Refactor
 
 ## Goal

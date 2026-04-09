@@ -1,3 +1,8 @@
+> Obsolete note
+>
+> This is a historical improvement log. The current source of truth is
+> `Partitioned.v`.
+
 # Proof Progress: Partitioned Scheduling — Local/Global Lifting
 
 ## Status Overview
