@@ -1,4 +1,4 @@
-all: EDF.vo example_feasible.vo example_schedulable.vo Partitioned.vo FIFO.vo FIFOExamples.vo PeriodicTasks.vo UniSchedulerLemmas.vo UniSchedulerLemmasClassical.vo
+all: EDF.vo FeasibleExamples.vo SchedulableExamples.vo Partitioned.vo FIFO.vo FIFOExamples.vo PeriodicTasks.vo UniSchedulerLemmas.vo UniSchedulerLemmasClassical.vo
 
 Base.vo: Base.v
 	rocq compile Base.v
@@ -39,11 +39,11 @@ FIFOExamples.vo: FIFOExamples.v FIFO.vo Schedule.vo Base.vo
 Partitioned.vo: Partitioned.v Schedule.vo Base.vo UniSchedulerInterface.vo
 	rocq compile Partitioned.v
 
-example_feasible.vo: example_feasible.v Schedule.vo
-	rocq compile example_feasible.v
+FeasibleExamples.vo: FeasibleExamples.v Schedule.vo
+	rocq compile FeasibleExamples.v
 
-example_schedulable.vo: example_schedulable.v Schedule.vo
-	rocq compile example_schedulable.v
+SchedulableExamples.vo: SchedulableExamples.v Schedule.vo
+	rocq compile SchedulableExamples.v
 
 clean:
 	rm -f *.vo *.glob *.vok *.vos *.aux
