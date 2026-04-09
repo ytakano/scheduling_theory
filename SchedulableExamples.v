@@ -190,7 +190,7 @@ Proof.
                J_single edf_generic_spec singleton_candidates singleton_candidates_spec)
             single_jobs 1).
   exact
-    (single_cpu_dispatch_schedulable_by_on
+    (single_cpu_dispatch_schedulable_by_on_intro
        J_single
        edf_generic_spec
        singleton_candidates
@@ -210,7 +210,7 @@ Proof.
                J_single fifo_generic_spec singleton_candidates singleton_candidates_spec)
             single_jobs 1).
   exact
-    (single_cpu_dispatch_schedulable_by_on
+    (single_cpu_dispatch_schedulable_by_on_intro
        J_single
        fifo_generic_spec
        singleton_candidates
@@ -413,27 +413,9 @@ Qed.
 Lemma pair_partitioned_valid :
     valid_schedule pair_jobs 2 pair_sched.
 Proof.
-  unfold valid_schedule.
-  intros j t c Hlt Hrun.
-  unfold pair_sched in Hrun.
-  destruct t as [| t'].
-  - rewrite Nat.eqb_refl in Hrun.
-    assert (Hc : c = 0 \/ c = 1) by lia.
-    destruct Hc as [-> | ->].
-    + rewrite Nat.eqb_refl in Hrun.
-      injection Hrun as Hj.
-      subst j.
-      unfold eligible, released, completed, pair_jobs, pair_job0.
-      simpl.
-      split; lia.
-    + simpl in Hrun.
-      injection Hrun as Hj.
-      subst j.
-      unfold eligible, released, completed, pair_jobs, pair_job1.
-      simpl.
-      split; lia.
-  - simpl in Hrun.
-    discriminate.
+  exact (partitioned_schedule_implies_valid_schedule
+           assign_pair 2 assign_pair_valid fifo_generic_spec [0; 1]
+           pair_jobs pair_sched pair_partitioned_schedule).
 Qed.
 
 Theorem pair_partitioned_schedulable_by_on :
