@@ -30,7 +30,11 @@
       "Bash(echo \"Exit: $?\")",
       "Bash(echo \"exit: $?\")",
       "Bash(echo \"EXIT:$?\")",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(echo \"ALL OK EXIT:$?\")",
+      "Bash(echo \"All exit: $?\")",
+      "Bash(cat /scheduling_theory/progress/*.md)",
+      "Bash(xargs -I{} basename {})"
     ]
   },
   "deny": [
