@@ -1,1002 +1,481 @@
-# ロードマップ
+# ロードマップ（実装反映版）
 
-単一CPU・マルチコア・OS寄りモデル・refinement を一度に混ぜると見通しが悪くなる。特にマルチコアでは、
-
-* **単一CPUで成り立つ直感がそのまま使えない**
-* **partitioned / global / clustered** で理論が分かれる
-* **work-conserving, fairness, interference, schedulability** の定義が複雑になる
-* OS 寄りモデルでは **migration, per-CPU runqueue, load balancing, wakeup, timer, IPI** が入る
-
-ため、最初から 1 本の巨大モデルで扱うのではなく、**共通基盤 → 単一CPU理論 → マルチコア理論 → OS operational model → refinement** の順に積み上げるのがよい。
-
-さらに、将来の拡張として入れたい **周期タスク** と **DAG タスク** は性質が異なる。
-
-* **周期タスク**は主として **job 生成規則の拡張**
-* **DAG タスク**は主として **job 内部構造の拡張**
-
-である。したがって、両者は同じ「発展テーマ」ではあっても、導入のタイミングと必要な基盤が異なることを最初に明示しておく。
+このロードマップは、現在の実装構成を踏まえて更新したものです。
+単一CPUの抽象化と具体 policy、subset-aware な bridge、partitioned scheduling の基盤、periodic task model の骨格まではすでに整備されており、次の中心目標は **単一CPU EDF 最適性定理** です。
 
 ---
 
-# 全体方針
+## 現在地の要約
 
-最初から 1 本のモデルで全部扱うのではなく、次の 4 層に分ける。
+現状の実装は、概ね次の段階まで到達している。
 
-## 層A: 共通基盤
+- 共通基盤 (`Base.v`, `ScheduleModel.v`, `SchedulerInterface.v`)
+- dispatch 抽象 (`DispatchInterface.v`, `DispatchLemmas.v`, `DispatchClassicalLemmas.v`)
+- single-CPU bridge (`DispatchSchedulerBridge.v`)
+- single-CPU concrete policy (`UniPolicies/EDF.v`, `UniPolicies/FIFO.v`)
+- partitioned scheduling の基礎 (`Partitioned.v`)
+- periodic task model の骨格 (`PeriodicTasks.v`)
 
-* Job / Task /（将来）Node
-* service
-* completion
-* ready / pending
-* deadline miss
+したがって、次の中核マイルストーンは
 
-## 層B: 単一CPU policy
-
-* FIFO
-* RR
-* prioritized FIFO
-* EDF
-
-## 層C: マルチコア policy
-
-* partitioned scheduling
-* global scheduling
-* clustered scheduling
-* per-CPU queue / global queue
-
-## 層D: OS 寄り operational model
-
-* per-CPU current
-* per-CPU runqueue / global runqueue
-* migration
-* balancing
-* wakeup / preemption / timer / IPI
-
-この分け方にすると、
-
-1. まず共通理論の核を作る
-2. 単一CPU scheduler 理論を完成させる
-3. その後マルチコア固有要素を載せる
-4. 最後に OS モデルへ接続する
-
-という自然な順序になる。
-
----
-
-# 修正版ロードマップ概要
-
-## Phase 0. 設計方針の固定
-
-## Phase 1. 共通理論基盤
-
-## Phase 2. 単一CPU scheduler 抽象化
-
-## Phase 3. 単一CPU policy 実装
-
-## Phase 4. 単一CPU 共通性質
-
-## Phase 5. マルチコア固有基盤
-
-## Phase 6. マルチコア scheduler 抽象化
-
-## Phase 7. partitioned / global / clustered policy
-
-## Phase 8. マルチコア共通性質
-
-## Phase 9. マルチコア schedulability / response-time 理論
-
-## Phase 10. OS 寄りマルチコア operational semantics
-
-## Phase 11. refinement
-
-## Phase 12. 発展テーマ（周期タスク / DAG タスク）
-
----
-
-# Phase 0. 設計方針の固定
-
-ここで、今後の拡張を見据えて最初に固定すべき設計方針を明確化する。
-
-## 0.1 時間
-
-引き続き **離散時刻 `nat`** を使う。
-
-理由:
-
-* 単一CPUとマルチコアで共通に使いやすい
-* 各 tick で各 CPU が高々 1 実行単位を処理するモデルと相性がよい
-* RR や timer tick、per-CPU timer の表現がしやすい
-
-## 0.2 CPU 集合
-
-CPU は抽象的には
-
-* `CPU := nat`
-
-としつつ、実際には有限集合 `0 .. m-1` を想定する。
-
-## 0.3 どのマルチコア方式を扱うかを最初から分ける
-
-最初から全部混ぜず、明示的に区別する。
-
-* **partitioned**: job/task は最初から CPU に固定
-* **global**: 1つの全体 ready set から任意 CPU へ割り当てる
-* **clustered**: CPU クラスタごとに queue / scheduler を持つ
-
-これらは理論も invariants もかなり異なる。
-
-## 0.4 migration の扱い
-
-global / clustered では migration の有無を明示する。
-
-* migration allowed
-* migration forbidden
-* restricted migration
-
-## 0.5 拡張の種類を最初に分ける
-
-今後入れたい拡張は少なくとも 2 種類ある。
-
-### A. job 生成規則の拡張
-
-例: **周期タスク**
-
-* task から job 列をどう生成するか
-* release pattern
-* relative deadline から absolute deadline をどう定めるか
-
-### B. job 内部構造の拡張
-
-例: **DAG タスク**
-
-* 1 つの job を node 群へ分解
-* precedence 制約
-* node-level ready / completed / service
-
-この違いを最初に明示することで、周期タスクを単一CPU理論の延長に置き、DAG タスクをマルチコア理論の延長に置く理由が明確になる。
-
----
-
-# Phase 1. 共通理論基盤
-
-ここでは CPU 数や具体 policy に依存しない、共通の抽象定義を整える。
-
-## 1.1 Job / Task 基本属性
-
-Job 基本属性:
-
-* release time
-* execution cost
-* absolute deadline
-* static priority（必要なら）
-* affinity / allowed CPUs（将来用）
-
-Task 基本属性（将来の周期タスク用）:
-
-* cost
-* period
-* relative deadline
-
-この段階では Task はまだ補助的でよいが、後で周期タスクへ進むための受け皿として定義しておく。
-
-## 1.2 Schedule
-
-単一CPUでは
-
-* `time -> option JobId`
-
-マルチコアでは
-
-* `time -> CPU -> option JobId`
-
-を使う。
-
-ただしこの段階では、「CPU が複数ある」という型だけ導入し、マルチコア固有の制約はまだ後段に分ける。
-
-## 1.3 service
-
-`service sched j t` は
-
-> 区間 `[0,t)` において、job `j` が受けた累積実行量
-
-を表す。
-
-マルチコアでは全 CPU 上の実行量の和として定義する。
-ただし、「同一 job が同時に複数 CPU で走らない」という制約はこの段階では定義に含めず、後でマルチコア固有制約として追加する。
-
-## 1.4 completed / pending / ready
-
-* `completed`
-* `released`
-* `pending`
-* `ready`
-
-を定義する。
-
-ここでの `ready` はまずは job-level の抽象概念として置く。将来 DAG を入れる場合には node-level ready が別に必要になる。
-
-## 1.5 deadline miss
-
-* `missed_deadline`
-* `feasible_schedule`
-* `feasible`
-
-を定義する。
-
-ここで
-
-* **feasible_schedule** = ある具体 schedule が締切違反を起こさない
-* **feasible** = 条件を満たす schedule が存在する
-
-を区別しておくと、後の理論が整理しやすい。
-
-## 1.6 この段階の成果物
-
-* `Task`
-* `Job`
-* `Schedule`
-* `service`
-* `completed / pending / ready`
-* `missed_deadline / feasible_schedule / feasible`
-
----
-
-# Phase 2. 単一CPU scheduler 抽象化
-
-ここでは単一CPU scheduler の抽象インターフェースを整える。
-
-対象はまず
-
-* FIFO
-* RR
-* prioritized FIFO
-* EDF
+- **単一CPUの一般補題層の整備**
+- **EDF 最適性定理**
+- **task-level EDF 理論への接続**
 
 である。
 
-この段階では
+---
 
-* ready set から次に実行すべき 1 job を選ぶ
-* idle を返してもよい / 返してはいけない条件
-* tie-break の扱い
-* preemptive / non-preemptive の差
+# Phase 0: 共通基盤
+**状態: ほぼ完了**
 
-を明示する。
+## 目的
+以後の理論・実装の共通土台を安定化する。
+
+## 対応ファイル
+- `theories/Base.v`
+- `theories/ScheduleModel.v`
+- `theories/SchedulerInterface.v`
+
+## 実装済み
+- `Time`, `CPU`, `TaskId`, `JobId`
+- `Task`, `Job`
+- `Schedule`
+- `released`, `pre_release`
+- `service_job`, `cpu_count`, `runs_on`
+- `completed`, `eligible`, `ready`
+- `valid_schedule`
+- `missed_deadline`, `feasible_schedule`, `feasible`
+- `feasible_schedule_on`, `feasible_on`
+- `Scheduler`, `schedulable_by`, `schedulable_by_on`
+
+## 到達点
+- 単一CPU/マルチCPUの両方に使える共通基盤がある
+- `feasible` と `schedulable` の整理が入っている
+- subset 版の述語も導入済み
+
+## 今後の補強候補
+- `completed` / `service_job` / `runs_on` に関する基本補題の追加整理
+- `valid_schedule` の使い方に関する補題の体系化
 
 ---
 
-# Phase 3. 単一CPU policy 実装
+# Phase 1: dispatch 抽象
+**状態: 完了**
 
-ここでは具体 policy を単一CPU上で実装・定式化する。
+## 目的
+policy 非依存な dispatch 抽象を与える。
 
-* non-preemptive FIFO
-* RR quantum = 1
-* prioritized FIFO
-* EDF
+## 対応ファイル
+- `theories/DispatchInterface.v`
+- `theories/DispatchLemmas.v`
+- `theories/DispatchClassicalLemmas.v`
 
-この段階で policy 固有の基本補題を揃える。
+## 実装済み
+- `GenericDispatchSpec`
+- `candidates` ベースの dispatch 抽象
+- chosen job の eligible 性
+- `Some/None` の一般補題
+- `candidates_sound`
+- `candidates_complete`
+- 古典論理依存補題の分離
 
----
+## 到達点
+- concrete policy は generic dispatch spec を満たすものとして定義できる
+- bridge 層や partitioned 層がこの抽象を再利用できる
 
-# Phase 4. 単一CPU 共通性質
-
-ここでは単一CPU scheduler 一般に成り立つ性質を整理する。
-
-* dispatch 健全性
-* determinism
-* work-conserving
-* no-loss
-* service と trace の一致
-* FIFO / RR / EDF の局所仕様
-
-この層は後の partitioned scheduling にそのまま再利用できる。
-
----
-
-# Phase 5. マルチコア固有基盤
-
-ここでは Phase 1 の共通基盤の上に、**マルチコア特有の制約・不変条件** を追加する。
+## 今後の補強候補
+- policy 一般の比較補題
+- tie-break を含む dispatch 一般化の検討
 
 ---
 
-## 5.1 multicore execution の基本制約
+# Phase 2: single-CPU bridge
+**状態: 完了**
 
-新しく必要な述語:
+## 目的
+dispatch 抽象から単一CPU scheduler 抽象へ接続する。
 
-* 同じ時刻に 1 job は高々 1 CPU でしか実行されない
-* 1 CPU では高々 1 job
-* affinity がある場合は allowed CPU 上でのみ実行される
+## 対応ファイル
+- `theories/DispatchSchedulerBridge.v`
 
-## 5.2 multicore service の基本補題
+## 実装済み
+- `CandidateSource`
+- `CandidateSourceSpec`
+- `single_cpu_dispatch_schedule`
+- `single_cpu_dispatch_valid`
+- `single_cpu_dispatch_scheduler_on`
+- inspection lemmas
+  - `single_cpu_dispatch_eq_cpu0`
+  - `single_cpu_dispatch_idle_on_other_cpus`
+  - `single_cpu_dispatch_in_subset`
+  - `single_cpu_dispatch_some_if_subset_eligible`
+  - `single_cpu_dispatch_none_if_no_subset_eligible`
+- `single_cpu_dispatch_schedulable_by_on_intro`
 
-単一CPUの補題に加えて、
+## 到達点
+- dispatch spec から subset-aware な single-CPU scheduler を構成できる
+- 単一CPUでは `DispatchSchedulerBridge.v` が実質的に `UniSchedulerInterface` 相当の役割を担っている
 
-* 1ステップで service は高々 1 増える
-  （同時多重実行なし仮定のもと）
-* migration があっても service 定義は壊れない
-* CPU をまたいだ実行履歴の合計が進捗になる
-
-を示す。
-
-## 5.3 ready / pending の multicore 化
-
-ready は job-level では基本的に変わらないが、OS 寄りモデルを見据えると、
-
-* globally ready
-* CPU-local ready
-* runnable on CPU `c`
-
-を分けておくと便利である。
-
-## 5.4 idle core / busy core
-
-マルチコアでは core ごとの idle / busy を定義する必要がある。
-
-* `Idle(c,t)`
-* `Busy(c,t)`
-
-これは後の multicore work-conserving の定義に必要。
-
-## 5.5 この段階の成果物
-
-* no-duplication
-* affinity-aware validity
-* idle / busy
-* multicore service 基本補題
-* local/global runnable notions
+## コメント
+以前想定していた `UniSchedulerInterface.v` / `UniSchedulerLemmas.v` は、現状では独立ファイルではなく、この bridge 層に吸収されている。
 
 ---
 
-# Phase 6. マルチコア scheduler 抽象化
+# Phase 3: single-CPU concrete policy
+**状態: EDF/FIFO は完了、他は未着手**
 
-ここで単一CPU scheduler interface を一般化する。
+## 目的
+単一CPU上の具体 policy を共通インターフェース上に載せる。
 
-## 6.1 2種類の抽象化を分ける
+## 対応ファイル
+- `theories/UniPolicies/EDF.v`
+- `theories/UniPolicies/FIFO.v`
+- `theories/FIFOExamples.v`
+- `theories/SchedulableExamples.v`
 
-### A. per-CPU scheduler
+## 実装済み
 
-各 CPU が独立に選ぶ。
+### EDF
+- `min_dl_job`
+- `choose_edf`
+- `choose_edf_eligible`
+- `choose_edf_min_deadline`
+- `choose_edf_some_if_exists`
+- `choose_edf_complete`
+- `choose_edf_optimal`
+- `choose_edf_unique_min`
+- `edf_generic_spec`
+- `EDFSchedulerSpec`
+- `edf_scheduler`
 
-* partitioned scheduling に向く
+### FIFO
+- `choose_fifo`
+- FIFO 用 generic dispatch spec
+- first-eligible 系の局所性質
+- `fifo_scheduler`
 
-### B. global scheduler
+## 未着手
+- `RoundRobin.v`
+- `PrioritizedFIFO.v`
+- priority-based policy の一般枠組み
 
-全 CPU の current / idle 状態を見て、ready 集合から複数個選ぶ。
-
-* global EDF や global prioritized scheduling に向く
-
-## 6.2 multicore choose の形
-
-単一CPUでは「1個選ぶ」だったが、マルチコアでは
-
-> ready 集合から高々 `m` 個を選び、各 CPU に割り当てる
-
-操作になる。
-
-## 6.3 抽象インターフェースの分離
-
-おすすめは次のように分けること。
-
-* `UniprocessorScheduler`
-* `PartitionedScheduler`
-* `GlobalScheduler`
-
-1つに詰め込まない方が見通しがよい。
-
----
-
-# Phase 7. partitioned / global / clustered policy
-
-ここでマルチコア policy ごとの理論を入れる。
-
----
-
-## 7.1 Partitioned scheduling
-
-### モデル
-
-* 各 job / task は特定 CPU に固定
-* 各 CPU 上では単一CPU scheduler を実行
-
-### 利点
-
-* 単一CPU理論の再利用がしやすい
-* FIFO / RR / priority / EDF を CPU ごとに独立に適用できる
-
-### やるべきこと
-
-* 割当て関数 `assign : JobId -> CPU`
-* CPU ごとの valid schedule
-* 全体 schedule は CPU ごとの合成
-* service / completion が全体でも正しい
-
-### 証明対象
-
-* 各 CPU が valid なら全体も valid
-* 各 CPU が feasible_schedule なら全体も feasible_schedule
-* 各 CPU が feasible なら全体も feasible
-* migration がないこと
+## 到達点
+- EDF と FIFO は dispatch/spec/scheduler の流れで定義済み
+- 具体 policy の拡張がしやすい構造になっている
 
 ---
 
-## 7.2 Global scheduling
+# Phase 4: partitioned scheduling 基盤
+**状態: かなり進んでいる**
 
-### モデル
+## 目的
+multicore のうち、partitioned scheduling の基礎理論を整備する。
 
-* 全 job が 1つの global ready set に入る
-* 各時刻に最大 `m` 個選んで CPU に置く
-* migration 可能
+## 対応ファイル
+- `theories/Partitioned.v`
 
-### policy 候補
+## 実装済み
+- `cpu_schedule`
+- `local_candidates`
+- `partitioned_schedule_on`
+- `valid_partitioned_schedule`
+- `local_jobset`
+- `local_candidates_of`
+- `local_candidates_spec`
+- `partitioned_schedule_implies_respects_assignment`
+- `partitioned_implies_sequential`
+- `service_decomposition`
+- `completed_iff_on_assigned_cpu`
+- `missed_deadline_iff_on_assigned_cpu`
+- `local_feasible_on_implies_global_feasible_on`
+- `local_valid_feasible_on_implies_global`
+- `partitioned_scheduler`
+- `partitioned_schedulable_by_on_intro`
 
-* global EDF
-* global FIFO
-* global prioritized FIFO
-* global RR は定義できるがやや不自然で重い
+## 到達点
+- local single-CPU scheduler から global partitioned scheduler を構成できる
+- local feasibility / validity から global feasibility を導く骨格がある
+- `feasible_schedule_on (local_jobset c)` による subset-aware な局所理論へ修正済み
 
-### 新しく必要な概念
-
-* top-`m` selection
-* carry-in interference
-* idle CPU があるのに他 job が待つ、という状況の排除
-* work-conserving の multicore 版
-
-### 証明対象
-
-* top-`m` の正しさ
-* same job not duplicated
-* global work-conserving
-* dispatch consistency
-
----
-
-## 7.3 Clustered scheduling
-
-### モデル
-
-* CPU をクラスタに分ける
-* 各クラスタ内では global
-* クラスタ間では partitioned
-
-### 意義
-
-* 実 OS / 実機の NUMA, cache locality, per-socket 設計に近い
-
-最初からやらなくてもよいが、拡張先として残しておく価値がある。
+## 今後の補強候補
+- `valid_partitioned_schedule` を「assignment respect + global validity を含む全部入り述語」に強化
+- partitioned EDF の具体化
+- task assignment と schedulability の接続
 
 ---
 
-# Phase 8. マルチコア共通性質
+# Phase 5: periodic task model
+**状態: 骨格は先行着手済み**
 
-ここで「マルチコアで一般に証明すべきこと」を整理する。
+## 目的
+task-level モデルから job-level 理論への接続の入口を作る。
 
----
+## 対応ファイル
+- `theories/PeriodicTasks.v`
 
-## 8.1 multicore validity
+## 実装済み
+- `expected_release`
+- `expected_abs_deadline`
+- `generated_by_periodic_task`
+- `periodic_job_model`
+- `periodic_job_model_on`
+- `implicit_deadline_tasks`
+- `generated_implies_valid_job_of_task`
 
-* release 前に走らない
-* completed 後に走らない
-* 同時実行重複なし
-* affinity 違反なし
+## 到達点
+- periodic task から job を生成する骨格がある
+- implicit deadline task の条件が分離されている
 
-## 8.2 multicore work-conserving
-
-単一CPU版より定義が難しい。
-
-典型的には:
-
-> ある時刻に runnable job があり、かつそれを受け入れられる idle CPU があるなら、その CPU を idle のままにしない
-
-ただし global と partitioned では定義が異なるので分けるべき。
-
-## 8.3 determinism
-
-* 同じ global state なら同じ割当て結果
-* tie-break を含めて一意
-
-## 8.4 no-duplication
-
-* 同じ job が同時刻に複数 CPU へ置かれない
-
-## 8.5 progress / fairness
-
-* finite ready jobs なら idle core があれば何かが進む
-* global RR 系では巡回性
-* global priority 系では starvation 条件付き議論
+## コメント
+この段階はまだ job 生成モデルであり、schedulability theory 本体ではない。
+EDF 最適性定理のあとに、task-level 理論へ持ち上げるのが自然である。
 
 ---
 
-# Phase 9. マルチコア schedulability / response-time 理論
+# Phase 6: 単一CPUの一般補題層
+**状態: 次の主目標**
 
-ここから理論的に一気に難しくなる。
+## 目的
+EDF 最適性定理に必要な一般補題と schedule 変換補題を整備する。
 
----
+## ここで追加したいもの
+- `service_job` / `completed` / `missed_deadline` に関する比較補題
+- prefix/suffix に関する補題
+- finite horizon ないし prefix ベースの議論の導入
+- swap / exchange 用の schedule 変換補題
+- 「EDF でない最初の時刻」を取り出す補題
+- EDF 形への正規化補題
 
-## 9.1 Partitioned schedulability
+## ファイル案
+- `theories/UniPolicies/EDFLemmas.v`
+- 必要なら `theories/UniPolicies/ScheduleTransform.v`
 
-比較的やりやすい。
+## 到達点
+- EDF 最適性証明に必要な下準備が揃う
+- `EDF.v` を局所選択則の層に保ったまま、証明を分離できる
 
-### 基本方針
-
-* 各 CPU で単一CPU解析
-* 全体 schedulability は各 CPU の conjunction
-
-### 証明対象
-
-* partitioned EDF schedulability
-* partitioned fixed-priority / prioritized FIFO response time
-* FIFO / RR の completion or bounded waiting per CPU
-
----
-
-## 9.2 Global schedulability
-
-かなり難しい。
-
-### 代表テーマ
-
-* global EDF
-* bounded tardiness
-* speedup bound
-* workload / interference bound
-
-### 必要概念
-
-* carry-in tasks / jobs
-* top-`m` interference
-* busy window の multicore 版
-* lag / fluid schedule 比較
-
-### 注意
-
-最初から exact schedulability を狙わず、まずは
-
-* work-conserving
-* no-duplication
-* bounded interference
-* simple sufficient conditions
-
-あたりから始めるのが現実的。
+## 直近の具体タスク
+1. `service_job` に関する prefix monotonicity を補題化する
+2. completion と service の対応補題を整理する
+3. 2 時刻の入れ替えが total service を保存する補題を作る
+4. swap 後の deadline miss への影響を比較する補題を作る
 
 ---
 
-## 9.3 fairness / starvation on multicore
+# Phase 7: EDF 最適性定理
+**状態: 次の中心マイルストーン**
 
-global priority 系では starvation 議論が繊細。
+## 目的
+単一CPU・preemptive・独立 job 系で EDF の最適性を証明する。
 
-証明対象の例:
+## 位置づけ
+このフェーズが、単一CPU scheduling theory の中心定理にあたる。
 
-* 強い仮定の下で starvation-freedom
-* bounded waiting under finite ready-set assumptions
-* RR 系での bounded service gap
+## 目標定理の候補
+最初は subset-aware / single-CPU 版が自然である。
 
----
+例:
+- `feasible_on J jobs 1 -> schedulable_by_on J edf_scheduler jobs 1`
 
-# Phase 10. OS 寄りマルチコア operational semantics
+あるいは、より抽象的に
+- feasible な単一CPU schedule が存在するなら、EDF 条件を満たす feasible schedule が存在する
 
-ここが最終的な橋渡し。
+## 証明方針
+- feasible schedule を仮定する
+- EDF でない最初の時刻を取る
+- その時刻で deadline の早い job を前に出す swap を行う
+- feasibility を壊さないことを示す
+- これを繰り返して EDF 形へ正規化する
 
----
+## ファイル案
+- `theories/UniPolicies/EDFOptimality.v`
 
-## 10.1 per-CPU machine state
-
-最低限:
-
-* `current[c]`
-* `runqueue[c]` または global runqueue
-* blocked set
-* completed set
-* clock
-* pending wakeups
-* pending IPIs / resched flags
-
-## 10.2 イベント
-
-単一CPU版に加えて:
-
-* `Arrival j`
-* `Tick c`
-* `Completion c j`
-* `Block c j`
-* `Wakeup j`
-* `IPI from c1 to c2`
-* `Migrate j c1 c2`
-
-## 10.3 load balancing / migration
-
-global / clustered では重要。
-
-証明対象:
-
-* migration で job を lost しない
-* migration 元/先の queue 整合性
-* one-copy invariant
-* balancing が affinity を壊さない
-
-## 10.4 reschedule / preemption
-
-各 CPU で独立に reschedule が起こるので、
-
-* local reschedule
-* remote wakeup
-* IPI-driven preemption
-
-をモデル化できるようにする。
-
-## 10.5 trace から multicore schedule 生成
-
-operational state trace から
-
-* `sched t c = ...`
-
-を導出し、Phase 1 の `service` / `completed` と接続する。
+## 到達点
+- 単一CPUにおいて EDF が最適であることを示せる
+- 以後の periodic/sporadic task 理論の基準点になる
 
 ---
 
-# Phase 11. refinement
+# Phase 8: task-level EDF 理論
+**状態: EDF 最適性定理の後に着手**
 
-ここでは抽象 multicore policy と具体 OS-like machine の一致を示す。
+## 目的
+job-level EDF 理論を periodic task / sporadic task 理論に接続する。
 
----
+## 追加したいもの
+- utilization の定義
+- task set の feasibility / schedulability
+- implicit deadline periodic task に対する EDF 利用率定理
+- job-level feasibility と task-level feasibility の橋渡し
 
-## 11.1 partitioned refinement
+## ファイル案
+- `theories/PeriodicTasks.v` を拡張
+- 必要なら `theories/UniPolicies/EDFTaskTheory.v`
 
-* per-CPU queue 実装が abstract partitioned scheduler を実現する
-
-## 11.2 global refinement
-
-* global heap / global queue 実装が abstract global choose を実現する
-
-## 11.3 clustered refinement
-
-* cluster-level scheduler + per-CPU execution が abstract clustered model を実現する
-
-## 11.4 service refinement
-
-* operational trace で数えた実行量 = abstract service
+## 到達点
+- `PeriodicTasks.v` が単なる生成規則から schedulability theory へ進む
+- classic EDF utilization result への土台ができる
 
 ---
 
-# Phase 12. 発展テーマ
+# Phase 9: single-CPU policy の拡充
+**状態: 未着手**
 
-ここでは、共通基盤の上に載せる task model 拡張を整理する。
+## 目的
+EDF 以外の policy を同じ枠組みで拡張し、比較可能にする。
 
----
+## 追加候補
+- `theories/UniPolicies/RoundRobin.v`
+- `theories/UniPolicies/PrioritizedFIFO.v`
 
-## 12.1 affinity / locality
+## 追加したい定理
+- FIFO が optimal でないことの反例
+- RR の fairness / progress 系
+- priority-based scheduler の一般補題
 
-* allowed CPU set
-* cache locality aware scheduling
-* cluster confinement
-
-## 12.2 overhead
-
-* migration cost
-* IPI cost
-* load balancing cost
-* remote wakeup latency
-
-## 12.3 blocking / shared resources
-
-* multiprocessor locking
-* blocking bound
-* spinning / suspension
-
-## 12.4 mixed-criticality
-
-* per-core or global mixed-criticality scheduling
-
-## 12.5 周期タスク (Periodic Tasks)
-
-### 拡張の性質
-
-周期タスクは **job 生成規則の拡張** である。
-つまり中心は「task から job をどう生成するか」であり、job 自体の completed / ready / deadline semantics は基本的に既存の job-level 理論を再利用できる。
-
-### 前提条件
-
-* Phase 3–4（単一CPU EDF / RM の基盤）完了
-* 最初は **independent implicit-deadline periodic tasks** から始める
-
-最初から arbitrary deadline や複雑な到着モデルを狙わない。
-
-### モデル拡張
-
-* `Task` レコードの `task_period` / `task_cost` / `task_relative_deadline` を活用
-* 周期的 job 生成規則: task `τ` の `k` 番目 job の release = `τ.offset + k * τ.period`
-* absolute deadline = release + relative deadline
-* hyperperiod: 全タスクの period の lcm
-
-### 証明対象
-
-* 生成規則の well-formedness（release 単調増加など）
-* 生成された job 列が `valid_jobs` を満たすこと
-* 利用率上限定理 (Liu & Layland): `Σ(cost_i / period_i) ≤ 1`
-* EDF の周期タスクに対する最適性
-* RM (Rate Monotonic) の schedulability 条件（必要なら）
-
-### 進め方
-
-まず `Task -> Job` 生成関数を定義し、生成された job 列が共通基盤と整合することを示す。
-その上で利用率計算と EDF/RM schedulability を証明する。
-骨格（生成規則・well-formedness・valid_jobs との整合）を先に入れ、schedulability 証明は後に回してよい。
+## 到達点
+- single-CPU scheduling library としての厚みが増す
+- EDF 以外の policy も理論化できる
 
 ---
 
-## 12.6 DAG タスク (DAG Tasks)
+# Phase 10: partitioned scheduling の強化
+**状態: 基盤はある、次は具体理論**
 
-### 拡張の性質
+## 目的
+現在の `Partitioned.v` を基礎から具体 policy と定理へ伸ばす。
 
-DAG タスクは **job 内部構造の拡張** である。
-つまり中心は「1 つの job を node 群へ分解し、precedence 制約を導入すること」であり、周期タスクとは拡張の方向が異なる。
+## 追加したいもの
+- `valid_partitioned_schedule` の全部入り述語化
+- partitioned EDF
+- per-CPU local EDF から global schedulability を導く定理
+- assignment respect を明示的に含む定義整理
 
-### 前提条件
+## 到達点
+- partitioned scheduling が「基礎定義」から「具体 policy theory」へ進む
+- EDF を multicore 側へ拡張する第一歩になる
 
-* Phase 5–8（マルチコア基盤・partitioned/global scheduling）完了
-* sequential job の共通補題群が十分に整備されていること
+---
 
-### モデル拡張（3層化）
+# Phase 11: global / clustered scheduling
+**状態: 未着手**
 
-* `NodeId := nat` を導入
-* `Node` レコード: 所属 job、実行コスト、先行 node 集合
-* `Schedule` の移行候補: `Time -> CPU -> option (JobId * NodeId)` または `option NodeId`
-* node-level ready:
-  * `ready_node n t = pending_node n t /\ preds_completed n t`
-* node-level service / completed を job-level と分離
+## 目的
+partitioned ではなく、共有 ready pool に基づく multicore scheduling を扱う。
 
-### no_duplication の変更
+## 追加候補
+- global ready set
+- top-`m` dispatch
+- global EDF
+- clustered scheduler
 
-現在の「同じ job は同時に複数 CPU で走らない」を
-「同じ node は同時に複数 CPU で走らない」に置き換える。
+## コメント
+これは単一CPU EDF 最適性や partitioned 基盤のあとに進むのが自然である。
 
-同じ job の異なる ready node は、別 CPU で同時に走ってよい。
+---
 
-### 証明対象
+# Phase 12: OS寄り operational model
+**状態: 未着手**
 
-* precedence relation の well-formedness（DAG、循環なし）
-* node-level service の monotonicity・整合性
-* critical path / span の定式化
-* work と span に基づく基本境界
-* node-level semantics と job-level completion / deadline miss の接続
-* parallel speedup の基本下界 / 上界
-* federated / work-stealing scheduling の健全性（必要なら）
+## 目的
+純粋な scheduling theory から、OS 寄り operational model へ拡張する。
 
-### 進め方
+## 追加候補
+- runqueue
+- current task
+- wakeup / block / completion
+- migration
+- timer / IPI との接続
 
-まず sequential job の証明群を固め、次に node レベルの定義を導入する。
+## 到達点
+- abstract scheduler spec と concrete kernel scheduler の refinement へ進める
+
+---
+
+# Phase 13: DAG / refinement
+**状態: 未着手**
+
+## 目的
+precedence や refinement を含む、より豊かなスケジューリングモデルへ進む。
+
+## 追加候補
+- DAG task / node-level semantics
+- precedence constraints
+- abstract model と concrete implementation の refinement
+
+---
+
+# 直近の優先順位
+
+## 最優先
+1. `EDFLemmas.v` を作る
+2. schedule transform / swap 補題を整備する
+3. `EDFOptimality.v` を作る
+
+## その次
+4. `PeriodicTasks.v` と EDF 理論を接続する
+5. `RoundRobin.v` を追加する
+6. `Partitioned.v` を partitioned EDF へ伸ばす
+
+---
+
+# 現在のファイル構成に基づく見取り図
+
+- `Base.v`
+  基本型、Task/Job、task-job 整合性
+
+- `ScheduleModel.v`
+  service / completion / eligible / ready / feasible
+
+- `SchedulerInterface.v`
+  `Scheduler`, `schedulable_by`, `schedulable_by_on`
+
+- `DispatchInterface.v`
+  generic dispatch 抽象
+
+- `DispatchLemmas.v`, `DispatchClassicalLemmas.v`
+  dispatch 一般補題
+
+- `DispatchSchedulerBridge.v`
+  single-CPU bridge と subset-aware scheduler 構成
+
+- `UniPolicies/EDF.v`, `UniPolicies/FIFO.v`
+  concrete single-CPU policies
+
+- `Partitioned.v`
+  partitioned multicore scheduling の基礎
+
+- `PeriodicTasks.v`
+  periodic task 生成規則の骨格
+
+---
+
+# 要約
+
+現在の実装は、
+
+- 共通基盤
+- dispatch 抽象
+- single-CPU bridge
+- EDF/FIFO
+- partitioned 基礎
+- periodic 骨格
+
+まで到達している。
+
+したがって、次の中核マイルストーンは
+
+- **Phase 6: 単一CPUの一般補題層**
+- **Phase 7: EDF 最適性定理**
+
+である。
+
 その後、
 
-* `ready_node`
-* `completed_node`
-* `service_node`
-
-を段階的に追加し、最後に **node-level semantics と job-level deadline semantics の整合性補題** を積み上げる。
-一気に DAG 全体を入れず、node / ready_node / completed_node を段階的に追加する。
-
----
-
-# 難易度順に見る実装・証明順序
-
-マルチコア込みでも、実際には次の順が現実的。
-
----
-
-## 第1段階: 単一CPU基盤
-
-* Job / service / completed / ready
-* valid schedule
-* FIFO / RR / prioritized FIFO / EDF
-* 単一CPU 共通性質
-
-## 第2段階: 周期タスク基盤
-
-* `Task`
-* `Task -> Job` 生成規則
-* release / deadline の well-formedness
-* EDF / RM に必要な task model 前提の固定
-
-周期タスクは **job 生成規則の拡張** なので、この段階で入れるのが自然。
-
-## 第3段階: multicore 共通基盤
-
-* `Schedule := time -> CPU -> option JobId`
-* multicore service
-* no-duplication
-* multicore validity
-* idle / busy
-* local/global runnable notions
-
-## 第4段階: partitioned scheduling
-
-* assign function
-* per-CPU scheduler lifting
-* 各 CPU 性質から全体性質へ
-
-これは最初のマルチコアとして最もおすすめ。
-
-## 第5段階: global scheduling 基盤
-
-* global ready set
-* top-`m` choose
-* global work-conserving
-* no-duplication / determinism
-
-## 第6段階: DAG node-level 基盤
-
-* `Node`
-* `ready_node`
-* `completed_node`
-* precedence well-formedness
-* node-level service
-
-DAG タスクは **job 内部構造の拡張** なので、multicore / global 基盤の後に入れるのが自然。
-
-## 第7段階: global EDF / prioritized FIFO / DAG 上の基本性質
-
-* multicore fairness / progress
-* 干渉の基本補題
-* node-level semantics と job-level completion の接続
-* DAG 上の makespan / span / work の基本補題
-
-## 第8段階: OS 寄り multicore machine
-
-* per-CPU current
-* runqueue(s)
-* wakeup / migration / IPI
-* trace semantics
-
-## 第9段階: refinement と解析
-
-* abstract policy ⇔ machine
-* response-time / schedulability / bounded tardiness
-
----
-
-# 修正版ファイル構成案
-
-## `Base.v`
-
-* time, CPU, JobId, TaskId
-* job attributes
-* task attributes
-* single/multi-core common notions
-
-## `Schedule.v`
-
-* uniprocessor schedule
-* multicore schedule
-* service
-* completed / ready / valid
-
-## `UniSchedulerInterface.v`
-
-* 単一CPU scheduler interface
-
-## `UniPolicies/`
-
-* `FIFO.v`
-* `RoundRobin.v`
-* `PrioritizedFIFO.v`
-* `EDF.v`
-
-## `PeriodicTasks.v`
-
-* task-to-job generation
-* periodic well-formedness
-* utilization definitions
-
-## `MultiCoreBase.v`
-
-* multicore validity
-* no-duplication
-* per-core / global idle/busy
-
-## `Partitioned.v`
-
-* assignment
-* per-CPU lifting
-* global composition
-
-## `GlobalSchedulerInterface.v`
-
-* top-`m` dispatch
-* global ready sets
-
-## `GlobalPolicies/`
-
-* `GlobalEDF.v`
-* `GlobalPrioritizedFIFO.v`
-* 必要なら `GlobalFIFO.v`, `GlobalRR.v`
-
-## `DAGBase.v`
-
-* node definitions
-* precedence
-* ready_node / completed_node / service_node
-
-## `TraceSemantics.v`
-
-* state traces
-* derived schedules
-
-## `OSModel/`
-
-* per-CPU state
-* runqueue/global queue
-* wakeup/block/completion
-* migration/IPI
-
-## `Refinement/`
-
-* queue/heap/ring-buffer refinements
-* abstract ↔ operational
-
----
-
-# どこまで最初にやるべきか
-
-最初から全部やるとかなり大きいので、次の順がおすすめ。
-
-## 最初に完成させるべき核
-
-1. 単一CPU共通基盤
-2. 単一CPU policy 群
-3. 周期タスク生成規則の骨格
-4. multicore schedule / service / validity
-5. partitioned scheduling
-
-ここまでで、
-
-* 単一CPU理論
-* 周期タスクの入り口
-* マルチコアへの自然な拡張
-
-ができる。
-
-## 次にやるべき核
-
-6. global ready-set abstraction
-7. global EDF または global prioritized FIFO
-8. multicore work-conserving / no-duplication
-9. DAG の node-level 基盤
-
-## 最後に OS 寄り
-
-10. per-CPU operational machine
-11. migration / wakeup / IPI
-12. refinement
-
----
-
-# まとめ
-
-このロードマップは、次の 3 種類の拡張を明確に分離して進める構成になっている。
-
-1. **共通基盤**
-   * Job, Task, multicore schedule, service, completion, valid schedule
-
-2. **policy の拡張**
-   * FIFO, RR, prioritized FIFO, EDF
-   * partitioned, global, clustered
-
-3. **task model の拡張**
-   * 周期タスク = job 生成規則の拡張
-   * DAG タスク = job 内部構造の拡張
-
-その上で最終的に、
-
-4. **OS 寄り operational model**
-   * per-CPU current, runqueue, migration, wakeup, IPI, balancing
-
-5. **refinement**
-   * abstract scheduling theory と concrete OS state machine の接続
-
-へ進む。
-
-いちばん大事なのは、
-
-* **partitioned と global を最初から分けること**
-* **service / completion の共通基盤を先に作ること**
-* **周期タスクと DAG タスクを別種の拡張として扱うこと**
-
-である。
+- task-level EDF 理論
+- Round Robin などの policy 拡充
+- partitioned EDF
+- global EDF
+
+へ進むのが自然である。
