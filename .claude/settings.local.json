@@ -37,7 +37,8 @@
       "Bash(xargs -I{} basename {})",
       "Bash(echo \"EXIT: $?\")",
       "Bash(make)",
-      "Bash(make clean:*)"
+      "Bash(make clean:*)",
+      "Bash(echo \"exit:$?\")"
     ]
   },
   "deny": [
