@@ -160,12 +160,11 @@ Qed.
 (* B1: If candidates exactly represents the ready set and a ready job exists,
    choose_edf always returns Some. *)
 Lemma choose_edf_complete : forall jobs m sched t candidates,
-    NoDup candidates ->
     (forall j, ready jobs m sched j t <-> In j candidates) ->
     (exists j, ready jobs m sched j t) ->
     exists j', choose_edf jobs m sched t candidates = Some j'.
 Proof.
-  intros jobs m sched t candidates Hnd Href [j Hready].
+  intros jobs m sched t candidates Href [j Hready].
   apply choose_edf_some_if_exists.
   exists j. split.
   - apply Href. exact Hready.
@@ -175,13 +174,12 @@ Qed.
 (* B2: If candidates exactly represents the ready set, the chosen job has
    minimum deadline in the entire ready set. *)
 Lemma choose_edf_optimal : forall jobs m sched t candidates j,
-    NoDup candidates ->
     (forall j', ready jobs m sched j' t <-> In j' candidates) ->
     choose_edf jobs m sched t candidates = Some j ->
     forall j', ready jobs m sched j' t ->
     job_abs_deadline (jobs j) <= job_abs_deadline (jobs j').
 Proof.
-  intros jobs m sched t candidates j Hnd Href Hchoose j' Hready.
+  intros jobs m sched t candidates j Href Hchoose j' Hready.
   apply (choose_edf_min_deadline jobs m sched t candidates j Hchoose).
   - apply Href. exact Hready.
   - exact Hready.
