@@ -1,4 +1,4 @@
-From Stdlib Require Import Arith Arith.PeanoNat Lia.
+From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
 Require Import Base.
 (* Note: Base.pre_release (t < release_time, schedule-independent) is now in scope.
    Schedule.eligible (released AND NOT completed) is the dispatch condition for
@@ -196,6 +196,38 @@ Proof.
       * simpl.
         apply (proj2 (IH sched j t)).
         intros c Hlt. apply Hnone. lia.
+Qed.
+
+(* Boolean version of ready: needed for filter (requires bool-valued function).
+   readyb_iff proves readyb j t = true <-> ready j t.
+   Shared by all dispatch policies (EDF, FIFO, RR, …).
+   Placed here because readyb_iff uses cpu_count_zero_iff_not_executed. *)
+Definition readyb (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+                   (j : JobId) (t : Time) : bool :=
+  (job_release (jobs j) <=? t) &&
+  negb (job_cost (jobs j) <=? service_job m sched j t) &&
+  (cpu_count m sched j t =? 0).
+
+Lemma readyb_iff : forall jobs m sched j t,
+    readyb jobs m sched j t = true <-> ready jobs m sched j t.
+Proof.
+  intros jobs m sched j t.
+  unfold readyb, ready, eligible, running, released, completed.
+  rewrite Bool.andb_true_iff, Bool.andb_true_iff, Nat.leb_le,
+          Bool.negb_true_iff, Nat.eqb_eq.
+  split.
+  - intros [[H1 H2] H3]. split.
+    + split.
+      * exact H1.
+      * intro Hge. apply Nat.leb_le in Hge. rewrite Hge in H2. discriminate.
+    + intros [c [Hlt Hc]].
+      apply (proj1 (cpu_count_zero_iff_not_executed m sched j t) H3 c Hlt).
+      exact Hc.
+  - intros [[H1 H2] H3]. split; [split|].
+    + exact H1.
+    + apply Bool.not_true_iff_false. intro H. apply Nat.leb_le in H. exact (H2 H).
+    + apply (proj2 (cpu_count_zero_iff_not_executed m sched j t)).
+      intros c Hlt Hc. apply H3. exists c. split. exact Hlt. exact Hc.
 Qed.
 
 Lemma cpu_count_pos_iff_executed : forall m sched j t,

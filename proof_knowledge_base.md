@@ -782,3 +782,79 @@
 - **Dependencies**: `completed_iff_on_assigned_cpu`, `respects_assignment`, `cpu_schedule`
 - **Notes**: ⚠️ After `rewrite completed_iff_on_assigned_cpu`, the goal contains `assign j` (not `c`). Use `rewrite Hassign` (where `Hassign : assign j = c`) to convert — NOT `rewrite <- Hassign`. Using the wrong direction gives "Found no subterm matching c".
 - **Date**: 2026-04-09
+
+---
+
+### `readyb` / `readyb_iff` (moved to Schedule.v)
+- **Type**: Definition + Lemma
+- **Statement**:
+  ```coq
+  Definition readyb (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+                     (j : JobId) (t : Time) : bool :=
+    (job_release (jobs j) <=? t) &&
+    negb (job_cost (jobs j) <=? service_job m sched j t) &&
+    (cpu_count m sched j t =? 0).
+
+  Lemma readyb_iff : forall jobs m sched j t,
+      readyb jobs m sched j t = true <-> ready jobs m sched j t.
+  ```
+- **Proof Strategy**: Unfold all definitions, rewrite with `Bool.andb_true_iff`, `Nat.leb_le`, `Bool.negb_true_iff`, `Nat.eqb_eq`. Use `cpu_count_zero_iff_not_executed` to bridge `cpu_count = 0` and `~running`.
+- **Key Tactics**: `Bool.andb_true_iff`, `Bool.negb_true_iff`, `Nat.eqb_eq`, `Nat.leb_le`, `cpu_count_zero_iff_not_executed`, `Bool.not_true_iff_false`
+- **Dependencies**: `cpu_count_zero_iff_not_executed`
+- **Notes**: Placed in `Schedule.v` AFTER `cpu_count_zero_iff_not_executed` (not near `ready` definition) because the proof depends on it. Previously in `EDF.v` only — now shared by all policies.
+- **Date**: 2026-04-09
+
+---
+
+### `choose_fifo` (FIFO.v)
+- **Type**: Definition
+- **Statement**:
+  ```coq
+  Fixpoint choose_fifo (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+                        (t : Time) (candidates : list JobId) : option JobId :=
+    match candidates with
+    | []       => None
+    | j :: rest =>
+      if readyb jobs m sched j t then Some j
+      else choose_fifo jobs m sched t rest
+    end.
+  ```
+- **Proof Strategy**: Linear scan — return first `readyb`-true job.
+- **Key Tactics**: Fixpoint, `readyb`
+- **Dependencies**: `readyb`
+- **Notes**: All 4 GenericDispatchSpec lemmas proved by `induction candidates; simpl; destruct (readyb ...) eqn:Erb`.
+- **Date**: 2026-04-09
+
+---
+
+### `choose_fifo_some_if_exists`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma choose_fifo_some_if_exists : forall jobs m sched t candidates,
+      (exists j, In j candidates /\ ready jobs m sched j t) ->
+      exists j', choose_fifo jobs m sched t candidates = Some j'.
+  ```
+- **Proof Strategy**: Induction on `candidates` BEFORE destructuring the existential. If done after, the IH type has `j` fixed and `apply IHc` + `exists j` fails with "Not an inductive definition".
+- **Key Tactics**: `intros jobs m sched t. induction candidates as [| h rest IHc].`, then `intros [j [Hin Hready]]`
+- **Dependencies**: `readyb_iff`, `Bool.not_true_iff_false`
+- **Notes**: ⚠️ CRITICAL ORDER: Do `induction candidates` before `intros [j [Hin Hready]]`. If you intro the existential first, `IHc` gets `j` fixed and the later `apply IHc. exists j. split.` fails with "Not an inductive definition" because the goal after `apply IHc` is already `In j rest`, not an existential.
+- **Date**: 2026-04-09
+
+---
+
+### `choose_fifo_first_ready`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma choose_fifo_first_ready : forall jobs m sched t candidates j,
+      choose_fifo jobs m sched t candidates = Some j ->
+      exists prefix suffix,
+        candidates = prefix ++ j :: suffix /\
+        forall j', In j' prefix -> ~ready jobs m sched j' t.
+  ```
+- **Proof Strategy**: Induction on candidates. Base: head is ready → `prefix = []`. Step: head not ready → prepend head to prefix of recursive call.
+- **Key Tactics**: `induction candidates`, `destruct (readyb ...) eqn:Erb`, `injection H as Heq; subst`, `exists [], rest` / `exists (j0 :: prefix), suffix`, `Bool.not_true_iff_false`, `readyb_iff`
+- **Dependencies**: `readyb_iff`, `Bool.not_true_iff_false`
+- **Notes**: The prefix witness is built incrementally: start with `[]` when head is chosen, extend with `j0 :: prefix` in recursive case.
+- **Date**: 2026-04-09

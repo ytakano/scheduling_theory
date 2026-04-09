@@ -6,15 +6,8 @@ Import ListNotations.
 
 (* ===== EDF Dispatcher: Definitions ===== *)
 
-(* Boolean version of ready: needed for filter.
-   ready is a Prop; filter requires a bool-valued function.
-   The third conjunct (cpu_count =? 0) corresponds to ~running m sched j t,
-   using cpu_count_pos_iff_executed to bridge the bool and Prop. *)
-Definition readyb (jobs : JobId -> Job) (m : nat) (sched : Schedule)
-                   (j : JobId) (t : Time) : bool :=
-  (job_release (jobs j) <=? t) &&
-  negb (job_cost (jobs j) <=? service_job m sched j t) &&
-  (cpu_count m sched j t =? 0).
+(* readyb and readyb_iff are now defined in Schedule.v and available via
+   Require Import Schedule above. *)
 
 (* Select the job with the minimum absolute deadline from a list.
    Returns None iff the list is empty.
@@ -37,30 +30,6 @@ Fixpoint min_dl_job (jobs : JobId -> Job) (l : list JobId) : option JobId :=
 Definition choose_edf (jobs : JobId -> Job) (m : nat) (sched : Schedule)
                        (t : Time) (candidates : list JobId) : option JobId :=
   min_dl_job jobs (filter (fun j => readyb jobs m sched j t) candidates).
-
-(* ===== Phase 1: Boolean / Propositional Bridge ===== *)
-
-Lemma readyb_iff : forall jobs m sched j t,
-    readyb jobs m sched j t = true <-> ready jobs m sched j t.
-Proof.
-  intros jobs m sched j t.
-  unfold readyb, ready, eligible, running, released, completed.
-  rewrite Bool.andb_true_iff, Bool.andb_true_iff, Nat.leb_le,
-          Bool.negb_true_iff, Nat.eqb_eq.
-  split.
-  - intros [[H1 H2] H3]. split.
-    + split.
-      * exact H1.
-      * intro Hge. apply Nat.leb_le in Hge. rewrite Hge in H2. discriminate.
-    + intros [c [Hlt Hc]].
-      apply (proj1 (cpu_count_zero_iff_not_executed m sched j t) H3 c Hlt).
-      exact Hc.
-  - intros [[H1 H2] H3]. split; [split|].
-    + exact H1.
-    + apply Bool.not_true_iff_false. intro H. apply Nat.leb_le in H. exact (H2 H).
-    + apply (proj2 (cpu_count_zero_iff_not_executed m sched j t)).
-      intros c Hlt Hc. apply H3. exists c. split. exact Hlt. exact Hc.
-Qed.
 
 (* ===== Phase 2: min_dl_job Structural Properties ===== *)
 
