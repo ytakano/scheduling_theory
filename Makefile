@@ -3,7 +3,13 @@ all: EDF.vo example_feasible.vo example_schedulable.vo Partitioned.vo FIFO.vo Pe
 Base.vo: Base.v
 	rocq compile Base.v
 
-Schedule.vo: Schedule.v Base.vo
+ScheduleModel.vo: ScheduleModel.v Base.vo
+	rocq compile ScheduleModel.v
+
+SchedulerInterface.vo: SchedulerInterface.v ScheduleModel.vo
+	rocq compile SchedulerInterface.v
+
+Schedule.vo: Schedule.v ScheduleModel.vo SchedulerInterface.vo
 	rocq compile Schedule.v
 
 PeriodicTasks.vo: PeriodicTasks.v Base.vo

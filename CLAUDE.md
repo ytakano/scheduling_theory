@@ -27,7 +27,9 @@ To compile a single file and its dependencies:
 
 ```bash
 rocq compile Base.v
-rocq compile Schedule.v     # requires Base.vo
+rocq compile ScheduleModel.v      # requires Base.vo
+rocq compile SchedulerInterface.v # requires ScheduleModel.vo
+rocq compile Schedule.v           # re-exports ScheduleModel + SchedulerInterface
 rocq compile UniSchedulerInterface.v  # requires Schedule.vo Base.vo
 rocq compile EDF.v          # requires UniSchedulerInterface.vo
 rocq compile FIFO.v         # requires UniSchedulerInterface.vo
@@ -42,19 +44,23 @@ Files are ordered by dependency:
 
 ```
 Base.v
-  └── Schedule.v
-        └── UniSchedulerInterface.v
-              ├── UniSchedulerLemmas.v   (policy-independent GenericSchedulerDecisionSpec lemmas)
-              ├── EDF.v                  (EDF dispatcher + EDFSchedulerSpec)
-              ├── FIFO.v                 (FIFO dispatcher + fifo_generic_spec)
-              └── Partitioned.v          (Lv.5 multicore: static assignment lifting)
-  └── PeriodicTasks.v                    (periodic task → job generation model)
+  └── ScheduleModel.v               (schedule semantics)
+        └── SchedulerInterface.v    (abstract scheduler + schedulability)
+              └── Schedule.v        (re-export: ScheduleModel + SchedulerInterface)
+                    └── UniSchedulerInterface.v
+                          ├── UniSchedulerLemmas.v   (policy-independent GenericSchedulerDecisionSpec lemmas)
+                          ├── EDF.v                  (EDF dispatcher + EDFSchedulerSpec)
+                          ├── FIFO.v                 (FIFO dispatcher + fifo_generic_spec)
+                          └── Partitioned.v          (Lv.5 multicore: static assignment lifting)
+  └── PeriodicTasks.v               (periodic task → job generation model)
 ```
 
 | File | Contents |
 |------|----------|
 | `Base.v` | `JobId`, `TaskId`, `CPU`, `Time`; `Task`/`Job` records; `Schedule` type; `released`, `valid_jobs`, `valid_job_of_task` |
-| `Schedule.v` | `runs_on`, `cpu_count`, `service_job`, `completed`, `eligible`, `ready`, `sequential_jobs`, `valid_schedule`, `missed_deadline`, `feasible_schedule`, `feasible`, `schedulable`; all Lv.0 lemmas |
+| `ScheduleModel.v` | `runs_on`, `cpu_count`, `service_job`, `completed`, `running`, `eligible`, `ready`, `sequential_jobs`, `valid_schedule`, `missed_deadline`, `feasible_schedule`, `feasible`, `feasible_schedule_on`, `feasible_on`, `readyb`; all Lv.0–Lv.0-4 lemmas |
+| `SchedulerInterface.v` | `Scheduler` (Parameter), `run_scheduler` (Parameter), `schedulable_by`, `schedulable_by_on`; Lv.0-5 lemmas |
+| `Schedule.v` | Compatibility re-export: `Require Export ScheduleModel. Require Export SchedulerInterface.` |
 | `UniSchedulerInterface.v` | `GenericSchedulerDecisionSpec` record: `choose_g` function + 4 specs (`choose_g_ready`, `choose_g_some_if_ready`, `choose_g_none_if_no_ready`, `choose_g_in_candidates`) |
 | `UniSchedulerLemmas.v` | Policy-independent lemmas derived from `GenericSchedulerDecisionSpec` (soundness, coverage) |
 | `EDF.v` | `choose_edf`, `edf_scheduler_spec : EDFSchedulerSpec`, EDF-specific lemmas |
@@ -64,7 +70,8 @@ Base.v
 
 ### Where new proofs go
 
-- **Lv.0 (schedule-dependent definitions/lemmas)** → `Schedule.v`
+- **Schedule semantics (runs_on, completed, feasible, …)** → `ScheduleModel.v`
+- **Abstract scheduler / schedulability** → `SchedulerInterface.v`
 - **Base types/schedule-independent notions** → `Base.v`
 - **Policy-independent single-CPU results** → `UniSchedulerLemmas.v`
 - **EDF-specific** → `EDF.v`; **FIFO-specific** → `FIFO.v`
@@ -86,7 +93,7 @@ If a sub-lemma repeatedly fails, classify the cause (script/tactic issue, missin
 Verify each step by compiling the relevant file (no errors = proof accepted). For example, after editing `Partitioned.v`:
 
 ```bash
-rocq compile Base.v && rocq compile Schedule.v && rocq compile UniSchedulerInterface.v && rocq compile Partitioned.v
+rocq compile Base.v && rocq compile ScheduleModel.v && rocq compile SchedulerInterface.v && rocq compile Schedule.v && rocq compile UniSchedulerInterface.v && rocq compile Partitioned.v
 ```
 
 **Token management**: Use `/clear` between sub-lemma proofs to avoid hitting context limits. The progress file persists state across sessions.
