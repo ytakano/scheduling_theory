@@ -1,7 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import Schedule.
-Require Import UniSchedulerInterface.
+Require Import DispatchInterface.
 Import ListNotations.
 
 (* ===== EDF Dispatcher: Definitions ===== *)
@@ -229,26 +229,26 @@ Proof.
 Qed.
 
 (* EDF satisfies the generic (policy-independent) dispatch interface. *)
-Definition edf_generic_spec : GenericSchedulerDecisionSpec :=
-  mkGenericSchedulerDecisionSpec
+Definition edf_generic_spec : GenericDispatchSpec :=
+  mkGenericDispatchSpec
     choose_edf
     choose_edf_ready
     choose_edf_some_if_exists
     choose_edf_none_if_no_ready
     choose_edf_in_candidates.
 
-(* EDF-specific scheduler spec: extends GenericSchedulerDecisionSpec with the
+(* EDF-specific scheduler spec: extends GenericDispatchSpec with the
    minimum-deadline invariant.  This is the full EDF interface. *)
 Record EDFSchedulerSpec : Type := mkEDFSchedulerSpec {
   (* Sub-record coercion: an EDFSchedulerSpec can be used where a
-     GenericSchedulerDecisionSpec is expected. *)
-  edf_generic :> GenericSchedulerDecisionSpec ;
+     GenericDispatchSpec is expected. *)
+  edf_generic :> GenericDispatchSpec ;
 
   (* EDF policy invariant: the chosen job has the minimum absolute deadline
      among all ready candidates. *)
   edf_choose_min_deadline :
     forall jobs m sched t candidates j,
-      choose_g edf_generic jobs m sched t candidates = Some j ->
+      dispatch edf_generic jobs m sched t candidates = Some j ->
       forall j', In j' candidates ->
       ready jobs m sched j' t ->
       job_abs_deadline (jobs j) <= job_abs_deadline (jobs j') ;
@@ -274,7 +274,7 @@ Section EDFSchedulerLemmasSection.
   (* A5: the chosen job has minimum absolute deadline among all ready candidates. *)
   Lemma edf_choose_some_implies_min_deadline :
       forall j j',
-        spec.(choose_g) jobs m sched t candidates = Some j ->
+        spec.(dispatch) jobs m sched t candidates = Some j ->
         In j' candidates ->
         ready jobs m sched j' t ->
         job_abs_deadline (jobs j) <= job_abs_deadline (jobs j').
@@ -286,7 +286,7 @@ Section EDFSchedulerLemmasSection.
   (* C1: no ready candidate has strictly smaller deadline than the chosen job. *)
   Lemma edf_choose_some_implies_no_earlier_deadline_candidate :
       forall j,
-        spec.(choose_g) jobs m sched t candidates = Some j ->
+        spec.(dispatch) jobs m sched t candidates = Some j ->
         ~exists j', In j' candidates /\ ready jobs m sched j' t /\
                     job_abs_deadline (jobs j') < job_abs_deadline (jobs j).
   Proof.
@@ -298,7 +298,7 @@ Section EDFSchedulerLemmasSection.
   (* C2: if a ready candidate has deadline <= chosen deadline, they are equal. *)
   Lemma edf_choose_some_tie_deadline :
       forall j j',
-        spec.(choose_g) jobs m sched t candidates = Some j ->
+        spec.(dispatch) jobs m sched t candidates = Some j ->
         In j' candidates ->
         ready jobs m sched j' t ->
         job_abs_deadline (jobs j') <= job_abs_deadline (jobs j) ->

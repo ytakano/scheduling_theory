@@ -1,7 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import Schedule.
-Require Import UniSchedulerInterface.
+Require Import DispatchInterface.
 Import ListNotations.
 
 (* ===== FIFO Dispatcher: Definitions ===== *)
@@ -21,7 +21,7 @@ Fixpoint choose_fifo (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     else choose_fifo jobs m sched t rest
   end.
 
-(* ===== Phase 1: GenericSchedulerDecisionSpec Lemmas ===== *)
+(* ===== Phase 1: GenericDispatchSpec Lemmas ===== *)
 
 (* Lemma 1: The chosen job is ready. *)
 Lemma choose_fifo_ready : forall jobs m sched t candidates j,
@@ -90,10 +90,10 @@ Proof.
     + right. apply IH. exact H.
 Qed.
 
-(* ===== Phase 2: Assemble GenericSchedulerDecisionSpec ===== *)
+(* ===== Phase 2: Assemble GenericDispatchSpec ===== *)
 
-Definition fifo_generic_spec : GenericSchedulerDecisionSpec :=
-  mkGenericSchedulerDecisionSpec
+Definition fifo_generic_spec : GenericDispatchSpec :=
+  mkGenericDispatchSpec
     choose_fifo
     choose_fifo_ready
     choose_fifo_some_if_exists
