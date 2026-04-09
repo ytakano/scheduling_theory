@@ -245,4 +245,59 @@ Section PartitionedSection.
       exact Hncomp.
   Qed.
 
+  (* ===== Phase 3: Deadline / Feasibility Lifting ===== *)
+
+  (* M1: deadline miss on the global m-CPU schedule iff deadline miss on the
+     1-CPU view of the assigned CPU. *)
+  Corollary missed_deadline_iff_on_assigned_cpu :
+    forall jobs sched j,
+      respects_assignment sched ->
+      missed_deadline jobs m sched j <->
+        missed_deadline jobs 1 (cpu_schedule sched (assign j)) j.
+  Proof.
+    intros jobs sched j Hresp.
+    unfold missed_deadline.
+    pose proof (completed_iff_on_assigned_cpu jobs sched Hresp j
+                  (job_abs_deadline (jobs j))) as Hiff.
+    tauto.
+  Qed.
+
+  (* M2: if every per-CPU 1-CPU schedule is feasible, the global schedule is feasible. *)
+  Theorem local_feasible_implies_global_feasible_schedule :
+    forall jobs sched,
+      respects_assignment sched ->
+      (forall c, c < m -> feasible_schedule jobs 1 (cpu_schedule sched c)) ->
+      feasible_schedule jobs m sched.
+  Proof.
+    intros jobs sched Hresp Hlocal.
+    unfold feasible_schedule.
+    intro j.
+    pose proof (valid_assignment j) as Hlt.
+    pose proof (Hlocal (assign j) Hlt) as Hfeas.
+    unfold feasible_schedule in Hfeas.
+    pose proof (Hfeas j) as Hnmiss.
+    rewrite missed_deadline_iff_on_assigned_cpu by exact Hresp.
+    exact Hnmiss.
+  Qed.
+
+  (* Combined: per-CPU validity + feasibility lifts to global validity + feasibility. *)
+  Corollary local_valid_feasible_implies_global :
+    forall jobs sched xs,
+      valid_partitioned_schedule jobs sched xs ->
+      (forall c, c < m ->
+        valid_schedule jobs 1 (cpu_schedule sched c) /\
+        feasible_schedule jobs 1 (cpu_schedule sched c)) ->
+      valid_schedule jobs m sched /\ feasible_schedule jobs m sched.
+  Proof.
+    intros jobs sched xs Hvps Hlocal.
+    destruct Hvps as [Hpart Hresp].
+    split.
+    - apply local_to_global_validity with xs.
+      + exact (conj Hpart Hresp).
+      + intros c Hlt. exact (proj1 (Hlocal c Hlt)).
+    - apply local_feasible_implies_global_feasible_schedule.
+      + exact Hresp.
+      + intros c Hlt. exact (proj2 (Hlocal c Hlt)).
+  Qed.
+
 End PartitionedSection.

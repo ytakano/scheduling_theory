@@ -858,3 +858,59 @@
 - **Dependencies**: `readyb_iff`, `Bool.not_true_iff_false`
 - **Notes**: The prefix witness is built incrementally: start with `[]` when head is chosen, extend with `j0 :: prefix` in recursive case.
 - **Date**: 2026-04-09
+
+---
+
+### `missed_deadline_iff_on_assigned_cpu`
+- **Type**: Corollary
+- **Statement**:
+  ```coq
+  Corollary missed_deadline_iff_on_assigned_cpu :
+    forall jobs sched j,
+      respects_assignment sched ->
+      missed_deadline jobs m sched j <->
+        missed_deadline jobs 1 (cpu_schedule sched (assign j)) j.
+  ```
+- **Proof Strategy**: Unfold `missed_deadline` to `~completed ...`, then instantiate `completed_iff_on_assigned_cpu` at `t := job_abs_deadline (jobs j)` via `pose proof`, then `tauto`.
+- **Key Tactics**: `unfold missed_deadline`, `pose proof (completed_iff_on_assigned_cpu ... j (job_abs_deadline (jobs j)))`, `tauto`
+- **Dependencies**: `completed_iff_on_assigned_cpu`, `missed_deadline`
+- **Notes**: Do not try `rewrite completed_iff_on_assigned_cpu` directly — the `by` clause doesn't pattern-match well inside negation. Use `pose proof` + `tauto` instead.
+- **Date**: 2026-04-09
+
+---
+
+### `local_feasible_implies_global_feasible_schedule`
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem local_feasible_implies_global_feasible_schedule :
+    forall jobs sched,
+      respects_assignment sched ->
+      (forall c, c < m -> feasible_schedule jobs 1 (cpu_schedule sched c)) ->
+      feasible_schedule jobs m sched.
+  ```
+- **Proof Strategy**: Unfold `feasible_schedule`. For any `j`, use `valid_assignment j` to get `assign j < m`, apply per-CPU hypothesis at `assign j`, unfold local `feasible_schedule`, extract `~missed_deadline` for `j`, then use `rewrite missed_deadline_iff_on_assigned_cpu by exact Hresp` to convert global goal to local.
+- **Key Tactics**: `unfold feasible_schedule`, `pose proof (valid_assignment j)`, `rewrite missed_deadline_iff_on_assigned_cpu by exact Hresp`
+- **Dependencies**: `missed_deadline_iff_on_assigned_cpu`, `valid_assignment`, `feasible_schedule`
+- **Notes**: The `rewrite ... by` pattern works here because the goal is `~missed_deadline jobs m sched j` (not nested in another connective that would confuse rewriting).
+- **Date**: 2026-04-09
+
+---
+
+### `local_valid_feasible_implies_global`
+- **Type**: Corollary
+- **Statement**:
+  ```coq
+  Corollary local_valid_feasible_implies_global :
+    forall jobs sched xs,
+      valid_partitioned_schedule jobs sched xs ->
+      (forall c, c < m ->
+        valid_schedule jobs 1 (cpu_schedule sched c) /\
+        feasible_schedule jobs 1 (cpu_schedule sched c)) ->
+      valid_schedule jobs m sched /\ feasible_schedule jobs m sched.
+  ```
+- **Proof Strategy**: Destruct `valid_partitioned_schedule` into `Hpart` and `Hresp`. Split goal. For validity: apply `local_to_global_validity with xs`, rebuild `valid_partitioned_schedule` via `conj`. For feasibility: apply `local_feasible_implies_global_feasible_schedule` with `Hresp` and projection of the local hypothesis.
+- **Key Tactics**: `destruct Hvps as [Hpart Hresp]`, `split`, `apply local_to_global_validity with xs`, `exact (conj Hpart Hresp)`, `proj1`, `proj2`
+- **Dependencies**: `local_to_global_validity`, `local_feasible_implies_global_feasible_schedule`, `valid_partitioned_schedule`
+- **Notes**: Rebuild `valid_partitioned_schedule` from components via `exact (conj Hpart Hresp)` — `local_to_global_validity` expects it as a bundled argument.
+- **Date**: 2026-04-09
