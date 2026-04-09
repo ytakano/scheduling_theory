@@ -1,6 +1,6 @@
 From Stdlib Require Import List Bool Arith.
 Require Import Base.
-Require Import Schedule.
+Require Import ScheduleModel.
 Require Import FIFO.
 Import ListNotations.
 

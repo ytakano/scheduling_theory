@@ -29,8 +29,7 @@ To compile a single file and its dependencies:
 rocq compile Base.v
 rocq compile ScheduleModel.v      # requires Base.vo
 rocq compile SchedulerInterface.v # requires ScheduleModel.vo
-rocq compile Schedule.v           # re-exports ScheduleModel + SchedulerInterface
-rocq compile DispatchInterface.v  # requires Schedule.vo Base.vo
+rocq compile DispatchInterface.v  # requires ScheduleModel.vo SchedulerInterface.vo Base.vo
 rocq compile EDF.v          # requires DispatchInterface.vo
 rocq compile FIFO.v         # requires DispatchInterface.vo
 rocq compile Partitioned.v  # requires DispatchInterface.vo
@@ -46,13 +45,12 @@ Files are ordered by dependency:
 Base.v
   └── ScheduleModel.v               (schedule semantics)
         └── SchedulerInterface.v    (abstract scheduler + schedulability)
-              └── Schedule.v        (re-export: ScheduleModel + SchedulerInterface)
-                    └── DispatchInterface.v   (GenericDispatchSpec: single-CPU dispatch policy)
-                                ├── DispatchLemmas.v         (policy-independent GenericDispatchSpec lemmas)
-                                ├── DispatchClassicalLemmas.v (classical-logic lemmas for GenericDispatchSpec)
-                                ├── EDF.v                    (EDF dispatcher + EDFSchedulerSpec)
-                                ├── FIFO.v                   (FIFO dispatcher + fifo_generic_spec)
-                                └── Partitioned.v            (Lv.5 multicore: static assignment lifting)
+              └── DispatchInterface.v   (GenericDispatchSpec: single-CPU dispatch policy)
+                          ├── DispatchLemmas.v         (policy-independent GenericDispatchSpec lemmas)
+                          ├── DispatchClassicalLemmas.v (classical-logic lemmas for GenericDispatchSpec)
+                          ├── EDF.v                    (EDF dispatcher + EDFSchedulerSpec)
+                          ├── FIFO.v                   (FIFO dispatcher + fifo_generic_spec)
+                          └── Partitioned.v            (Lv.5 multicore: static assignment lifting)
   └── PeriodicTasks.v               (periodic task → job generation model)
 ```
 
@@ -61,7 +59,6 @@ Base.v
 | `Base.v` | `JobId`, `TaskId`, `CPU`, `Time`; `Task`/`Job` records; `Schedule` type; `released`, `valid_jobs`, `valid_job_of_task` |
 | `ScheduleModel.v` | `runs_on`, `cpu_count`, `service_job`, `completed`, `running`, `eligible`, `ready`, `sequential_jobs`, `valid_schedule`, `missed_deadline`, `feasible_schedule`, `feasible`, `feasible_schedule_on`, `feasible_on`, `readyb`; all Lv.0–Lv.0-4 lemmas |
 | `SchedulerInterface.v` | `Scheduler` (Parameter), `run_scheduler` (Parameter), `schedulable_by`, `schedulable_by_on`; Lv.0-5 lemmas |
-| `Schedule.v` | Compatibility re-export: `Require Export ScheduleModel. Require Export SchedulerInterface.` |
 | `DispatchInterface.v` | `GenericDispatchSpec` record: `dispatch` function + 4 specs (`dispatch_ready`, `dispatch_some_if_ready`, `dispatch_none_if_no_ready`, `dispatch_in_candidates`) |
 | `DispatchLemmas.v` | Policy-independent lemmas derived from `GenericDispatchSpec` (soundness, coverage) |
 | `DispatchClassicalLemmas.v` | Classical-logic lemmas for `GenericDispatchSpec` (kept separate from constructive core) |
@@ -95,7 +92,7 @@ If a sub-lemma repeatedly fails, classify the cause (script/tactic issue, missin
 Verify each step by compiling the relevant file (no errors = proof accepted). For example, after editing `Partitioned.v`:
 
 ```bash
-rocq compile Base.v && rocq compile ScheduleModel.v && rocq compile SchedulerInterface.v && rocq compile Schedule.v && rocq compile DispatchInterface.v && rocq compile Partitioned.v
+rocq compile Base.v && rocq compile ScheduleModel.v && rocq compile SchedulerInterface.v && rocq compile DispatchInterface.v && rocq compile Partitioned.v
 ```
 
 **Token management**: Use `/clear` between sub-lemma proofs to avoid hitting context limits. The progress file persists state across sessions.

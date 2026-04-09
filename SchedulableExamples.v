@@ -25,11 +25,12 @@
 
 From Stdlib Require Import Arith Arith.PeanoNat Lia.
 Require Import Base.
-Require Import Schedule.
+Require Import ScheduleModel.
+Require Import SchedulerInterface.
 
 (* Abstract lemmas (schedulable_by_implies_feasible,
    schedulable_by_implies_schedulable_by_on, schedulable_by_on_monotone)
-   are proved in Schedule.v. *)
+   are proved in SchedulerInterface.v. *)
 
 (* ================================================================= *)
 (** ** 具体例: schedulable_by_on の証明                               *)

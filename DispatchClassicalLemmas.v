@@ -1,6 +1,6 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Classical.
 Require Import Base.
-Require Import Schedule.
+Require Import ScheduleModel.
 Require Import DispatchInterface.
 Require Import DispatchLemmas.
 Import ListNotations.

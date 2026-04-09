@@ -1,6 +1,6 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat.
 Require Import Base.
-Require Import Schedule.
+Require Import ScheduleModel.
 Import ListNotations.
 
 (* Generic dispatch specification for a single-CPU scheduler.
