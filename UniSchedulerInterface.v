@@ -9,10 +9,10 @@ Import ListNotations.
    are defined in the policy's own file (see EDF.v for EDFSchedulerSpec).
 
    This interface is the basis for Partitioned.v: any per-CPU policy that
-   satisfies GenericDispatchSpec can be composed into a partitioned
+   satisfies GenericSchedulerDecisionSpec can be composed into a partitioned
    multiprocessor schedule. *)
 
-Record GenericDispatchSpec : Type := mkGenericDispatchSpec {
+Record GenericSchedulerDecisionSpec : Type := mkGenericSchedulerDecisionSpec {
   (* The dispatch function: given a job map, CPU count, schedule, time,
      and a list of candidate jobs, return the chosen job (if any). *)
   choose_g : (JobId -> Job) -> nat -> Schedule -> Time -> list JobId -> option JobId ;

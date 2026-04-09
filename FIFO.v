@@ -21,7 +21,7 @@ Fixpoint choose_fifo (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     else choose_fifo jobs m sched t rest
   end.
 
-(* ===== Phase 1: GenericDispatchSpec Lemmas ===== *)
+(* ===== Phase 1: GenericSchedulerDecisionSpec Lemmas ===== *)
 
 (* Lemma 1: The chosen job is ready. *)
 Lemma choose_fifo_ready : forall jobs m sched t candidates j,
@@ -90,10 +90,10 @@ Proof.
     + right. apply IH. exact H.
 Qed.
 
-(* ===== Phase 2: Assemble GenericDispatchSpec ===== *)
+(* ===== Phase 2: Assemble GenericSchedulerDecisionSpec ===== *)
 
-Definition fifo_generic_spec : GenericDispatchSpec :=
-  mkGenericDispatchSpec
+Definition fifo_generic_spec : GenericSchedulerDecisionSpec :=
+  mkGenericSchedulerDecisionSpec
     choose_fifo
     choose_fifo_ready
     choose_fifo_some_if_exists

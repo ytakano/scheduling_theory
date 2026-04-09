@@ -4,7 +4,7 @@ Require Import Schedule.
 Require Import UniSchedulerInterface.
 Import ListNotations.
 
-(* Policy-independent lemmas derived from GenericDispatchSpec.
+(* Policy-independent lemmas derived from GenericSchedulerDecisionSpec.
    All results hold for any concrete scheduler satisfying the interface.
    EDF-specific facts (choose_min_deadline, min-deadline corollaries) live
    in EDF.v under EDFSchedulerSpec. *)
@@ -24,7 +24,7 @@ Definition candidates_complete (jobs : JobId -> Job) (m : nat) (sched : Schedule
 
 Section UniSchedulerLemmasSection.
 
-  Variable spec        : GenericDispatchSpec.
+  Variable spec        : GenericSchedulerDecisionSpec.
   Variable jobs        : JobId -> Job.
   Variable m           : nat.
   Variable sched       : Schedule.

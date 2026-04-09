@@ -2,8 +2,8 @@
 
 ## Goal
 
-1. Refactor `UniSchedulerInterface.v`: replace `UniSchedulerSpec` with `GenericDispatchSpec` (4 fields, no `choose_min_deadline`)
-2. Refactor `UniSchedulerLemmas.v`: use `GenericDispatchSpec`; remove EDF-specific lemmas A5/C1/C2
+1. Refactor `UniSchedulerInterface.v`: replace `UniSchedulerSpec` with `GenericSchedulerDecisionSpec` (4 fields, no `choose_min_deadline`)
+2. Refactor `UniSchedulerLemmas.v`: use `GenericSchedulerDecisionSpec`; remove EDF-specific lemmas A5/C1/C2
 3. Refactor `EDF.v`: add `EDFSchedulerSpec` (with `choose_min_deadline`); move A5/C1/C2 here
 4. Create `Partitioned.v` with 3 core theorems (Lv.5)
 
@@ -33,8 +33,8 @@ Prove in this order (Theorem 3 must come first):
 ## Proposed Lemmas
 
 ### Phase A (refactoring)
-- [x] `UniSchedulerInterface.v`: `GenericDispatchSpec` record
-- [ ] `UniSchedulerLemmas.v`: updated to `GenericDispatchSpec`
+- [x] `UniSchedulerInterface.v`: `GenericSchedulerDecisionSpec` record
+- [ ] `UniSchedulerLemmas.v`: updated to `GenericSchedulerDecisionSpec`
 - [ ] `EDF.v`: `EDFSchedulerSpec` + `edf_scheduler_spec : EDFSchedulerSpec`
 
 ### Phase B (Partitioned.v helpers)

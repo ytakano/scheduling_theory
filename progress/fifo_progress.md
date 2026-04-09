@@ -98,8 +98,8 @@ Qed.
 ### `fifo_generic_spec`
 
 ```coq
-Definition fifo_generic_spec : GenericDispatchSpec :=
-  mkGenericDispatchSpec
+Definition fifo_generic_spec : GenericSchedulerDecisionSpec :=
+  mkGenericSchedulerDecisionSpec
     choose_fifo
     choose_fifo_ready
     choose_fifo_some_if_exists

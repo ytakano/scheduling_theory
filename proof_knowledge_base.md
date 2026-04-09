@@ -697,12 +697,12 @@
 
 ---
 
-### Interface refactoring: `UniSchedulerSpec` → `GenericDispatchSpec` + `EDFSchedulerSpec` (2026-04-09)
+### Interface refactoring: `UniSchedulerSpec` → `GenericSchedulerDecisionSpec` + `EDFSchedulerSpec` (2026-04-09)
 - **Type**: Definition (refactoring record)
 - **Statement**:
   ```coq
   (* UniSchedulerInterface.v *)
-  Record GenericDispatchSpec : Type := mkGenericDispatchSpec {
+  Record GenericSchedulerDecisionSpec : Type := mkGenericSchedulerDecisionSpec {
     choose_g : (JobId -> Job) -> nat -> Schedule -> Time -> list JobId -> option JobId;
     choose_g_ready : ...;
     choose_g_some_if_ready : ...;
@@ -712,14 +712,14 @@
 
   (* EDF.v *)
   Record EDFSchedulerSpec : Type := mkEDFSchedulerSpec {
-    edf_generic :> GenericDispatchSpec;   (* coercion *)
+    edf_generic :> GenericSchedulerDecisionSpec;   (* coercion *)
     edf_choose_min_deadline : ...;
   }.
   ```
 - **Proof Strategy**: N/A (refactoring)
 - **Key Tactics**: N/A
 - **Dependencies**: N/A
-- **Notes**: `UniSchedulerSpec` was removed and replaced by `GenericDispatchSpec` (generic) in `UniSchedulerInterface.v`. `EDFSchedulerSpec` (EDF-specific) lives in `EDF.v`. The `:>` coercion on `edf_generic` lets `EDFSchedulerSpec` be passed wherever `GenericDispatchSpec` is expected. `UniSchedulerLemmas.v` was updated to use `GenericDispatchSpec`; EDF-specific lemmas A5/C1/C2 were moved to `EDFSchedulerLemmasSection` in `EDF.v`. Section name in `Partitioned.v` is `PartitionedSection` (not `Partitioned`) to avoid masking warning.
+- **Notes**: `UniSchedulerSpec` was removed and replaced by `GenericSchedulerDecisionSpec` (generic) in `UniSchedulerInterface.v`. `EDFSchedulerSpec` (EDF-specific) lives in `EDF.v`. The `:>` coercion on `edf_generic` lets `EDFSchedulerSpec` be passed wherever `GenericSchedulerDecisionSpec` is expected. `UniSchedulerLemmas.v` was updated to use `GenericSchedulerDecisionSpec`; EDF-specific lemmas A5/C1/C2 were moved to `EDFSchedulerLemmasSection` in `EDF.v`. Section name in `Partitioned.v` is `PartitionedSection` (not `Partitioned`) to avoid masking warning.
 - **Date**: 2026-04-09
 
 ---
@@ -822,7 +822,7 @@
 - **Proof Strategy**: Linear scan — return first `readyb`-true job.
 - **Key Tactics**: Fixpoint, `readyb`
 - **Dependencies**: `readyb`
-- **Notes**: All 4 GenericDispatchSpec lemmas proved by `induction candidates; simpl; destruct (readyb ...) eqn:Erb`.
+- **Notes**: All 4 GenericSchedulerDecisionSpec lemmas proved by `induction candidates; simpl; destruct (readyb ...) eqn:Erb`.
 - **Date**: 2026-04-09
 
 ---

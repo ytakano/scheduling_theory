@@ -11,18 +11,18 @@
 ## Completed: Phase A — Interface Refactoring
 
 ### `UniSchedulerInterface.v`
-Replaced `UniSchedulerSpec` (5 fields incl. `choose_min_deadline`) with `GenericDispatchSpec`
+Replaced `UniSchedulerSpec` (5 fields incl. `choose_min_deadline`) with `GenericSchedulerDecisionSpec`
 (4 generic fields: `choose_g`, `choose_g_ready`, `choose_g_some_if_ready`,
 `choose_g_none_if_no_ready`, `choose_g_in_candidates`).
 
 ### `UniSchedulerLemmas.v`
-Updated Section variable to `GenericDispatchSpec`.  Renamed all field accesses:
+Updated Section variable to `GenericSchedulerDecisionSpec`.  Renamed all field accesses:
 `spec.(choose)` → `spec.(choose_g)`, etc.  Removed EDF-specific lemmas A5/C1/C2
 (moved to `EDF.v`).
 
 ### `EDF.v`
-Added `edf_generic_spec : GenericDispatchSpec` and `EDFSchedulerSpec` record
-(coercion `:>` on `edf_generic` field so `EDFSchedulerSpec <: GenericDispatchSpec`).
+Added `edf_generic_spec : GenericSchedulerDecisionSpec` and `EDFSchedulerSpec` record
+(coercion `:>` on `edf_generic` field so `EDFSchedulerSpec <: GenericSchedulerDecisionSpec`).
 Updated `edf_scheduler_spec : EDFSchedulerSpec`.
 Added `EDFSchedulerLemmasSection` with A5/C1/C2 lemmas.
 

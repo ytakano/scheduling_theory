@@ -7,7 +7,7 @@ Import ListNotations.
 (* ===== Partitioned Scheduling: Definitions and Core Theorems (Lv.5) =====
 
    A partitioned multiprocessor schedule statically assigns each job to exactly
-   one CPU.  Each CPU runs an independent single-CPU scheduler (GenericDispatchSpec).
+   one CPU.  Each CPU runs an independent single-CPU scheduler (GenericSchedulerDecisionSpec).
    The multicore schedule is the pointwise union of the per-CPU schedules.
 
    Core theorems proved here:
@@ -27,8 +27,8 @@ Section PartitionedSection.
   Variable valid_assignment : forall j, assign j < m.
 
   (* Per-CPU dispatch policy (generic; any scheduler satisfying
-     GenericDispatchSpec can be used, e.g. EDF, FIFO, RR). *)
-  Variable spec : GenericDispatchSpec.
+     GenericSchedulerDecisionSpec can be used, e.g. EDF, FIFO, RR). *)
+  Variable spec : GenericSchedulerDecisionSpec.
 
   (* ===== Definitions ===== *)
 

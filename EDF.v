@@ -217,7 +217,7 @@ Proof.
     lia.
 Qed.
 
-(* ===== Phase 6: EDF satisfies GenericDispatchSpec and EDFSchedulerSpec ===== *)
+(* ===== Phase 6: EDF satisfies GenericSchedulerDecisionSpec and EDFSchedulerSpec ===== *)
 
 (* The chosen job is always a member of the candidate list. *)
 Lemma choose_edf_in_candidates : forall jobs m sched t candidates j,
@@ -231,20 +231,20 @@ Proof.
 Qed.
 
 (* EDF satisfies the generic (policy-independent) dispatch interface. *)
-Definition edf_generic_spec : GenericDispatchSpec :=
-  mkGenericDispatchSpec
+Definition edf_generic_spec : GenericSchedulerDecisionSpec :=
+  mkGenericSchedulerDecisionSpec
     choose_edf
     choose_edf_ready
     choose_edf_some_if_exists
     choose_edf_none_if_no_ready
     choose_edf_in_candidates.
 
-(* EDF-specific scheduler spec: extends GenericDispatchSpec with the
+(* EDF-specific scheduler spec: extends GenericSchedulerDecisionSpec with the
    minimum-deadline invariant.  This is the full EDF interface. *)
 Record EDFSchedulerSpec : Type := mkEDFSchedulerSpec {
   (* Sub-record coercion: an EDFSchedulerSpec can be used where a
-     GenericDispatchSpec is expected. *)
-  edf_generic :> GenericDispatchSpec ;
+     GenericSchedulerDecisionSpec is expected. *)
+  edf_generic :> GenericSchedulerDecisionSpec ;
 
   (* EDF policy invariant: the chosen job has the minimum absolute deadline
      among all ready candidates. *)
