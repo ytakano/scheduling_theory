@@ -279,7 +279,7 @@ Proof.
   lia.
 Qed.
 
-Lemma pair_feasible_on :
+Lemma pair_partitioned_feasible_on :
     feasible_schedule_on J_pair pair_jobs 2 pair_sched.
 Proof.
   unfold feasible_schedule_on, J_pair, missed_deadline.
@@ -410,7 +410,7 @@ Proof.
   - exact pair_partitioned_schedule.
 Qed.
 
-Lemma pair_valid_schedule :
+Lemma pair_partitioned_valid :
     valid_schedule pair_jobs 2 pair_sched.
 Proof.
   unfold valid_schedule.
@@ -442,11 +442,9 @@ Theorem pair_partitioned_schedulable_by_on :
       (partitioned_scheduler assign_pair 2 fifo_generic_spec [0; 1])
       pair_jobs 2.
 Proof.
-  apply (schedulable_by_on_intro
-           J_pair
-           (partitioned_scheduler assign_pair 2 fifo_generic_spec [0; 1])
-           pair_jobs 2 pair_sched).
+  apply (partitioned_schedulable_by_on_intro
+           assign_pair 2 fifo_generic_spec J_pair [0; 1] pair_jobs pair_sched).
   - exact pair_partitioned_rel.
-  - exact pair_valid_schedule.
-  - exact pair_feasible_on.
+  - exact pair_partitioned_valid.
+  - exact pair_partitioned_feasible_on.
 Qed.
