@@ -1,4 +1,4 @@
-all: EDF.vo example_feasible.vo example_schedulable.vo
+all: EDF.vo example_feasible.vo example_schedulable.vo Partitioned.vo FIFO.vo PeriodicTasks.vo UniSchedulerLemmas.vo
 
 Base.vo: Base.v
 	rocq compile Base.v
@@ -12,8 +12,17 @@ PeriodicTasks.vo: PeriodicTasks.v Base.vo
 UniSchedulerInterface.vo: UniSchedulerInterface.v Schedule.vo Base.vo
 	rocq compile UniSchedulerInterface.v
 
+UniSchedulerLemmas.vo: UniSchedulerInterface.vo
+	rocq compile UniSchedulerLemmas.v
+
 EDF.vo: EDF.v Schedule.vo Base.vo UniSchedulerInterface.vo
 	rocq compile EDF.v
+
+FIFO.vo: FIFO.v Schedule.vo Base.vo UniSchedulerInterface.vo
+	rocq compile FIFO.v
+
+Partitioned.vo: Partitioned.v Schedule.vo Base.vo UniSchedulerInterface.vo
+	rocq compile Partitioned.v
 
 example_feasible.vo: example_feasible.v Schedule.vo
 	rocq compile example_feasible.v
