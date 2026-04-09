@@ -1,7 +1,7 @@
 From Stdlib Require Import List Bool Arith.
 Require Import Base.
 Require Import ScheduleModel.
-Require Import FIFO.
+Require Import UniPolicies.FIFO.
 Import ListNotations.
 
 (* Concrete examples for the FIFO dispatch policy.

@@ -26,8 +26,8 @@ rocq compile ScheduleModel.v
 rocq compile SchedulerInterface.v
 rocq compile DispatchInterface.v
 rocq compile DispatchSchedulerBridge.v
-rocq compile EDF.v
-rocq compile FIFO.v
+rocq compile UniPolicies/EDF.v
+rocq compile UniPolicies/FIFO.v
 rocq compile Partitioned.v
 rocq compile SchedulableExamples.v
 rocq compile FeasibleExamples.v
@@ -41,7 +41,7 @@ Base.v
   -> SchedulerInterface.v
   -> DispatchInterface.v
   -> DispatchSchedulerBridge.v
-  -> EDF.v / FIFO.v / Partitioned.v
+  -> EDF.v / FIFO.v / Partitioned.v  (EDF.v, FIFO.v live in UniPolicies/)
 ```
 
 | File | Contents |
@@ -51,8 +51,8 @@ Base.v
 | `SchedulerInterface.v` | `Scheduler` record with `scheduler_rel`; `schedulable_by`, `schedulable_by_on` |
 | `DispatchInterface.v` | `GenericDispatchSpec` with `dispatch_eligible`, `dispatch_some_if_eligible_candidate`, `dispatch_none_if_no_eligible_candidate`, `dispatch_in_candidates` |
 | `DispatchSchedulerBridge.v` | single-CPU dispatch-to-scheduler bridge, `CandidateSourceSpec`, subset schedulability helpers |
-| `EDF.v` | EDF dispatcher, `edf_generic_spec`, `edf_scheduler` |
-| `FIFO.v` | FIFO dispatcher, `fifo_generic_spec`, `fifo_scheduler` |
+| `UniPolicies/EDF.v` | EDF dispatcher, `edf_generic_spec`, `edf_scheduler` |
+| `UniPolicies/FIFO.v` | FIFO dispatcher, `fifo_generic_spec`, `fifo_scheduler` |
 | `Partitioned.v` | partitioned multiprocessor scheduler, `partitioned_scheduler`, validity/feasibility lifting theorems |
 | `SchedulableExamples.v` | concrete `edf_scheduler`, `fifo_scheduler`, `partitioned_scheduler` usage examples |
 | `FeasibleExamples.v` | direct feasibility examples over explicit schedules |
@@ -62,7 +62,7 @@ Base.v
 - Keep schedule semantics in `ScheduleModel.v`
 - Keep abstract scheduler reasoning in `SchedulerInterface.v`
 - Keep policy-independent dispatch reasoning in `DispatchInterface.v` or `DispatchSchedulerBridge.v`
-- Keep policy-specific lemmas in `EDF.v`, `FIFO.v`, and multiprocessor lifting in `Partitioned.v`
+- Keep policy-specific lemmas in `UniPolicies/EDF.v`, `UniPolicies/FIFO.v`, and multiprocessor lifting in `Partitioned.v`
 - Validate changes by compiling the edited file and affected dependents
 
 ## Notes on Historical Documents

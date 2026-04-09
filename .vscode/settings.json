@@ -1,3 +1,6 @@
 {
-    "vsrocq.path": "~/.opam/default/bin/vsrocqtop"
+    "vsrocq.path": "~/.opam/default/bin/vsrocqtop",
+    "vsrocq.args": [
+        "-R theories SchedulingTheory"
+    ]
 }

@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository formalizes scheduling theory in Rocq. Core proof files live at the repository root. Follow the dependency flow when adding definitions or lemmas: `Base.v` -> `ScheduleModel.v` -> `SchedulerInterface.v` -> `DispatchInterface.v` -> policy files such as `EDF.v`, `FIFO.v`, and `Partitioned.v`. Example and proof-consumer files include `FeasibleExamples.v`, `FIFOExamples.v`, and `SchedulableExamples.v`.
+This repository formalizes scheduling theory in Rocq. Core proof files live at the repository root. Follow the dependency flow when adding definitions or lemmas: `Base.v` -> `ScheduleModel.v` -> `SchedulerInterface.v` -> `DispatchInterface.v` -> policy files such as `UniPolicies/EDF.v`, `UniPolicies/FIFO.v`, and `Partitioned.v`. Example and proof-consumer files include `FeasibleExamples.v`, `FIFOExamples.v`, and `SchedulableExamples.v`.
 
 Planning and proof notes belong in [`plan/`](./plan) and [`progress/`](./progress). Docker helper scripts live in [`docker/`](./docker). Generated build artifacts such as `*.vo`, `*.vos`, `*.vok`, `*.glob`, and `*.aux` should not be committed.
 

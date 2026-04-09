@@ -4,8 +4,8 @@ Require Import ScheduleModel.
 Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Require Import DispatchSchedulerBridge.
-Require Import EDF.
-Require Import FIFO.
+Require Import UniPolicies.EDF.
+Require Import UniPolicies.FIFO.
 Require Import Partitioned.
 Import ListNotations.
 

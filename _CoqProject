@@ -1,0 +1,15 @@
+-R theories SchedulingTheory
+theories/Base.v
+theories/DispatchClassicalLemmas.v
+theories/DispatchInterface.v
+theories/DispatchLemmas.v
+theories/DispatchSchedulerBridge.v
+theories/FIFOExamples.v
+theories/FeasibleExamples.v
+theories/Partitioned.v
+theories/PeriodicTasks.v
+theories/SchedulableExamples.v
+theories/ScheduleModel.v
+theories/SchedulerInterface.v
+theories/UniPolicies/EDF.v
+theories/UniPolicies/FIFO.v
