@@ -13,3 +13,4 @@ theories/ScheduleModel.v
 theories/SchedulerInterface.v
 theories/UniPolicies/EDF.v
 theories/UniPolicies/FIFO.v
+theories/UniPolicies/EDFLemmas.v

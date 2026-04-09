@@ -1070,3 +1070,157 @@
 - **Dependencies**: `valid_partitioned_schedule`, `partitioned_schedule_on`
 - **Notes**: For library-internal use. Client-facing code should prefer reasoning via `valid_partitioned_schedule` directly when possible.
 - **Date**: 2026-04-09
+
+---
+
+### `service_between` (EDFLemmas Section 1)
+- **Type**: Definition
+- **Statement**:
+  ```coq
+  Definition service_between
+      (m : nat) (sched : Schedule) (j : JobId) (t1 t2 : Time) : nat :=
+    service_job m sched j t2 - service_job m sched j t1.
+  ```
+- **Proof Strategy**: N/A (definition)
+- **Key Tactics**: N/A
+- **Dependencies**: `service_job`
+- **Notes**: Abbreviation for interval service. Used throughout EDF optimality proofs.
+- **Date**: 2026-04-09
+
+---
+
+### `completed_iff_service_ge_cost`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma completed_iff_service_ge_cost :
+    forall jobs m sched j t,
+      completed jobs m sched j t <->
+      job_cost (jobs j) <= service_job m sched j t.
+  ```
+- **Proof Strategy**: `unfold completed; lia`
+- **Key Tactics**: `unfold`, `lia`
+- **Dependencies**: `completed`
+- **Notes**: Gateway lemma for converting between `completed` and numeric service comparisons.
+- **Date**: 2026-04-09
+
+---
+
+### `not_completed_iff_service_lt_cost`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma not_completed_iff_service_lt_cost :
+    forall jobs m sched j t,
+      ~ completed jobs m sched j t <->
+      service_job m sched j t < job_cost (jobs j).
+  ```
+- **Proof Strategy**: `rewrite completed_iff_service_ge_cost; lia`
+- **Key Tactics**: `rewrite`, `lia`
+- **Dependencies**: `completed_iff_service_ge_cost`
+- **Notes**: Negation form of `completed_iff_service_ge_cost`. Used to connect `eligible` to service bounds.
+- **Date**: 2026-04-09
+
+---
+
+### `missed_deadline_iff_not_completed_at_deadline`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma missed_deadline_iff_not_completed_at_deadline :
+    forall jobs m sched j,
+      missed_deadline jobs m sched j <->
+      ~ completed jobs m sched j (job_abs_deadline (jobs j)).
+  ```
+- **Proof Strategy**: `unfold missed_deadline; tauto`
+- **Key Tactics**: `unfold`, `tauto`
+- **Dependencies**: `missed_deadline`, `completed`
+- **Notes**: Simple unfold; use as a rewrite lemma.
+- **Date**: 2026-04-09
+
+---
+
+### `missed_deadline_iff_service_lt_cost_at_deadline`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma missed_deadline_iff_service_lt_cost_at_deadline :
+    forall jobs m sched j,
+      missed_deadline jobs m sched j <->
+      service_job m sched j (job_abs_deadline (jobs j)) < job_cost (jobs j).
+  ```
+- **Proof Strategy**: Chain `missed_deadline_iff_not_completed_at_deadline` and `not_completed_iff_service_lt_cost`, close with `tauto`.
+- **Key Tactics**: `rewrite`, `tauto`
+- **Dependencies**: `missed_deadline_iff_not_completed_at_deadline`, `not_completed_iff_service_lt_cost`
+- **Notes**: Key entry point for EDF optimality: deadline miss = insufficient service at deadline.
+- **Date**: 2026-04-09
+
+---
+
+### `service_between_0_r`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma service_between_0_r :
+    forall m sched j t,
+      service_between m sched j 0 t = service_job m sched j t.
+  ```
+- **Proof Strategy**: `unfold service_between; simpl; lia`
+- **Key Tactics**: `unfold`, `simpl`, `lia`
+- **Dependencies**: `service_between`, `service_job`
+- **Notes**: ⚠️ `simpl` leaves `service_job m sched j t - 0`, which is NOT definitionally equal to `service_job m sched j t`. Must use `lia`, not `reflexivity`.
+- **Date**: 2026-04-09
+
+---
+
+### `service_between_split`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma service_between_split :
+    forall m sched j t1 t2 t3,
+      t1 <= t2 -> t2 <= t3 ->
+      service_between m sched j t1 t3 =
+      service_between m sched j t1 t2 +
+      service_between m sched j t2 t3.
+  ```
+- **Proof Strategy**: Unfold `service_between`, obtain both monotonicity facts via `service_job_monotone`, close with `lia`.
+- **Key Tactics**: `unfold`, `pose proof service_job_monotone`, `lia`
+- **Dependencies**: `service_between`, `service_job_monotone`
+- **Notes**: Main tool for interval decomposition in prefix arguments.
+- **Date**: 2026-04-09
+
+---
+
+### `service_before_release_zero`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma service_before_release_zero :
+    forall jobs m sched j t,
+      valid_schedule jobs m sched ->
+      t <= job_release (jobs j) ->
+      service_job m sched j t = 0.
+  ```
+- **Proof Strategy**: Induction on `t`. Base: `simpl; reflexivity`. Step: `rewrite service_job_step`, apply IH for `service_job t' = 0`, then show `cpu_count = 0` using `cpu_count_zero_iff_not_executed` and `valid_no_run_before_release`.
+- **Key Tactics**: `induction t`, `rewrite service_job_step`, `cpu_count_zero_iff_not_executed`, `valid_no_run_before_release`, `lia`
+- **Dependencies**: `service_job_step`, `cpu_count_zero_iff_not_executed`, `valid_no_run_before_release`
+- **Notes**: Requires `valid_schedule` hypothesis. Foundational for prefix service arguments.
+- **Date**: 2026-04-09
+
+---
+
+### `service_at_release_zero`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma service_at_release_zero :
+    forall jobs m sched j,
+      valid_schedule jobs m sched ->
+      service_job m sched j (job_release (jobs j)) = 0.
+  ```
+- **Proof Strategy**: Apply `service_before_release_zero` with explicit arguments; supply `lia` for the `<= release` goal.
+- **Key Tactics**: `apply (service_before_release_zero jobs m sched j ...)`, `lia`
+- **Dependencies**: `service_before_release_zero`
+- **Notes**: ⚠️ `apply service_before_release_zero` (without explicit args) fails with "Unable to find an instance for the variable jobs". Always provide explicit arguments: `apply (service_before_release_zero jobs m sched j (job_release (jobs j)))`.
+- **Date**: 2026-04-09
