@@ -76,11 +76,11 @@ Section SchedulableExample.
   (* -------------------------------------------------------------- *)
 
   (**
-    sched_sc での cpu_count sched_sc 0 t 1 は 1 以下。
+    sched_sc での cpu_count 1 sched_sc 0 t は 1 以下。
     CPU 0 のみが動き、その寄与は 0 または 1。
   *)
   Lemma sc_cpu_count_le_1 : forall t,
-      cpu_count sched_sc 0 t 1 <= 1.
+      cpu_count 1 sched_sc 0 t <= 1.
   Proof.
     intro t.
     simpl.

@@ -50,11 +50,11 @@ Definition Schedule : Type := Time -> CPU -> option JobId.
 Definition released (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop :=
   job_release (jobs j) <= t.
 
-(* A job is waiting (pre-release): not yet released at time t.
+(* A job is pre_release: not yet released at time t (t < release_time).
    This predicate is schedule-independent and depends only on the job's
-   release time. Contrast with runnable (released but not completed) in
-   Schedule.v. *)
-Definition waiting (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop :=
+   release time. Note: in scheduling literature "waiting" often means
+   "in the ready queue"; we use pre_release to avoid that ambiguity. *)
+Definition pre_release (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop :=
   t < job_release (jobs j).
 
 (* A job set is valid when every job has positive cost.

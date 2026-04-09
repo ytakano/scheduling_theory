@@ -116,19 +116,19 @@ Section PartitionedSection.
     forall sched,
       respects_assignment sched ->
       forall j t,
-        cpu_count sched j t m = if runs_on sched j t (assign j) then 1 else 0.
+        cpu_count m sched j t = if runs_on sched j t (assign j) then 1 else 0.
   Proof.
     intros sched Hresp j t.
     destruct (runs_on sched j t (assign j)) eqn:Erun.
     - (* runs_on assign j = true: cpu_count = 1 *)
       (* Lower bound: at least 1 because assign j is running *)
-      assert (Hpos : 0 < cpu_count sched j t m).
+      assert (Hpos : 0 < cpu_count m sched j t).
       { apply cpu_count_pos_iff_executed.
         exists (assign j). split.
         - exact (valid_assignment j).
         - apply runs_on_true_iff. exact Erun. }
       (* Upper bound: at most 1 because sequential_jobs *)
-      assert (Hle : cpu_count sched j t m <= 1).
+      assert (Hle : cpu_count m sched j t <= 1).
       { apply cpu_count_le_1.
         apply partitioned_implies_sequential. exact Hresp. }
       lia.
@@ -158,8 +158,8 @@ Section PartitionedSection.
     forall sched,
       respects_assignment sched ->
       forall j t,
-        cpu_count sched j t m =
-          cpu_count (cpu_schedule sched (assign j)) j t 1.
+        cpu_count m sched j t =
+          cpu_count 1 (cpu_schedule sched (assign j)) j t.
   Proof.
     intros sched Hresp j t.
     rewrite cpu_count_assigned_only by exact Hresp.

@@ -1,6 +1,6 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia.
 Require Import Base.
-(* Note: Base.waiting (pre-release, schedule-independent) is now in scope.
+(* Note: Base.pre_release (t < release_time, schedule-independent) is now in scope.
    Schedule.eligible (released AND NOT completed) is the dispatch condition for
    valid_schedule; running jobs satisfy eligible but NOT ready.
    Schedule.ready (eligible AND NOT running) is the classical ready-queue state. *)
@@ -15,10 +15,10 @@ Definition runs_on (sched : Schedule) (j : JobId) (t : Time) (c : CPU) : bool :=
   end.
 
 (* Count CPUs in 0..m-1 running job j at time t *)
-Fixpoint cpu_count (sched : Schedule) (j : JobId) (t : Time) (m : nat) : nat :=
+Fixpoint cpu_count (m : nat) (sched : Schedule) (j : JobId) (t : Time) : nat :=
   match m with
   | O    => 0
-  | S m' => (if runs_on sched j t m' then 1 else 0) + cpu_count sched j t m'
+  | S m' => (if runs_on sched j t m' then 1 else 0) + cpu_count m' sched j t
   end.
 
 (* job-level 累積実行量: [0,t) の全 CPU での job j の総実行ステップ数。
@@ -27,7 +27,7 @@ Fixpoint cpu_count (sched : Schedule) (j : JobId) (t : Time) (m : nat) : nat :=
 Fixpoint service_job (m : nat) (sched : Schedule) (j : JobId) (t : Time) : nat :=
   match t with
   | O    => 0
-  | S t' => cpu_count sched j t' m + service_job m sched j t'
+  | S t' => cpu_count m sched j t' + service_job m sched j t'
   end.
 
 (* `completed jobs m sched j t` means job j has received >= job_cost units of
@@ -37,7 +37,7 @@ Definition completed (jobs : JobId -> Job) (m : nat) (sched : Schedule)
   service_job m sched j t >= job_cost (jobs j).
 
 (* A job is running at time t on some valid CPU in 0..m-1. *)
-Definition running (sched : Schedule) (m : nat) (j : JobId) (t : Time) : Prop :=
+Definition running (m : nat) (sched : Schedule) (j : JobId) (t : Time) : Prop :=
   exists c : CPU, c < m /\ sched t c = Some j.
 
 (* A job is eligible: released and not yet completed.
@@ -57,7 +57,7 @@ Definition eligible (jobs : JobId -> Job) (m : nat) (sched : Schedule)
    completed AND not running. *)
 Definition ready (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
-  eligible jobs m sched j t /\ ~running sched m j t.
+  eligible jobs m sched j t /\ ~running m sched j t.
 
 (* Sequential-job 仮定: 同じ job は同時に複数 CPU で走らない。
    DAG job ではこの制約は job 単位ではなく node 単位になる:
@@ -155,14 +155,14 @@ Qed.
 
 (* Matches the Fixpoint definition order exactly *)
 Lemma service_job_unfold : forall m sched j t,
-    service_job m sched j (S t) = cpu_count sched j t m + service_job m sched j t.
+    service_job m sched j (S t) = cpu_count m sched j t + service_job m sched j t.
 Proof.
   intros. simpl. reflexivity.
 Qed.
 
 (* Commuted form; use this for rewriting when the sum order matters *)
 Lemma service_job_step : forall m sched j t,
-    service_job m sched j (S t) = service_job m sched j t + cpu_count sched j t m.
+    service_job m sched j (S t) = service_job m sched j t + cpu_count m sched j t.
 Proof.
   intros. rewrite service_job_unfold. lia.
 Qed.
@@ -170,7 +170,7 @@ Qed.
 (* --- cpu_count characterization lemmas --- *)
 
 Lemma cpu_count_zero_iff_not_executed : forall m sched j t,
-    cpu_count sched j t m = 0 <->
+    cpu_count m sched j t = 0 <->
     forall c, c < m -> sched t c <> Some j.
 Proof.
   induction m as [| m' IH]; intros sched j t.
@@ -199,7 +199,7 @@ Proof.
 Qed.
 
 Lemma cpu_count_pos_iff_executed : forall m sched j t,
-    0 < cpu_count sched j t m <->
+    0 < cpu_count m sched j t <->
     exists c, c < m /\ sched t c = Some j.
 Proof.
   induction m as [| m' IH]; intros sched j t.
@@ -225,7 +225,7 @@ Proof.
         rewrite Hruns. simpl. lia.
       * (* c < m': use IH *)
         assert (Hlt' : c < m') by lia.
-        assert (Hpos : 0 < cpu_count sched j t m').
+        assert (Hpos : 0 < cpu_count m' sched j t).
         { apply (proj2 (IH sched j t)). exists c. split. exact Hlt'. exact Hrun. }
         destruct (runs_on sched j t m'); simpl; lia.
 Qed.
@@ -233,7 +233,7 @@ Qed.
 (* Equivalent to cpu_count_pos_iff_executed; useful when lia cannot close goals
    involving strict positivity, e.g. when rewriting with Nat.neq_0_lt_0. *)
 Lemma cpu_count_nonzero_iff_executed : forall m sched j t,
-    cpu_count sched j t m <> 0 <->
+    cpu_count m sched j t <> 0 <->
     exists c, c < m /\ sched t c = Some j.
 Proof.
   intros m sched j t.
@@ -247,7 +247,7 @@ Qed.
 (* Under sequential_jobs, cpu_count <= 1 *)
 Lemma cpu_count_le_1 : forall m sched j t,
     sequential_jobs m sched ->
-    cpu_count sched j t m <= 1.
+    cpu_count m sched j t <= 1.
 Proof.
   induction m as [| m' IH]; intros sched j t Hnd.
   - simpl. lia.
@@ -256,7 +256,7 @@ Proof.
     + (* runs_on = true: cpu_count m' must be 0 *)
       apply runs_on_true_iff in Erun.
       simpl.
-      assert (Hzero : cpu_count sched j t m' = 0).
+      assert (Hzero : cpu_count m' sched j t = 0).
       { apply (proj2 (cpu_count_zero_iff_not_executed m' sched j t)).
         intros c Hlt Hrun.
         assert (Heq : c = m').
@@ -282,11 +282,11 @@ Qed.
 (* Stronger form: cpu_count is exactly 0 or 1 under sequential_jobs *)
 Lemma cpu_count_0_or_1 : forall m sched j t,
     sequential_jobs m sched ->
-    cpu_count sched j t m = 0 \/ cpu_count sched j t m = 1.
+    cpu_count m sched j t = 0 \/ cpu_count m sched j t = 1.
 Proof.
   intros m sched j t Hnd.
   pose proof (cpu_count_le_1 m sched j t Hnd) as Hle.
-  destruct (cpu_count sched j t m) as [| n].
+  destruct (cpu_count m sched j t) as [| n].
   - left. reflexivity.
   - right. lia.
 Qed.
@@ -296,7 +296,7 @@ Qed.
    assumption is available; useful in service_job_increases_iff_executed proofs. *)
 Lemma cpu_count_eq_1_iff_executed : forall m sched j t,
     sequential_jobs m sched ->
-    (cpu_count sched j t m = 1 <->
+    (cpu_count m sched j t = 1 <->
      exists c, c < m /\ sched t c = Some j).
 Proof.
   intros m sched j t Hnd.
@@ -411,7 +411,7 @@ Qed.
 
 Lemma ready_iff_eligible_and_not_running : forall jobs m sched j t,
     ready jobs m sched j t <->
-    eligible jobs m sched j t /\ ~running sched m j t.
+    eligible jobs m sched j t /\ ~running m sched j t.
 Proof.
   unfold ready. tauto.
 Qed.
@@ -452,36 +452,36 @@ Proof.
   exact (Hv j t c Hlt Hrun).
 Qed.
 
-(* --- Lv.0-4: waiting / eligible / ready / running relationships --- *)
+(* --- Lv.0-4: pre_release / eligible / ready / running relationships --- *)
 
-(* A pre-release (waiting) job is not eligible. *)
-Lemma waiting_not_eligible : forall jobs m sched j t,
-    waiting jobs j t ->
+(* A pre-release job is not eligible. *)
+Lemma pre_release_not_eligible : forall jobs m sched j t,
+    pre_release jobs j t ->
     ~eligible jobs m sched j t.
 Proof.
-  unfold waiting, eligible, released.
+  unfold pre_release, eligible, released.
   intros jobs m sched j t Hpend [Hrel _]. lia.
 Qed.
 
-(* A pre-release (waiting) job is not ready. *)
-Lemma waiting_not_ready : forall jobs m sched j t,
-    waiting jobs j t ->
+(* A pre-release job is not ready. *)
+Lemma pre_release_not_ready : forall jobs m sched j t,
+    pre_release jobs j t ->
     ~ready jobs m sched j t.
 Proof.
-  unfold waiting, ready, eligible, released.
+  unfold pre_release, ready, eligible, released.
   intros jobs m sched j t Hpend [[Hrel _] _]. lia.
 Qed.
 
 (* ready implies not running: a job in the ready/runnable state is not on a CPU. *)
 Lemma ready_implies_not_running : forall jobs m sched j t,
-    ready jobs m sched j t -> ~running sched m j t.
+    ready jobs m sched j t -> ~running m sched j t.
 Proof.
   unfold ready. intros jobs m sched j t [_ H]. exact H.
 Qed.
 
 (* running implies not ready: a job currently on a CPU is not in the ready queue. *)
 Lemma running_implies_not_ready : forall jobs m sched j t,
-    running sched m j t -> ~ready jobs m sched j t.
+    running m sched j t -> ~ready jobs m sched j t.
 Proof.
   intros jobs m sched j t Hrun Hready.
   exact (ready_implies_not_running jobs m sched j t Hready Hrun).
@@ -517,13 +517,13 @@ Proof.
 Qed.
 
 (* Scheduling on a valid CPU implies running. *)
-Lemma scheduled_implies_running : forall sched m j t c,
+Lemma scheduled_implies_running : forall m sched j t c,
     c < m ->
     sched t c = Some j ->
-    running sched m j t.
+    running m sched j t.
 Proof.
   unfold running.
-  intros sched m j t c Hlt Hrun.
+  intros m sched j t c Hlt Hrun.
   exists c. split. exact Hlt. exact Hrun.
 Qed.
 

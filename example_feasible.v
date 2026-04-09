@@ -57,7 +57,7 @@ Definition sched_ex1 (t : Time) (cpu : CPU) : option JobId :=
 (** 補助補題: cpu_count の上界（cpu_count ≤ m を使う） *)
 
 Lemma cpu_count_le_m : forall m sched j t,
-    cpu_count sched j t m <= m.
+    cpu_count m sched j t <= m.
 Proof.
   induction m as [| m' IH]; intros sched j t.
   - simpl. lia.

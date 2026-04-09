@@ -8,13 +8,13 @@ Import ListNotations.
 
 (* Boolean version of ready: needed for filter.
    ready is a Prop; filter requires a bool-valued function.
-   The third conjunct (cpu_count =? 0) corresponds to ~running sched m j t,
+   The third conjunct (cpu_count =? 0) corresponds to ~running m sched j t,
    using cpu_count_pos_iff_executed to bridge the bool and Prop. *)
 Definition readyb (jobs : JobId -> Job) (m : nat) (sched : Schedule)
                    (j : JobId) (t : Time) : bool :=
   (job_release (jobs j) <=? t) &&
   negb (job_cost (jobs j) <=? service_job m sched j t) &&
-  (cpu_count sched j t m =? 0).
+  (cpu_count m sched j t =? 0).
 
 (* Select the job with the minimum absolute deadline from a list.
    Returns None iff the list is empty.

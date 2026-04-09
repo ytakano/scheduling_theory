@@ -164,13 +164,13 @@ Section UniSchedulerLemmasSection.
   Lemma choose_none_implies_each_candidate_unreleased_or_completed :
       spec.(choose_g) jobs m sched t candidates = None ->
       forall j, In j candidates ->
-        ~released jobs j t \/ completed jobs m sched j t \/ running sched m j t.
+        ~released jobs j t \/ completed jobs m sched j t \/ running m sched j t.
   Proof.
     intros Hnone j Hin.
     pose proof (choose_none_implies_no_ready Hnone j Hin) as Hnready.
     unfold ready, eligible in Hnready.
     destruct (classic (released jobs j t)) as [Hrel | Hnrel].
-    - destruct (classic (running sched m j t)) as [Hrun | Hnrun].
+    - destruct (classic (running m sched j t)) as [Hrun | Hnrun].
       + right. right. exact Hrun.
       + right. left. apply NNPP. intro Hnc. apply Hnready.
         split. split. exact Hrel. exact Hnc. exact Hnrun.
