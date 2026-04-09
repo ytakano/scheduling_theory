@@ -1036,3 +1036,37 @@
 - **Dependencies**: `missed_deadline_iff_on_assigned_cpu`, `valid_assignment`, `local_jobset`
 - **Notes**: ⚠️ Must `rewrite missed_deadline_iff_on_assigned_cpu` BEFORE applying `Hfeas` — applying `Hfeas` first gives a local missed_deadline goal that won't unify with the global form.
 - **Date**: 2026-04-09
+
+---
+
+### `valid_partitioned_schedule_intro`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma valid_partitioned_schedule_intro :
+    forall jobs sched,
+      partitioned_schedule_on jobs sched ->
+      valid_partitioned_schedule jobs sched.
+  ```
+- **Proof Strategy**: Trivial — `valid_partitioned_schedule` is currently definitionally equal to `partitioned_schedule_on`. Proof is `exact H`.
+- **Key Tactics**: `exact H`
+- **Dependencies**: `valid_partitioned_schedule`, `partitioned_schedule_on`
+- **Notes**: This lemma exists as an abstraction boundary. Client code should use this instead of `unfold valid_partitioned_schedule` to minimize churn when the definition is later strengthened.
+- **Date**: 2026-04-09
+
+---
+
+### `valid_partitioned_schedule_elim`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma valid_partitioned_schedule_elim :
+    forall jobs sched,
+      valid_partitioned_schedule jobs sched ->
+      partitioned_schedule_on jobs sched.
+  ```
+- **Proof Strategy**: Trivial — `valid_partitioned_schedule` is currently definitionally equal to `partitioned_schedule_on`. Proof is `exact H`.
+- **Key Tactics**: `exact H`
+- **Dependencies**: `valid_partitioned_schedule`, `partitioned_schedule_on`
+- **Notes**: For library-internal use. Client-facing code should prefer reasoning via `valid_partitioned_schedule` directly when possible.
+- **Date**: 2026-04-09

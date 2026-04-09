@@ -357,7 +357,8 @@ Qed.
 Lemma pair_partitioned_schedule :
     valid_partitioned_schedule assign_pair 2 fifo_generic_spec [0; 1] pair_jobs pair_sched.
 Proof.
-  unfold valid_partitioned_schedule, partitioned_schedule_on.
+  apply valid_partitioned_schedule_intro.
+  unfold partitioned_schedule_on.
   intros t c Hlt.
   assert (Hc : c = 0 \/ c = 1) by lia.
   destruct Hc as [-> | ->].

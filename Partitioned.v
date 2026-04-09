@@ -93,6 +93,33 @@ Section PartitionedSection.
   Definition valid_partitioned_schedule (jobs : JobId -> Job) (sched : Schedule) : Prop :=
     partitioned_schedule_on jobs sched.
 
+  (* Public introduction rule for [valid_partitioned_schedule].
+
+     Keep clients using this lemma instead of unfolding the definition directly,
+     since [valid_partitioned_schedule] is intended to remain the stable
+     interface-level predicate even if its underlying definition is strengthened
+     later. *)
+  Lemma valid_partitioned_schedule_intro :
+    forall jobs sched,
+      partitioned_schedule_on jobs sched ->
+      valid_partitioned_schedule jobs sched.
+  Proof.
+    intros jobs sched H. exact H.
+  Qed.
+
+  (* Elimination rule for [valid_partitioned_schedule].
+
+     This exposes the current underlying predicate.  It is mainly useful inside
+     library proofs; client-facing developments should usually prefer reasoning
+     via the stable [valid_partitioned_schedule] interface when possible. *)
+  Lemma valid_partitioned_schedule_elim :
+    forall jobs sched,
+      valid_partitioned_schedule jobs sched ->
+      partitioned_schedule_on jobs sched.
+  Proof.
+    intros jobs sched H. exact H.
+  Qed.
+
   (* ===== Bridge Abstractions ===== *)
 
   (* local_jobset c: the set of jobs in J that are assigned to CPU c. *)
