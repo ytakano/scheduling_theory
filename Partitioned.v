@@ -7,13 +7,16 @@ Import ListNotations.
 (* ===== Partitioned Scheduling: Definitions and Core Theorems (Lv.5) =====
 
    A partitioned multiprocessor schedule statically assigns each job to exactly
-   one CPU.  Each CPU runs an independent single-CPU scheduler (GenericSchedulerDecisionSpec).
+   one CPU.  Each CPU runs an independent single-CPU scheduler (GenericDispatchSpec).
    The multicore schedule is the pointwise union of the per-CPU schedules.
 
    Core theorems proved here:
-     1. assignment_respect      — a running job always runs on its assigned CPU
-     2. local_to_global_validity — per-CPU validity lifts to global validity
-     3. service_decomposition   — job service = service on assigned CPU only *)
+     1. partitioned_schedule_implies_respects_assignment
+                             — partitioned_schedule implies assignment is respected
+     2. assignment_respect   — a running job always runs on its assigned CPU
+     3. partitioned_schedule_implies_valid_schedule
+                             — partitioned_schedule implies global validity
+     4. service_decomposition — job service = service on assigned CPU only *)
 
 Section PartitionedSection.
 
@@ -27,8 +30,8 @@ Section PartitionedSection.
   Variable valid_assignment : forall j, assign j < m.
 
   (* Per-CPU dispatch policy (generic; any scheduler satisfying
-     GenericSchedulerDecisionSpec can be used, e.g. EDF, FIFO, RR). *)
-  Variable spec : GenericSchedulerDecisionSpec.
+     GenericDispatchSpec can be used, e.g. EDF, FIFO, RR). *)
+  Variable spec : GenericDispatchSpec.
 
   (* ===== Definitions ===== *)
 
@@ -42,11 +45,9 @@ Section PartitionedSection.
   Definition cpu_schedule (sched : Schedule) (c : CPU) : Schedule :=
     fun t' cpu' => if Nat.eqb cpu' 0 then sched t' c else None.
 
-  (* candidates_for c jobs sched t xs: the sublist of xs whose jobs are
-     assigned to CPU c.  The per-CPU scheduler will then internally filter
-     for readiness via choose_g. *)
-  Definition candidates_for (c : CPU) (jobs : JobId -> Job) (sched : Schedule)
-      (t : Time) (xs : list JobId) : list JobId :=
+  (* candidates_for c xs: the sublist of xs whose jobs are assigned to CPU c.
+     The per-CPU scheduler will then internally filter for readiness via dispatch. *)
+  Definition candidates_for (c : CPU) (xs : list JobId) : list JobId :=
     filter (fun j => Nat.eqb (assign j) c) xs.
 
   (* respects_assignment sched: every job runs only on its assigned CPU. *)
@@ -54,34 +55,56 @@ Section PartitionedSection.
     forall j t c, c < m -> sched t c = Some j -> assign j = c.
 
   (* partitioned_schedule jobs sched xs: the schedule is consistent with
-     running the per-CPU policy on each CPU's candidate set.
+     running the per-CPU policy on each CPU's local 1-CPU view.
      At each time step, what CPU c runs is exactly what spec would choose
-     from the jobs assigned to c. *)
+     from the jobs assigned to c, looking only at that CPU's local schedule. *)
   Definition partitioned_schedule (jobs : JobId -> Job) (sched : Schedule)
       (xs : list JobId) : Prop :=
     forall t c, c < m ->
       sched t c =
-        spec.(choose_g) jobs m sched t (candidates_for c jobs sched t xs).
+        spec.(dispatch) jobs 1 (cpu_schedule sched c) t (candidates_for c xs).
 
-  (* valid_partitioned_schedule: the schedule is both dispatcher-consistent
-     and assignment-respecting. *)
+  (* valid_partitioned_schedule: alias for partitioned_schedule.
+     respects_assignment is now a derived consequence (see
+     partitioned_schedule_implies_respects_assignment below). *)
   Definition valid_partitioned_schedule (jobs : JobId -> Job) (sched : Schedule)
       (xs : list JobId) : Prop :=
-    partitioned_schedule jobs sched xs /\ respects_assignment sched.
+    partitioned_schedule jobs sched xs.
 
   (* ===== Phase 1: Helper Lemmas ===== *)
 
   (* H1: a job in candidates_for c is assigned to c. *)
   Lemma candidates_for_assign_sound :
-    forall c jobs sched t xs j,
-      In j (candidates_for c jobs sched t xs) -> assign j = c.
+    forall c xs j,
+      In j (candidates_for c xs) -> assign j = c.
   Proof.
-    intros c jobs sched t xs j Hin.
+    intros c xs j Hin.
     unfold candidates_for in Hin.
     apply filter_In in Hin.
     destruct Hin as [_ Heqb].
     apply Nat.eqb_eq in Heqb.
     exact Heqb.
+  Qed.
+
+  (* Key new theorem: partitioned_schedule implies respects_assignment.
+     Proof: if sched t c = Some j, then by partitioned_schedule the dispatch
+     chose j from candidates_for c xs, so j ∈ candidates_for c xs, hence
+     assign j = c. *)
+  Theorem partitioned_schedule_implies_respects_assignment :
+    forall jobs sched xs,
+      partitioned_schedule jobs sched xs ->
+      respects_assignment sched.
+  Proof.
+    intros jobs sched xs Hpart j t c Hlt Hrun.
+    pose proof (Hpart t c Hlt) as Heq.
+    (* Heq : sched t c = dispatch ... (candidates_for c xs) *)
+    (* Hrun : sched t c = Some j *)
+    rewrite Hrun in Heq.
+    (* Heq : Some j = dispatch ... *)
+    symmetry in Heq.
+    apply (candidates_for_assign_sound c xs j).
+    eapply spec.(dispatch_in_candidates).
+    exact Heq.
   Qed.
 
   (* H2: under respects_assignment, a job only appears on its assigned CPU. *)
@@ -171,7 +194,7 @@ Section PartitionedSection.
 
   (* ===== Phase 2: Core Theorems ===== *)
 
-  (* Theorem 3 (proved first): service on any m CPUs = service on assigned CPU only. *)
+  (* Theorem: service on any m CPUs = service on assigned CPU only. *)
   Theorem service_decomposition :
     forall sched,
       respects_assignment sched ->
@@ -202,47 +225,45 @@ Section PartitionedSection.
     tauto.
   Qed.
 
-  (* Theorem 1: any running job runs on its assigned CPU. *)
+  (* Theorem: any running job runs on its assigned CPU.
+     Now follows directly from partitioned_schedule_implies_respects_assignment. *)
   Theorem assignment_respect :
     forall jobs sched xs,
       valid_partitioned_schedule jobs sched xs ->
       forall j t c,
         c < m -> sched t c = Some j -> assign j = c.
   Proof.
-    intros jobs sched xs [_ Hresp] j t c Hlt Hrun.
-    exact (Hresp j t c Hlt Hrun).
+    intros jobs sched xs Hvps j t c Hlt Hrun.
+    exact (partitioned_schedule_implies_respects_assignment jobs sched xs Hvps j t c Hlt Hrun).
   Qed.
 
-  (* Theorem 2: per-CPU validity lifts to global validity. *)
-  Theorem local_to_global_validity :
+  (* Theorem: partitioned_schedule implies global validity.
+     Proof: from dispatch_ready, j is ready in the local 1-CPU view,
+     hence eligible locally; lift to global eligibility using
+     completed_iff_on_assigned_cpu (with derived respects_assignment). *)
+  Theorem partitioned_schedule_implies_valid_schedule :
     forall jobs sched xs,
-      valid_partitioned_schedule jobs sched xs ->
-      (forall c, c < m ->
-        valid_schedule jobs 1 (cpu_schedule sched c)) ->
+      partitioned_schedule jobs sched xs ->
       valid_schedule jobs m sched.
   Proof.
-    intros jobs sched xs Hvps Hlocal.
-    destruct Hvps as [_ Hresp].
-    unfold valid_schedule.
-    intros j t c Hlt Hrun.
-    (* Invoke per-CPU validity for CPU c *)
-    specialize (Hlocal c Hlt).
-    unfold valid_schedule in Hlocal.
-    (* cpu_schedule sched c at virtual-CPU 0 = sched t c = Some j *)
-    assert (Hcpu : cpu_schedule sched c t 0 = Some j).
-    { unfold cpu_schedule. rewrite Nat.eqb_refl. exact Hrun. }
-    specialize (Hlocal j t 0 (Nat.lt_succ_diag_r 0) Hcpu).
-    (* Hlocal : eligible jobs 1 (cpu_schedule sched c) j t *)
+    intros jobs sched xs Hpart j t c Hlt Hrun.
+    (* Derive respects_assignment *)
+    pose proof (partitioned_schedule_implies_respects_assignment jobs sched xs Hpart) as Hresp.
+    (* From partitioned_schedule: dispatch chose Some j *)
+    pose proof (Hpart t c Hlt) as Heq.
+    rewrite Hrun in Heq. symmetry in Heq.
+    (* dispatch_ready: j is ready in the local 1-CPU view *)
+    pose proof (spec.(dispatch_ready) jobs 1 (cpu_schedule sched c) t (candidates_for c xs) j Heq) as Hready.
+    (* ready → eligible *)
+    unfold ready in Hready. destruct Hready as [Heloc _].
     unfold eligible in *.
-    destruct Hlocal as [Hrel Hncomp].
+    destruct Heloc as [Hrel Hncomp_local].
     split.
     - exact Hrel.
-    - (* ~completed jobs m sched j t *)
+    - (* lift ¬completed from local to global *)
       rewrite completed_iff_on_assigned_cpu by exact Hresp.
-      (* assign j = c because respects_assignment *)
-      pose proof (Hresp j t c Hlt Hrun) as Hassign.
-      rewrite Hassign.
-      exact Hncomp.
+      pose proof (Hresp j t c Hlt Hrun) as Hassign. (* assign j = c *)
+      rewrite Hassign. exact Hncomp_local.
   Qed.
 
   (* ===== Phase 3: Deadline / Feasibility Lifting ===== *)
@@ -280,24 +301,21 @@ Section PartitionedSection.
     exact Hnmiss.
   Qed.
 
-  (* Combined: per-CPU validity + feasibility lifts to global validity + feasibility. *)
+  (* Combined: partitioned_schedule + per-CPU feasibility lifts to global
+     validity + feasibility. *)
   Corollary local_valid_feasible_implies_global :
     forall jobs sched xs,
-      valid_partitioned_schedule jobs sched xs ->
-      (forall c, c < m ->
-        valid_schedule jobs 1 (cpu_schedule sched c) /\
-        feasible_schedule jobs 1 (cpu_schedule sched c)) ->
+      partitioned_schedule jobs sched xs ->
+      (forall c, c < m -> feasible_schedule jobs 1 (cpu_schedule sched c)) ->
       valid_schedule jobs m sched /\ feasible_schedule jobs m sched.
   Proof.
-    intros jobs sched xs Hvps Hlocal.
-    destruct Hvps as [Hpart Hresp].
+    intros jobs sched xs Hpart Hlocal.
+    pose proof (partitioned_schedule_implies_respects_assignment jobs sched xs Hpart) as Hresp.
     split.
-    - apply local_to_global_validity with xs.
-      + exact (conj Hpart Hresp).
-      + intros c Hlt. exact (proj1 (Hlocal c Hlt)).
+    - apply partitioned_schedule_implies_valid_schedule with xs. exact Hpart.
     - apply local_feasible_implies_global_feasible_schedule.
       + exact Hresp.
-      + intros c Hlt. exact (proj2 (Hlocal c Hlt)).
+      + exact Hlocal.
   Qed.
 
 End PartitionedSection.

@@ -914,3 +914,37 @@
 - **Dependencies**: `local_to_global_validity`, `local_feasible_implies_global_feasible_schedule`, `valid_partitioned_schedule`
 - **Notes**: Rebuild `valid_partitioned_schedule` from components via `exact (conj Hpart Hresp)` — `local_to_global_validity` expects it as a bundled argument.
 - **Date**: 2026-04-09
+
+---
+
+### `partitioned_schedule_implies_respects_assignment` (Phase 3 refactor)
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem partitioned_schedule_implies_respects_assignment :
+    forall jobs sched xs,
+      partitioned_schedule jobs sched xs ->
+      respects_assignment sched.
+  ```
+- **Proof Strategy**: Given `sched t c = Some j`, use `partitioned_schedule` to get `sched t c = dispatch ... (candidates_for c xs)`, so `dispatch ... = Some j`. Apply `dispatch_in_candidates` to get `j ∈ candidates_for c xs`, then `candidates_for_assign_sound` gives `assign j = c`.
+- **Key Tactics**: `pose proof (Hpart t c Hlt)`, `rewrite Hrun in Heq`, `symmetry in Heq`, `eapply spec.(dispatch_in_candidates)`
+- **Dependencies**: `partitioned_schedule`, `candidates_for_assign_sound`, `dispatch_in_candidates`
+- **Notes**: After Phase 3 refactor, `respects_assignment` is no longer an axiom/conjunct — it is a derived theorem. `valid_partitioned_schedule` is now just `partitioned_schedule`.
+- **Date**: 2026-04-09
+
+---
+
+### `partitioned_schedule_implies_valid_schedule` (Phase 3 refactor, replaces `local_to_global_validity`)
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem partitioned_schedule_implies_valid_schedule :
+    forall jobs sched xs,
+      partitioned_schedule jobs sched xs ->
+      valid_schedule jobs m sched.
+  ```
+- **Proof Strategy**: Given `sched t c = Some j`: (1) derive `Hresp` via `partitioned_schedule_implies_respects_assignment`; (2) from `partitioned_schedule`, extract `dispatch ... = Some j`; (3) `dispatch_ready` gives `ready jobs 1 (cpu_schedule sched c) j t`; (4) unfold `ready` and `eligible` to get `released` and local `~completed`; (5) lift `~completed` globally via `completed_iff_on_assigned_cpu` + `assign j = c` from `Hresp`.
+- **Key Tactics**: `symmetry in Heq`, `spec.(dispatch_ready)`, `unfold ready`, `unfold eligible`, `rewrite completed_iff_on_assigned_cpu by exact Hresp`, `rewrite Hassign`
+- **Dependencies**: `partitioned_schedule_implies_respects_assignment`, `dispatch_ready`, `completed_iff_on_assigned_cpu`
+- **Notes**: Old `local_to_global_validity` required external per-CPU `valid_schedule` hypotheses. This theorem needs only `partitioned_schedule` — validity is derived directly from `dispatch_ready`. ⚠️ Need `symmetry in Heq` after `rewrite Hrun in Heq` because `partitioned_schedule` equality is `sched t c = dispatch ...` not `dispatch ... = sched t c`.
+- **Date**: 2026-04-09
