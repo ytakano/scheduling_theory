@@ -72,4 +72,6 @@ RUN curl -fsSL https://claude.ai/install.sh | bash
 
 RUN echo "[[ ! -r '${HOME}/.opam/opam-init/init.zsh' ]] || source '${HOME}/.opam/opam-init/init.zsh' > /dev/null 2> /dev/null" >> .zshenv
 
+RUN curl -fsSL https://gh.io/copilot-install | bash
+
 CMD ["/bin/zsh"]
