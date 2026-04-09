@@ -3,6 +3,7 @@ Require Import Base.
 Require Import ScheduleModel.
 Require Import SchedulerInterface.
 Require Import DispatchInterface.
+Require Import DispatchSchedulerBridge.
 Import ListNotations.
 
 (* ===== Partitioned Scheduling: Definitions and Core Theorems (Lv.5) =====
@@ -40,6 +41,8 @@ Section PartitionedSection.
   (* A finite enumeration of J: every job in J appears in enumJ. *)
   Variable enumJ : list JobId.
   Hypothesis enumJ_complete : forall j, J j -> In j enumJ.
+  (* Every element of enumJ belongs to J (enumJ is a faithful enumeration). *)
+  Hypothesis enumJ_sound : forall j, In j enumJ -> J j.
 
   (* ===== Definitions ===== *)
 
@@ -75,6 +78,17 @@ Section PartitionedSection.
   Definition valid_partitioned_schedule (jobs : JobId -> Job) (sched : Schedule) : Prop :=
     partitioned_schedule_on jobs sched.
 
+  (* ===== Bridge Abstractions ===== *)
+
+  (* local_jobset c: the set of jobs in J that are assigned to CPU c. *)
+  Definition local_jobset (c : CPU) : JobId -> Prop :=
+    fun j => J j /\ assign j = c.
+
+  (* local_candidates_of c: a constant CandidateSource that always returns
+     local_candidates c.  It does not depend on jobs, schedule, or time. *)
+  Definition local_candidates_of (c : CPU) : CandidateSource :=
+    fun _ _ _ _ => local_candidates c.
+
   (* ===== Phase 1: Helper Lemmas ===== *)
 
   (* H0: every job in local_candidates c is assigned to c. *)
@@ -101,6 +115,32 @@ Section PartitionedSection.
     split.
     - apply enumJ_complete. exact HJ.
     - apply Nat.eqb_eq. exact Hassign.
+  Qed.
+
+  (* local_candidates_of satisfies CandidateSourceSpec for local_jobset c. *)
+  Lemma local_candidates_spec :
+    forall c, c < m ->
+      CandidateSourceSpec (local_jobset c) (local_candidates_of c).
+  Proof.
+    intros c _Hlt.
+    refine (mkCandidateSourceSpec (local_jobset c) (local_candidates_of c) _ _ _).
+    - (* soundness: candidate ∈ local_candidates c → J j ∧ assign j = c *)
+      intros jobs m' sched t j Hin.
+      unfold local_jobset, local_candidates_of in *.
+      simpl in Hin.
+      split.
+      + apply enumJ_sound.
+        unfold local_candidates in Hin.
+        apply filter_In in Hin.
+        exact (proj1 Hin).
+      + apply local_candidates_sound. exact Hin.
+    - (* completeness: J j ∧ assign j = c ∧ eligible → j ∈ candidates *)
+      intros jobs m' sched t j [HJ Hassign] _Helig.
+      unfold local_candidates_of. simpl.
+      apply local_candidates_complete; assumption.
+    - (* prefix extensionality: constant source, independent of schedule *)
+      intros jobs m' s1 s2 t _Hpre.
+      unfold local_candidates_of. reflexivity.
   Qed.
 
   (* Key new theorem: partitioned_schedule_on implies respects_assignment.
@@ -208,6 +248,40 @@ Section PartitionedSection.
 
   (* ===== Phase 2: Core Theorems ===== *)
 
+  (* partitioned_schedule_on is equivalent to each CPU satisfying the
+     single-CPU dispatch bridge relation on its local view. *)
+  Lemma partitioned_schedule_on_iff_local_rel :
+    forall jobs sched,
+      partitioned_schedule_on jobs sched <->
+      (forall c, c < m ->
+        scheduler_rel
+          (single_cpu_dispatch_schedule spec (local_candidates_of c))
+          jobs 1 (cpu_schedule sched c)).
+  Proof.
+    intros jobs sched.
+    unfold partitioned_schedule_on, scheduler_rel, local_candidates_of, cpu_schedule.
+    split.
+    - intros Hpart c Hlt.
+      split.
+      + reflexivity.
+      + intro t.
+        split.
+        * (* virtual CPU 0 of cpu_schedule sched c at time t = sched t c *)
+          simpl.
+          apply Hpart. exact Hlt.
+        * (* other virtual CPUs are idle *)
+          intros c' Hc'.
+          simpl.
+          destruct (Nat.eqb c' 0) eqn:Heqb.
+          -- apply Nat.eqb_eq in Heqb. lia.
+          -- reflexivity.
+    - intros Hlocal t c Hlt.
+      destruct (Hlocal c Hlt) as [_ Hstep].
+      destruct (Hstep t) as [Heq0 _].
+      simpl in Heq0.
+      exact Heq0.
+  Qed.
+
   (* Theorem: service on any m CPUs = service on assigned CPU only. *)
   Theorem service_decomposition :
     forall sched,
@@ -295,7 +369,11 @@ Section PartitionedSection.
     tauto.
   Qed.
 
-  (* M2: if every per-CPU 1-CPU schedule is feasible, the global schedule is feasible. *)
+  (* M2 (deprecated): if every per-CPU 1-CPU schedule is feasible for ALL jobs,
+     the global schedule is feasible.
+     NOTE: This assumption is too strong for partitioned scheduling, where each
+     CPU only needs to be feasible for the jobs assigned to it.
+     Use `local_feasible_on_implies_global_feasible_on` instead. *)
   Theorem local_feasible_implies_global_feasible_schedule :
     forall jobs sched,
       respects_assignment sched ->
@@ -313,8 +391,32 @@ Section PartitionedSection.
     exact Hnmiss.
   Qed.
 
-  (* Combined: partitioned_schedule_on + per-CPU feasibility lifts to global
-     validity + feasibility. *)
+  (* M2 (preferred): if every per-CPU 1-CPU schedule is feasible for the
+     jobs assigned to that CPU (local_jobset c), the global schedule is
+     feasible for all jobs in J.
+     This is the natural assumption for partitioned scheduling. *)
+  Theorem local_feasible_on_implies_global_feasible_on :
+    forall jobs sched,
+      respects_assignment sched ->
+      (forall c, c < m ->
+        feasible_schedule_on (local_jobset c) jobs 1 (cpu_schedule sched c)) ->
+      feasible_schedule_on J jobs m sched.
+  Proof.
+    intros jobs sched Hresp Hlocal.
+    unfold feasible_schedule_on.
+    intros j HJ.
+    pose proof (valid_assignment j) as Hlt.
+    pose proof (Hlocal (assign j) Hlt) as Hfeas.
+    unfold feasible_schedule_on in Hfeas.
+    rewrite missed_deadline_iff_on_assigned_cpu by exact Hresp.
+    apply Hfeas.
+    unfold local_jobset.
+    split.
+    - exact HJ.
+    - reflexivity.
+  Qed.
+
+  (* Combined (deprecated): use local_valid_feasible_on_implies_global instead. *)
   Corollary local_valid_feasible_implies_global :
     forall jobs sched,
       partitioned_schedule_on jobs sched ->
@@ -326,6 +428,24 @@ Section PartitionedSection.
     split.
     - apply partitioned_schedule_implies_valid_schedule. exact Hpart.
     - apply local_feasible_implies_global_feasible_schedule.
+      + exact Hresp.
+      + exact Hlocal.
+  Qed.
+
+  (* Combined (preferred): partitioned_schedule_on + per-CPU feasibility on
+     local_jobset lifts to global validity + feasibility on J. *)
+  Corollary local_valid_feasible_on_implies_global :
+    forall jobs sched,
+      partitioned_schedule_on jobs sched ->
+      (forall c, c < m ->
+        feasible_schedule_on (local_jobset c) jobs 1 (cpu_schedule sched c)) ->
+      valid_schedule jobs m sched /\ feasible_schedule_on J jobs m sched.
+  Proof.
+    intros jobs sched Hpart Hlocal.
+    pose proof (partitioned_schedule_implies_respects_assignment jobs sched Hpart) as Hresp.
+    split.
+    - apply partitioned_schedule_implies_valid_schedule. exact Hpart.
+    - apply local_feasible_on_implies_global_feasible_on.
       + exact Hresp.
       + exact Hlocal.
   Qed.
@@ -347,3 +467,20 @@ Definition partitioned_scheduler
   mkScheduler (fun jobs m sched =>
     m = n /\
     valid_partitioned_schedule assign n spec enumJ jobs sched).
+
+(* Standard entry point: given a witness schedule whose scheduler_rel holds and
+   which is feasible on J, conclude schedulable_by_on J.
+   Mirrors single_cpu_dispatch_schedulable_by_on_intro for the partitioned case. *)
+Corollary partitioned_schedulable_by_on_intro :
+    forall (assign : JobId -> CPU) (m : nat) (spec : GenericDispatchSpec)
+           (J : JobId -> Prop) (enumJ : list JobId) (jobs : JobId -> Job)
+           (sched : Schedule),
+      scheduler_rel (partitioned_scheduler assign m spec enumJ) jobs m sched ->
+      valid_schedule jobs m sched ->
+      feasible_schedule_on J jobs m sched ->
+      schedulable_by_on J (partitioned_scheduler assign m spec enumJ) jobs m.
+Proof.
+  intros assign m spec J enumJ jobs sched Hrel Hvalid Hfeas.
+  apply (schedulable_by_on_intro J (partitioned_scheduler assign m spec enumJ)
+           jobs m sched Hrel Hvalid Hfeas).
+Qed.

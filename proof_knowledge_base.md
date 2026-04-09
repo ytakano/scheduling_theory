@@ -948,3 +948,91 @@
 - **Dependencies**: `partitioned_schedule_implies_respects_assignment`, `dispatch_ready`, `completed_iff_on_assigned_cpu`
 - **Notes**: Old `local_to_global_validity` required external per-CPU `valid_schedule` hypotheses. This theorem needs only `partitioned_schedule` — validity is derived directly from `dispatch_ready`. ⚠️ Need `symmetry in Heq` after `rewrite Hrun in Heq` because `partitioned_schedule` equality is `sched t c = dispatch ...` not `dispatch ... = sched t c`.
 - **Date**: 2026-04-09
+
+---
+
+### `single_cpu_dispatch_eq_cpu0`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma single_cpu_dispatch_eq_cpu0 :
+      forall spec candidates_of jobs sched t,
+        scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+        sched t 0 = spec.(dispatch) jobs 1 sched t (candidates_of jobs 1 sched t).
+  ```
+- **Proof Strategy**: Destruct the relation to get the `forall t` component, then `exact (proj1 (Hrel t))`.
+- **Key Tactics**: `destruct Hrel as [_ Hrel]`, `exact (proj1 (Hrel t))`
+- **Dependencies**: `single_cpu_dispatch_schedule`, `scheduler_rel`
+- **Notes**: Direct read-out of the first component of the bridge relation.
+- **Date**: 2026-04-09
+
+---
+
+### `single_cpu_dispatch_idle_on_other_cpus`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma single_cpu_dispatch_idle_on_other_cpus :
+      forall spec candidates_of jobs sched t c,
+        scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+        0 < c -> sched t c = None.
+  ```
+- **Proof Strategy**: `destruct Hrel as [_ Hrel]`, then `exact (proj2 (Hrel t) c Hc)`.
+- **Key Tactics**: `destruct Hrel as [_ Hrel]`, `proj2 (Hrel t)`
+- **Dependencies**: `single_cpu_dispatch_schedule`, `scheduler_rel`
+- **Notes**: Direct read-out of the second component of the bridge relation.
+- **Date**: 2026-04-09
+
+---
+
+### `local_candidates_spec`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma local_candidates_spec :
+    forall c, c < m ->
+      CandidateSourceSpec (local_jobset c) (local_candidates_of c).
+  ```
+- **Proof Strategy**: Use `refine (mkCandidateSourceSpec ...)` with three goals. Soundness: from `In j (local_candidates c)`, extract `In j enumJ` via `filter_In` then apply `enumJ_sound`. Completeness: apply `local_candidates_complete`. Prefix extensionality: `local_candidates_of` is constant, so `reflexivity`.
+- **Key Tactics**: `refine (mkCandidateSourceSpec _ _ _)`, `filter_In`, `enumJ_sound`, `local_candidates_complete`, `reflexivity`
+- **Dependencies**: `local_candidates_sound`, `local_candidates_complete`, `enumJ_sound` (Section hypothesis)
+- **Notes**: ⚠️ Requires `enumJ_sound` hypothesis in the Section (not just `enumJ_complete`). `enumJ_complete` goes `J j → In j enumJ`; soundness needs `In j enumJ → J j` which is `enumJ_sound`.
+- **Date**: 2026-04-09
+
+---
+
+### `partitioned_schedule_on_iff_local_rel`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma partitioned_schedule_on_iff_local_rel :
+    forall jobs sched,
+      partitioned_schedule_on jobs sched <->
+      (forall c, c < m ->
+        scheduler_rel (single_cpu_dispatch_schedule spec (local_candidates_of c))
+          jobs 1 (cpu_schedule sched c)).
+  ```
+- **Proof Strategy**: Unfold `partitioned_schedule_on`, `scheduler_rel`, `local_candidates_of`, `cpu_schedule`. Forward: give `reflexivity` for `m = 1`, then `simpl` resolves `cpu_schedule sched c t 0 = sched t c` (the `if 0 =? 0` reduces). Other CPUs: destruct `c' =? 0`, use `lia` for the `true` branch, `reflexivity` for `false`. Backward: extract `Heq0` from `proj1 (Hstep t)` and `simpl in Heq0`.
+- **Key Tactics**: `unfold`, `split`, `simpl`, `Nat.eqb_eq`, `lia`, `reflexivity`
+- **Dependencies**: `partitioned_schedule_on`, `single_cpu_dispatch_schedule`, `cpu_schedule`, `local_candidates_of`
+- **Notes**: ⚠️ Do NOT use `rewrite Nat.eqb_refl` — after `simpl`, the `0 =? 0` is already reduced. Using `rewrite Nat.eqb_refl` causes "no subterm matching" error.
+- **Date**: 2026-04-09
+
+---
+
+### `local_feasible_on_implies_global_feasible_on`
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem local_feasible_on_implies_global_feasible_on :
+    forall jobs sched,
+      respects_assignment sched ->
+      (forall c, c < m ->
+        feasible_schedule_on (local_jobset c) jobs 1 (cpu_schedule sched c)) ->
+      feasible_schedule_on J jobs m sched.
+  ```
+- **Proof Strategy**: Take `j` and `HJ`. Derive `Hlt : assign j < m` via `valid_assignment`. Apply local feasibility at `assign j`. Rewrite goal with `missed_deadline_iff_on_assigned_cpu` before applying `Hfeas` (to convert global missed_deadline to local). Provide `local_jobset` membership via `split; [exact HJ | reflexivity]`.
+- **Key Tactics**: `rewrite missed_deadline_iff_on_assigned_cpu by exact Hresp`, `unfold local_jobset`, `split`
+- **Dependencies**: `missed_deadline_iff_on_assigned_cpu`, `valid_assignment`, `local_jobset`
+- **Notes**: ⚠️ Must `rewrite missed_deadline_iff_on_assigned_cpu` BEFORE applying `Hfeas` — applying `Hfeas` first gives a local missed_deadline goal that won't unify with the global form.
+- **Date**: 2026-04-09

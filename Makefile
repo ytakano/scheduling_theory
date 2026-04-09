@@ -39,7 +39,7 @@ Partitioned.vo: Partitioned.v ScheduleModel.vo Base.vo SchedulerInterface.vo Dis
 FeasibleExamples.vo: FeasibleExamples.v ScheduleModel.vo
 	rocq compile FeasibleExamples.v
 
-SchedulableExamples.vo: SchedulableExamples.v ScheduleModel.vo SchedulerInterface.vo
+SchedulableExamples.vo: SchedulableExamples.v ScheduleModel.vo SchedulerInterface.vo FIFO.vo Partitioned.vo
 	rocq compile SchedulableExamples.v
 
 clean:
