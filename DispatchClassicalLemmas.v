@@ -18,23 +18,20 @@ Section DispatchClassicalLemmasSection.
   Variable t           : Time.
   Variable candidates  : list JobId.
 
-  (* E3: if choose returns None, each candidate is either unreleased, completed,
-     or currently running on some CPU.
-     (ready = eligible AND NOT running = (released AND NOT completed) AND NOT running,
-      NOT ready means NOT eligible OR running, i.e., unreleased OR completed OR running.) *)
+  (* E3: if choose returns None, each candidate is either unreleased or completed.
+     (eligible = released AND NOT completed;
+      NOT eligible means NOT released OR completed.) *)
   Lemma choose_none_implies_each_candidate_unreleased_or_completed :
       spec.(dispatch) jobs m sched t candidates = None ->
       forall j, In j candidates ->
-        ~released jobs j t \/ completed jobs m sched j t \/ running m sched j t.
+        ~released jobs j t \/ completed jobs m sched j t.
   Proof.
     intros Hnone j Hin.
-    pose proof (choose_none_implies_no_ready spec jobs m sched t candidates Hnone j Hin) as Hnready.
-    unfold ready, eligible in Hnready.
+    pose proof (choose_none_implies_no_eligible spec jobs m sched t candidates Hnone j Hin) as Hnelig.
+    unfold eligible in Hnelig.
     destruct (classic (released jobs j t)) as [Hrel | Hnrel].
-    - destruct (classic (running m sched j t)) as [Hrun | Hnrun].
-      + right. right. exact Hrun.
-      + right. left. apply NNPP. intro Hnc. apply Hnready.
-        split. split. exact Hrel. exact Hnc. exact Hnrun.
+    - right. apply NNPP. intro Hnc. apply Hnelig.
+      split. exact Hrel. exact Hnc.
     - left. exact Hnrel.
   Qed.
 

@@ -17,22 +17,22 @@ Record GenericDispatchSpec : Type := mkGenericDispatchSpec {
      and a list of candidate jobs, return the chosen job (if any). *)
   dispatch : (JobId -> Job) -> nat -> Schedule -> Time -> list JobId -> option JobId ;
 
-  (* Spec 1: the chosen job is ready at time t. *)
-  dispatch_ready :
+  (* Spec 1: the chosen job is eligible at time t. *)
+  dispatch_eligible :
     forall jobs m sched t candidates j,
       dispatch jobs m sched t candidates = Some j ->
-      ready jobs m sched j t ;
+      eligible jobs m sched j t ;
 
-  (* Spec 2: if a ready candidate exists, the dispatcher returns Some. *)
-  dispatch_some_if_ready :
+  (* Spec 2: if an eligible candidate exists, the dispatcher returns Some. *)
+  dispatch_some_if_eligible_candidate :
     forall jobs m sched t candidates,
-      (exists j, In j candidates /\ ready jobs m sched j t) ->
+      (exists j, In j candidates /\ eligible jobs m sched j t) ->
       exists j', dispatch jobs m sched t candidates = Some j' ;
 
-  (* Spec 3: if no candidate is ready, the dispatcher returns None. *)
-  dispatch_none_if_no_ready :
+  (* Spec 3: if no candidate is eligible, the dispatcher returns None. *)
+  dispatch_none_if_no_eligible_candidate :
     forall jobs m sched t candidates,
-      (forall j, In j candidates -> ~ready jobs m sched j t) ->
+      (forall j, In j candidates -> ~eligible jobs m sched j t) ->
       dispatch jobs m sched t candidates = None ;
 
   (* Spec 4: the chosen job is always a member of the candidate list. *)

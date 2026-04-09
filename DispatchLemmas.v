@@ -10,17 +10,17 @@ Import ListNotations.
    in EDF.v under EDFSchedulerSpec. *)
 
 (* ===== Coverage Predicates ===== *)
-(* These predicates characterise how well the candidate list covers the ready set. *)
+(* These predicates characterise how well the candidate list covers the eligible set. *)
 
-(* candidates_sound: every candidate is ready. *)
+(* candidates_sound: every candidate is eligible. *)
 Definition candidates_sound (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (t : Time) (candidates : list JobId) : Prop :=
-  forall j, In j candidates -> ready jobs m sched j t.
+  forall j, In j candidates -> eligible jobs m sched j t.
 
-(* candidates_complete: every ready job is in the candidate list. *)
+(* candidates_complete: every eligible job is in the candidate list. *)
 Definition candidates_complete (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (t : Time) (candidates : list JobId) : Prop :=
-  forall j, ready jobs m sched j t -> In j candidates.
+  forall j, eligible jobs m sched j t -> In j candidates.
 
 Section DispatchLemmasSection.
 
@@ -34,14 +34,14 @@ Section DispatchLemmasSection.
   (* ===== A. Soundness Lemmas ===== *)
   (* Properties that the chosen job satisfies. *)
 
-  (* A1: the chosen job is ready. *)
-  Lemma choose_some_implies_ready :
+  (* A1: the chosen job is eligible. *)
+  Lemma choose_some_implies_eligible :
       forall j,
         spec.(dispatch) jobs m sched t candidates = Some j ->
-        ready jobs m sched j t.
+        eligible jobs m sched j t.
   Proof.
     intros j Hchoose.
-    exact (spec.(dispatch_ready) jobs m sched t candidates j Hchoose).
+    exact (spec.(dispatch_eligible) jobs m sched t candidates j Hchoose).
   Qed.
 
   (* A2: the chosen job has been released by time t. *)
@@ -51,8 +51,8 @@ Section DispatchLemmasSection.
         released jobs j t.
   Proof.
     intros j Hchoose.
-    apply choose_some_implies_ready in Hchoose.
-    exact (proj1 (proj1 Hchoose)).
+    apply choose_some_implies_eligible in Hchoose.
+    exact (proj1 Hchoose).
   Qed.
 
   (* A3: the chosen job has not completed by time t. *)
@@ -62,49 +62,49 @@ Section DispatchLemmasSection.
         ~completed jobs m sched j t.
   Proof.
     intros j Hchoose.
-    apply choose_some_implies_ready in Hchoose.
-    exact (proj2 (proj1 Hchoose)).
+    apply choose_some_implies_eligible in Hchoose.
+    exact (proj2 Hchoose).
   Qed.
 
   (* ===== B. Completeness Lemmas ===== *)
   (* Characterisation of when choose returns Some vs None. *)
 
-  (* B1: if a ready candidate exists, the dispatcher returns Some. *)
-  Lemma ready_exists_implies_choose_some :
-      (exists j, In j candidates /\ ready jobs m sched j t) ->
+  (* B1: if an eligible candidate exists, the dispatcher returns Some. *)
+  Lemma eligible_exists_implies_choose_some :
+      (exists j, In j candidates /\ eligible jobs m sched j t) ->
       exists j', spec.(dispatch) jobs m sched t candidates = Some j'.
   Proof.
     intro Hex.
-    exact (spec.(dispatch_some_if_ready) jobs m sched t candidates Hex).
+    exact (spec.(dispatch_some_if_eligible_candidate) jobs m sched t candidates Hex).
   Qed.
 
-  (* B2: if the dispatcher returns None, no candidate is ready. *)
-  Lemma choose_none_implies_no_ready :
+  (* B2: if the dispatcher returns None, no candidate is eligible. *)
+  Lemma choose_none_implies_no_eligible :
       spec.(dispatch) jobs m sched t candidates = None ->
-      forall j, In j candidates -> ~ready jobs m sched j t.
+      forall j, In j candidates -> ~eligible jobs m sched j t.
   Proof.
-    intros Hnone j Hin Hready.
+    intros Hnone j Hin Helig.
     assert (Hex : exists j', spec.(dispatch) jobs m sched t candidates = Some j').
-    { apply ready_exists_implies_choose_some. exists j. split; assumption. }
+    { apply eligible_exists_implies_choose_some. exists j. split; assumption. }
     destruct Hex as [j' Hj'].
     rewrite Hj' in Hnone. discriminate.
   Qed.
 
-  (* B3: the dispatcher returns None iff no candidate is ready. *)
-  Lemma choose_none_iff_no_ready :
+  (* B3: the dispatcher returns None iff no candidate is eligible. *)
+  Lemma choose_none_iff_no_eligible :
       spec.(dispatch) jobs m sched t candidates = None <->
-      forall j, In j candidates -> ~ready jobs m sched j t.
+      forall j, In j candidates -> ~eligible jobs m sched j t.
   Proof.
     split.
-    - apply choose_none_implies_no_ready.
-    - apply spec.(dispatch_none_if_no_ready).
+    - apply choose_none_implies_no_eligible.
+    - apply spec.(dispatch_none_if_no_eligible_candidate).
   Qed.
 
   (* B4: with an empty candidate list, the dispatcher always returns None. *)
   Lemma choose_none_if_candidates_empty :
       spec.(dispatch) jobs m sched t [] = None.
   Proof.
-    apply spec.(dispatch_none_if_no_ready).
+    apply spec.(dispatch_none_if_no_eligible_candidate).
     intros j Hin.
     inversion Hin.
   Qed.
@@ -147,43 +147,43 @@ Section DispatchLemmasSection.
     exact (spec.(dispatch_in_candidates) jobs m sched t candidates j H).
   Qed.
 
-  (* E2: if a ready candidate exists, choose does not return None. *)
-  Lemma exists_ready_candidate_implies_not_none :
-      (exists j, In j candidates /\ ready jobs m sched j t) ->
+  (* E2: if an eligible candidate exists, choose does not return None. *)
+  Lemma exists_eligible_candidate_implies_not_none :
+      (exists j, In j candidates /\ eligible jobs m sched j t) ->
       spec.(dispatch) jobs m sched t candidates <> None.
   Proof.
     intros Hex Hnone.
-    destruct (ready_exists_implies_choose_some Hex) as [j' Hj'].
+    destruct (eligible_exists_implies_choose_some Hex) as [j' Hj'].
     rewrite Hnone in Hj'. discriminate.
   Qed.
 
   (* ===== F. Coverage Lemmas ===== *)
   (* Lemmas parametrised over the coverage predicates defined above. *)
 
-  (* F3: under sound candidates, the chosen job is in the list and ready. *)
+  (* F3: under sound candidates, the chosen job is in the list and eligible. *)
   Lemma choose_some_under_sound_candidates :
       candidates_sound jobs m sched t candidates ->
       forall j,
         spec.(dispatch) jobs m sched t candidates = Some j ->
-        In j candidates /\ ready jobs m sched j t.
+        In j candidates /\ eligible jobs m sched j t.
   Proof.
     intros Hsound j Hchoose.
     split.
     - exact (choose_some_implies_in_candidates j Hchoose).
-    - exact (choose_some_implies_ready j Hchoose).
+    - exact (choose_some_implies_eligible j Hchoose).
   Qed.
 
-  (* F4: under complete candidates, any ready job implies choose returns Some. *)
-  Lemma choose_some_if_any_ready_under_complete_candidates :
+  (* F4: under complete candidates, any eligible job implies choose returns Some. *)
+  Lemma choose_some_if_any_eligible_under_complete_candidates :
       candidates_complete jobs m sched t candidates ->
-      (exists j, ready jobs m sched j t) ->
+      (exists j, eligible jobs m sched j t) ->
       exists j', spec.(dispatch) jobs m sched t candidates = Some j'.
   Proof.
-    intros Hcomplete [j Hready].
-    apply ready_exists_implies_choose_some.
+    intros Hcomplete [j Helig].
+    apply eligible_exists_implies_choose_some.
     exists j. split.
-    - apply Hcomplete. exact Hready.
-    - exact Hready.
+    - apply Hcomplete. exact Helig.
+    - exact Helig.
   Qed.
 
 End DispatchLemmasSection.

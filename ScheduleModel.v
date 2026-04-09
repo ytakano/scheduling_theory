@@ -213,6 +213,29 @@ Proof.
       intros c Hlt Hc. apply H3. exists c. split. exact Hlt. exact Hc.
 Qed.
 
+(* Boolean version of eligible: like readyb but without the cpu_count = 0 check.
+   Needed for dispatch policies that select from eligible (not necessarily idle) jobs.
+   eligibleb_iff proves eligibleb j t = true <-> eligible j t. *)
+Definition eligibleb (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+                     (j : JobId) (t : Time) : bool :=
+  (job_release (jobs j) <=? t) &&
+  negb (job_cost (jobs j) <=? service_job m sched j t).
+
+Lemma eligibleb_iff : forall jobs m sched j t,
+    eligibleb jobs m sched j t = true <-> eligible jobs m sched j t.
+Proof.
+  intros jobs m sched j t.
+  unfold eligibleb, eligible, released, completed.
+  rewrite Bool.andb_true_iff, Nat.leb_le, Bool.negb_true_iff.
+  split.
+  - intros [H1 H2]. split.
+    + exact H1.
+    + intro Hge. apply Nat.leb_le in Hge. rewrite Hge in H2. discriminate.
+  - intros [H1 H2]. split.
+    + exact H1.
+    + apply Bool.not_true_iff_false. intro H. apply Nat.leb_le in H. exact (H2 H).
+Qed.
+
 Lemma cpu_count_pos_iff_executed : forall m sched j t,
     0 < cpu_count m sched j t <->
     exists c, c < m /\ sched t c = Some j.
