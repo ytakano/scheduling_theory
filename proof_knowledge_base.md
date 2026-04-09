@@ -1224,3 +1224,89 @@
 - **Dependencies**: `service_before_release_zero`
 - **Notes**: ⚠️ `apply service_before_release_zero` (without explicit args) fails with "Unable to find an instance for the variable jobs". Always provide explicit arguments: `apply (service_before_release_zero jobs m sched j (job_release (jobs j)))`.
 - **Date**: 2026-04-09
+
+---
+
+### `agrees_before` (definition + basic lemmas)
+- **Type**: Definition + Lemmas
+- **Statement**:
+  ```coq
+  Definition agrees_before (s1 s2 : Schedule) (t : Time) : Prop :=
+    forall t' c, t' < t -> s1 t' c = s2 t' c.
+
+  Lemma agrees_before_weaken : forall s1 s2 t1 t2, t1 <= t2 -> agrees_before s1 s2 t2 -> agrees_before s1 s2 t1.
+  Lemma agrees_before_refl  : forall s t, agrees_before s s t.
+  Lemma agrees_before_sym   : forall s1 s2 t, agrees_before s1 s2 t -> agrees_before s2 s1 t.
+  Lemma agrees_before_trans : forall s1 s2 s3 t, agrees_before s1 s2 t -> agrees_before s2 s3 t -> agrees_before s1 s3 t.
+  ```
+- **Proof Strategy**: All trivial by intro/apply/symmetry/rewrite; `weaken` uses `lia` to lift the `t' < t1` bound to `t' < t2`.
+- **Key Tactics**: `lia`, `symmetry`, `apply Hagree`, `rewrite`
+- **Dependencies**: `Schedule`, `Time`
+- **Notes**: This definition exactly matches the condition in `CandidateSourceSpec.candidates_prefix_extensional`.
+- **Date**: 2026-04-09
+
+---
+
+### `cpu_count_agrees_at`
+- **Type**: Lemma (helper)
+- **Statement**:
+  ```coq
+  Lemma cpu_count_agrees_at :
+    forall m s1 s2 j t,
+      (forall c, s1 t c = s2 t c) ->
+      cpu_count m s1 j t = cpu_count m s2 j t.
+  ```
+- **Proof Strategy**: Induction on `m`. Step: `simpl`, `unfold runs_on`, then `rewrite (Heq m')` to equate the `if` branch, then `rewrite (IH ...)` for the recursive call, `reflexivity`.
+- **Key Tactics**: `induction m as [| m' IH]`, `simpl`, `unfold runs_on`, `rewrite (Heq m')`, `IH`
+- **Dependencies**: `cpu_count`, `runs_on`
+- **Notes**: Used as helper in `agrees_before_service_job`. The key step is `unfold runs_on` followed by `rewrite (Heq m')` which equates the `match s1 t m' with ...` and `match s2 t m' with ...` branches.
+- **Date**: 2026-04-09
+
+---
+
+### `agrees_before_service_job`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma agrees_before_service_job :
+    forall m s1 s2 j t,
+      agrees_before s1 s2 t ->
+      service_job m s1 j t = service_job m s2 j t.
+  ```
+- **Proof Strategy**: Induction on `t`. Base: `simpl; reflexivity`. Step: `rewrite service_job_step` for both sides, assert `cpu_count` equality via `cpu_count_agrees_at` (using `Hagree` at `t'` with `lia`), weaken `Hagree` to `t'` via `agrees_before_weaken` for IH, then `rewrite IH; rewrite Hcpu; reflexivity`.
+- **Key Tactics**: `induction t as [| t' IH]`, `service_job_step`, `cpu_count_agrees_at`, `agrees_before_weaken`, `lia`
+- **Dependencies**: `service_job_step`, `cpu_count_agrees_at`, `agrees_before_weaken`
+- **Notes**: Central lemma for prefix extensionality; all `completed`/`eligible`/`ready` variants follow from this.
+- **Date**: 2026-04-09
+
+---
+
+### `agrees_before_completed` / `agrees_before_eligible`
+- **Type**: Lemmas
+- **Statement**:
+  ```coq
+  Lemma agrees_before_completed : forall jobs m s1 s2 j t, agrees_before s1 s2 t -> completed jobs m s1 j t <-> completed jobs m s2 j t.
+  Lemma agrees_before_eligible  : forall jobs m s1 s2 j t, agrees_before s1 s2 t -> eligible jobs m s1 j t <-> eligible jobs m s2 j t.
+  ```
+- **Proof Strategy**: `completed`: unfold, `rewrite agrees_before_service_job`, `tauto`. `eligible`: unfold, `pose proof agrees_before_completed ... as Hcomp`, `tauto` (tauto can use an iff hypothesis).
+- **Key Tactics**: `unfold completed/eligible`, `rewrite`, `pose proof`, `tauto`
+- **Dependencies**: `agrees_before_service_job`
+- **Notes**: `released` is schedule-independent (pure time comparison), so `eligible` reduces entirely to the `completed` part. `tauto` can use an `H : A <-> B` hypothesis directly.
+- **Date**: 2026-04-09
+
+---
+
+### `agrees_before_ready`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma agrees_before_ready :
+    forall jobs m s1 s2 j t,
+      agrees_before s1 s2 (S t) ->
+      ready jobs m s1 j t <-> ready jobs m s2 j t.
+  ```
+- **Proof Strategy**: Weaken `Hagree (S t)` to `t` for `eligible`. Extract `Hat : forall c, s1 t c = s2 t c` via `Hagree t c (lia: t < S t)`. Unfold `ready`; split; handle `eligible` via `proj1/proj2 Helig`, handle `¬ running` by unfolding, introducing the existential, `apply Hnrun`, supplying `exists c` and rewriting with `Hat`.
+- **Key Tactics**: `agrees_before_weaken`, `agrees_before_eligible`, `proj1/proj2`, `unfold running`, `exists c`, `rewrite (Hat c)` / `rewrite <- (Hat c)`
+- **Dependencies**: `agrees_before_weaken`, `agrees_before_eligible`, `running`
+- **Notes**: ⚠️ `running m s j t` references `s t c` at time `t` directly — `agrees_before s1 s2 t` (strictly before) is INSUFFICIENT. Must use `agrees_before s1 s2 (S t)`. ⚠️ Rewrite directions are non-obvious: in the s1→s2 direction the goal is `s1 t c = Some j` so use `rewrite (Hat c)` (forward); in the s2→s1 direction the goal is `s2 t c = Some j` so use `rewrite <- (Hat c)` (backward).
+- **Date**: 2026-04-09
