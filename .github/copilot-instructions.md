@@ -39,48 +39,61 @@ make          # compile all targets
 make clean    # remove *.vo *.glob *.vok *.vos *.aux
 ```
 
-Compile a single file (must compile dependencies first):
+Compile a single file (paths are relative to repo root; dependencies must be compiled first):
 
 ```bash
-rocq compile Base.v
-rocq compile ScheduleModel.v
-rocq compile SchedulerInterface.v
-rocq compile DispatchInterface.v
-rocq compile DispatchSchedulerBridge.v
-rocq compile EDF.v
-rocq compile FIFO.v
-rocq compile Partitioned.v
+rocq compile theories/Base.v
+rocq compile theories/ScheduleModel.v
+rocq compile theories/SchedulerInterface.v
+rocq compile theories/DispatchInterface.v
+rocq compile theories/DispatchSchedulerBridge.v
+rocq compile theories/DispatchLemmas.v
+rocq compile theories/DispatchClassicalLemmas.v
+rocq compile theories/UniPolicies/EDF.v
+rocq compile theories/UniPolicies/FIFO.v
+rocq compile theories/Partitioned.v
+rocq compile theories/SchedulableExamples.v
+rocq compile theories/FeasibleExamples.v
+rocq compile theories/FIFOExamples.v
 ```
 
 For containerized work: `sh docker/build.sh`, `sh docker/up_docker.sh`, `sh docker/exec_zsh.sh`.
 
+### Adding a new file
+
+1. Create `theories/NewFile.v`.
+2. Add the path to `_CoqProject`.
+3. Regenerate the Makefile: `rocq makefile -f _CoqProject -o Makefile`.
+
 ## Module Architecture
 
+All `.v` files live under `theories/`. Policy files for uniprocessor schedulers are in `theories/UniPolicies/`.
+
 ```text
-Base.v
-  -> ScheduleModel.v
-  -> SchedulerInterface.v
-  -> DispatchInterface.v
-  -> DispatchSchedulerBridge.v
-  -> EDF.v / FIFO.v / Partitioned.v
-  -> SchedulableExamples.v / FeasibleExamples.v / FIFOExamples.v
+theories/Base.v
+  -> theories/ScheduleModel.v
+  -> theories/SchedulerInterface.v
+  -> theories/DispatchInterface.v
+  -> theories/DispatchSchedulerBridge.v
+  -> theories/UniPolicies/EDF.v / theories/UniPolicies/FIFO.v / theories/Partitioned.v
+  -> theories/SchedulableExamples.v / theories/FeasibleExamples.v / theories/FIFOExamples.v
 ```
 
 | File | Key definitions |
 |------|-----------------|
-| `Base.v` | `JobId`, `TaskId`, `CPU`, `Time`, `Job`, `Task`, `Schedule` (= `Time -> CPU -> option JobId`), `released`, `valid_jobs`, `valid_job_of_task` |
-| `ScheduleModel.v` | `runs_on`, `cpu_count`, `service_job`, `completed`, `running`, `eligible`, `ready`, `readyb`/`eligibleb`, `sequential_jobs`, `valid_schedule`, `feasible_schedule`, `feasible_schedule_on` |
-| `SchedulerInterface.v` | `Scheduler` record (`scheduler_rel`); `schedulable_by`, `schedulable_by_on` |
-| `DispatchInterface.v` | `GenericDispatchSpec` record with 4 fields: `dispatch_eligible`, `dispatch_some_if_eligible_candidate`, `dispatch_none_if_no_eligible_candidate`, `dispatch_in_candidates` |
-| `DispatchSchedulerBridge.v` | Single-CPU dispatch→scheduler bridge; `CandidateSourceSpec`; subset schedulability helpers |
-| `DispatchLemmas.v` | Policy-independent dispatch lemmas (constructive) |
-| `DispatchClassicalLemmas.v` | Classical (excluded-middle) dispatch lemmas |
-| `EDF.v` | EDF dispatcher, `edf_generic_spec`, `edf_scheduler` |
-| `FIFO.v` | FIFO dispatcher, `fifo_generic_spec`, `fifo_scheduler` |
-| `Partitioned.v` | Partitioned multiprocessor scheduler; validity/feasibility lifting from per-CPU to global |
-| `PeriodicTasks.v` | Periodic task model (skeleton; not yet used in proofs) |
+| `theories/Base.v` | `JobId`, `TaskId`, `CPU`, `Time`, `Job`, `Task`, `Schedule` (= `Time -> CPU -> option JobId`), `released`, `valid_jobs`, `valid_job_of_task` |
+| `theories/ScheduleModel.v` | `runs_on`, `cpu_count`, `service_job`, `completed`, `running`, `eligible`, `ready`, `readyb`/`eligibleb`, `sequential_jobs`, `valid_schedule`, `feasible_schedule`, `feasible_schedule_on` |
+| `theories/SchedulerInterface.v` | `Scheduler` record (`scheduler_rel`); `schedulable_by`, `schedulable_by_on` |
+| `theories/DispatchInterface.v` | `GenericDispatchSpec` record with 4 fields: `dispatch_eligible`, `dispatch_some_if_eligible_candidate`, `dispatch_none_if_no_eligible_candidate`, `dispatch_in_candidates` |
+| `theories/DispatchSchedulerBridge.v` | Single-CPU dispatch→scheduler bridge; `CandidateSourceSpec`; subset schedulability helpers |
+| `theories/DispatchLemmas.v` | Policy-independent dispatch lemmas (constructive) |
+| `theories/DispatchClassicalLemmas.v` | Classical (excluded-middle) dispatch lemmas |
+| `theories/UniPolicies/EDF.v` | EDF dispatcher, `edf_generic_spec`, `edf_scheduler` |
+| `theories/UniPolicies/FIFO.v` | FIFO dispatcher, `fifo_generic_spec`, `fifo_scheduler` |
+| `theories/Partitioned.v` | Partitioned multiprocessor scheduler; validity/feasibility lifting from per-CPU to global |
+| `theories/PeriodicTasks.v` | Periodic task model (skeleton; not yet used in proofs) |
 
-**Separation of concerns**: schedule semantics → `ScheduleModel.v`; abstract scheduler reasoning → `SchedulerInterface.v`; policy-independent dispatch → `DispatchInterface.v` / `DispatchSchedulerBridge.v`; policy-specific lemmas → `EDF.v`, `FIFO.v`; multiprocessor lifting → `Partitioned.v`; classical results → `DispatchClassicalLemmas.v`.
+**Separation of concerns**: schedule semantics → `ScheduleModel.v`; abstract scheduler reasoning → `SchedulerInterface.v`; policy-independent dispatch → `DispatchInterface.v` / `DispatchSchedulerBridge.v`; policy-specific lemmas → `UniPolicies/EDF.v`, `UniPolicies/FIFO.v`; multiprocessor lifting → `Partitioned.v`; classical results → `DispatchClassicalLemmas.v`.
 
 ## Key Conventions
 
