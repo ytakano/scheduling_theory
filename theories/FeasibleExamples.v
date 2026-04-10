@@ -21,6 +21,7 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
+Require Import ScheduleLemmas.ScheduleFacts.
 
 (* ================================================================= *)
 (** ** Example 1: Feasible な例                                       *)

@@ -1,6 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
+Require Import ScheduleLemmas.ScheduleFacts.
 Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Require Import DispatchSchedulerBridge.

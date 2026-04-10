@@ -1,6 +1,7 @@
 From Stdlib Require Import List Bool Arith.
 Require Import Base.
 Require Import ScheduleModel.
+Require Import ScheduleLemmas.ScheduleFacts.
 Require Import UniPolicies.FIFO.
 Import ListNotations.
 

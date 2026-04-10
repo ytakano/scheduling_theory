@@ -1,7 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
-Require Import ScheduleTransform.
+Require Import ScheduleLemmas.ScheduleTransform.
 Import ListNotations.
 
 (* ===== Section 1: single-CPU invariant ===== *)

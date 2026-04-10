@@ -1,12 +1,11 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
+Require Import ScheduleLemmas.ScheduleFacts.
 Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Require Import DispatchSchedulerBridge.
 Import ListNotations.
-
-(* ===== EDF Dispatcher: Definitions ===== *)
 
 (* eligibleb and eligibleb_iff are defined in ScheduleModel and available via
    Require Import ScheduleModel above. *)

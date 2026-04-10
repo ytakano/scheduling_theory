@@ -1,12 +1,11 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
+Require Import ScheduleLemmas.ScheduleFacts.
 Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Require Import DispatchSchedulerBridge.
 Import ListNotations.
-
-(* ===== FIFO Dispatcher: Definitions ===== *)
 
 (* FIFO dispatch function:
    Linear scan through candidates in order; return the first eligible job.

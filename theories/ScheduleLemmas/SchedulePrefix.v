@@ -1,7 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
-Require Import ScheduleFacts.
+Require Import ScheduleLemmas.ScheduleFacts.
 Import ListNotations.
 
 (* ===== Section 1: Prefix agreement ===== *)
