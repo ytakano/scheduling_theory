@@ -5,6 +5,7 @@ Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Require Import DispatchSchedulerBridge.
 Require Import UniPolicies.EDF.
+Require Import UniPolicies.EDFLemmas.
 Import ListNotations.
 
 (* ===== Phase 1: 有限 horizon を job 集合から作る ===== *)
@@ -56,4 +57,50 @@ Proof.
   intros J enumJ jobs j Hcomplete HJj.
   apply in_enum_implies_deadline_lt_horizon.
   apply Hcomplete. exact HJj.
+Qed.
+
+(* ===== Phase 2: repair 対象の 2 時刻を固定する ===== *)
+
+(* 4. first_violation_has_repair_witness:
+   EDF violation at (t, j) を witness にして、swap の 2 時刻 (t, t') と
+   交換対象 job j' を取り出す。
+   完全 Constructive: le_lt_dec / lt_dec のみ使用。Classical 不要。 *)
+Lemma first_violation_has_repair_witness :
+  forall J (J_bool : JobId -> bool) (candidates_of : CandidateSource)
+         (cand_spec : CandidateSourceSpec J candidates_of)
+         jobs sched (H : nat) t j,
+    (forall x, J_bool x = true <-> J x) ->
+    valid_schedule jobs 1 sched ->
+    feasible_schedule_on J jobs 1 sched ->
+    t < H ->
+    sched t 0 = Some j ->
+    edf_violation_at_with J candidates_of jobs sched t ->
+    exists j' t',
+      J j' /\
+      eligible jobs 1 sched j' t /\
+      job_abs_deadline (jobs j') < job_abs_deadline (jobs j) /\
+      t <= t' /\
+      t' < job_abs_deadline (jobs j') /\
+      sched t' 0 = Some j'.
+Proof.
+  intros J J_bool candidates_of cand_spec jobs sched H t j
+         _HJbool Hvalid Hfeas _HtH Hsched Hviol.
+  (* Step 1: unfold violation to get running job j0 and earlier-deadline job j' *)
+  unfold edf_violation_at_with, edf_violation_at_in in Hviol.
+  destruct Hviol as [j0 [j' [_HJj0 [HJj' [Hsched0 [_Hin [Helig Hlt]]]]]]].
+  (* Step 2: j0 = j from deterministic schedule *)
+  rewrite Hsched in Hsched0.
+  injection Hsched0 as Heq. subst j0.
+  (* Step 3: j' is eligible and J j', so it runs before its deadline *)
+  destruct (eligible_feasible_implies_runs_later_before_deadline
+              J jobs sched j' t HJj' Hvalid Hfeas Helig)
+      as [t' [Hle [Hlt' Hrun]]].
+  (* Assemble witness (j', t') *)
+  exists j', t'.
+  split. exact HJj'.
+  split. exact Helig.
+  split. exact Hlt.
+  split. exact Hle.
+  split. exact Hlt'.
+  exact Hrun.
 Qed.
