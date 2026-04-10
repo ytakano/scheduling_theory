@@ -43,13 +43,13 @@
   ```coq
   Lemma scheduler_rel_single_cpu_idle :
     forall spec cands jobs (sched : Schedule) t cpu',
-      scheduler_rel (single_cpu_dispatch_schedule spec cands) jobs 1 sched ->
+      scheduler_rel (single_cpu_algorithm_schedule spec cands) jobs 1 sched ->
       0 < cpu' ->
       sched t cpu' = None.
   ```
 - **Proof Strategy**: Destruct `scheduler_rel` as `[_ Hsteps]`, apply `proj2 (Hsteps t) cpu' Hlt`.
 - **Key Tactics**: `destruct [_ Hsteps]`, `proj2`, `exact`
-- **Dependencies**: `single_cpu_dispatch_schedule`, `scheduler_rel`
+- **Dependencies**: `single_cpu_algorithm_schedule`, `scheduler_rel`
 - **Notes**: Convenience extractor used whenever the idle-on-virtual-CPUs-gt-0 condition is needed from a scheduler_rel hypothesis.
 - **Proof Kind**: Constructive
 - **Date**: 2026-04-10
@@ -63,7 +63,7 @@
   Theorem glue_local_rels_imply_partitioned_schedule_on :
     forall m spec (cands : CPU -> CandidateSource) jobs (locals : CPU -> Schedule),
       (forall c, c < m ->
-        scheduler_rel (single_cpu_dispatch_schedule spec (cands c)) jobs 1 (locals c)) ->
+        scheduler_rel (single_cpu_algorithm_schedule spec (cands c)) jobs 1 (locals c)) ->
       raw_partitioned_schedule_on m spec cands jobs (glue_local_schedules m locals).
   ```
 - **Proof Strategy**: Apply `proj2` of `partitioned_schedule_on_iff_local_rel`. For each c < m, rewrite `cpu_schedule (glue ...) c = locals c` via `cpu_schedule_glue_eq` (idle condition from `scheduler_rel_single_cpu_idle`), then apply the hypothesis.
@@ -82,13 +82,13 @@
   Theorem local_witnesses_imply_partitioned_schedulable_by_on :
     forall (assign : JobId -> CPU) (m : nat)
            (valid_assignment : forall j, assign j < m)
-           (spec : GenericDispatchSpec)
+           (spec : GenericSchedulingAlgorithm)
            (J : JobId -> Prop)
            (cands : CPU -> CandidateSource)
            (cands_spec : forall c, c < m -> CandidateSourceSpec (local_jobset assign J c) (cands c))
            (jobs : JobId -> Job) (locals : CPU -> Schedule),
       (forall c, c < m ->
-        scheduler_rel (single_cpu_dispatch_schedule spec (cands c)) jobs 1 (locals c) /\
+        scheduler_rel (single_cpu_algorithm_schedule spec (cands c)) jobs 1 (locals c) /\
         feasible_schedule_on (local_jobset assign J c) jobs 1 (locals c)) ->
       schedulable_by_on J (partitioned_scheduler m spec cands) jobs m.
   ```
@@ -118,7 +118,7 @@
         feasible_schedule_on (local_jobset assign J c) jobs 1 (locals c)) ->
       schedulable_by_on J (partitioned_edf_scheduler m cands) jobs m.
   ```
-- **Proof Strategy**: Unfold `partitioned_edf_scheduler`. Unfold `edf_scheduler` = `single_cpu_dispatch_schedule edf_generic_spec`. Apply `local_witnesses_imply_partitioned_schedulable_by_on`.
+- **Proof Strategy**: Unfold `partitioned_edf_scheduler`. Unfold `edf_scheduler` = `single_cpu_algorithm_schedule edf_generic_spec`. Apply `local_witnesses_imply_partitioned_schedulable_by_on`.
 - **Key Tactics**: `unfold partitioned_edf_scheduler`, `unfold edf_scheduler`
 - **Dependencies**: `local_witnesses_imply_partitioned_schedulable_by_on`, `edf_generic_spec`
 - **Notes**: Thin wrapper. FIFO and RR versions follow the same pattern.
@@ -1076,35 +1076,35 @@
 
 ---
 
-### `single_cpu_dispatch_eq_cpu0`
+### `single_cpu_algorithm_eq_cpu0`
 - **Type**: Lemma
 - **Statement**:
   ```coq
-  Lemma single_cpu_dispatch_eq_cpu0 :
+  Lemma single_cpu_algorithm_eq_cpu0 :
       forall spec candidates_of jobs sched t,
-        scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+        scheduler_rel (single_cpu_algorithm_schedule spec candidates_of) jobs 1 sched ->
         sched t 0 = spec.(dispatch) jobs 1 sched t (candidates_of jobs 1 sched t).
   ```
 - **Proof Strategy**: Destruct the relation to get the `forall t` component, then `exact (proj1 (Hrel t))`.
 - **Key Tactics**: `destruct Hrel as [_ Hrel]`, `exact (proj1 (Hrel t))`
-- **Dependencies**: `single_cpu_dispatch_schedule`, `scheduler_rel`
+- **Dependencies**: `single_cpu_algorithm_schedule`, `scheduler_rel`
 - **Notes**: Direct read-out of the first component of the bridge relation.
 - **Date**: 2026-04-09
 
 ---
 
-### `single_cpu_dispatch_idle_on_other_cpus`
+### `single_cpu_algorithm_idle_on_other_cpus`
 - **Type**: Lemma
 - **Statement**:
   ```coq
-  Lemma single_cpu_dispatch_idle_on_other_cpus :
+  Lemma single_cpu_algorithm_idle_on_other_cpus :
       forall spec candidates_of jobs sched t c,
-        scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+        scheduler_rel (single_cpu_algorithm_schedule spec candidates_of) jobs 1 sched ->
         0 < c -> sched t c = None.
   ```
 - **Proof Strategy**: `destruct Hrel as [_ Hrel]`, then `exact (proj2 (Hrel t) c Hc)`.
 - **Key Tactics**: `destruct Hrel as [_ Hrel]`, `proj2 (Hrel t)`
-- **Dependencies**: `single_cpu_dispatch_schedule`, `scheduler_rel`
+- **Dependencies**: `single_cpu_algorithm_schedule`, `scheduler_rel`
 - **Notes**: Direct read-out of the second component of the bridge relation.
 - **Date**: 2026-04-09
 
@@ -1134,12 +1134,12 @@
     forall jobs sched,
       partitioned_schedule_on jobs sched <->
       (forall c, c < m ->
-        scheduler_rel (single_cpu_dispatch_schedule spec (local_candidates_of c))
+        scheduler_rel (single_cpu_algorithm_schedule spec (local_candidates_of c))
           jobs 1 (cpu_schedule sched c)).
   ```
 - **Proof Strategy**: Unfold `partitioned_schedule_on`, `scheduler_rel`, `local_candidates_of`, `cpu_schedule`. Forward: give `reflexivity` for `m = 1`, then `simpl` resolves `cpu_schedule sched c t 0 = sched t c` (the `if 0 =? 0` reduces). Other CPUs: destruct `c' =? 0`, use `lia` for the `true` branch, `reflexivity` for `false`. Backward: extract `Heq0` from `proj1 (Hstep t)` and `simpl in Heq0`.
 - **Key Tactics**: `unfold`, `split`, `simpl`, `Nat.eqb_eq`, `lia`, `reflexivity`
-- **Dependencies**: `partitioned_schedule_on`, `single_cpu_dispatch_schedule`, `cpu_schedule`, `local_candidates_of`
+- **Dependencies**: `partitioned_schedule_on`, `single_cpu_algorithm_schedule`, `cpu_schedule`, `local_candidates_of`
 - **Notes**: ⚠️ Do NOT use `rewrite Nat.eqb_refl` — after `simpl`, the `0 =? 0` is already reduced. Using `rewrite Nat.eqb_refl` causes "no subterm matching" error.
 - **Date**: 2026-04-09
 
@@ -1468,7 +1468,7 @@
 - **Proof Strategy**: `destruct cand_spec as [_ _ Hpx]` to extract `candidates_prefix_extensional`, then `exact (Hpx jobs 1 s1 s2 t Hagree)`.
 - **Key Tactics**: `destruct cand_spec as [_ _ Hpx]`, `exact`
 - **Dependencies**: `CandidateSourceSpec.candidates_prefix_extensional`, `agrees_before`
-- **Notes**: ⚠️ `cand_spec.(candidates_prefix_extensional)` causes "expected 2 explicit parameters" because `CandidateSourceSpec` has 2 explicit record parameters `(J, candidates_of)`. Must use `destruct` instead of `.()` projection syntax. Contrast with `GenericDispatchSpec` (no parameters) where `.()` works fine.
+- **Notes**: ⚠️ `cand_spec.(candidates_prefix_extensional)` causes "expected 2 explicit parameters" because `CandidateSourceSpec` has 2 explicit record parameters `(J, candidates_of)`. Must use `destruct` instead of `.()` projection syntax. Contrast with `GenericSchedulingAlgorithm` (no parameters) where `.()` works fine.
 - **Date**: 2026-04-09
 
 ---
@@ -1504,7 +1504,7 @@
 - **Proof Strategy**: `simpl` unfolds `dispatch edf_generic_spec` to `choose_edf`. Then `rewrite candidates_of_agrees_before` to equate the candidate lists, then `apply choose_edf_agrees_before`.
 - **Key Tactics**: `simpl`, `rewrite candidates_of_agrees_before`, `apply choose_edf_agrees_before`
 - **Dependencies**: `candidates_of_agrees_before`, `choose_edf_agrees_before`
-- **Notes**: `dispatch edf_generic_spec` reduces via `simpl` because `edf_generic_spec = mkGenericDispatchSpec choose_edf ...` and `dispatch` is just the first field projection.
+- **Notes**: `dispatch edf_generic_spec` reduces via `simpl` because `edf_generic_spec = mkGenericSchedulingAlgorithm choose_edf ...` and `dispatch` is just the first field projection.
 - **Date**: 2026-04-09
 
 ---
@@ -2387,49 +2387,49 @@
 
 ---
 
-### `DispatchPolicy` / `PolicySanity` / `respects_policy_at_with` (SchedulerValidity.v)
+### `SchedulingAlgorithmSpec` / `SchedulingAlgorithmSpecSanity` / `respects_algorithm_spec_at_with` (SchedulerValidity.v)
 - **Type**: Definitions + Record
 - **Statement**:
   ```coq
-  Definition DispatchPolicy :=
+  Definition SchedulingAlgorithmSpec :=
     (JobId -> Job) -> nat -> Schedule -> Time -> list JobId -> option JobId -> Prop.
 
-  Record PolicySanity (policy : DispatchPolicy) : Prop := mkPolicySanity {
+  Record SchedulingAlgorithmSpecSanity (policy : SchedulingAlgorithmSpec) : Prop := mkSchedulingAlgorithmSpecSanity {
     policy_some_in_candidates : forall jobs m sched t candidates j,
         policy jobs m sched t candidates (Some j) -> In j candidates ;
     policy_some_eligible : forall jobs m sched t candidates j,
         policy jobs m sched t candidates (Some j) -> eligible jobs m sched j t
   }.
 
-  Definition respects_policy_at_with policy jobs candidates_of sched t :=
+  Definition respects_algorithm_spec_at_with policy jobs candidates_of sched t :=
     policy jobs 1 sched t (candidates_of jobs 1 sched t) (sched t 0).
   ```
 - **Proof Strategy**: Definitions only. Lemmas use `destruct Hsane as [Hin_cand _]` / `[_ Helig_cand]` — do NOT use dot notation `Hsane.(field)` because Rocq 9 reports "Projection ... expected 1 explicit parameter".
 - **Key Tactics**: `destruct Hsane as [...]`, `rewrite Hrun in Hresp`, `destruct cand_spec as [Hsound _ _]`
-- **Dependencies**: `Base`, `ScheduleModel`, `SchedulerInterface`, `DispatchSchedulerBridge`
-- **Notes**: None branch is intentionally unconstrained in `PolicySanity` to allow work-conserving and non-work-conserving policies. ⚠️ Never use `Hsane.(policy_some_in_candidates)` dot notation — use `destruct Hsane` instead.
+- **Dependencies**: `Base`, `ScheduleModel`, `SchedulerInterface`, `SchedulingAlgorithmSchedulerBridge`
+- **Notes**: None branch is intentionally unconstrained in `SchedulingAlgorithmSpecSanity` to allow work-conserving and non-work-conserving policies. ⚠️ Never use `Hsane.(policy_some_in_candidates)` dot notation — use `destruct Hsane` instead.
 - **Proof Kind**: Constructive
 - **Date**: 2026-04-10
 
 ---
 
-### `dispatcher_refines_policy` (DispatcherRefinement.v)
+### `algorithm_refines_spec` (SchedulingAlgorithmRefinement.v)
 - **Type**: Definition + Lemmas
 - **Statement**:
   ```coq
-  Definition dispatcher_refines_policy (spec : GenericDispatchSpec) (policy : DispatchPolicy) : Prop :=
+  Definition algorithm_refines_spec (spec : GenericSchedulingAlgorithm) (policy : SchedulingAlgorithmSpec) : Prop :=
     forall jobs m sched t candidates,
       policy jobs m sched t candidates (spec.(dispatch) jobs m sched t candidates).
 
-  Lemma single_cpu_dispatch_schedule_respects_policy_at_with :
+  Lemma single_cpu_algorithm_schedule_respects_algorithm_spec_at_with :
     forall spec policy candidates_of jobs sched t,
-      dispatcher_refines_policy spec policy ->
-      scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
-      respects_policy_at_with policy jobs candidates_of sched t.
+      algorithm_refines_spec spec policy ->
+      scheduler_rel (single_cpu_algorithm_schedule spec candidates_of) jobs 1 sched ->
+      respects_algorithm_spec_at_with policy jobs candidates_of sched t.
   ```
-- **Proof Strategy**: Unfold `respects_policy_at_with`, rewrite `sched t 0` with `Heq` from bridge, then apply `Href`.
+- **Proof Strategy**: Unfold `respects_algorithm_spec_at_with`, rewrite `sched t 0` with `Heq` from bridge, then apply `Href`.
 - **Key Tactics**: `destruct Hrel as [_ Hrel]`, `destruct (Hrel t) as [Heq _]`, `rewrite Heq`, `exact (Href ...)`
-- **Dependencies**: `SchedulerValidity`, `DispatchInterface`, `DispatchSchedulerBridge`
+- **Dependencies**: `SchedulerValidity`, `SchedulingAlgorithmInterface`, `SchedulingAlgorithmSchedulerBridge`
 - **Proof Kind**: Constructive
 - **Date**: 2026-04-10
 
@@ -2439,7 +2439,7 @@
 - **Type**: Definition + Lemma
 - **Statement**:
   ```coq
-  Definition edf_policy : DispatchPolicy :=
+  Definition edf_policy : SchedulingAlgorithmSpec :=
     fun jobs m sched t candidates oj =>
       match oj with
       | None => forall j, In j candidates -> ~eligible jobs m sched j t
@@ -2449,7 +2449,7 @@
           job_abs_deadline (jobs j) <= job_abs_deadline (jobs j')
       end.
 
-  Lemma choose_edf_refines_edf_policy : dispatcher_refines_policy edf_generic_spec edf_policy.
+  Lemma choose_edf_refines_edf_policy : algorithm_refines_spec edf_generic_spec edf_policy.
   ```
 - **Proof Strategy**: Destruct `choose_edf ... = Some j / None`. Some: use `choose_edf_in_candidates`, `choose_edf_eligible`, `choose_edf_min_deadline`. None: need auxiliary `choose_edf_none_implies_no_eligible` (filter emptiness via `min_dl_job_none_iff`).
 - **Key Tactics**: `destruct (choose_edf ...) eqn:Hchoose`, `apply min_dl_job_none_iff`, `apply filter_In`, `apply eligibleb_iff`
@@ -2464,7 +2464,7 @@
 - **Type**: Definition + Lemma
 - **Statement**:
   ```coq
-  Definition fifo_policy : DispatchPolicy :=
+  Definition fifo_policy : SchedulingAlgorithmSpec :=
     fun jobs m sched t candidates oj =>
       match oj with
       | None => forall j, In j candidates -> ~eligible jobs m sched j t
@@ -2475,7 +2475,7 @@
             forall j', In j' prefix -> ~eligible jobs m sched j' t
       end.
 
-  Lemma choose_fifo_refines_fifo_policy : dispatcher_refines_policy fifo_generic_spec fifo_policy.
+  Lemma choose_fifo_refines_fifo_policy : algorithm_refines_spec fifo_generic_spec fifo_policy.
   ```
 - **Proof Strategy**: Some case: apply `choose_fifo_first_eligible` for prefix/suffix. None case: auxiliary `choose_fifo_none_implies_no_eligible` by induction on candidates.
 - **Key Tactics**: `destruct (choose_fifo ...) eqn:Hchoose`, `choose_fifo_first_eligible`, `in_or_app`
