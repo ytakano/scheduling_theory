@@ -131,3 +131,11 @@ Always make your reasoning depth assessment explicit before responding:
 - Rocq Standard Library
   - <https://rocq-prover.org/doc/V9.1.0/refman-stdlib/index.html>
   - <https://rocq-prover.org/doc/V9.1.0/stdlib/index.html>
+
+- rocq-stdpp (version 1.13.0) — **installed and available**
+  - Documentation: <https://plv.mpi-sws.org/coqdoc/stdpp/>
+  - Import syntax: `From stdpp Require Import <module>.` (e.g., `base`, `decidable`, `gmap`, `list`, `sets`, `sorting`, `relations`)
+  - Full prelude: `From stdpp Require Import prelude.`
+  - Prefer stdpp over Stdlib when working with decidability (`Decision` typeclass, `decide` tactic), finite maps (`gmap`), sets (`set_solver`), or rich list reasoning (`list_simplifier`)
+  - Key automation tactics from `base`: `done`, `naive_solver`, `set_solver` — use these in place of `tauto`/`auto`/`firstorder` where applicable
+  - Avoid mixing `From stdpp Require Import list.` with `Stdlib.List` in the same file; manage import order carefully if both are needed

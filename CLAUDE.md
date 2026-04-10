@@ -68,3 +68,27 @@ Base.v
 ## Notes on Historical Documents
 
 Some files in `plan/` and `progress/` are historical refactoring records and may mention superseded names such as `run_scheduler`, `dispatch_ready`, or `local_to_global_validity`. Treat current `.v` files as the source of truth.
+
+## External Libraries
+
+### rocq-stdpp (version 1.13.0)
+
+[rocq-stdpp](https://plv.mpi-sws.org/coqdoc/stdpp/) is installed and available. Prefer stdpp over the Rocq standard library when it offers a more convenient interface — in particular for decidability, finite maps, sets, and list automation.
+
+**Import syntax:**
+
+```coq
+From stdpp Require Import base.        (* general automation: done, naive_solver, set_solver *)
+From stdpp Require Import decidable.   (* Decision typeclass; decide tactic *)
+From stdpp Require Import fin_maps.    (* FinMap interface *)
+From stdpp Require Import gmap.        (* generic finite map *)
+From stdpp Require Import list.        (* rich list lemmas and list_simplifier tactic *)
+From stdpp Require Import sets.        (* set typeclasses; ∈, ∪, ∩, ⊆ notation *)
+From stdpp Require Import sorting.     (* Sorted, StronglySorted, merge_sort *)
+From stdpp Require Import relations.   (* rtc, tc — reflexive/transitive closure *)
+From stdpp Require Import numbers.     (* extra nat/Z lemmas *)
+```
+
+Or import the full prelude at once: `From stdpp Require Import prelude.`
+
+**When to use:** use stdpp's `done`/`naive_solver`/`set_solver` tactics in place of `tauto`/`auto`/`firstorder`; use `gmap` for finite maps; use `Decision` for decidability goals. Avoid mixing stdpp `list` with `Stdlib.List` in the same file unless import order is carefully managed.
