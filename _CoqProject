@@ -17,12 +17,15 @@ theories/UniPolicies/FIFO.v
 theories/UniPolicies/EDFLemmas.v
 theories/UniPolicies/EDFTransform.v
 theories/UniPolicies/EDFOptimality.v
+theories/UniPolicies/RoundRobin.v
 theories/Partitioned.v
 theories/PartitionedCompose.v
 theories/PartitionedPolicies/PartitionedEDF.v
+theories/PartitionedPolicies/PartitionedRR.v
 theories/FIFOExamples.v
 theories/FeasibleExamples.v
 theories/SchedulableExamples.v
+theories/RRExamples.v
 theories/ScheduleLemmas/ScheduleFacts.v
 theories/ScheduleLemmas/SchedulePrefix.v
 theories/ScheduleLemmas/ScheduleRestriction.v

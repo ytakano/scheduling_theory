@@ -2482,3 +2482,64 @@
 - **Notes**: Auxiliary `choose_fifo_none_implies_no_eligible` proved by induction: `eligibleb_iff` handles the contradiction in the head case.
 - **Proof Kind**: Constructive
 - **Date**: 2026-04-10
+
+---
+
+### `choose_rr` / `rr_generic_spec` / `rr_bundle`
+- **Type**: Definition / Instance / Record
+- **Statement**:
+  ```coq
+  (* choose_rr is first-eligible scan — identical to choose_fifo *)
+  Fixpoint choose_rr (cands : list JobId) (sched : Schedule) (t : Time) : option JobId := ...
+  
+  Definition rr_generic_spec : GenericSchedulingAlgorithm := { ... }
+  
+  Definition rr_bundle (J : JobId -> Prop) cands (spec : CandidateSourceSpec J cands)
+    : UniSchedulerBundle J rr_generic_spec := { ... }
+  ```
+- **Proof Strategy**: Mirror `FIFO.v` exactly. RR semantics lives entirely in the CandidateSource ordering — the chooser is structurally identical to FIFO's.
+- **Key Tactics**: `induction cands; simpl; destruct eligibleb; [exact (Some j) | apply IH]` for the choose lemmas
+- **Dependencies**: `UniPolicies/FIFO.v` (structural reference), `UniSchedulerInterface.v`, `SchedulingAlgorithmInterface.v`
+- **Notes**: Unit-quantum (q=1). The RR invariant (which job rotates front) is expressed externally via candidate list ordering. The chooser itself is policy-agnostic.
+- **Proof Kind**: Constructive
+- **Date**: 2025-01-01
+
+---
+
+### `partitioned_rr_scheduler` / `local_rr_witnesses_imply_partitioned_rr_schedulable_by_on`
+- **Type**: Definition / Theorem
+- **Statement**:
+  ```coq
+  Definition partitioned_rr_scheduler (n : nat) (cands : CPU -> list JobId -> list JobId)
+    : Scheduler := partitioned_scheduler n (fun c => rr_scheduler (cands c))
+  
+  Theorem local_rr_witnesses_imply_partitioned_rr_schedulable_by_on ...
+  ```
+- **Proof Strategy**: Thin wrapper over `PartitionedCompose`. Use `rr_scheduler (cands c)` (not `rr_scheduler_on`) as the local scheduler — matches `PartitionedEDF.v` pattern exactly.
+- **Key Tactics**: `apply local_edf_witnesses_imply_...` → analogous `apply local_rr_witnesses_imply_...` using `PartitionedCompose`
+- **Dependencies**: `PartitionedPolicies/PartitionedEDF.v` (structural reference), `UniPolicies/RoundRobin.v`, `PartitionedCompose.v`
+- **Notes**: Use `rr_scheduler (cands c)` not `rr_scheduler_on` because `PartitionedCompose.single_cpu_algorithm_schedule` only needs `candidates_of`.
+- **Proof Kind**: Constructive
+- **Date**: 2025-01-01
+
+---
+
+### `rr_two_jobs_schedulable`
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem rr_two_jobs_schedulable :
+      schedulable_by_on J_rr
+        (rr_scheduler_on J_rr rr_example_cands rr_example_cands_spec)
+        rr_example_jobs 1.
+  ```
+- **Proof Strategy**: Exhibit a concrete witness schedule (`rr_example_sched`); prove it satisfies the scheduler relation, is valid, and is feasible. Key helper: `single_cpu_algorithm_valid` for validity, `service_job_step` for inductive service computations.
+- **Key Tactics**: `exists rr_example_sched`, `service_job_step`, `rewrite Nat.add_0_r` (NOT `simpl` after rewrites on `S t`), `destruct (t =? 0)` for cpu_count helpers
+- **Dependencies**: `choose_rr`, `rr_generic_spec`, `rr_bundle`, `rr_scheduler_on`, `CandidateSourceSpec`, `service_job_step`, `single_cpu_algorithm_valid`
+- **Notes**:
+  - ⚠️ `simpl` after `rewrite service_job_step` causes iota unfolding — use `rewrite Nat.add_0_r` instead
+  - ⚠️ Establish `HNone` asserts BEFORE calling `simpl` in satisfies_scheduler proof; `rewrite HNone` must come BEFORE `unfold rr_example_sched`
+  - ⚠️ `destruct as [H|[H|[]]]` + `eq_sym H` rather than `->` pattern for `In j [j0; j1]` membership
+  - ⚠️ Use `single_cpu_algorithm_valid` not `uni_scheduler_on_valid` to avoid implicit argument inference issues
+- **Proof Kind**: Constructive
+- **Date**: 2025-01-01
