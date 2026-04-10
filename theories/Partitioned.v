@@ -183,6 +183,17 @@ Section PartitionedSection.
     lia.
   Qed.
 
+  (* Preferred multicore name: respects_assignment implies no_duplication. *)
+  Lemma partitioned_implies_no_duplication :
+    forall sched,
+      respects_assignment sched ->
+      no_duplication m sched.
+  Proof.
+    intros sched Hresp.
+    apply no_duplication_iff_sequential_jobs.
+    exact (partitioned_implies_sequential sched Hresp).
+  Qed.
+
   (* H4: under respects_assignment, cpu_count collapses to 0 or 1 at assign j. *)
   Lemma cpu_count_assigned_only :
     forall sched,
