@@ -1,406 +1,457 @@
-# 目標
+# `UniSchedulerBundle` 導入計画
 
-最終的に `Partitioned.v` を、
+この plan の狙いは、
 
-* 各 CPU ごとに
+* chooser
+* candidate source の健全性
+* abstract policy
+* policy sanity
+* refinement
 
-  * `local_jobset c`
-  * `local_candidates_of c`
-  * `CandidateSourceSpec (local_jobset c) (local_candidates_of c)`
-* 単一 CPU の `DispatchSchedulerBridge` を CPU ごとに貼り合わせる
+を 1 つの bundle にまとめ、
+**単一CPU scheduler の標準的な「実装パッケージ」**として使えるようにすることです。
 
-という形に直します。
+一方で、
 
-つまり、今の
+* `valid_schedule`
+* `schedulable_by_on`
+* concrete scheduler から abstract policy scheduler への導出
 
-* `enumJ`
-* `filter (assign j = c) enumJ`
-* constant candidate list
-
-ベースから、
-
-* **CPU ごとの CandidateSource ベース**
-
-に移します。
+は bundle の field にせず、**一般補題で導出する**方針を保ちます。
 
 ---
 
-# 段階付き plan
+# 全体方針
 
-## Phase 0: 先に壊さないための足場を作る
+導入は次の 4 段階に分けるのが安全です。
 
-### 目的
+1. **bundle を定義する**
+2. **bundle から scheduler / policy scheduler を作る共通導線を作る**
+3. **EDF を bundle 化する**
+4. **FIFO など他 policy に展開する**
 
-大きく書き換える前に、「今の振る舞い」を補助定理として固定する。
-
-### 作業
-
-`Partitioned.v` の現行定義に対して、次を先に明示しておく。
-
-* `local_candidates_of c` は現状 constant source である
-* `partitioned_schedule_on` は「各 CPU が local 1-CPU dispatch bridge を満たす」と同値
-
-  * これはすでに `partitioned_schedule_on_iff_local_rel` があるので活用
-* `partitioned_schedule_implies_valid_schedule`
-* `partitioned_schedule_implies_respects_assignment`
-
-### 完了条件
-
-少なくとも次が今のまま通る。
-
-* `partitioned_schedule_on_iff_local_rel`
-* `partitioned_schedule_implies_valid_schedule`
-* `local_valid_feasible_on_implies_global`
-
-### メモ
-
-これは実質、以後の refactor の**回帰チェック用の中間到達点**です。
+重要なのは、最初から既存の EDF/FIFO の定義を全部壊さないことです。
+まずは **既存実装の上に bundle を薄く被せる** 形で導入し、その後必要なら古い入口を整理します。
 
 ---
 
-## Phase 1: `local_candidates` を「実装例」に格下げする
+# Phase 1: `UniSchedulerBundle` を導入する
 
-### 目的
+## 目的
 
-`Partitioned.v` の中心を `enumJ/filter` から切り離す。
+単一CPU policy 実装の最小パッケージを record として固定する。
 
-### 作業
+## 作業
 
-Section の引数を次の形へ寄せます。
+`UniSchedulerInterface.v` に、まず以下を置きます。
 
-現状:
+* `CandidateSource`
+* `CandidateSourceSpec`
+* `single_cpu_dispatch_schedule`
+* `single_cpu_dispatch_scheduler_on`
+* `UniSchedulerBundle`
 
-* `enumJ`
-* `enumJ_complete`
-* `enumJ_sound`
+ここでは bundle の field は**最小限**にします。
 
-を直接使っている
+つまり、導入するのは本当に次だけです。
 
-変更後:
+* 候補集合
+* chooser を含む dispatch spec
+* 候補集合の健全性
+* abstract policy
+* policy sanity
+* refinement 証明
 
-* `local_candidates_of : CPU -> CandidateSource`
-* `local_candidates_spec :
-    forall c, c < m ->
-      CandidateSourceSpec (local_jobset c) (local_candidates_of c)`
+## この段階でやらないこと
 
-を主引数にする
+* `Program` を使った obligations 整理
+* typeclass 化
+* EDF/FIFO の全面書き換え
+* `DispatchSchedulerBridge.v` の削除
 
-そして今の `enumJ` ベース実装は、
-**その abstract interface の具体例**として残す。
+## 完了条件
 
-つまり構造はこうです。
-
-### 1-1. abstract core
-
-`Partitioned.v` の core theorem 群は、以下だけを仮定する。
-
-```coq
-Variable assign : JobId -> CPU.
-Variable m : nat.
-Variable valid_assignment : forall j, assign j < m.
-Variable spec : GenericDispatchSpec.
-Variable J : JobId -> Prop.
-
-Definition local_jobset (c : CPU) : JobId -> Prop :=
-  fun j => J j /\ assign j = c.
-
-Variable local_candidates_of : CPU -> CandidateSource.
-Hypothesis local_candidates_spec :
-  forall c, c < m ->
-    CandidateSourceSpec (local_jobset c) (local_candidates_of c).
-```
-
-### 1-2. concrete instance
-
-別 Section か末尾で、
-
-```coq
-Definition enum_local_candidates ...
-Definition enum_local_candidates_of ...
-Lemma enum_local_candidates_spec ...
-```
-
-を作って、現行の `enumJ/filter` 方式をそこに押し込める。
-
-### 影響箇所
-
-`Partitioned.v` 内の以下を更新。
-
-* `partitioned_schedule_on`
-* `partitioned_schedule_on_iff_local_rel`
-* `partitioned_schedule_implies_respects_assignment`
-* `partitioned_schedule_implies_valid_schedule`
-
-### 完了条件
-
-core theorems が `enumJ` なしで書けること。
+`UniSchedulerBundle` が単独で定義され、他ファイルが import できる。
 
 ---
 
-## Phase 2: `partitioned_schedule_on` の定義を bridge-style に揃える
+# Phase 2: bundle から共通オブジェクトを導出する
 
-### 目的
+## 目的
 
-single-CPU の `DispatchSchedulerBridge` と揃える。
+bundle を作るだけで、利用者がすぐ scheduler と policy scheduler を得られるようにする。
 
-### 作業
+## 作業
 
-今は
+`UniSchedulerLemmas.v` などに、bundle から作る共通定義を追加します。
 
-```coq
-sched t c = spec.(dispatch) jobs 1 (cpu_schedule sched c) t (local_candidates c)
-```
+まず必要なのはこの 2 つです。
 
-ですが、これを
+### 1. concrete scheduler
 
 ```coq
-sched t c =
-  spec.(dispatch) jobs 1 (cpu_schedule sched c) t
-    (local_candidates_of c jobs 1 (cpu_schedule sched c) t)
-```
-
-の形に変えます。
-
-ただし、ここで重要なのは **local CPU view に対して source を呼ぶ**ことです。
-グローバル `sched` をそのまま渡すより、`cpu_schedule sched c` を渡した方が意味が揃います。
-
-### あわせて直す補題
-
-`partitioned_schedule_on_iff_local_rel` は、かなり自然に
-
-* 各 CPU の `single_cpu_dispatch_schedule spec (local_candidates_of c)`
-* を `cpu_schedule sched c` 上で満たす
-
-という形になります。
-
-### 完了条件
-
-`partitioned_schedule_on_iff_local_rel` が、定義展開なしに「設計の中心補題」として使えるようになること。
-
----
-
-## Phase 3: `valid_partitioned_schedule` を本当に公開述語にする
-
-### 目的
-
-今は alias なので、client が将来巻き込まれやすい。
-これを **安定 API** にします。
-
-### 推奨する進め方
-
-一気に定義を強くするより、2 段階が安全です。
-
-### 3-1. 生の構成述語を分離
-
-まず
-
-```coq
-Definition raw_partitioned_schedule_on ...
-```
-
-を作り、現在の `partitioned_schedule_on` の中身を移す。
-
-### 3-2. 公開述語を `valid_partitioned_schedule` に寄せる
-
-次に
-
-```coq
-Definition valid_partitioned_schedule jobs sched : Prop :=
-  raw_partitioned_schedule_on jobs sched.
-```
-
-とし、**全ての client-facing theorem を `valid_partitioned_schedule` ベースに言い換える**。
-
-対象は少なくとも:
-
-* `assignment_respect`
-* `local_valid_feasible_on_implies_global`
-* 将来の `partitioned_schedulable_by_on_intro`
-
-### 3-3. その後で定義を強化
-
-client の移行が済んだら、将来的に
-
-```coq
-Definition valid_partitioned_schedule jobs sched : Prop :=
-  raw_partitioned_schedule_on jobs sched /\
-  respects_assignment sched /\
-  valid_schedule jobs m sched.
-```
-
-のように強められます。
-
-ただし現時点では、**すぐ強化しなくてもよい**です。
-まずは「公開定理が raw に依存しない」状態にするのが先です。
-
-### 完了条件
-
-`partitioned_schedule_on` は library 内部用、`valid_partitioned_schedule` が外向き用、という役割分担がはっきりすること。
-
----
-
-## Phase 4: `partitioned_scheduler` に必要な証拠を寄せる
-
-### 目的
-
-今の `partitioned_scheduler` は `schedulable_by_on` に入るとき、外部からかなり多くの事実を再投入しないといけません。
-ここを single-CPU 側に近づけます。
-
-### 問題点
-
-今の constructor は
-
-```coq
-Definition partitioned_scheduler
-    (assign : JobId -> CPU)
-    (n : nat)
-    (spec : GenericDispatchSpec)
-    (enumJ : list JobId)
+Definition uni_scheduler_on
+    {J : JobId -> Prop}
+    (B : UniSchedulerBundle J)
     : Scheduler := ...
 ```
 
-で、実際に必要な
+これは `usb_spec`, `usb_candidates`, `usb_candidates_ok` から
+`single_cpu_dispatch_scheduler_on` を作るだけです。
 
-* `J`
-* `valid_assignment`
-* `CandidateSourceSpec`
-* local feasibility をどこから得るか
-
-が scheduler の外にあります。
-
-### 作業案
-
-record を 1 つ導入するのがよいです。たとえば:
+### 2. abstract policy scheduler
 
 ```coq
-Record PartitionedDispatchContext := {
-  part_assign : JobId -> CPU;
-  part_m : nat;
-  part_valid_assignment : forall j, part_assign j < part_m;
-  part_spec : GenericDispatchSpec;
-  part_J : JobId -> Prop;
-  part_candidates_of : CPU -> CandidateSource;
-  part_candidates_spec :
-    forall c, c < part_m ->
-      CandidateSourceSpec
-        (fun j => part_J j /\ part_assign j = c)
-        (part_candidates_of c)
-}.
+Definition uni_policy_scheduler_on
+    {J : JobId -> Prop}
+    (B : UniSchedulerBundle J)
+    : Scheduler := ...
 ```
 
-この context から
+これは `usb_policy` と `usb_candidates` から
+`single_cpu_policy_scheduler` を作る定義です。
 
-* `valid_partitioned_schedule`
-* `partitioned_scheduler`
+## 次に入れる共通補題
 
-を作るようにすると、以後の補題がかなり整理されます。
+この段階では、最低限以下で十分です。
 
-### 完了条件
+* `uni_scheduler_on_valid`
+* `uni_scheduler_on_refines_policy`
 
-`partitioned_scheduler` が「何を前提に正しいのか」が型に現れること。
+ここで重要なのは、`validity` を bundle field にしない代わりに、
+
+* `usb_spec`
+* `usb_candidates_ok`
+
+から validity が出る
+
+ことを一般補題として固定することです。
+
+## 完了条件
+
+bundle を渡せば
+
+* executable scheduler
+* abstract policy scheduler
+* validity
+* refinement による橋
+  が共通定義/共通補題で使える。
 
 ---
 
-## Phase 5: グローバル schedulability への標準導線を作る
+# Phase 3: EDF を bundle instance にする
 
-### 目的
+## 目的
 
-今ある `local_valid_feasible_on_implies_global` を、
-今後の main theorem 群の入り口にする。
+新しい bundle 設計が本当に使えることを、EDF で確認する。
 
-### 作業
+## 作業
 
-次の形の補題を標準入口にします。
+`UniPolicies/EDF.v` に、既存の
+
+* `edf_generic_spec`
+* `edf_policy`
+* `edf_policy_sane`
+* `choose_edf_refines_edf_policy`
+
+を使って、最後に `edf_bundle` を定義します。
+
+形としては、
 
 ```coq
-Lemma partitioned_schedulable_by_on_from_local :
-  ...
+Definition edf_bundle
+    (J : JobId -> Prop)
+    (candidates_of : CandidateSource)
+    (cand_spec : CandidateSourceSpec J candidates_of)
+  : UniSchedulerBundle J := ...
 ```
-
-内容は、
-
-* global schedule が `valid_partitioned_schedule`
-* 各 CPU の local 1-CPU view が `local_jobset c` 上で feasible
-* なら global に `schedulable_by_on J ... jobs m`
 
 です。
 
-今の `partitioned_schedulable_by_on_intro` は
-かなり薄い wrapper なので、これだけだと partitioned の旨味が弱いです。
-本命は「local から global を持ち上げる」方です。
+そして、bundle から作る thin wrapper として
 
-### 完了条件
+* `edf_scheduler_on`
+* `edf_policy_scheduler_on`
 
-partitioned 層の典型的利用手順が
+を追加します。
 
-1. 各 CPU の local scheduler 性質を示す
-2. `valid_partitioned_schedule` を示す
-3. global schedulability を得る
+つまり EDF は今後、
 
-の 3 ステップで定着すること。
+* chooser 単体
+* generic spec
+* abstract policy
+* refinement
+* bundle
+* scheduler wrapper
 
----
+という層で読めるようにします。
 
-## Phase 6: FIFO / RR を入れられる形へ確認する
+## 注意
 
-### 目的
+この段階では、既存の `edf_scheduler` 的な定義があるなら、**残してよい**です。
+まずは互換性を保ったまま bundle 版を足します。
 
-今回の refactor が本当に次の拡張を開くか確認する。
+## 完了条件
 
-### 作業
-
-最低限、次のどちらかを行う。
-
-* `FIFO` 用の `local_candidates_of` の形を試作する
-* `RoundRobin` を想定し、「schedule prefix に依存する candidate order」が表現できることを確認する
-
-### 重要ポイント
-
-ここで初めて、今回の refactor の価値が出ます。
-今の static list 方式だと、RR の「回転」が素直に表せません。
-
-### 完了条件
-
-`Partitioned.v` が EDF 専用っぽい見た目から脱して、
-本当に generic dispatch multicore 層になっていること。
+EDF が `UniSchedulerBundle` の instance として表現できる。
 
 ---
 
-# 実際の編集順
+# Phase 4: FIFO を同じ骨格に揃える
 
-実装順としては、次の順を勧めます。
+## 目的
 
-1. `Partitioned.v` に abstract な `local_candidates_of` / `local_candidates_spec` を導入
-2. `partitioned_schedule_on` をそれに合わせて変更
-3. 既存の `enumJ/filter` 方式を concrete instance として残す
-4. `partitioned_schedule_on_iff_local_rel` を通す
-5. `partitioned_schedule_implies_respects_assignment` を通す
-6. `partitioned_schedule_implies_valid_schedule` を通す
-7. `local_valid_feasible_on_implies_global` を通す
-8. `valid_partitioned_schedule` を public API として整理
-9. `partitioned_scheduler` を record/context ベースへ寄せる
+bundle が EDF 専用でないことを確認する。
 
----
+## 作業
 
-# この refactor で直ること
+`UniPolicies/FIFO.v` に対しても、EDF と同じ骨格で
 
-この計画を完了すると、次が改善されます。
+* `fifo_bundle`
+* `fifo_scheduler_on`
+* `fifo_policy_scheduler_on`
 
-* `Partitioned.v` が EDF 寄りの static enumeration 設計から外れる
-* single-CPU bridge と multicore bridge の形が揃う
-* `valid_partitioned_schedule` が本当に stable interface になる
-* FIFO / RR / priority 系を自然に載せやすくなる
-* その先の clustered / global / migration への拡張の土台になる
+を追加します。
+
+この時点で EDF と FIFO の末尾構造がほぼ同じになっているのが理想です。
+
+## 完了条件
+
+少なくとも 2 つの policy が同じ bundle interface に載る。
 
 ---
 
-# 逆に、今すぐやらなくてよいこと
+# Phase 5: 既存 bridge/refinement 導線を bundle ベースに整理する
 
-今の段階では、まだ無理にやらなくてよいです。
+## 目的
 
-* `valid_partitioned_schedule` の即時強化
-* partitioned 用の巨大 typeclass 化
-* global scheduler まで一気に一般化
-* classical 除去のための大改造
+今後 client が `UniSchedulerBundle` を入口として見られるようにする。
 
-まずは **Partitioned を bridge-style に揃える**のが先です。
+## 作業
+
+`DispatcherRefinement.v` や `UniSchedulerLemmas.v` に、bundle ベースの標準補題を追加します。
+
+例えば次のような位置づけです。
+
+* bundle から concrete scheduler を得る
+* bundle から policy-valid scheduler を得る
+* refinement により前者から後者へ移る
+* `schedulable_by_on` へつなぐ
+
+必要なら以下のような補題を揃えます。
+
+* `uni_scheduler_bundle_schedulable_by_on_intro`
+* `uni_scheduler_bundle_implies_policy_schedule`
+* `uni_scheduler_bundle_valid`
+
+## 完了条件
+
+利用者が policy ごとの細部を知らなくても、bundle から標準導線を使える。
+
+---
+
+# Phase 6: client-facing な入口を bundle に寄せる
+
+## 目的
+
+今後の新 policy 追加を bundle 前提に統一する。
+
+## 作業
+
+新規に書く code/examples では、なるべく
+
+* `*_bundle`
+* `uni_scheduler_on`
+* `uni_policy_scheduler_on`
+
+を使うようにします。
+
+既存コードはすぐ全部書き換えなくてよいですが、新規コードでは bundle 版を標準入口にします。
+
+## 完了条件
+
+新しい policy を追加するときの雛形が bundle ベースになる。
+
+---
+
+# 実装順をもっと細かく書くと
+
+## Step 1
+
+`UniSchedulerInterface.v` に `UniSchedulerBundle` を追加する
+
+この時点ではまだ unused でもよいです。
+
+---
+
+## Step 2
+
+`UniSchedulerLemmas.v` に
+
+* `uni_scheduler_on`
+* `uni_policy_scheduler_on`
+
+を追加する
+
+まずは定義だけでよいです。
+
+---
+
+## Step 3
+
+同じファイルか適切な補題ファイルに
+
+* `uni_scheduler_on_valid`
+* `uni_scheduler_on_refines_policy`
+
+を追加する
+
+ここで初めて bundle の意味が立ちます。
+
+---
+
+## Step 4
+
+`UniPolicies/EDF.v` に
+
+* `edf_bundle`
+* `edf_scheduler_on`
+* `edf_policy_scheduler_on`
+
+を追加する
+
+既存定義は壊さない。
+
+---
+
+## Step 5
+
+`UniPolicies/FIFO.v` にも同じものを追加する
+
+ここで bundle interface が一般的であることを確認する。
+
+---
+
+## Step 6
+
+必要なら `SchedulableExamples.v` などに
+bundle ベースの短い使用例を 1 つ追加する
+
+例:
+
+* candidate source を与える
+* `edf_bundle`
+* `uni_scheduler_on`
+* `schedulable_by_on`
+
+この例があると今後かなり使いやすいです。
+
+---
+
+# この plan で大事な判断
+
+## 1. validity は field にしない
+
+これは維持した方がよいです。
+
+理由:
+
+* 既存の一般補題で出せるなら冗長
+* policy ごとに validity を毎回保持させる必要がない
+
+つまり bundle は
+**「何を持てば scheduler が作れるか」**
+だけを表すのがよいです。
+
+---
+
+## 2. refinement は field にする
+
+これは bundle に持たせる価値があります。
+
+理由:
+
+* policy ごとに証明内容が違う
+* EDF/FIFO/RR の本質的差分がここに現れる
+
+---
+
+## 3. まず record、typeclass は後
+
+今回の導入では typeclass まで入れなくてよいです。
+
+record だけで十分に効果があります。
+typeclass は、bundle ベースの設計が安定してから、
+必要なら補助的に追加するのが安全です。
+
+---
+
+# 推奨コミット列
+
+一番安全なのはこの順です。
+
+### Commit 1
+
+`UniSchedulerBundle` を `UniSchedulerInterface.v` に追加
+
+### Commit 2
+
+`uni_scheduler_on` / `uni_policy_scheduler_on` を追加
+
+### Commit 3
+
+bundle から validity / policy-validity を導く補題を追加
+
+### Commit 4
+
+`edf_bundle` と wrapper を追加
+
+### Commit 5
+
+`fifo_bundle` と wrapper を追加
+
+### Commit 6
+
+example を 1 つ bundle ベースにする
+
+---
+
+# レビュー観点
+
+この導入のあと、レビューでは次を見ます。
+
+## 観点1
+
+bundle が薄いまま保たれているか
+field が増えすぎていないか
+
+## 観点2
+
+`SchedulerValidity.v` と `DispatcherRefinement.v` の責務が崩れていないか
+
+## 観点3
+
+EDF/FIFO の file structure が揃っているか
+
+## 観点4
+
+将来 RR のような prefix-dependent policy でも bundle に載せられそうか
+
+---
+
+# この導入の次にやるべきこと
+
+bundle 導入が終わったら、次はかなり自然に
+
+**`Partitioned.v` を「CPU ごとの `UniSchedulerBundle` の合成」として整理する**
+
+へ進めます。
+
+その時には、各 CPU ごとに
+
+* local candidate source
+* local dispatch spec
+* local abstract policy
+* local refinement
+
+をまとめて扱えるので、かなり書きやすくなります。
