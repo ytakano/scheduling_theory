@@ -848,7 +848,7 @@ Lemma trunc_sched_before : forall sched H t c,
 Proof.
   intros sched H t c Hlt.
   unfold trunc_sched.
-  assert (E : t <? H = true) by (apply Nat.ltb_lt; exact Hlt).
+  assert (E : (t <? H) = true) by (apply Nat.ltb_lt; exact Hlt).
   rewrite E. reflexivity.
 Qed.
 
