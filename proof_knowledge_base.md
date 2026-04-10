@@ -2,6 +2,131 @@
 
 ## Lemmas and Theorems
 
+### `glue_local_schedules`
+- **Type**: Definition
+- **Statement**:
+  ```coq
+  Definition glue_local_schedules (m : nat) (locals : CPU -> Schedule) : Schedule :=
+    fun t c => if c <? m then locals c t 0 else None.
+  ```
+- **Proof Strategy**: Direct definition. For CPU c < m, reads virtual CPU 0 of `locals c` at time t. CPUs c >= m are idle.
+- **Key Tactics**: N/A (definition)
+- **Dependencies**: `Base`, `ScheduleModel`
+- **Notes**: The global schedule reads virtual CPU 0 of each local schedule. This works because `cpu_schedule` in `Partitioned.v` always reads at virtual CPU 0.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-10
+
+---
+
+### `cpu_schedule_glue_eq`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma cpu_schedule_glue_eq :
+    forall m (locals : CPU -> Schedule) c,
+      c < m ->
+      (forall t cpu', 0 < cpu' -> locals c t cpu' = None) ->
+      cpu_schedule (glue_local_schedules m locals) c = locals c.
+  ```
+- **Proof Strategy**: `extensionality t; extensionality cpu'`. Split on `cpu' =? 0`. For cpu'=0: `Nat.ltb_lt` converts `c < m` to `c <? m = true`, so `glue` returns `locals c t 0`. For cpu' > 0: left side is `None` from `cpu_schedule`; right side is `None` from idle hypothesis + `lia`.
+- **Key Tactics**: `extensionality`, `Nat.eqb_eq`, `Nat.ltb_lt`, `Nat.eqb_neq`, `lia`
+- **Dependencies**: `glue_local_schedules`, `cpu_schedule`, `FunctionalExtensionality`
+- **Notes**: Takes the idle condition as a direct hypothesis (not via `scheduler_rel`) for maximum generality. Extract it from `scheduler_rel` using `scheduler_rel_single_cpu_idle`.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-10
+
+---
+
+### `scheduler_rel_single_cpu_idle`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma scheduler_rel_single_cpu_idle :
+    forall spec cands jobs (sched : Schedule) t cpu',
+      scheduler_rel (single_cpu_dispatch_schedule spec cands) jobs 1 sched ->
+      0 < cpu' ->
+      sched t cpu' = None.
+  ```
+- **Proof Strategy**: Destruct `scheduler_rel` as `[_ Hsteps]`, apply `proj2 (Hsteps t) cpu' Hlt`.
+- **Key Tactics**: `destruct [_ Hsteps]`, `proj2`, `exact`
+- **Dependencies**: `single_cpu_dispatch_schedule`, `scheduler_rel`
+- **Notes**: Convenience extractor used whenever the idle-on-virtual-CPUs-gt-0 condition is needed from a scheduler_rel hypothesis.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-10
+
+---
+
+### `glue_local_rels_imply_partitioned_schedule_on`
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem glue_local_rels_imply_partitioned_schedule_on :
+    forall m spec (cands : CPU -> CandidateSource) jobs (locals : CPU -> Schedule),
+      (forall c, c < m ->
+        scheduler_rel (single_cpu_dispatch_schedule spec (cands c)) jobs 1 (locals c)) ->
+      raw_partitioned_schedule_on m spec cands jobs (glue_local_schedules m locals).
+  ```
+- **Proof Strategy**: Apply `proj2` of `partitioned_schedule_on_iff_local_rel`. For each c < m, rewrite `cpu_schedule (glue ...) c = locals c` via `cpu_schedule_glue_eq` (idle condition from `scheduler_rel_single_cpu_idle`), then apply the hypothesis.
+- **Key Tactics**: `apply (proj2 (partitioned_schedule_on_iff_local_rel ...))`, `rewrite cpu_schedule_glue_eq`
+- **Dependencies**: `partitioned_schedule_on_iff_local_rel`, `cpu_schedule_glue_eq`, `scheduler_rel_single_cpu_idle`
+- **Notes**: The key insight: rewriting `cpu_schedule (glue m locals) c` to `locals c` makes the goal exactly the local hypothesis. No induction needed.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-10
+
+---
+
+### `local_witnesses_imply_partitioned_schedulable_by_on`
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem local_witnesses_imply_partitioned_schedulable_by_on :
+    forall (assign : JobId -> CPU) (m : nat)
+           (valid_assignment : forall j, assign j < m)
+           (spec : GenericDispatchSpec)
+           (J : JobId -> Prop)
+           (cands : CPU -> CandidateSource)
+           (cands_spec : forall c, c < m -> CandidateSourceSpec (local_jobset assign J c) (cands c))
+           (jobs : JobId -> Job) (locals : CPU -> Schedule),
+      (forall c, c < m ->
+        scheduler_rel (single_cpu_dispatch_schedule spec (cands c)) jobs 1 (locals c) /\
+        feasible_schedule_on (local_jobset assign J c) jobs 1 (locals c)) ->
+      schedulable_by_on J (partitioned_scheduler m spec cands) jobs m.
+  ```
+- **Proof Strategy**: `set sched := glue_local_schedules m locals`. Prove `raw_partitioned_schedule_on` via `glue_local_rels_imply_partitioned_schedule_on`. Rewrite `cpu_schedule sched c = locals c` in feasibility via `cpu_schedule_glue_eq`. Apply `partitioned_schedulable_by_on_from_local`. Note: local validity is NOT needed as a hypothesis — it is derived inside `partitioned_schedulable_by_on_from_local` from `cands_spec`.
+- **Key Tactics**: `set`, `apply partitioned_schedulable_by_on_from_local`, `apply valid_partitioned_schedule_intro`, `rewrite cpu_schedule_glue_eq`
+- **Dependencies**: `glue_local_rels_imply_partitioned_schedule_on`, `cpu_schedule_glue_eq`, `scheduler_rel_single_cpu_idle`, `partitioned_schedulable_by_on_from_local`, `valid_partitioned_schedule_intro`
+- **Notes**: Does NOT require `valid_schedule jobs 1 (locals c)` as a hypothesis — it is implied by `cands_spec` inside `partitioned_schedulable_by_on_from_local`. This keeps the API lean.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-10
+
+---
+
+### `partitioned_edf_scheduler` / `local_edf_witnesses_imply_partitioned_edf_schedulable_by_on`
+- **Type**: Definition + Theorem
+- **Statement**:
+  ```coq
+  Definition partitioned_edf_scheduler (m : nat) (cands : CPU -> CandidateSource) : Scheduler :=
+    partitioned_scheduler m edf_generic_spec cands.
+
+  Theorem local_edf_witnesses_imply_partitioned_edf_schedulable_by_on :
+    forall (assign : JobId -> CPU) (m : nat)
+           (valid_assignment : forall j, assign j < m)
+           (J : JobId -> Prop) (cands : CPU -> CandidateSource)
+           (cands_spec : ...) (jobs : JobId -> Job) (locals : CPU -> Schedule),
+      (forall c, c < m ->
+        scheduler_rel (edf_scheduler (cands c)) jobs 1 (locals c) /\
+        feasible_schedule_on (local_jobset assign J c) jobs 1 (locals c)) ->
+      schedulable_by_on J (partitioned_edf_scheduler m cands) jobs m.
+  ```
+- **Proof Strategy**: Unfold `partitioned_edf_scheduler`. Unfold `edf_scheduler` = `single_cpu_dispatch_schedule edf_generic_spec`. Apply `local_witnesses_imply_partitioned_schedulable_by_on`.
+- **Key Tactics**: `unfold partitioned_edf_scheduler`, `unfold edf_scheduler`
+- **Dependencies**: `local_witnesses_imply_partitioned_schedulable_by_on`, `edf_generic_spec`
+- **Notes**: Thin wrapper. FIFO and RR versions follow the same pattern.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-10
+
+---
+
 ### `runs_on_true_iff`
 - **Type**: Lemma
 - **Statement**:

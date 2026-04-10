@@ -11,6 +11,8 @@ theories/UniSchedulerLemmas.v
 theories/FIFOExamples.v
 theories/FeasibleExamples.v
 theories/Partitioned.v
+theories/PartitionedCompose.v
+theories/PartitionedPolicies/PartitionedEDF.v
 theories/PeriodicTasks.v
 theories/SchedulableExamples.v
 theories/ScheduleLemmas/ScheduleFacts.v

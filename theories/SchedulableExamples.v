@@ -10,6 +10,8 @@ Require Import UniPolicies.FIFO.
 Require Import Partitioned.
 Require Import UniSchedulerInterface.
 Require Import UniSchedulerLemmas.
+Require Import PartitionedCompose.
+Require Import PartitionedPolicies.PartitionedEDF.
 Import ListNotations.
 
 (**
@@ -516,4 +518,140 @@ Proof.
            J_single EDFSchedulerSpec edf_single_bundle single_jobs single_sched
            edf_single_bundle_rel
            single_feasible_on).
+Qed.
+
+(* ================================================================= *)
+(** ** Partitioned EDF example via PartitionedCompose                 *)
+(* ================================================================= *)
+
+(* Demonstrate local_edf_witnesses_imply_partitioned_edf_schedulable_by_on:
+   reuse the pair_* infrastructure (2 jobs, 2 CPUs, static assignment)
+   from the partitioned FIFO example above, but drive it with EDF.
+
+   Per-CPU local witnesses:
+     locals 0 = cpu_schedule pair_sched 0   (job 0 runs on CPU 0 at t=0)
+     locals 1 = cpu_schedule pair_sched 1   (job 1 runs on CPU 1 at t=0)
+
+   We prove each satisfies the edf_scheduler relation, then apply the
+   composition theorem to obtain schedulable_by_on for the partitioned
+   EDF scheduler.                                                       *)
+
+Definition pair_locals (c : CPU) : Schedule := cpu_schedule pair_sched c.
+
+Lemma pair_local0_edf_rel :
+    scheduler_rel
+      (edf_scheduler (pair_cands 0))
+      pair_jobs 1 (pair_locals 0).
+Proof.
+  unfold edf_scheduler, single_cpu_dispatch_schedule, pair_locals.
+  split.
+  - reflexivity.
+  - intro t.
+    split.
+    + destruct t as [| t'].
+      * unfold pair_cands, enum_local_candidates_of, local_candidates,
+               cpu_schedule, pair_sched, assign_pair, choose_edf,
+               eligibleb, pair_jobs, pair_job0.
+        simpl. reflexivity.
+      * simpl.
+        symmetry.
+        change (choose_edf pair_jobs 1 (cpu_schedule pair_sched 0) (S t') [0] = None).
+        apply choose_edf_none_if_no_eligible.
+        intros j Hin.
+        simpl in Hin.
+        destruct Hin as [Hj | []].
+        subst j.
+        apply pair_job0_local_not_eligible_after_start.
+        lia.
+    + intros c' Hc'.
+      unfold cpu_schedule, pair_sched.
+      destruct (Nat.eqb c' 0) eqn:E.
+      * apply Nat.eqb_eq in E. lia.
+      * reflexivity.
+Qed.
+
+Lemma pair_local1_edf_rel :
+    scheduler_rel
+      (edf_scheduler (pair_cands 1))
+      pair_jobs 1 (pair_locals 1).
+Proof.
+  unfold edf_scheduler, single_cpu_dispatch_schedule, pair_locals.
+  split.
+  - reflexivity.
+  - intro t.
+    split.
+    + destruct t as [| t'].
+      * unfold pair_cands, enum_local_candidates_of, local_candidates,
+               cpu_schedule, pair_sched, assign_pair, choose_edf,
+               eligibleb, pair_jobs, pair_job1.
+        simpl. reflexivity.
+      * simpl.
+        symmetry.
+        change (choose_edf pair_jobs 1 (cpu_schedule pair_sched 1) (S t') [1] = None).
+        apply choose_edf_none_if_no_eligible.
+        intros j Hin.
+        simpl in Hin.
+        destruct Hin as [Hj | []].
+        subst j.
+        apply pair_job1_local_not_eligible_after_start.
+        lia.
+    + intros c' Hc'.
+      unfold cpu_schedule, pair_sched.
+      destruct (Nat.eqb c' 0) eqn:E.
+      * apply Nat.eqb_eq in E. lia.
+      * reflexivity.
+Qed.
+
+Lemma pair_local0_edf_feasible_on :
+    feasible_schedule_on (local_jobset assign_pair J_pair 0) pair_jobs 1
+      (pair_locals 0).
+Proof.
+  unfold feasible_schedule_on, local_jobset, missed_deadline, pair_locals.
+  intros j [HJ Hassign].
+  unfold J_pair in HJ.
+  destruct HJ as [-> | ->].
+  - intro Hmiss.
+    apply Hmiss.
+    unfold completed, pair_jobs, pair_job0.
+    simpl.
+    pose proof (pair_job0_local_service_positive 2 (le_S 1 1 (Nat.le_refl 1))).
+    lia.
+  - unfold assign_pair in Hassign. simpl in Hassign. discriminate.
+Qed.
+
+Lemma pair_local1_edf_feasible_on :
+    feasible_schedule_on (local_jobset assign_pair J_pair 1) pair_jobs 1
+      (pair_locals 1).
+Proof.
+  unfold feasible_schedule_on, local_jobset, missed_deadline, pair_locals.
+  intros j [HJ Hassign].
+  unfold J_pair in HJ.
+  destruct HJ as [-> | ->].
+  - unfold assign_pair in Hassign. simpl in Hassign. discriminate.
+  - intro Hmiss.
+    apply Hmiss.
+    unfold completed, pair_jobs, pair_job1.
+    simpl.
+    pose proof (pair_job1_local_service_positive 2 (le_S 1 1 (Nat.le_refl 1))).
+    lia.
+Qed.
+
+Theorem pair_partitioned_edf_schedulable_by_on :
+    schedulable_by_on
+      J_pair
+      (partitioned_edf_scheduler 2 pair_cands)
+      pair_jobs 2.
+Proof.
+  apply (local_edf_witnesses_imply_partitioned_edf_schedulable_by_on
+           assign_pair 2 assign_pair_valid J_pair pair_cands pair_cands_spec
+           pair_jobs pair_locals).
+  intros c Hlt.
+  assert (Hc : c = 0 \/ c = 1) by lia.
+  destruct Hc as [-> | ->].
+  - split.
+    + exact pair_local0_edf_rel.
+    + exact pair_local0_edf_feasible_on.
+  - split.
+    + exact pair_local1_edf_rel.
+    + exact pair_local1_edf_feasible_on.
 Qed.
