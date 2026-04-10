@@ -74,4 +74,6 @@ RUN echo "[[ ! -r '${HOME}/.opam/opam-init/init.zsh' ]] || source '${HOME}/.opam
 
 RUN curl -fsSL https://gh.io/copilot-install | bash
 
+RUN opam repo add coq-released https://coq.inria.fr/opam/released && opam install -y rocq-stdpp
+
 CMD ["/bin/zsh"]

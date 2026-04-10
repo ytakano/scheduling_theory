@@ -9,7 +9,11 @@ theories/FeasibleExamples.v
 theories/Partitioned.v
 theories/PeriodicTasks.v
 theories/SchedulableExamples.v
+theories/ScheduleFacts.v
 theories/ScheduleModel.v
+theories/SchedulePrefix.v
+theories/ScheduleRestriction.v
+theories/ScheduleTransform.v
 theories/SchedulerInterface.v
 theories/UniPolicies/EDF.v
 theories/UniPolicies/FIFO.v
