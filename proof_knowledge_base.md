@@ -2059,3 +2059,102 @@
 - **Dependencies**: Lemmas 8, 9, 10a, 10b, 10c, 10d, 11, 12; `service_job_step`, `service_job_monotone`, `cpu_count_1_some_eq`, `valid_no_run_after_completion`
 - **Notes**: ⚠️ Derive `Hlt : t < t'` at the TOP before any case splits — later `lia` calls for `t < t'` will fail if `t = t'` is possible. ⚠️ After `rewrite swap_at_t1/t2 in Hrun`, must also `rewrite Hj'/Hj in Hrun` to make injection work (Hrun is not a constructor application otherwise). ⚠️ Name clash: `Hge_t'` appears both as assert name and as destruct branch — rename assert to `Hle_t`. ⚠️ The injection after swap_at_t1: `rewrite swap_at_t1 in Hrun` gives `Hrun : sched t' 0 = Some j''`; then `rewrite Hj' in Hrun` gives `Some j' = Some j''`; then `injection Hrun as Heq; subst j''` works.
 - **Date**: 2026-04-10
+
+---
+
+### `swap_at_preserves_missed_deadline_other_job`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_preserves_missed_deadline_other_job :
+    forall jobs sched j j' t t' x,
+      sched t 0 = Some j -> sched t' 0 = Some j' ->
+      x <> j -> x <> j' ->
+      missed_deadline jobs 1 (swap_at sched t t') x <->
+      missed_deadline jobs 1 sched x.
+  ```
+- **Proof Strategy**: Rewrite both sides with `missed_deadline_iff_service_lt_cost_at_deadline`, then rewrite service with `swap_at_service_unchanged_other_job`, then `tauto`.
+- **Key Tactics**: `rewrite !missed_deadline_iff_service_lt_cost_at_deadline`, `swap_at_service_unchanged_other_job`, `tauto`
+- **Dependencies**: `missed_deadline_iff_service_lt_cost_at_deadline`, `swap_at_service_unchanged_other_job`
+- **Notes**: One-liner essentially. The key is that service at deadline is unchanged for jobs other than j and j'.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_improves_front_job`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_improves_front_job :
+    forall jobs sched j j' t t',
+      t <= t' -> t' < job_abs_deadline (jobs j') ->
+      sched t 0 = Some j -> sched t' 0 = Some j' ->
+      ~ missed_deadline jobs 1 sched j' ->
+      ~ missed_deadline jobs 1 (swap_at sched t t') j'.
+  ```
+- **Proof Strategy**: Rewrite with `missed_deadline_iff_service_lt_cost_at_deadline`. Case split `j = j'` vs `j ≠ j'`. j=j': use `service_job_eq_of_cpu_count_eq` with cpu_count equality at t (swap_at_t1 → j'; orig → j=j') and t' (swap_at_t2 → j=j'; orig → j'). j≠j': derive `t < t'` via injection contradiction, then use `swap_at_service_j2_after_t2` with T = deadline(j') > t'.
+- **Key Tactics**: `Nat.eq_dec`, `service_job_eq_of_cpu_count_eq`, `cpu_count_1_swap_at_t1/t2/other`, `cpu_count_1_some_eq`, `swap_at_service_j2_after_t2`
+- **Dependencies**: `missed_deadline_iff_service_lt_cost_at_deadline`, `service_job_eq_of_cpu_count_eq`, `cpu_count_1_swap_at_t1/t2/other`, `swap_at_service_j2_after_t2`
+- **Notes**: ⚠️ After `subst t'` in the `t = t'` sub-case (j≠j' branch), goal becomes `t < t`, not `False`. Must use `exfalso. exact (Hne Heq)` — not `exact (Hne Heq)` directly.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_service_at_deadline_same_for_back_job`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_service_at_deadline_same_for_back_job :
+    forall jobs sched j j' t t',
+      t <= t' -> t' < job_abs_deadline (jobs j) ->
+      sched t 0 = Some j -> sched t' 0 = Some j' ->
+      service_job 1 (swap_at sched t t') j (job_abs_deadline (jobs j)) =
+      service_job 1 sched j (job_abs_deadline (jobs j)).
+  ```
+- **Proof Strategy**: Case split `j = j'` vs `j ≠ j'`. j=j': `service_job_eq_of_cpu_count_eq` (symmetric to `swap_at_improves_front_job`). j≠j': derive `t < t'`, apply `swap_at_service_j1_after_t2` with T = deadline(j) > t'.
+- **Key Tactics**: `Nat.eq_dec`, `service_job_eq_of_cpu_count_eq`, `cpu_count_1_swap_at_t1/t2/other`, `swap_at_service_j1_after_t2`
+- **Dependencies**: `service_job_eq_of_cpu_count_eq`, `cpu_count_1_swap_at_*`, `swap_at_service_j1_after_t2`
+- **Notes**: ⚠️ Same `exfalso` issue as `swap_at_improves_front_job` in the t=t' sub-case.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_does_not_hurt_later_deadline_job`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_does_not_hurt_later_deadline_job :
+    forall jobs sched j j' t t',
+      t <= t' -> t' < job_abs_deadline (jobs j) ->
+      sched t 0 = Some j -> sched t' 0 = Some j' ->
+      ~ missed_deadline jobs 1 sched j ->
+      ~ missed_deadline jobs 1 (swap_at sched t t') j.
+  ```
+- **Proof Strategy**: Rewrite both sides with `missed_deadline_iff_service_lt_cost_at_deadline`, then rewrite with `swap_at_service_at_deadline_same_for_back_job`.
+- **Key Tactics**: `missed_deadline_iff_service_lt_cost_at_deadline`, `swap_at_service_at_deadline_same_for_back_job`
+- **Dependencies**: `swap_at_service_at_deadline_same_for_back_job`, `missed_deadline_iff_service_lt_cost_at_deadline`
+- **Notes**: Trivial given Lemma 16'.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_preserves_feasible_schedule_on`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_preserves_feasible_schedule_on :
+    forall J jobs sched j j' t t',
+      valid_schedule jobs 1 sched ->
+      feasible_schedule_on J jobs 1 sched ->
+      J j -> J j' ->
+      sched t 0 = Some j -> sched t' 0 = Some j' ->
+      eligible jobs 1 sched j' t ->
+      t <= t' -> t' < job_abs_deadline (jobs j') ->
+      job_abs_deadline (jobs j') < job_abs_deadline (jobs j) ->
+      feasible_schedule_on J jobs 1 (swap_at sched t t').
+  ```
+- **Proof Strategy**: unfold `feasible_schedule_on`, intro x HJx, case split x=j'/x=j/other. x=j': Lemma 15. x=j: Lemma 16 with t' < deadline(j) by lia (Hlt' + Hdl). other: Lemma 14 + Hfeas x.
+- **Key Tactics**: `Nat.eq_dec`, `swap_at_improves_front_job`, `swap_at_does_not_hurt_later_deadline_job`, `swap_at_preserves_missed_deadline_other_job`, `lia`
+- **Dependencies**: Lemmas 14, 15, 16
+- **Notes**: `t' < deadline(j)` follows from `t' < deadline(j') < deadline(j)` by `lia`. No Classical needed anywhere in Phase 6.
+- **Date**: 2026-04-10

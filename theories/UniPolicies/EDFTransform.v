@@ -679,3 +679,174 @@ Proof.
                           Hj Hj' Hjne Hj'ne).
             exact Hcomp_swap. } }
 Qed.
+
+(* ===== Phase 6: swap が deadline miss を増やさないことを示す ===== *)
+
+(* 14. swap_at_preserves_missed_deadline_other_job:
+   For a job x that is neither j nor j', missed_deadline is unchanged by swap_at.
+   Follows directly from Lemma 8: service_job is pointwise equal for such x. *)
+Lemma swap_at_preserves_missed_deadline_other_job :
+  forall jobs sched j j' t t' x,
+    sched t 0 = Some j ->
+    sched t' 0 = Some j' ->
+    x <> j ->
+    x <> j' ->
+    missed_deadline jobs 1 (swap_at sched t t') x <->
+    missed_deadline jobs 1 sched x.
+Proof.
+  intros jobs sched j j' t t' x Hj Hj' Hxj Hxj'.
+  rewrite !missed_deadline_iff_service_lt_cost_at_deadline.
+  rewrite (swap_at_service_unchanged_other_job sched x j j' t t'
+             (job_abs_deadline (jobs x)) Hj Hj' Hxj Hxj').
+  tauto.
+Qed.
+
+(* 15. swap_at_improves_front_job:
+   j' (the front/beneficiary job moved from t' to t) does not miss its deadline
+   after the swap, provided it did not miss in the original schedule.
+   Key: service_job 1 (swap_at ...) j' (deadline j') = service_job 1 sched j' (deadline j').
+   Case j = j': both slots carried j' → cpu_counts identical → service equal (Lemma 9-style).
+   Case j ≠ j': derive t < t', then apply Lemma 10d (swap_at_service_j2_after_t2)
+   with T = deadline(j') > t'. *)
+Lemma swap_at_improves_front_job :
+  forall jobs sched j j' t t',
+    t <= t' ->
+    t' < job_abs_deadline (jobs j') ->
+    sched t 0 = Some j ->
+    sched t' 0 = Some j' ->
+    ~ missed_deadline jobs 1 sched j' ->
+    ~ missed_deadline jobs 1 (swap_at sched t t') j'.
+Proof.
+  intros jobs sched j j' t t' Hle Hlt' Hj Hj' Hnmiss.
+  rewrite missed_deadline_iff_service_lt_cost_at_deadline in *.
+  destruct (Nat.eq_dec j j') as [-> | Hne].
+  - (* j = j': swap exchanges two slots both containing j'; service unchanged *)
+    rewrite (service_job_eq_of_cpu_count_eq 1 (swap_at sched t t') sched j'
+               (job_abs_deadline (jobs j'))).
+    + exact Hnmiss.
+    + intros t'' _.
+      destruct (Nat.eq_dec t'' t) as [-> | Ht1ne].
+      * (* at t: swap sees sched t' 0 = Some j'; orig sees sched t 0 = Some j = Some j' *)
+        rewrite cpu_count_1_swap_at_t1.
+        rewrite (cpu_count_1_some_eq sched j' t' Hj').
+        rewrite (cpu_count_1_some_eq sched j' t Hj).
+        reflexivity.
+      * destruct (Nat.eq_dec t'' t') as [-> | Ht2ne].
+        -- (* at t': swap sees sched t 0 = Some j = Some j'; orig sees sched t' 0 = Some j' *)
+           rewrite cpu_count_1_swap_at_t2.
+           rewrite (cpu_count_1_some_eq sched j' t Hj).
+           rewrite (cpu_count_1_some_eq sched j' t' Hj').
+           reflexivity.
+        -- (* other t'': unchanged *)
+           rewrite (cpu_count_1_swap_at_other sched t t' j' t'' Ht1ne Ht2ne).
+           reflexivity.
+  - (* j ≠ j': t < t' (if t = t' then sched t 0 = Some j = Some j' → j = j', contradiction) *)
+    assert (Hlt : t < t').
+    { destruct (Nat.eq_dec t t') as [Heqt | H].
+      - subst t'. rewrite Hj in Hj'. injection Hj' as Heq. exfalso. exact (Hne Heq).
+      - lia. }
+    (* Lemma 10d: service of j2 at any T > t2 is unchanged *)
+    rewrite (swap_at_service_j2_after_t2 sched j j' t t'
+               (job_abs_deadline (jobs j')) Hlt Hj Hj' Hne Hlt').
+    exact Hnmiss.
+Qed.
+
+(* 16'. swap_at_service_at_deadline_same_for_back_job:
+   The total service of j (the delayed/back job) at its own deadline is unchanged
+   by the swap. This is because both swap points t and t' lie strictly before
+   deadline(j), so t1-loss and t2-gain cancel out within the window.
+   Case j = j': cpu_counts identical → service equal.
+   Case j ≠ j': derive t < t', then apply Lemma 10c (swap_at_service_j1_after_t2)
+   with T = deadline(j) > t'. *)
+Lemma swap_at_service_at_deadline_same_for_back_job :
+  forall jobs sched j j' t t',
+    t <= t' ->
+    t' < job_abs_deadline (jobs j) ->
+    sched t 0 = Some j ->
+    sched t' 0 = Some j' ->
+    service_job 1 (swap_at sched t t') j (job_abs_deadline (jobs j)) =
+    service_job 1 sched j (job_abs_deadline (jobs j)).
+Proof.
+  intros jobs sched j j' t t' Hle Hlt Hj Hj'.
+  destruct (Nat.eq_dec j j') as [-> | Hne].
+  - (* j = j': symmetric to Lemma 15; cpu_counts identical *)
+    apply service_job_eq_of_cpu_count_eq.
+    intros t'' _.
+    destruct (Nat.eq_dec t'' t) as [-> | Ht1ne].
+    + rewrite cpu_count_1_swap_at_t1.
+      rewrite (cpu_count_1_some_eq sched j' t' Hj').
+      rewrite (cpu_count_1_some_eq sched j' t Hj).
+      reflexivity.
+    + destruct (Nat.eq_dec t'' t') as [-> | Ht2ne].
+      * rewrite cpu_count_1_swap_at_t2.
+        rewrite (cpu_count_1_some_eq sched j' t Hj).
+        rewrite (cpu_count_1_some_eq sched j' t' Hj').
+        reflexivity.
+      * rewrite (cpu_count_1_swap_at_other sched t t' j' t'' Ht1ne Ht2ne).
+        reflexivity.
+  - (* j ≠ j': t < t' *)
+    assert (Hlt12 : t < t').
+    { destruct (Nat.eq_dec t t') as [Heqt | H].
+      - subst. rewrite Hj in Hj'. injection Hj' as Heq. exfalso. exact (Hne Heq).
+      - lia. }
+    (* Lemma 10c: service of j1 at any T > t2 is unchanged *)
+    exact (swap_at_service_j1_after_t2 sched j j' t t'
+             (job_abs_deadline (jobs j)) Hlt12 Hj Hj' Hne Hlt).
+Qed.
+
+(* 16. swap_at_does_not_hurt_later_deadline_job:
+   j (the delayed back job) does not miss its deadline after the swap,
+   provided it did not miss in the original schedule.
+   Proof: service at deadline is preserved by Lemma 16'. *)
+Lemma swap_at_does_not_hurt_later_deadline_job :
+  forall jobs sched j j' t t',
+    t <= t' ->
+    t' < job_abs_deadline (jobs j) ->
+    sched t 0 = Some j ->
+    sched t' 0 = Some j' ->
+    ~ missed_deadline jobs 1 sched j ->
+    ~ missed_deadline jobs 1 (swap_at sched t t') j.
+Proof.
+  intros jobs sched j j' t t' Hle Hlt' Hj Hj' Hnmiss.
+  rewrite missed_deadline_iff_service_lt_cost_at_deadline in *.
+  rewrite (swap_at_service_at_deadline_same_for_back_job jobs sched j j' t t' Hle Hlt' Hj Hj').
+  exact Hnmiss.
+Qed.
+
+(* 17. swap_at_preserves_feasible_schedule_on:
+   The swap preserves feasibility for all jobs in J.
+   Case x = j': Lemma 15 (front job improves).
+   Case x = j:  Lemma 16 (back job not hurt; t' < deadline(j) follows from Hlt' + Hdl).
+   Other x:     Lemma 14 (missed_deadline unchanged) + original feasibility. *)
+Lemma swap_at_preserves_feasible_schedule_on :
+  forall J jobs sched j j' t t',
+    valid_schedule jobs 1 sched ->
+    feasible_schedule_on J jobs 1 sched ->
+    J j ->
+    J j' ->
+    sched t 0 = Some j ->
+    sched t' 0 = Some j' ->
+    eligible jobs 1 sched j' t ->
+    t <= t' ->
+    t' < job_abs_deadline (jobs j') ->
+    job_abs_deadline (jobs j') < job_abs_deadline (jobs j) ->
+    feasible_schedule_on J jobs 1 (swap_at sched t t').
+Proof.
+  intros J jobs sched j j' t t' _Hvalid Hfeas HJj HJj' Hj Hj' _Helig Hle Hlt' Hdl.
+  unfold feasible_schedule_on.
+  intros x HJx.
+  destruct (Nat.eq_dec x j') as [-> | Hxj'].
+  - (* x = j': front job; apply Lemma 15 *)
+    apply (swap_at_improves_front_job jobs sched j j' t t' Hle Hlt' Hj Hj').
+    exact (Hfeas j' HJj').
+  - destruct (Nat.eq_dec x j) as [-> | Hxj].
+    + (* x = j: back job; apply Lemma 16 *)
+      apply (swap_at_does_not_hurt_later_deadline_job jobs sched j j' t t' Hle).
+      * lia.    (* t' < job_abs_deadline(j') < job_abs_deadline(j) *)
+      * exact Hj.
+      * exact Hj'.
+      * exact (Hfeas j HJj).
+    + (* x ≠ j ∧ x ≠ j': apply Lemma 14 *)
+      rewrite (swap_at_preserves_missed_deadline_other_job jobs sched j j' t t' x Hj Hj' Hxj Hxj').
+      exact (Hfeas x HJx).
+Qed.
