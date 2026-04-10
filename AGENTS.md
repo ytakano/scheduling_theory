@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository formalizes scheduling theory in Rocq. Core proof files live at the repository root. Follow the dependency flow when adding definitions or lemmas: `Base.v` -> `ScheduleModel.v` -> `SchedulerInterface.v` -> `DispatchInterface.v` -> policy files such as `UniPolicies/EDF.v`, `UniPolicies/FIFO.v`, and `Partitioned.v`. Example and proof-consumer files include `FeasibleExamples.v`, `FIFOExamples.v`, and `SchedulableExamples.v`.
+This repository formalizes scheduling theory in Rocq. Core proof files live at the repository root. Follow the dependency flow when adding definitions or lemmas: `Base.v` -> `ScheduleModel.v` -> `SchedulerInterface.v` -> `SchedulingAlgorithmInterface.v` -> policy files such as `UniPolicies/EDF.v`, `UniPolicies/FIFO.v`, and `Partitioned.v`. Example and proof-consumer files include `FeasibleExamples.v`, `FIFOExamples.v`, and `SchedulableExamples.v`.
 
 Planning and proof notes belong in [`plan/`](./plan) and [`progress/`](./progress). Docker helper scripts live in [`docker/`](./docker). Generated build artifacts such as `*.vo`, `*.vos`, `*.vok`, `*.glob`, and `*.aux` should not be committed.
 
@@ -21,7 +21,7 @@ Rocq compilation is the test mechanism here: a file passes when it compiles with
 ## Coding Style & Naming Conventions
 Use spaces for indentation and keep record fields and proof scripts vertically aligned when it improves readability. Prefer descriptive PascalCase filenames for major modules and example files, matching current names such as `ScheduleModel.v` and `FIFOExamples.v`.
 
-Use clear identifier names that reflect proof intent: `eligible`, `dispatch_in_candidates`, `valid_partitioned_schedule`. Keep constructive results separate from classical ones; classical lemmas belong in files like `DispatchClassicalLemmas.v`.
+Use clear identifier names that reflect proof intent: `eligible`, `dispatch_in_candidates`, `valid_partitioned_schedule`. Keep constructive results separate from classical ones; classical lemmas belong in files like `SchedulingAlgorithmClassicalLemmas.v`.
 
 ## Testing Guidelines
 There is no separate test framework or coverage gate. Validate every change by compiling the edited file and any impacted dependents. For cross-cutting changes, run `make` before opening a PR.

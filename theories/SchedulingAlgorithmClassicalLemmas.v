@@ -1,17 +1,17 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Classical.
 Require Import Base.
 Require Import ScheduleModel.
-Require Import DispatchInterface.
-Require Import DispatchLemmas.
+Require Import SchedulingAlgorithmInterface.
+Require Import SchedulingAlgorithmLemmas.
 Import ListNotations.
 
-(* Lemmas derived from GenericDispatchSpec that require classical logic.
+(* Lemmas derived from GenericSchedulingAlgorithm that require classical logic.
    Kept separate from DispatchLemmas.v so the constructive core remains
    Classical-free. *)
 
-Section DispatchClassicalLemmasSection.
+Section SchedulingAlgorithmClassicalLemmasSection.
 
-  Variable spec        : GenericDispatchSpec.
+  Variable spec        : GenericSchedulingAlgorithm.
   Variable jobs        : JobId -> Job.
   Variable m           : nat.
   Variable sched       : Schedule.
@@ -35,4 +35,4 @@ Section DispatchClassicalLemmasSection.
     - left. exact Hnrel.
   Qed.
 
-End DispatchClassicalLemmasSection.
+End SchedulingAlgorithmClassicalLemmasSection.

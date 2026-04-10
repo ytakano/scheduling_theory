@@ -3,10 +3,10 @@ Require Import Base.
 Require Import ScheduleModel.
 Require Import ScheduleLemmas.ScheduleFacts.
 Require Import SchedulerInterface.
-Require Import DispatchInterface.
-Require Import DispatchSchedulerBridge.
+Require Import SchedulingAlgorithmInterface.
+Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import SchedulerValidity.
-Require Import DispatcherRefinement.
+Require Import SchedulingAlgorithmRefinement.
 Import ListNotations.
 
 (* eligibleb and eligibleb_iff are defined in ScheduleModel and available via
@@ -217,7 +217,7 @@ Proof.
     lia.
 Qed.
 
-(* ===== Phase 6: EDF satisfies GenericDispatchSpec and EDFSchedulerSpec ===== *)
+(* ===== Phase 6: EDF satisfies GenericSchedulingAlgorithm and EDFSchedulerSpec ===== *)
 
 (* The chosen job is always a member of the candidate list. *)
 Lemma choose_edf_in_candidates : forall jobs m sched t candidates j,
@@ -231,20 +231,20 @@ Proof.
 Qed.
 
 (* EDF satisfies the generic (policy-independent) dispatch interface. *)
-Definition edf_generic_spec : GenericDispatchSpec :=
-  mkGenericDispatchSpec
+Definition edf_generic_spec : GenericSchedulingAlgorithm :=
+  mkGenericSchedulingAlgorithm
     choose_edf
     choose_edf_eligible
     choose_edf_some_if_exists
     choose_edf_none_if_no_eligible
     choose_edf_in_candidates.
 
-(* EDF-specific scheduler spec: extends GenericDispatchSpec with the
+(* EDF-specific scheduler spec: extends GenericSchedulingAlgorithm with the
    minimum-deadline invariant.  This is the full EDF interface. *)
 Record EDFSchedulerSpec : Type := mkEDFSchedulerSpec {
   (* Sub-record coercion: an EDFSchedulerSpec can be used where a
-     GenericDispatchSpec is expected. *)
-  edf_generic :> GenericDispatchSpec ;
+     GenericSchedulingAlgorithm is expected. *)
+  edf_generic :> GenericSchedulingAlgorithm ;
 
   (* EDF policy invariant: the chosen job has the minimum absolute deadline
      among all eligible candidates. *)
@@ -318,7 +318,7 @@ End EDFSchedulerLemmasSection.
 Definition edf_scheduler
     (candidates_of : (JobId -> Job) -> nat -> Schedule -> Time -> list JobId)
     : Scheduler :=
-  single_cpu_dispatch_schedule edf_generic_spec candidates_of.
+  single_cpu_algorithm_schedule edf_generic_spec candidates_of.
 
 (* ===== Phase 8: Abstract EDF policy ===== *)
 
@@ -340,7 +340,7 @@ Qed.
    - None: all candidates are ineligible.
    - Some j: j is in the list, eligible, and has minimum deadline among
      all eligible candidates. *)
-Definition edf_policy : DispatchPolicy :=
+Definition edf_policy : SchedulingAlgorithmSpec :=
   fun jobs m sched t candidates oj =>
     match oj with
     | None =>
@@ -354,7 +354,7 @@ Definition edf_policy : DispatchPolicy :=
           job_abs_deadline (jobs j) <= job_abs_deadline (jobs j')
     end.
 
-Lemma edf_policy_sane : PolicySanity edf_policy.
+Lemma edf_policy_sane : SchedulingAlgorithmSpecSanity edf_policy.
 Proof.
   constructor.
   - intros jobs m sched t candidates j Hpol.
@@ -366,9 +366,9 @@ Proof.
 Qed.
 
 Lemma choose_edf_refines_edf_policy :
-  dispatcher_refines_policy edf_generic_spec edf_policy.
+  algorithm_refines_spec edf_generic_spec edf_policy.
 Proof.
-  unfold dispatcher_refines_policy.
+  unfold algorithm_refines_spec.
   intros jobs m sched t candidates.
   unfold edf_policy. simpl.
   destruct (choose_edf jobs m sched t candidates) as [j|] eqn:Hchoose.
@@ -387,11 +387,11 @@ Qed.
 Require Import UniSchedulerInterface.
 Require Import UniSchedulerLemmas.
 
-(* EDFSchedulerSpec maps to GenericDispatchSpec via the edf_generic field. *)
+(* EDFSchedulerSpec maps to GenericSchedulingAlgorithm via the edf_generic field. *)
 #[global]
-Instance HasGenericDispatchSpec_EDFSchedulerSpec
-    : HasGenericDispatchSpec EDFSchedulerSpec := {
-  to_generic_dispatch_spec := edf_generic
+Instance HasGenericSchedulingAlgorithm_EDFSchedulerSpec
+    : HasGenericSchedulingAlgorithm EDFSchedulerSpec := {
+  to_generic_scheduling_algorithm := edf_generic
 }.
 
 (* Bundle that packages all EDF components into the standard UniSchedulerBundle

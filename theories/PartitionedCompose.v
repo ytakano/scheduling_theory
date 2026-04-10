@@ -3,8 +3,8 @@ From Stdlib Require Import Logic.FunctionalExtensionality.
 Require Import Base.
 Require Import ScheduleModel.
 Require Import SchedulerInterface.
-Require Import DispatchInterface.
-Require Import DispatchSchedulerBridge.
+Require Import SchedulingAlgorithmInterface.
+Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import MultiCoreBase.
 Require Import Partitioned.
 
@@ -70,7 +70,7 @@ Qed.
     single-CPU dispatch scheduler_rel hypothesis. *)
 Lemma scheduler_rel_single_cpu_idle :
     forall spec cands jobs (sched : Schedule) t cpu',
-      scheduler_rel (single_cpu_dispatch_schedule spec cands) jobs 1 sched ->
+      scheduler_rel (single_cpu_algorithm_schedule spec cands) jobs 1 sched ->
       0 < cpu' ->
       sched t cpu' = None.
 Proof.
@@ -88,7 +88,7 @@ Theorem glue_local_rels_imply_partitioned_schedule_on :
            jobs (locals : CPU -> Schedule),
       (forall c, c < m ->
         scheduler_rel
-          (single_cpu_dispatch_schedule spec (cands c))
+          (single_cpu_algorithm_schedule spec (cands c))
           jobs 1 (locals c)) ->
       raw_partitioned_schedule_on m spec cands jobs
         (glue_local_schedules m locals).
@@ -122,7 +122,7 @@ Qed.
 Theorem local_witnesses_imply_partitioned_schedulable_by_on :
     forall (assign : JobId -> CPU) (m : nat)
            (valid_assignment : forall j, assign j < m)
-           (spec : GenericDispatchSpec)
+           (spec : GenericSchedulingAlgorithm)
            (J : JobId -> Prop)
            (cands : CPU -> CandidateSource)
            (cands_spec : forall c, c < m ->
@@ -131,7 +131,7 @@ Theorem local_witnesses_imply_partitioned_schedulable_by_on :
            (locals : CPU -> Schedule),
       (forall c, c < m ->
         scheduler_rel
-          (single_cpu_dispatch_schedule spec (cands c))
+          (single_cpu_algorithm_schedule spec (cands c))
           jobs 1 (locals c) /\
         feasible_schedule_on (local_jobset assign J c) jobs 1 (locals c)) ->
       schedulable_by_on J (partitioned_scheduler m spec cands) jobs m.

@@ -2,26 +2,26 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia Bool List.
 Require Import Base.
 Require Import ScheduleModel.
 Require Import SchedulerInterface.
-Require Import DispatchInterface.
+Require Import SchedulingAlgorithmInterface.
 Import ListNotations.
 
-(* Bridge between GenericDispatchSpec and the Scheduler abstraction.
+(* Bridge between GenericSchedulingAlgorithm and the Scheduler abstraction.
    This file provides the standard route from a single-CPU dispatch policy
    to `schedulable_by_on` for a designated job set J.
 
    Reading order:
      1. CandidateSource / CandidateSourceSpec — how job candidates are supplied
-     2. single_cpu_dispatch_schedule — wraps a dispatch policy into a Scheduler
-     3. single_cpu_dispatch_valid — the produced schedule is valid
-     4. single_cpu_dispatch_scheduler_on — subset-aware wrapper
+     2. single_cpu_algorithm_schedule — wraps a dispatch policy into a Scheduler
+     3. single_cpu_algorithm_valid — the produced schedule is valid
+     4. single_cpu_algorithm_scheduler_on — subset-aware wrapper
      5. Inspection lemmas (eq_cpu0, idle_on_other_cpus, in_subset, …)
-     6. single_cpu_dispatch_schedulable_by_on_intro — standard entry point      *)
+     6. single_cpu_algorithm_schedulable_by_on_intro — standard entry point      *)
 
 (* ===== 1. Candidate Source Abstraction ===== *)
 
 (* CandidateSource: a function that supplies the candidate job list at each
    time step.  The candidates do NOT need to all be eligible; the dispatcher
-   skips ineligible ones (see GenericDispatchSpec.dispatch_eligible). *)
+   skips ineligible ones (see GenericSchedulingAlgorithm.dispatch_eligible). *)
 Definition CandidateSource :=
   (JobId -> Job) -> nat -> Schedule -> Time -> list JobId.
 
@@ -51,14 +51,14 @@ Record CandidateSourceSpec
       candidates_of jobs m s1 t = candidates_of jobs m s2 t
 }.
 
-(* ===== 2. single_cpu_dispatch_schedule ===== *)
+(* ===== 2. single_cpu_algorithm_schedule ===== *)
 
 (* Wrap a dispatch policy into a Scheduler relation for the single-CPU
    (m = 1) case.  The relation holds for a schedule sched when:
      - CPU 0 follows the dispatch policy at every time step
      - All other CPUs are idle                                            *)
-Definition single_cpu_dispatch_schedule
-    (spec : GenericDispatchSpec)
+Definition single_cpu_algorithm_schedule
+    (spec : GenericSchedulingAlgorithm)
     (candidates_of : (JobId -> Job) -> nat -> Schedule -> Time -> list JobId)
     : Scheduler :=
   mkScheduler (fun jobs m sched =>
@@ -67,14 +67,14 @@ Definition single_cpu_dispatch_schedule
       sched t 0 = spec.(dispatch) jobs 1 sched t (candidates_of jobs 1 sched t) /\
       forall c, 0 < c -> sched t c = None).
 
-(* ===== 3. single_cpu_dispatch_valid ===== *)
+(* ===== 3. single_cpu_algorithm_valid ===== *)
 
-(* A schedule produced by single_cpu_dispatch_schedule is valid (on 1 CPU),
+(* A schedule produced by single_cpu_algorithm_schedule is valid (on 1 CPU),
    because dispatch_eligible guarantees every dispatched job is eligible,
    and idle CPUs carry no job. *)
-Lemma single_cpu_dispatch_valid :
+Lemma single_cpu_algorithm_valid :
     forall spec candidates_of jobs sched,
-      scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+      scheduler_rel (single_cpu_algorithm_schedule spec candidates_of) jobs 1 sched ->
       valid_schedule jobs 1 sched.
 Proof.
   intros spec cands jobs sched Hrel.
@@ -87,24 +87,24 @@ Proof.
   exact (spec.(dispatch_eligible) jobs 1 sched t _ j Hsched).
 Qed.
 
-(* ===== 4. single_cpu_dispatch_scheduler_on ===== *)
+(* ===== 4. single_cpu_algorithm_scheduler_on ===== *)
 
 (* Subset-aware wrapper.  The CandidateSourceSpec proof is threaded through
    so that callers can use it in subset-schedulability lemmas. *)
-Definition single_cpu_dispatch_scheduler_on
+Definition single_cpu_algorithm_scheduler_on
     (J : JobId -> Prop)
-    (spec : GenericDispatchSpec)
+    (spec : GenericSchedulingAlgorithm)
     (candidates_of : CandidateSource)
     (_ : CandidateSourceSpec J candidates_of)
     : Scheduler :=
-  single_cpu_dispatch_schedule spec candidates_of.
+  single_cpu_algorithm_schedule spec candidates_of.
 
 (* ===== 5. Inspection lemmas ===== *)
 
 (* CPU 0 carries exactly the dispatch result. *)
-Lemma single_cpu_dispatch_eq_cpu0 :
+Lemma single_cpu_algorithm_eq_cpu0 :
     forall spec candidates_of jobs sched t,
-      scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+      scheduler_rel (single_cpu_algorithm_schedule spec candidates_of) jobs 1 sched ->
       sched t 0 = spec.(dispatch) jobs 1 sched t (candidates_of jobs 1 sched t).
 Proof.
   intros spec candidates_of jobs sched t Hrel.
@@ -113,9 +113,9 @@ Proof.
 Qed.
 
 (* Every CPU other than 0 is permanently idle. *)
-Lemma single_cpu_dispatch_idle_on_other_cpus :
+Lemma single_cpu_algorithm_idle_on_other_cpus :
     forall spec candidates_of jobs sched t c,
-      scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+      scheduler_rel (single_cpu_algorithm_schedule spec candidates_of) jobs 1 sched ->
       0 < c -> sched t c = None.
 Proof.
   intros spec candidates_of jobs sched t c Hrel Hc.
@@ -124,10 +124,10 @@ Proof.
 Qed.
 
 (* The scheduled job always belongs to J. *)
-Lemma single_cpu_dispatch_in_subset :
+Lemma single_cpu_algorithm_in_subset :
     forall J spec candidates_of jobs sched t j,
       CandidateSourceSpec J candidates_of ->
-      scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+      scheduler_rel (single_cpu_algorithm_schedule spec candidates_of) jobs 1 sched ->
       sched t 0 = Some j ->
       J j.
 Proof.
@@ -142,10 +142,10 @@ Proof.
 Qed.
 
 (* If some job in J is eligible, CPU 0 is non-idle. *)
-Lemma single_cpu_dispatch_some_if_subset_eligible :
+Lemma single_cpu_algorithm_some_if_subset_eligible :
     forall J spec candidates_of jobs sched t,
       CandidateSourceSpec J candidates_of ->
-      scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+      scheduler_rel (single_cpu_algorithm_schedule spec candidates_of) jobs 1 sched ->
       (exists j, J j /\ eligible jobs 1 sched j t) ->
       exists j', sched t 0 = Some j'.
 Proof.
@@ -166,10 +166,10 @@ Proof.
 Qed.
 
 (* If no job in J is eligible, CPU 0 is idle. *)
-Lemma single_cpu_dispatch_none_if_no_subset_eligible :
+Lemma single_cpu_algorithm_none_if_no_subset_eligible :
     forall J spec candidates_of jobs sched t,
       CandidateSourceSpec J candidates_of ->
-      scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+      scheduler_rel (single_cpu_algorithm_schedule spec candidates_of) jobs 1 sched ->
       (forall j, J j -> ~ eligible jobs 1 sched j t) ->
       sched t 0 = None.
 Proof.
@@ -187,27 +187,27 @@ Qed.
 
 (* Standard entry point: given a witness schedule that is feasible on J,
    conclude schedulable_by_on. *)
-Lemma single_cpu_dispatch_schedulable_by_on_intro :
+Lemma single_cpu_algorithm_schedulable_by_on_intro :
     forall J spec candidates_of cand_spec jobs sched,
       scheduler_rel
-        (single_cpu_dispatch_scheduler_on J spec candidates_of cand_spec)
+        (single_cpu_algorithm_scheduler_on J spec candidates_of cand_spec)
         jobs 1 sched ->
       feasible_schedule_on J jobs 1 sched ->
       schedulable_by_on
         J
-        (single_cpu_dispatch_scheduler_on J spec candidates_of cand_spec)
+        (single_cpu_algorithm_scheduler_on J spec candidates_of cand_spec)
         jobs 1.
 Proof.
   intros J spec candidates_of cand_spec jobs sched Hrel Hfeas.
   apply (schedulable_by_on_intro
            J
-           (single_cpu_dispatch_scheduler_on J spec candidates_of cand_spec)
+           (single_cpu_algorithm_scheduler_on J spec candidates_of cand_spec)
            jobs 1 sched).
   - exact Hrel.
-  - exact (single_cpu_dispatch_valid spec candidates_of jobs sched Hrel).
+  - exact (single_cpu_algorithm_valid spec candidates_of jobs sched Hrel).
   - exact Hfeas.
 Qed.
 
-(* Backward-compatible alias for single_cpu_dispatch_schedulable_by_on_intro. *)
-Abbreviation single_cpu_dispatch_schedulable_by_on :=
-  single_cpu_dispatch_schedulable_by_on_intro.
+(* Backward-compatible alias for single_cpu_algorithm_schedulable_by_on_intro. *)
+Abbreviation single_cpu_algorithm_schedulable_by_on :=
+  single_cpu_algorithm_schedulable_by_on_intro.

@@ -5,8 +5,8 @@ Require Import ScheduleLemmas.ScheduleFacts.
 Require Import ScheduleLemmas.SchedulePrefix.
 Require Import ScheduleLemmas.ScheduleTransform.
 Require Import SchedulerInterface.
-Require Import DispatchInterface.
-Require Import DispatchSchedulerBridge.
+Require Import SchedulingAlgorithmInterface.
+Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import UniPolicies.EDF.
 Require Import UniPolicies.EDFLemmas.
 Import ListNotations.

@@ -3,10 +3,10 @@ Require Import Base.
 Require Import ScheduleModel.
 Require Import ScheduleLemmas.ScheduleFacts.
 Require Import SchedulerInterface.
-Require Import DispatchInterface.
-Require Import DispatchSchedulerBridge.
+Require Import SchedulingAlgorithmInterface.
+Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import SchedulerValidity.
-Require Import DispatcherRefinement.
+Require Import SchedulingAlgorithmRefinement.
 Import ListNotations.
 
 (* FIFO dispatch function:
@@ -24,7 +24,7 @@ Fixpoint choose_fifo (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     else choose_fifo jobs m sched t rest
   end.
 
-(* ===== Phase 1: GenericDispatchSpec Lemmas ===== *)
+(* ===== Phase 1: GenericSchedulingAlgorithm Lemmas ===== *)
 
 (* Lemma 1: The chosen job is eligible. *)
 Lemma choose_fifo_eligible : forall jobs m sched t candidates j,
@@ -93,10 +93,10 @@ Proof.
     + right. apply IH. exact H.
 Qed.
 
-(* ===== Phase 2: Assemble GenericDispatchSpec ===== *)
+(* ===== Phase 2: Assemble GenericSchedulingAlgorithm ===== *)
 
-Definition fifo_generic_spec : GenericDispatchSpec :=
-  mkGenericDispatchSpec
+Definition fifo_generic_spec : GenericSchedulingAlgorithm :=
+  mkGenericSchedulingAlgorithm
     choose_fifo
     choose_fifo_eligible
     choose_fifo_some_if_exists
@@ -173,7 +173,7 @@ End FIFOSchedulerLemmasSection.
 Definition fifo_scheduler
     (candidates_of : (JobId -> Job) -> nat -> Schedule -> Time -> list JobId)
     : Scheduler :=
-  single_cpu_dispatch_schedule fifo_generic_spec candidates_of.
+  single_cpu_algorithm_schedule fifo_generic_spec candidates_of.
 
 (* ===== Phase 5: Abstract FIFO policy ===== *)
 
@@ -200,7 +200,7 @@ Qed.
    - Some j: j is the first eligible entry — there exist prefix and suffix such
      that candidates = prefix ++ j :: suffix, j is eligible, and no job in
      prefix is eligible. *)
-Definition fifo_policy : DispatchPolicy :=
+Definition fifo_policy : SchedulingAlgorithmSpec :=
   fun jobs m sched t candidates oj =>
     match oj with
     | None =>
@@ -212,7 +212,7 @@ Definition fifo_policy : DispatchPolicy :=
           forall j', In j' prefix -> ~eligible jobs m sched j' t
     end.
 
-Lemma fifo_policy_sane : PolicySanity fifo_policy.
+Lemma fifo_policy_sane : SchedulingAlgorithmSpecSanity fifo_policy.
 Proof.
   constructor.
   - intros jobs m sched t candidates j Hpol.
@@ -227,9 +227,9 @@ Proof.
 Qed.
 
 Lemma choose_fifo_refines_fifo_policy :
-  dispatcher_refines_policy fifo_generic_spec fifo_policy.
+  algorithm_refines_spec fifo_generic_spec fifo_policy.
 Proof.
-  unfold dispatcher_refines_policy.
+  unfold algorithm_refines_spec.
   intros jobs m sched t candidates.
   unfold fifo_policy. simpl.
   destruct (choose_fifo jobs m sched t candidates) as [j|] eqn:Hchoose.
@@ -250,13 +250,13 @@ Require Import UniSchedulerInterface.
 Require Import UniSchedulerLemmas.
 
 (* Bundle that packages all FIFO components into the standard UniSchedulerBundle
-   interface.  Spec is GenericDispatchSpec (identity instance from UniSchedulerInterface).
+   interface.  Spec is GenericSchedulingAlgorithm (identity instance from UniSchedulerInterface).
    Client supplies the candidate source; the rest is fixed to FIFO. *)
 Definition fifo_bundle
     (J : JobId -> Prop)
     (candidates_of : CandidateSource)
     (cand_spec : CandidateSourceSpec J candidates_of)
-  : UniSchedulerBundle J GenericDispatchSpec :=
+  : UniSchedulerBundle J GenericSchedulingAlgorithm :=
   mkUniSchedulerBundle
     candidates_of
     fifo_generic_spec

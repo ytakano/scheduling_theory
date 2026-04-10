@@ -3,8 +3,8 @@ Require Import Base.
 Require Import ScheduleModel.
 Require Import ScheduleLemmas.ScheduleFacts.
 Require Import SchedulerInterface.
-Require Import DispatchInterface.
-Require Import DispatchSchedulerBridge.
+Require Import SchedulingAlgorithmInterface.
+Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import MultiCoreBase.
 Require Import UniPolicies.EDF.
 Require Import UniPolicies.FIFO.
@@ -137,7 +137,7 @@ Qed.
 Lemma single_edf_rel :
     scheduler_rel (edf_scheduler singleton_candidates) single_jobs 1 single_sched.
 Proof.
-  unfold edf_scheduler, single_cpu_dispatch_schedule.
+  unfold edf_scheduler, single_cpu_algorithm_schedule.
   split.
   - reflexivity.
   - intro t.
@@ -163,7 +163,7 @@ Qed.
 Lemma single_fifo_rel :
     scheduler_rel (fifo_scheduler singleton_candidates) single_jobs 1 single_sched.
 Proof.
-  unfold fifo_scheduler, single_cpu_dispatch_schedule.
+  unfold fifo_scheduler, single_cpu_algorithm_schedule.
   split.
   - reflexivity.
   - intro t.
@@ -192,11 +192,11 @@ Theorem single_edf_schedulable_by_on :
 Proof.
   change (schedulable_by_on
             J_single
-            (single_cpu_dispatch_scheduler_on
+            (single_cpu_algorithm_scheduler_on
                J_single edf_generic_spec singleton_candidates singleton_candidates_spec)
             single_jobs 1).
   exact
-    (single_cpu_dispatch_schedulable_by_on_intro
+    (single_cpu_algorithm_schedulable_by_on_intro
        J_single
        edf_generic_spec
        singleton_candidates
@@ -212,11 +212,11 @@ Theorem single_fifo_schedulable_by_on :
 Proof.
   change (schedulable_by_on
             J_single
-            (single_cpu_dispatch_scheduler_on
+            (single_cpu_algorithm_scheduler_on
                J_single fifo_generic_spec singleton_candidates singleton_candidates_spec)
             single_jobs 1).
   exact
-    (single_cpu_dispatch_schedulable_by_on_intro
+    (single_cpu_algorithm_schedulable_by_on_intro
        J_single
        fifo_generic_spec
        singleton_candidates
@@ -488,7 +488,7 @@ Lemma edf_single_bundle_rel :
     scheduler_rel edf_single_scheduler single_jobs 1 single_sched.
 Proof.
   unfold edf_single_scheduler, uni_scheduler_on, edf_single_bundle, edf_bundle,
-         single_cpu_dispatch_scheduler_on, single_cpu_dispatch_schedule.
+         single_cpu_algorithm_scheduler_on, single_cpu_algorithm_schedule.
   split.
   - reflexivity.
   - intro t.
@@ -544,7 +544,7 @@ Lemma pair_local0_edf_rel :
       (edf_scheduler (pair_cands 0))
       pair_jobs 1 (pair_locals 0).
 Proof.
-  unfold edf_scheduler, single_cpu_dispatch_schedule, pair_locals.
+  unfold edf_scheduler, single_cpu_algorithm_schedule, pair_locals.
   split.
   - reflexivity.
   - intro t.
@@ -576,7 +576,7 @@ Lemma pair_local1_edf_rel :
       (edf_scheduler (pair_cands 1))
       pair_jobs 1 (pair_locals 1).
 Proof.
-  unfold edf_scheduler, single_cpu_dispatch_schedule, pair_locals.
+  unfold edf_scheduler, single_cpu_algorithm_schedule, pair_locals.
   split.
   - reflexivity.
   - intro t.

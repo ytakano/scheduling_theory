@@ -20,7 +20,7 @@ Import ListNotations.
      interface; doing so would force every policy (EDF, FIFO, RR, …) to carry
      unwanted dependencies. *)
 
-Record GenericDispatchSpec : Type := mkGenericDispatchSpec {
+Record GenericSchedulingAlgorithm : Type := mkGenericSchedulingAlgorithm {
   (* The dispatch function: given a job map, CPU count, schedule, time,
      and a list of candidate jobs, return the chosen job (if any).
      The list may contain ineligible jobs; the dispatcher skips them. *)

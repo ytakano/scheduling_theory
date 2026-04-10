@@ -1,10 +1,10 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
-Require Import DispatchInterface.
+Require Import SchedulingAlgorithmInterface.
 Import ListNotations.
 
-(* Policy-independent lemmas derived from GenericDispatchSpec.
+(* Policy-independent lemmas derived from GenericSchedulingAlgorithm.
    All results hold for any concrete scheduler satisfying the interface.
    EDF-specific facts (choose_min_deadline, min-deadline corollaries) live
    in EDF.v under EDFSchedulerSpec. *)
@@ -22,9 +22,9 @@ Definition candidates_complete (jobs : JobId -> Job) (m : nat) (sched : Schedule
     (t : Time) (candidates : list JobId) : Prop :=
   forall j, eligible jobs m sched j t -> In j candidates.
 
-Section DispatchLemmasSection.
+Section SchedulingAlgorithmLemmasSection.
 
-  Variable spec        : GenericDispatchSpec.
+  Variable spec        : GenericSchedulingAlgorithm.
   Variable jobs        : JobId -> Job.
   Variable m           : nat.
   Variable sched       : Schedule.
@@ -186,4 +186,4 @@ Section DispatchLemmasSection.
     - exact Helig.
   Qed.
 
-End DispatchLemmasSection.
+End SchedulingAlgorithmLemmasSection.

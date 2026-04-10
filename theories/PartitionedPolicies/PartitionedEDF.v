@@ -2,8 +2,8 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
 Require Import SchedulerInterface.
-Require Import DispatchInterface.
-Require Import DispatchSchedulerBridge.
+Require Import SchedulingAlgorithmInterface.
+Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import Partitioned.
 Require Import PartitionedCompose.
 Require Import UniPolicies.EDF.

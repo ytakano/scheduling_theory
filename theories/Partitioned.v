@@ -4,14 +4,14 @@ Require Import ScheduleModel.
 Require Import ScheduleLemmas.ScheduleFacts.
 Require Import MultiCoreBase.
 Require Import SchedulerInterface.
-Require Import DispatchInterface.
-Require Import DispatchSchedulerBridge.
+Require Import SchedulingAlgorithmInterface.
+Require Import SchedulingAlgorithmSchedulerBridge.
 Import ListNotations.
 
 (* ===== Partitioned Scheduling: Definitions and Core Theorems (Lv.5) =====
 
    A partitioned multiprocessor schedule statically assigns each job to exactly
-   one CPU.  Each CPU runs an independent single-CPU scheduler (GenericDispatchSpec).
+   one CPU.  Each CPU runs an independent single-CPU scheduler (GenericSchedulingAlgorithm).
    The multicore schedule is the pointwise union of the per-CPU schedules.
 
    Core theorems proved here:
@@ -29,7 +29,7 @@ Import ListNotations.
        API) distinction is stable: clients use valid_partitioned_schedule.
      - The enumJ/filter concrete implementation lives in PartitionedEnumCandidates.
      - partitioned_schedule_on_iff_local_rel aligns multicore dispatch with
-       single_cpu_dispatch_schedule per CPU (bridge-style).
+       single_cpu_algorithm_schedule per CPU (bridge-style).
      - partitioned_schedulable_by_on_from_local is the canonical 3-step entry
        point for global schedulability from per-CPU local feasibility.
 
@@ -57,8 +57,8 @@ Section PartitionedSection.
   Variable valid_assignment : forall j, assign j < m.
 
   (* Per-CPU dispatch policy (generic; any scheduler satisfying
-     GenericDispatchSpec can be used, e.g. EDF, FIFO, RR). *)
-  Variable spec : GenericDispatchSpec.
+     GenericSchedulingAlgorithm can be used, e.g. EDF, FIFO, RR). *)
+  Variable spec : GenericSchedulingAlgorithm.
 
   (* The set of jobs in the system. *)
   Variable J : JobId -> Prop.
@@ -240,13 +240,13 @@ Section PartitionedSection.
   (* partitioned_schedule_on is equivalent to each CPU satisfying the
      single-CPU dispatch bridge relation on its local view.
      This is the bridge alignment: partitioned multicore reduces to
-     single_cpu_dispatch_schedule per CPU. *)
+     single_cpu_algorithm_schedule per CPU. *)
   Lemma partitioned_schedule_on_iff_local_rel :
     forall jobs sched,
       raw_partitioned_schedule_on jobs sched <->
       (forall c, c < m ->
         scheduler_rel
-          (single_cpu_dispatch_schedule spec (local_candidates_of c))
+          (single_cpu_algorithm_schedule spec (local_candidates_of c))
           jobs 1 (cpu_schedule sched c)).
   Proof.
     intros jobs sched.
@@ -505,7 +505,7 @@ Section PartitionedEnumCandidates.
 
 End PartitionedEnumCandidates.
 
-(* ===== PartitionedDispatchContext ===== *)
+(* ===== PartitionedAlgorithmContext ===== *)
 
 (* A record bundling all invariants needed for a well-formed partitioned
    multiprocessor scheduler context.  Clients can build one of these to
@@ -521,11 +521,11 @@ End PartitionedEnumCandidates.
      part_J            — the job set in the system
      part_candidates   — abstract per-CPU CandidateSource
      part_cand_spec    — CandidateSourceSpec proof for every CPU *)
-Record PartitionedDispatchContext := mkPartitionedDispatchContext {
+Record PartitionedAlgorithmContext := mkPartitionedAlgorithmContext {
   part_assign       : JobId -> CPU;
   part_m            : nat;
   part_valid_assign : forall j, part_assign j < part_m;
-  part_spec         : GenericDispatchSpec;
+  part_spec         : GenericSchedulingAlgorithm;
   part_J            : JobId -> Prop;
   part_candidates   : CPU -> CandidateSource;
   part_cand_spec    :
@@ -535,7 +535,7 @@ Record PartitionedDispatchContext := mkPartitionedDispatchContext {
         (part_candidates c)
 }.
 
-(* Build a Scheduler from a PartitionedDispatchContext.
+(* Build a Scheduler from a PartitionedAlgorithmContext.
    Defined after partitioned_scheduler below. *)
 
 
@@ -550,22 +550,22 @@ Record PartitionedDispatchContext := mkPartitionedDispatchContext {
    enum_local_candidates_of. *)
 Definition partitioned_scheduler
     (n : nat)
-    (spec : GenericDispatchSpec)
+    (spec : GenericSchedulingAlgorithm)
     (cands : CPU -> CandidateSource)
     : Scheduler :=
   mkScheduler (fun jobs m sched =>
     m = n /\
     valid_partitioned_schedule n spec cands jobs sched).
 
-(* Build a Scheduler from a PartitionedDispatchContext. *)
-Definition partitioned_scheduler_of (ctx : PartitionedDispatchContext) : Scheduler :=
+(* Build a Scheduler from a PartitionedAlgorithmContext. *)
+Definition partitioned_scheduler_of (ctx : PartitionedAlgorithmContext) : Scheduler :=
   partitioned_scheduler ctx.(part_m) ctx.(part_spec) ctx.(part_candidates).
 
 (* Standard entry point: given a witness schedule whose scheduler_rel holds and
    which is feasible on J, conclude schedulable_by_on J.
-   Mirrors single_cpu_dispatch_schedulable_by_on_intro for the partitioned case. *)
+   Mirrors single_cpu_algorithm_schedulable_by_on_intro for the partitioned case. *)
 Corollary partitioned_schedulable_by_on_intro :
-    forall (n : nat) (spec : GenericDispatchSpec)
+    forall (n : nat) (spec : GenericSchedulingAlgorithm)
            (cands : CPU -> CandidateSource)
            (J : JobId -> Prop) (jobs : JobId -> Job)
            (sched : Schedule),
@@ -592,7 +592,7 @@ Qed.
 Lemma partitioned_schedulable_by_on_from_local :
     forall (assign : JobId -> CPU) (n : nat)
            (valid_assign : forall j, assign j < n)
-           (spec : GenericDispatchSpec)
+           (spec : GenericSchedulingAlgorithm)
            (J : JobId -> Prop)
            (cands : CPU -> CandidateSource)
            (cands_spec : forall c, c < n ->

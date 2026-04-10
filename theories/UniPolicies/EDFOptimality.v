@@ -6,8 +6,8 @@ Require Import ScheduleLemmas.SchedulePrefix.
 Require Import ScheduleLemmas.ScheduleTransform.
 Require Import ScheduleLemmas.ScheduleRestriction.
 Require Import SchedulerInterface.
-Require Import DispatchInterface.
-Require Import DispatchSchedulerBridge.
+Require Import SchedulingAlgorithmInterface.
+Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import UniPolicies.EDF.
 Require Import UniPolicies.EDFLemmas.
 Require Import UniPolicies.EDFTransform.
@@ -469,7 +469,7 @@ Lemma canonical_and_idle_implies_scheduler_rel :
 Proof.
   intros J enumJ candidates_of cand_spec jobs sched
          HJ_in Hvalid Hfeas Honly Hcanon Hidle.
-  unfold edf_scheduler, single_cpu_dispatch_scheduler_on, single_cpu_dispatch_schedule.
+  unfold edf_scheduler, single_cpu_algorithm_scheduler_on, single_cpu_algorithm_schedule.
   simpl.
   split.
   - reflexivity.
@@ -554,6 +554,6 @@ Proof.
   { exact (canonical_and_idle_implies_scheduler_rel J enumJ candidates_of cand_spec
              jobs sched3 HJ_in Hvalid3 Hfeas3 Hcpu3 Hcanon3 Hidle3). }
   (* Step 6: apply schedulable_by_on intro *)
-  exact (single_cpu_dispatch_schedulable_by_on_intro J edf_generic_spec candidates_of
+  exact (single_cpu_algorithm_schedulable_by_on_intro J edf_generic_spec candidates_of
            cand_spec jobs sched3 Hrel Hfeas3).
 Qed.
