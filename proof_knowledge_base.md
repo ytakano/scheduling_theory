@@ -1549,3 +1549,172 @@
 - **Dependencies**: `service_increases_implies_executed_in_interval`, `not_completed_iff_service_lt_cost`, `completed_iff_service_ge_cost`, `service_job_monotone`, `cpu_count_pos_iff_executed`, `NNPP` (Classical), `classic` (Classical)
 - **Notes**: ⚠️ `feasible_schedule_on J jobs 1 sched` provides `J j -> ~missed_deadline j`, i.e., `~~completed j (deadline j)`. To get `completed`, use `apply NNPP` + `unfold missed_deadline in Hfeas` to expose the double negation. ⚠️ Do NOT use `apply (Hfeas j HJj)` directly on a `completed` goal — the types won't unify without unfolding. ⚠️ `by_contra` is not in scope in Rocq 9 without extra imports; use `destruct (classic ...) as [H | H]` instead.
 - **Date**: 2026-04-10
+
+---
+
+### `edf_violation_at_in` / `edf_violation_at_with`
+- **Type**: Definition (Section 7, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Definition edf_violation_at_in J jobs sched t cands : Prop :=
+    exists j j', J j /\ J j' /\ sched t 0 = Some j /\
+      In j' cands /\ eligible jobs 1 sched j' t /\
+      job_abs_deadline (jobs j') < job_abs_deadline (jobs j).
+  Definition edf_violation_at_with J candidates_of jobs sched t :=
+    edf_violation_at_in J jobs sched t (candidates_of jobs 1 sched t).
+  ```
+- **Proof Strategy**: Definitions only; finite-candidate-based violation for constructive reasoning.
+- **Key Tactics**: N/A
+- **Dependencies**: `eligible`, `CandidateSource`
+- **Notes**: Replaces `edf_violation_at` (which quantifies over all JobId) for constructive proof contexts.
+- **Date**: 2026-04-10
+
+---
+
+### `matches_choose_edf_at_with_no_finite_violation`
+- **Type**: Lemma (Section 7, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma matches_choose_edf_at_with_no_finite_violation :
+    forall J candidates_of (cand_spec : CandidateSourceSpec J candidates_of) jobs sched t,
+      matches_choose_edf_at_with jobs candidates_of sched t ->
+      ~ edf_violation_at_with J candidates_of jobs sched t.
+  ```
+- **Proof Strategy**: Unfold `edf_violation_at_with`/`_in`, extract witnesses j/j', apply `matches_choose_edf_at_with_no_earlier_eligible_job` (which requires `J j'`, `eligible j' t`, `deadline j' < deadline j` and derives contradiction).
+- **Key Tactics**: `unfold`, `destruct`, `exact`
+- **Dependencies**: `matches_choose_edf_at_with_no_earlier_eligible_job`, `edf_violation_at_in`
+- **Notes**: `J j` (running job membership) and `In j' cands` from the violation are not needed by the underlying lemma — it derives `In j'` internally via `candidates_complete`.
+- **Date**: 2026-04-10
+
+---
+
+### `edf_violationb_in` / `edf_violationb_at_with`
+- **Type**: Definition (Section 8, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Definition edf_violationb_in J_bool jobs sched t cands :=
+    match sched t 0 with
+    | None => false
+    | Some j =>
+      J_bool j &&
+      existsb (fun j' => J_bool j' && eligibleb jobs 1 sched j' t &&
+        Nat.ltb (job_abs_deadline (jobs j')) (job_abs_deadline (jobs j))) cands
+    end.
+  Definition edf_violationb_at_with J_bool candidates_of jobs sched t :=
+    edf_violationb_in J_bool jobs sched t (candidates_of jobs 1 sched t).
+  ```
+- **Proof Strategy**: Definitions only. Boolean counterpart of `edf_violation_at_in`/`_with`.
+- **Key Tactics**: N/A
+- **Dependencies**: `eligibleb`, `Nat.ltb`, `existsb`
+- **Notes**: Takes `J_bool : JobId -> bool` (decidable membership) instead of `J : JobId -> Prop`.
+- **Date**: 2026-04-10
+
+---
+
+### `edf_violationb_in_true_iff`
+- **Type**: Lemma (Section 8, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma edf_violationb_in_true_iff :
+    forall J_bool J jobs sched t cands,
+      (forall j, J_bool j = true <-> J j) ->
+      edf_violationb_in J_bool jobs sched t cands = true <->
+      edf_violation_at_in J jobs sched t cands.
+  ```
+): `destruct (sched t 0) as [j|]`, discriminate None case; `andb_true_iff`, `existsb_exists`, `Nat.ltb_lt`, `eligibleb_iff`, `proj1 (HJ_bool ...)`. Backward (←): `rewrite Hsched`, `andb_true_iff`, `existsb_exists`, `proj2 (HJ_bool ...)`, `eligibleb_iff`, `Nat.ltb_lt`.
+- **Key Tactics**: `destruct (sched t 0) as [j|] eqn:Hsched`, `andb_true_iff`, `existsb_exists`, `Nat.ltb_lt`, `eligibleb_iff`, `proj1`/`proj2`
+- **Dependencies**: `eligibleb_iff`, `Nat.ltb_lt`, `andb_true_iff`, `existsb_exists`
+- ** After `destruct (sched t 0) as [j|] eqn:Hsched`, the sub-goal for `sched t 0 = Some j` reduces to `Some j = Some j` → use `reflexivity`, NOT `exact Hsched`. ⚠️ Use `apply (proj1 (HJ_bool j)) in Hjb` and `apply (proj2 (HJ_bool j))` for boolean↔Prop conversion.Notes**: 
+- **Date**: 2026-04-10
+
+---
+
+### `find_first_in_range` / `first_nat_up_to`
+- **Type**: Fixpoint / Definition (Section 9, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Fixpoint find_first_in_range (p : nat -> bool) (base n : nat) : option nat :=
+    match n with
+    | 0 => None
+    | S n' => if p base then Some base else find_first_in_range p (S base) n'
+    end.
+  Definition first_nat_up_to H p := find_first_in_range p 0 H.
+  ```
+- **Proof Strategy**: Definitions only. `first_nat_up_to H p` searches [0, H) for the first t with `p t = true`.
+- **Key Tactics**: N/A
+- **Dependencies**: none
+- **Notes**: Search is structurally recursive on the remaining count `n`, not on `base`. Avoids well-founded recursion.
+- **Date**: 2026-04-10
+
+---
+
+### `find_first_in_range_some_spec`
+- **Type**: Lemma (Section 9, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma find_first_in_range_some_spec :
+    forall n p base t0,
+      find_first_in_range p base n = Some t0 ->
+      base <= t0 < base + n /\ p t0 = true /\
+      (forall t, base <= t -> t < t0 -> p t = false).
+  ```
+- **Proof Strategy**: Induction on n. Base: discriminate. Step S n': `cbn in H` to unfold one step, `destruct (p base) eqn:Hpbase`. True case: `injection H as Heq. rewrite <- Heq.` (replaces t0 with base). False case: `specialize (IH p (S base) t0 H)` then adjust bounds with `lia`; minimality case-splits on `t = base` (use Hpbase) vs `t > base` (use IH minimality).
+- **Key Tactics**: `induction n`, `cbn in H`, `injection H as Heq`, `rewrite <- Heq`, `specialize (IH p (S base) t0 H)`, `Nat.eq_dec`, `lia`
+- **Dependencies**: `find_first_in_range`
+- **Notes**: ⚠️ Use `cbn in H` rather than `simpl in H` for reliable fixpoint unfolding. ⚠️ The minimality branch requires BOTH `Hle : base <= t` and `Hlt : t < base` for `lia` to close by contradiction — do NOT discard `Hle` with `_`.
+- **Date**: 2026-04-10
+
+---
+
+### `find_first_in_range_none_spec`
+- **Type**: Lemma (Section 9, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma find_first_in_range_none_spec :
+    forall n p base,
+      find_first_in_range p base n = None ->
+      forall t, base <= t -> t < base + n -> p t = false.
+  ```
+- **Proof Strategy**: Induction on n. Base: `lia` closes vacuous `t < base + 0 = base` goal. Step S n': `cbn in H`, if `p base = true` discriminate; case split `t = base` (exact Hpbase) vs `t > base` (delegate to IH with adjusted bounds via `lia`).
+- **Key Tactics**: `induction n`, `cbn in H`, `Nat.eq_dec`, `lia`
+- **Dependencies**: `find_first_in_range`
+- **Notes**: Mirror of `find_first_in_range_some_spec`.
+- **Date**: 2026-04-10
+
+---
+
+### `first_nat_up_to_some_spec` / `first_nat_up_to_none_spec`
+- **Type**: Lemma (Section 9, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma first_nat_up_to_some_spec :
+    forall H p t0, first_nat_up_to H p = Some t0 ->
+      t0 < H /\ p t0 = true /\ (forall t, t < t0 -> p t = false).
+  Lemma first_nat_up_to_none_spec :
+    forall H p, first_nat_up_to H p = None -> forall t, t < H -> p t = false.
+  ```
+- **Proof Strategy**: Unfold `first_nat_up_to`, apply `find_first_in_range_some/none_spec` with `base=0`. `0 <= t` by `Nat.le_0_l`. `t < 0 + H` is definitionally `t < H`. `lia` handles bound arithmetic.
+- **Key Tactics**: `unfold first_nat_up_to`, `find_first_in_range_some_spec`, `find_first_in_range_none_spec`, `Nat.le_0_l`, `lia`
+- **Dependencies**: `find_first_in_range_some_spec`, `find_first_in_range_none_spec`
+- **Notes**: `t < 0 + H` is definitionally equal to `t < H` in Rocq so no rewriting needed for the bound.
+- **Date**: 2026-04-10
+
+---
+
+### `exists_first_edf_violation_before_with`
+- **Type**: Lemma (Section 9, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma exists_first_edf_violation_before_with :
+    forall J J_bool candidates_of jobs sched H,
+      (forall j, J_bool j = true <-> J j) ->
+      (exists t, t < H /\ edf_violation_at_with J candidates_of jobs sched t) ->
+      exists t0,
+        t0 < H /\ edf_violation_at_with J candidates_of jobs sched t0 /\
+        (forall t, t < t0 -> ~ edf_violation_at_with J candidates_of jobs sched t).
+  ```
+- **Proof Strategy**: (1) Convert Prop violation to Boolean via `edf_violationb_at_with_true_iff`. (2) `destruct (first_nat_up_to H ...) as [t0|] eqn:Hopt`. Some case: `first_nat_up_to_some_spec` gives t0 < H, boolean true, minimality; convert back via iff; for minimality contradiction use `rewrite (Hmin t' Hlt') in Hb'. discriminate.`. None case: `pose proof (first_nat_up_to_none_spec H _ Hopt t HtH) as Hcontra. rewrite Hcontra in Hviol_b. discriminate.`
+- **Key Tactics**: `edf_violationb_at_with_true_iff`, `first_nat_up_to_some_spec`, `first_nat_up_to_none_spec`, `destruct ... eqn:Hopt`, `pose proof`, `rewrite ... in ...`, `discriminate`
+- **Dependencies**: `edf_violationb_at_with_true_iff`, `first_nat_up_to_some_spec`, `first_nat_up_to_none_spec`, `edf_violation_at_with`, `edf_violationb_at_with`
+- **Notes**: Constructive replacement for `exists_first_edf_violation_before` — no `classic` needed. Requires decidable `J_bool` as input. The None branch derives contradiction by showing the known violation would be undetected.
+- **Date**: 2026-04-10
