@@ -1506,3 +1506,46 @@
 - **Dependencies**: `matches_choose_edf_at_with_no_earlier_eligible_job`, `respects_edf_priority_at_on`
 - **Notes**: The first `J j` hypothesis in `respects_edf_priority_at_on` (i.e., `J j` for the running job) is not needed here — use `_` to discard it.
 - **Date**: 2026-04-09
+
+---
+
+### `service_increases_implies_executed_in_interval`
+- **Type**: Lemma (6-1, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma service_increases_implies_executed_in_interval :
+    forall m sched j t1 t2,
+      t1 < t2 ->
+      service_job m sched j t1 < service_job m sched j t2 ->
+      exists t',
+        t1 <= t' < t2 /\
+        0 < cpu_count m sched j t'.
+  ```
+- **Proof Strategy**: Induction on `t2`. Base case `t2 = 0` contradicts `t1 < 0`. Step case `t2 = S t2'`: rewrite `service_job_step` to expose `cpu_count` at `t2'`. Case split via `Nat.eq_dec (cpu_count ... t2') 0`. If nonzero: `t' = t2'` is the witness. If zero: service didn't change at last step, so service must have increased over `[t1, t2')`. Use `Nat.eq_dec t1 t2'` to derive `t1 < t2'` (if `t1 = t2'` then `service_job t1 < service_job t1`, contradiction), then apply IH.
+- **Key Tactics**: `induction t2`, `rewrite service_job_step in Hinc`, `Nat.eq_dec`, `lia`
+- **Dependencies**: `service_job_step`, `cpu_count`, `service_job`
+- **Notes**: ⚠️ `Nat.lt_or_eq` does not exist in Rocq 9. Use `Nat.eq_dec` to case-split on equality. ⚠️ `Nat.le_or_lt` and `le_or_lt` are not in scope; use `classic` from Classical for dichotomy on nat comparison.
+- **Date**: 2026-04-10
+
+---
+
+### `eligible_feasible_implies_runs_later_before_deadline`
+- **Type**: Lemma (6-2, EDFLemmas.v)
+- **Statement**:
+  ```coq
+  Lemma eligible_feasible_implies_runs_later_before_deadline :
+    forall J jobs sched j t,
+      J j ->
+      valid_schedule jobs 1 sched ->
+      feasible_schedule_on J jobs 1 sched ->
+      eligible jobs 1 sched j t ->
+      exists t',
+        t <= t' /\
+        t' < job_abs_deadline (jobs j) /\
+        sched t' 0 = Some j.
+  ```
+- **Proof Strategy**: Chain: (1) `eligible → ~completed → service < cost` via `not_completed_iff_service_lt_cost`; (2) `feasible_schedule_on + J j → ~missed_deadline → ~~completed → completed → service >= cost` via `NNPP + completed_iff_service_ge_cost`; (3) combine for service strictly increases from t to deadline; (4) `t < deadline` by `classic` + contrapositive via `service_job_monotone`; (5) apply `service_increases_implies_executed_in_interval`; (6) for m=1, `cpu_count_pos_iff_executed` gives `c < 1` so `c = 0` by `lia`, thus `sched t' 0 = Some j`.
+- **Key Tactics**: `not_completed_iff_service_lt_cost`, `NNPP`, `unfold missed_deadline in Hfeas`, `completed_iff_service_ge_cost`, `lia`, `classic`, `service_job_monotone`, `service_increases_implies_executed_in_interval`, `cpu_count_pos_iff_executed`
+- **Dependencies**: `service_increases_implies_executed_in_interval`, `not_completed_iff_service_lt_cost`, `completed_iff_service_ge_cost`, `service_job_monotone`, `cpu_count_pos_iff_executed`, `NNPP` (Classical), `classic` (Classical)
+- **Notes**: ⚠️ `feasible_schedule_on J jobs 1 sched` provides `J j -> ~missed_deadline j`, i.e., `~~completed j (deadline j)`. To get `completed`, use `apply NNPP` + `unfold missed_deadline in Hfeas` to expose the double negation. ⚠️ Do NOT use `apply (Hfeas j HJj)` directly on a `completed` goal — the types won't unify without unfolding. ⚠️ `by_contra` is not in scope in Rocq 9 without extra imports; use `destruct (classic ...) as [H | H]` instead.
+- **Date**: 2026-04-10

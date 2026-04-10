@@ -534,3 +534,79 @@ Proof.
   exact (matches_choose_edf_at_with_no_earlier_eligible_job
            J candidates_of cand_spec jobs sched t j Hmatch Hsched j' HJj' Helig Hlt).
 Qed.
+
+(* ===== Section 6: 交換相手が後ろに存在する補題 ===== *)
+
+(* 6-1: service が区間 [t1, t2) で厳密に増加するなら、実行ステップが存在する *)
+Lemma service_increases_implies_executed_in_interval :
+  forall m sched j t1 t2,
+    t1 < t2 ->
+    service_job m sched j t1 < service_job m sched j t2 ->
+    exists t',
+      t1 <= t' < t2 /\
+      0 < cpu_count m sched j t'.
+Proof.
+  intros m sched j t1 t2 Hlt Hinc.
+  induction t2 as [| t2' IH].
+  - (* t2 = 0: contradiction with t1 < 0 *)
+    lia.
+  - (* t2 = S t2' *)
+    rewrite service_job_step in Hinc.
+    destruct (Nat.eq_dec (cpu_count m sched j t2') 0) as [Hzero | Hpos].
+    + (* cpu_count at t2' = 0: service didn't change at last step *)
+      rewrite Hzero in Hinc.
+      rewrite Nat.add_0_r in Hinc.
+      (* So service_job t1 < service_job t2' *)
+      assert (Hlt' : t1 < t2').
+      { destruct (Nat.eq_dec t1 t2') as [Heq | Hne].
+        - subst t2'. lia. (* Hinc : service_job j t1 < service_job j t1, contradiction *)
+        - lia. }
+      destruct (IH Hlt' Hinc) as [t' [[Hle Hlt''] Hcpu]].
+      exists t'. split. split. exact Hle. lia. exact Hcpu.
+    + (* cpu_count at t2' > 0: t' = t2' is the witness *)
+      exists t2'. split. split. lia. lia. lia.
+Qed.
+
+(* 6-2: eligible かつ feasible なら、deadline 前に実行スロットが存在する *)
+Lemma eligible_feasible_implies_runs_later_before_deadline :
+  forall J jobs sched j t,
+    J j ->
+    valid_schedule jobs 1 sched ->
+    feasible_schedule_on J jobs 1 sched ->
+    eligible jobs 1 sched j t ->
+    exists t',
+      t <= t' /\
+      t' < job_abs_deadline (jobs j) /\
+      sched t' 0 = Some j.
+Proof.
+  intros J jobs sched j t HJj Hvalid Hfeas Helig.
+  (* Step 1: eligible → service at t < cost *)
+  assert (Hlt_cost : service_job 1 sched j t < job_cost (jobs j)).
+  { apply not_completed_iff_service_lt_cost. exact (proj2 Helig). }
+  (* Step 2: feasible + J j → service at deadline >= cost (constructive: proof by negation) *)
+  assert (Hge_cost : job_cost (jobs j) <= service_job 1 sched j (job_abs_deadline (jobs j))).
+  { destruct (le_lt_dec (job_cost (jobs j)) (service_job 1 sched j (job_abs_deadline (jobs j))))
+        as [Hge | Hlt_dl].
+    - exact Hge.
+    - exfalso. apply (Hfeas j HJj). unfold missed_deadline.
+      apply not_completed_iff_service_lt_cost. exact Hlt_dl. }
+  (* Step 3: service strictly increases from t to deadline *)
+  assert (Hinc : service_job 1 sched j t < service_job 1 sched j (job_abs_deadline (jobs j))).
+  { lia. }
+  (* t < deadline: constructive via lt_dec + service_job_monotone contradiction *)
+  assert (Htlt : t < job_abs_deadline (jobs j)).
+  { destruct (lt_dec t (job_abs_deadline (jobs j))) as [Hlt | Hnlt].
+    - exact Hlt.
+    - exfalso.
+      assert (Hge : job_abs_deadline (jobs j) <= t) by lia.
+      pose proof (service_job_monotone 1 sched j _ _ Hge) as Hmon.
+      lia. }
+  (* Step 4: extract execution point t' in [t, deadline) *)
+  destruct (service_increases_implies_executed_in_interval 1 sched j t (job_abs_deadline (jobs j))
+              Htlt Hinc) as [t' [[Hle Hlt'] Hcpu]].
+  (* Step 5: cpu_count 1 > 0 → sched t' 0 = Some j *)
+  destruct (proj1 (cpu_count_pos_iff_executed 1 sched j t') Hcpu) as [c [Hclt Hrun]].
+  assert (Hc0 : c = 0) by lia.
+  subst c.
+  exists t'. split. exact Hle. split. exact Hlt'. exact Hrun.
+Qed.
