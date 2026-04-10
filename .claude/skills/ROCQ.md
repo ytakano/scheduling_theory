@@ -150,6 +150,76 @@ A proof is considered complete only when there are **no compilation errors**. If
 
 ---
 
+## Constructive-First Proof Policy
+
+This project follows a **constructive-first** discipline. Classical axioms must be treated as a last resort and isolated to prevent propagation through the constructive core.
+
+### A. Default: Always Try Constructive First
+
+Before reaching for classical axioms, exhaust all constructive alternatives:
+
+- Use **boolean reflection**: `Nat.eqb`, `Nat.leb`, `Bool.reflect`, etc.
+- Use **decidable propositions**: the `decide` tactic, `Decidable` typeclass, or stdpp's `Decision` typeclass with `bool_decide`.
+- Use **constructive decision procedures** from Stdlib: `le_lt_dec`, `lt_dec`, `Nat.eq_dec`, `Nat.lt_ge_cases`.
+- Avoid `classic`, `NNPP`, `excluded_middle`, or any import of `Classical` / `Classical_Prop` in constructive files.
+
+When writing `progress/<name>_plan.md`, record the intended proof style:
+
+```markdown
+## Proof Style
+- [ ] Constructive (preferred)
+- [ ] Classical (must justify below)
+
+## Justification for Classical Use (if applicable)
+<Explain why no constructive proof is available>
+```
+
+### B. Isolation Rule for Classical Logic
+
+If a classical axiom is genuinely unavoidable:
+
+1. **Do NOT add it to an existing constructive file.** Check the file's imports first — if it does not already import `Classical`, it must stay classical-free.
+2. Place the classical lemma in a dedicated file following the project naming convention:
+   - `theories/<Module>ClassicalLemmas.v` — e.g., `DispatchClassicalLemmas.v`, `UniPolicies/EDFClassicalLemmas.v`
+   - The file must import `Classical` (or `Classical_Prop`) explicitly at the top.
+3. The constructive core files (e.g., `DispatchLemmas.v`, `UniPolicies/EDFLemmas.v`) must **never** `Require Import Classical`.
+4. Add a comment at the top of every constructive file to document its status:
+   ```coq
+   (* Fully constructive: no Classical import. *)
+   ```
+5. Add a comment at the top of every classical file to document its status:
+   ```coq
+   (* Classical lemmas: imports Classical_Prop.
+      Isolated here to prevent propagation to the constructive core. *)
+   ```
+
+### C. Decision Procedure Preference Order
+
+When handling `P \/ ~P`, `{P} + {~P}`, or `P = Q \/ P <> Q`, use the **first** applicable technique:
+
+| Priority | Technique | Example |
+|----------|-----------|---------|
+| 1 (best) | Boolean reflection | `Nat.eqb_eq`, `Nat.leb_le`, `Bool.reflect` |
+| 2 | stdpp `Decision` / `decide` | `decide (n = m)`, `bool_decide` |
+| 3 | Stdlib decidability | `Nat.eq_dec`, `le_lt_dec`, `lt_dec`, `Nat.lt_ge_cases` |
+| 4 (last resort) | Classical axiom | `classic`, `NNPP` — only in `*ClassicalLemmas.v` |
+
+### D. Tagging in `proof_knowledge_base.md`
+
+Add a `**Proof Kind**` field to every entry:
+
+```markdown
+- **Proof Kind**: Constructive
+```
+or
+```markdown
+- **Proof Kind**: Classical (isolated in `theories/DispatchClassicalLemmas.v`)
+```
+
+This makes it easy to audit which results depend on classical axioms.
+
+---
+
 ## Handling Failed and Unprovable Statements
 
 Not every attempted statement is true or derivable from the current assumptions. When repeated failures suggest this, use the workflow below.
