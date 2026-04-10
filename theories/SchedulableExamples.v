@@ -5,6 +5,7 @@ Require Import ScheduleLemmas.ScheduleFacts.
 Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Require Import DispatchSchedulerBridge.
+Require Import MultiCoreBase.
 Require Import UniPolicies.EDF.
 Require Import UniPolicies.FIFO.
 Require Import Partitioned.
