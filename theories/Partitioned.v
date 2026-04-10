@@ -2,6 +2,7 @@ From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
 Require Import ScheduleLemmas.ScheduleFacts.
+Require Import MultiCoreBase.
 Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Require Import DispatchSchedulerBridge.
@@ -82,12 +83,6 @@ Section PartitionedSection.
   (* assigned_to j c: job j is statically assigned to CPU c. *)
   Definition assigned_to (j : JobId) (c : CPU) : Prop :=
     assign j = c.
-
-  (* cpu_schedule sched c: the single-CPU view of CPU c from the global schedule.
-     Maps time t and the "virtual CPU 0" to sched t c.  All other virtual CPUs
-     return None (unused in the 1-CPU view). *)
-  Definition cpu_schedule (sched : Schedule) (c : CPU) : Schedule :=
-    fun t' cpu' => if Nat.eqb cpu' 0 then sched t' c else None.
 
   (* respects_assignment sched: every job runs only on its assigned CPU. *)
   Definition respects_assignment (sched : Schedule) : Prop :=
@@ -212,15 +207,6 @@ Section PartitionedSection.
       apply runs_on_false_iff in Erun.
       rewrite Hassign in Erun.
       exact (Erun Hsome).
-  Qed.
-
-  (* H5a: runs_on through cpu_schedule at virtual-CPU 0 equals the original. *)
-  Lemma runs_on_cpu_schedule :
-    forall sched c j t,
-      runs_on (cpu_schedule sched c) j t 0 = runs_on sched j t c.
-  Proof.
-    intros sched c j t.
-    unfold runs_on, cpu_schedule. simpl. reflexivity.
   Qed.
 
   (* H5: bridge — cpu_count m equals cpu_count 1 on assigned CPU. *)

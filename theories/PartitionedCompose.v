@@ -5,6 +5,7 @@ Require Import ScheduleModel.
 Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Require Import DispatchSchedulerBridge.
+Require Import MultiCoreBase.
 Require Import Partitioned.
 
 (* Fully constructive: no Classical import. *)
