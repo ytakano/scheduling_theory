@@ -989,3 +989,132 @@ Proof.
                Hagree_sym).
     exact (eq_sym Hchoose).
 Qed.
+
+(* ===== Phase 8: violation を前に持たない EDF 形へ反復正規化する ===== *)
+
+(* 19. repair_pushes_first_violation_forward:
+   After repairing a violation at t0 (agrees_before sched sched' t0 +
+   matches_choose_edf_at_with at t0), the repaired schedule sched' has no
+   EDF violation at any t <= t0.
+   - t < t0: transfer violation sched' -> sched via agrees_before lemmas; contradiction.
+   - t = t0: direct from matches_choose_edf_at_with_no_finite_violation.
+   Fully constructive. *)
+Lemma repair_pushes_first_violation_forward :
+  forall J (candidates_of : CandidateSource)
+         (cand_spec : CandidateSourceSpec J candidates_of)
+         jobs sched sched' t0,
+    agrees_before sched sched' t0 ->
+    matches_choose_edf_at_with jobs candidates_of sched' t0 ->
+    (forall t, t < t0 -> ~ edf_violation_at_with J candidates_of jobs sched t) ->
+    forall t, t <= t0 -> ~ edf_violation_at_with J candidates_of jobs sched' t.
+Proof.
+  intros J candidates_of cand_spec jobs sched sched' t0 Hagree Hmatch Hno_viol.
+  intros t Hle Hviol.
+  assert (Hcases : t < t0 \/ t = t0) by lia.
+  destruct Hcases as [Hlt | Heq].
+  - (* t < t0: transfer violation from sched' to sched *)
+    apply (Hno_viol t Hlt).
+    unfold edf_violation_at_with, edf_violation_at_in in *.
+    destruct Hviol as [j [j' [HJj [HJj' [Hrun' [Hin' [Helig' Hdl]]]]]]].
+    assert (Hpre : agrees_before sched sched' t).
+    { apply (agrees_before_weaken sched sched' t t0). lia. exact Hagree. }
+    assert (Hpre_sym : agrees_before sched' sched t).
+    { exact (agrees_before_sym _ _ _ Hpre). }
+    exists j, j'.
+    split. exact HJj.
+    split. exact HJj'.
+    split.
+    + rewrite (Hagree t 0 Hlt). exact Hrun'.
+    + split.
+      * rewrite <- (candidates_of_agrees_before J candidates_of cand_spec jobs
+                      sched' sched t Hpre_sym).
+        exact Hin'.
+      * split.
+        ** exact (proj1 (agrees_before_eligible jobs 1 sched' sched j' t Hpre_sym) Helig').
+        ** exact Hdl.
+  - (* t = t0: matches EDF -> no violation *)
+    subst t.
+    exact (matches_choose_edf_at_with_no_finite_violation
+             J candidates_of cand_spec jobs sched' t0 Hmatch Hviol).
+Qed.
+
+(* 20. edf_normalize_up_to:
+   Given any valid+feasible schedule, produce a valid+feasible schedule with
+   no EDF violations before H. By induction on H.
+   - H = 0: trivially no violations.
+   - H = S H': IH gives sched_ih with no violations before H'. If no violation at H',
+     done. If violation at H', apply repair_first_violation (first violation = H')
+     then repair_pushes_first_violation_forward.
+   Fully constructive: violation check uses edf_violationb_at_with (bool). *)
+Lemma edf_normalize_up_to :
+  forall J (J_bool : JobId -> bool) (candidates_of : CandidateSource)
+         (cand_spec : CandidateSourceSpec J candidates_of)
+         jobs sched H,
+    (forall x, J_bool x = true <-> J x) ->
+    valid_schedule jobs 1 sched ->
+    feasible_schedule_on J jobs 1 sched ->
+    exists sched',
+      valid_schedule jobs 1 sched' /\
+      feasible_schedule_on J jobs 1 sched' /\
+      (forall t, t < H -> ~ edf_violation_at_with J candidates_of jobs sched' t).
+Proof.
+  intros J J_bool candidates_of cand_spec jobs sched H HJ_bool.
+  induction H as [| H' IH].
+  - (* H = 0: use sched itself *)
+    intros Hvalid Hfeas.
+    exists sched.
+    split. exact Hvalid.
+    split. exact Hfeas.
+    intros t Hlt. lia.
+  - (* H = S H' *)
+    intros Hvalid Hfeas.
+    destruct (IH Hvalid Hfeas) as [sched_ih [Hih_valid [Hih_feas Hih_noviol]]].
+    (* Decide violation at H' in sched_ih *)
+    destruct (edf_violationb_at_with J_bool candidates_of jobs sched_ih H') eqn:Hviol_b.
+    + (* Violation at H' *)
+      assert (Hviol : edf_violation_at_with J candidates_of jobs sched_ih H').
+      { apply (edf_violationb_at_with_true_iff J_bool J candidates_of jobs sched_ih H' HJ_bool).
+        exact Hviol_b. }
+      (* Extract j such that sched_ih H' 0 = Some j *)
+      assert (Hj_run : exists j, sched_ih H' 0 = Some j).
+      { unfold edf_violation_at_with, edf_violation_at_in in Hviol.
+        destruct Hviol as [j [_ [_ [_ [Hrun _]]]]].
+        exists j. exact Hrun. }
+      destruct Hj_run as [j Hj_run].
+      (* Reconstruct violation for repair_first_violation *)
+      assert (Hviol2 : edf_violation_at_with J candidates_of jobs sched_ih H').
+      { apply (edf_violationb_at_with_true_iff J_bool J candidates_of jobs sched_ih H' HJ_bool).
+        exact Hviol_b. }
+      (* Apply repair_first_violation: t0 = H', H = S H' *)
+      destruct (repair_first_violation J J_bool candidates_of cand_spec
+                   jobs sched_ih (S H') H' j
+                   HJ_bool Hih_valid Hih_feas
+                   (Nat.lt_succ_diag_r H')
+                   Hj_run Hviol2 Hih_noviol)
+           as [sched_r [Hr_valid [Hr_feas [Hr_agrees Hr_match]]]].
+      exists sched_r.
+      split. exact Hr_valid.
+      split. exact Hr_feas.
+      (* No violations before S H' *)
+      intros t Hlt.
+      assert (Hle : t <= H') by lia.
+      exact (repair_pushes_first_violation_forward
+               J candidates_of cand_spec
+               jobs sched_ih sched_r H'
+               Hr_agrees Hr_match Hih_noviol
+               t Hle).
+    + (* No violation at H' *)
+      exists sched_ih.
+      split. exact Hih_valid.
+      split. exact Hih_feas.
+      intros t Hlt.
+      assert (Hcases : t < H' \/ t = H') by lia.
+      destruct Hcases as [Hlt' | Heq].
+      * exact (Hih_noviol t Hlt').
+      * subst t.
+        intro Hviol.
+        assert (Hb : edf_violationb_at_with J_bool candidates_of jobs sched_ih H' = true).
+        { apply (edf_violationb_at_with_true_iff J_bool J candidates_of jobs sched_ih H' HJ_bool).
+          exact Hviol. }
+        rewrite Hb in Hviol_b. discriminate.
+Qed.
