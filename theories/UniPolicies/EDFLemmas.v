@@ -1,4 +1,4 @@
-From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia Classical.
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Require Import Base.
 Require Import ScheduleModel.
 Require Import SchedulerInterface.
@@ -448,31 +448,6 @@ Proof.
   split. exact Hj'_elig.
   split. exact Hj'_le.
   exact Hneq.
-Qed.
-
-(* 4-6: 最初の EDF violation 時刻の抽出 *)
-Lemma exists_first_edf_violation_before :
-  forall jobs sched H,
-    (exists t, t < H /\ edf_violation_at jobs sched t) ->
-    exists t0,
-      t0 < H /\
-      edf_violation_at jobs sched t0 /\
-      (forall t, t < t0 -> ~ edf_violation_at jobs sched t).
-Proof.
-  intros jobs sched H [t [HtH Hviol]].
-  revert H HtH.
-  induction t as [t IH] using (well_founded_induction lt_wf).
-  intros H HtH.
-  destruct (classic (exists t', t' < t /\ edf_violation_at jobs sched t'))
-      as [[t' [Hlt' Hviol']] | Hmin].
-  - (* Smaller violation exists: apply IH to t' *)
-    exact (IH t' Hlt' Hviol' H (Nat.lt_trans _ _ _ Hlt' HtH)).
-  - (* t is the minimum violation *)
-    exists t.
-    split. exact HtH.
-    split. exact Hviol.
-    intros t' Hlt' Hviol'.
-    apply Hmin. exists t'. split. exact Hlt'. exact Hviol'.
 Qed.
 
 (* ===== Section 5: 最適性定理への橋渡し補題 ===== *)

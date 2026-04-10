@@ -1718,3 +1718,58 @@
 - **Dependencies**: `edf_violationb_at_with_true_iff`, `first_nat_up_to_some_spec`, `first_nat_up_to_none_spec`, `edf_violation_at_with`, `edf_violationb_at_with`
 - **Notes**: Constructive replacement for `exists_first_edf_violation_before` — no `classic` needed. Requires decidable `J_bool` as input. The None branch derives contradiction by showing the known violation would be undetected.
 - **Date**: 2026-04-10
+
+---
+
+### `fold_right_max_upper_bound`
+- **Type**: Lemma
+- **File**: `theories/UniPolicies/EDFTransform.v`
+- **Statement**:
+  ```coq
+  Lemma fold_right_max_upper_bound :
+    forall (l : list nat) (x : nat),
+      In x l ->
+      x <= fold_right Nat.max 0 l.
+  ```
+- **Proof Strategy**: Induction on `l`. Base: contradiction. Step: `destruct Hin as [-> | Hin']` — head case uses `Nat.le_max_l`; tail case uses `Nat.le_trans` with `fold_right Nat.max 0 rest` and `Nat.le_max_r`.
+- **Key Tactics**: `induction l`, `Nat.le_max_l`, `Nat.le_max_r`, `Nat.le_trans`
+- **Dependencies**: `Nat.le_max_l`, `Nat.le_max_r`
+- **Notes**: Standard helper for `deadline_horizon` bound proofs.
+- **Date**: 2026-04-10
+
+---
+
+### `in_enum_implies_deadline_lt_horizon`
+- **Type**: Lemma
+- **File**: `theories/UniPolicies/EDFTransform.v`
+- **Statement**:
+  ```coq
+  Lemma in_enum_implies_deadline_lt_horizon :
+    forall jobs enumJ j,
+      In j enumJ ->
+      job_abs_deadline (jobs j) < deadline_horizon jobs enumJ.
+  ```
+- **Proof Strategy**: `unfold deadline_horizon`, `apply Nat.lt_succ_r`, `apply fold_right_max_upper_bound`, then use explicit `in_map` application.
+- **Key Tactics**: `Nat.lt_succ_r`, `fold_right_max_upper_bound`, `in_map`
+- **Dependencies**: `fold_right_max_upper_bound`, `deadline_horizon`
+- **Notes**: ⚠️ Dead end: `apply in_map` fails because Rocq unifier matches `f := fun j0 => job_abs_deadline j0` instead of the intended `fun j0 => job_abs_deadline (jobs j0)`. Use `exact (in_map (fun j0 => job_abs_deadline (jobs j0)) enumJ j Hin)` instead.
+- **Date**: 2026-04-10
+
+---
+
+### `J_implies_deadline_lt_horizon`
+- **Type**: Lemma
+- **File**: `theories/UniPolicies/EDFTransform.v`
+- **Statement**:
+  ```coq
+  Lemma J_implies_deadline_lt_horizon :
+    forall J enumJ jobs j,
+      (forall j, J j -> In j enumJ) ->
+      J j ->
+      job_abs_deadline (jobs j) < deadline_horizon jobs enumJ.
+  ```
+- **Proof Strategy**: Apply `in_enum_implies_deadline_lt_horizon` after using `Hcomplete` to get `In j enumJ`.
+- **Key Tactics**: `in_enum_implies_deadline_lt_horizon`, `apply Hcomplete`
+- **Dependencies**: `in_enum_implies_deadline_lt_horizon`
+- **Notes**: One-liner on top of `in_enum_implies_deadline_lt_horizon`.
+- **Date**: 2026-04-10
