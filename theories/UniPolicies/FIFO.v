@@ -250,16 +250,17 @@ Require Import UniSchedulerInterface.
 Require Import UniSchedulerLemmas.
 
 (* Bundle that packages all FIFO components into the standard UniSchedulerBundle
-   interface.  Client supplies the candidate source; the rest is fixed to FIFO. *)
+   interface.  Spec is GenericDispatchSpec (identity instance from UniSchedulerInterface).
+   Client supplies the candidate source; the rest is fixed to FIFO. *)
 Definition fifo_bundle
     (J : JobId -> Prop)
     (candidates_of : CandidateSource)
     (cand_spec : CandidateSourceSpec J candidates_of)
-  : UniSchedulerBundle J :=
-  mkUniSchedulerBundle J
+  : UniSchedulerBundle J GenericDispatchSpec :=
+  mkUniSchedulerBundle
     candidates_of
-    cand_spec
     fifo_generic_spec
+    cand_spec
     fifo_policy
     fifo_policy_sane
     choose_fifo_refines_fifo_policy.

@@ -473,7 +473,7 @@ Qed.
    candidate source and a feasibility witness, with no knowledge of the
    underlying dispatch machinery.                                      *)
 
-Definition edf_single_bundle : UniSchedulerBundle J_single :=
+Definition edf_single_bundle : UniSchedulerBundle J_single EDFSchedulerSpec :=
   edf_bundle J_single singleton_candidates singleton_candidates_spec.
 
 (* The concrete EDF scheduler extracted from the bundle. *)
@@ -513,7 +513,7 @@ Theorem edf_bundle_schedulable_by_on :
     schedulable_by_on J_single edf_single_scheduler single_jobs 1.
 Proof.
   exact (uni_scheduler_on_schedulable_by_on_intro
-           J_single edf_single_bundle single_jobs single_sched
+           J_single EDFSchedulerSpec edf_single_bundle single_jobs single_sched
            edf_single_bundle_rel
            single_feasible_on).
 Qed.

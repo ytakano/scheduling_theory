@@ -387,17 +387,25 @@ Qed.
 Require Import UniSchedulerInterface.
 Require Import UniSchedulerLemmas.
 
+(* EDFSchedulerSpec maps to GenericDispatchSpec via the edf_generic field. *)
+#[global]
+Instance HasGenericDispatchSpec_EDFSchedulerSpec
+    : HasGenericDispatchSpec EDFSchedulerSpec := {
+  to_generic_dispatch_spec := edf_generic
+}.
+
 (* Bundle that packages all EDF components into the standard UniSchedulerBundle
-   interface.  Client supplies the candidate source; the rest is fixed to EDF. *)
+   interface.  Spec is EDFSchedulerSpec, carrying the min-deadline invariant.
+   Client supplies the candidate source; the rest is fixed to EDF. *)
 Definition edf_bundle
     (J : JobId -> Prop)
     (candidates_of : CandidateSource)
     (cand_spec : CandidateSourceSpec J candidates_of)
-  : UniSchedulerBundle J :=
-  mkUniSchedulerBundle J
+  : UniSchedulerBundle J EDFSchedulerSpec :=
+  mkUniSchedulerBundle
     candidates_of
+    edf_scheduler_spec
     cand_spec
-    edf_generic_spec
     edf_policy
     edf_policy_sane
     choose_edf_refines_edf_policy.
