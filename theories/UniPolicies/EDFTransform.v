@@ -104,3 +104,69 @@ Proof.
   split. exact Hlt'.
   exact Hrun.
 Qed.
+
+(* ===== Phase 3: repair schedule を定義する ===== *)
+
+(* 5. swap_at:
+   Single-CPU (CPU 0) 2-point swap.
+   At t1: returns what was at t2; at t2: returns what was at t1.
+   All other (t, c) are unchanged.
+   Works correctly even when t1 = t2 (identity). *)
+Definition swap_at
+    (sched : Schedule)
+    (t1 t2 : Time) : Schedule :=
+  fun t c =>
+    if Nat.eqb c 0 then
+      if Nat.eqb t t1 then sched t2 0
+      else if Nat.eqb t t2 then sched t1 0
+      else sched t c
+    else sched t c.
+
+(* 6. swap_at_same_outside:
+   If c ≠ 0 OR the time slot is neither t1 nor t2, swap_at is the identity.
+   Constructive proof by Nat.eqb case analysis. *)
+Lemma swap_at_same_outside :
+  forall sched t1 t2 t c,
+    c <> 0 \/ (t <> t1 /\ t <> t2) ->
+    swap_at sched t1 t2 t c = sched t c.
+Proof.
+  intros sched t1 t2 t c Hor.
+  unfold swap_at.
+  destruct (Nat.eqb c 0) eqn:Hc.
+  - apply Nat.eqb_eq in Hc. subst c.
+    destruct Hor as [Hne | [Hne1 Hne2]].
+    + exact (False_ind _ (Hne eq_refl)).
+    + apply Nat.eqb_neq in Hne1. rewrite Hne1.
+      apply Nat.eqb_neq in Hne2. rewrite Hne2.
+      reflexivity.
+  - reflexivity.
+Qed.
+
+(* 7a. swap_at_t1:
+   At time t1 on CPU 0, swap_at gives what was at t2. *)
+Lemma swap_at_t1 :
+  forall sched t1 t2,
+    swap_at sched t1 t2 t1 0 = sched t2 0.
+Proof.
+  intros sched t1 t2.
+  unfold swap_at.
+  rewrite Nat.eqb_refl.
+  rewrite Nat.eqb_refl.
+  reflexivity.
+Qed.
+
+(* 7b. swap_at_t2:
+   At time t2 on CPU 0, swap_at gives what was at t1.
+   When t2 = t1 the Nat.eqb t2 t1 branch fires instead, which is also correct
+   because in that case sched t1 0 = sched t2 0. *)
+Lemma swap_at_t2 :
+  forall sched t1 t2,
+    swap_at sched t1 t2 t2 0 = sched t1 0.
+Proof.
+  intros sched t1 t2.
+  unfold swap_at.
+  rewrite Nat.eqb_refl.
+  destruct (Nat.eqb t2 t1) eqn:Ht.
+  - apply Nat.eqb_eq in Ht. subst t1. reflexivity.
+  - rewrite Nat.eqb_refl. reflexivity.
+Qed.

@@ -1773,3 +1773,70 @@
 - **Dependencies**: `in_enum_implies_deadline_lt_horizon`
 - **Notes**: One-liner on top of `in_enum_implies_deadline_lt_horizon`.
 - **Date**: 2026-04-10
+
+---
+
+### `swap_at`
+- **Type**: Definition
+- **Statement**:
+  ```coq
+  Definition swap_at (sched : Schedule) (t1 t2 : Time) : Schedule :=
+    fun t c =>
+      if Nat.eqb c 0 then
+        if Nat.eqb t t1 then sched t2 0
+        else if Nat.eqb t t2 then sched t1 0
+        else sched t c
+      else sched t c.
+  ```
+- **Proof Strategy**: Definition only. Single-CPU (CPU 0) 2-point swap. When `t1 = t2` acts as identity.
+- **Key Tactics**: N/A (definition)
+- **Dependencies**: `Schedule`, `Time`
+- **Notes**: Deliberately restricted to CPU 0 (`m=1` case). All other CPUs pass through unchanged.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_same_outside`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_same_outside :
+    forall sched t1 t2 t c,
+      c <> 0 \/ (t <> t1 /\ t <> t2) ->
+      swap_at sched t1 t2 t c = sched t c.
+  ```
+- **Proof Strategy**: `unfold swap_at`, destruct `Nat.eqb c 0` with eqn. If `c = 0` (eqb = true): `subst c`, then case-split on the disjunction; `c <> 0` gives `False_ind`; `(t <> t1 /\ t <> t2)` rewrites both eqbs to false via `Nat.eqb_neq`. If `c <> 0` (eqb = false): `reflexivity`.
+- **Key Tactics**: `unfold swap_at`, `destruct (Nat.eqb c 0) eqn:Hc`, `Nat.eqb_eq`, `subst`, `False_ind`, `Nat.eqb_neq`, `rewrite`
+- **Dependencies**: `swap_at`
+- **Notes**: Constructive only. `False_ind _ (Hne eq_refl)` closes the `c=0` + `c<>0` contradictory case elegantly.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_t1`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_t1 : forall sched t1 t2,
+      swap_at sched t1 t2 t1 0 = sched t2 0.
+  ```
+- **Proof Strategy**: `unfold swap_at; rewrite Nat.eqb_refl; rewrite Nat.eqb_refl; reflexivity`.
+- **Key Tactics**: `unfold swap_at`, `Nat.eqb_refl`
+- **Dependencies**: `swap_at`
+- **Notes**: Two `Nat.eqb_refl` rewrites — one for `c=0` and one for `t=t1`.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_t2`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_t2 : forall sched t1 t2,
+      swap_at sched t1 t2 t2 0 = sched t1 0.
+  ```
+- **Proof Strategy**: `unfold swap_at; rewrite Nat.eqb_refl`. Then `destruct (Nat.eqb t2 t1) eqn:Ht`. If `t2 = t1`: `Nat.eqb_eq + subst t1 + reflexivity`. If `t2 ≠ t1`: `rewrite Nat.eqb_refl + reflexivity`.
+- **Key Tactics**: `unfold swap_at`, `Nat.eqb_refl`, `destruct (Nat.eqb t2 t1) eqn:Ht`, `Nat.eqb_eq`, `subst`
+- **Dependencies**: `swap_at`
+- **Notes**: Must handle the `t2 = t1` case explicitly — the outer `Nat.eqb t t1` check fires before `Nat.eqb t t2`, so when `t2 = t1` we land in the `t1` branch and `sched t1 0 = sched t2 0` trivially by `subst`.
+- **Date**: 2026-04-10
