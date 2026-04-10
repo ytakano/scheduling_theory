@@ -5,6 +5,8 @@ Require Import ScheduleLemmas.ScheduleFacts.
 Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Require Import DispatchSchedulerBridge.
+Require Import SchedulerValidity.
+Require Import DispatcherRefinement.
 Import ListNotations.
 
 (* FIFO dispatch function:
@@ -172,3 +174,72 @@ Definition fifo_scheduler
     (candidates_of : (JobId -> Job) -> nat -> Schedule -> Time -> list JobId)
     : Scheduler :=
   single_cpu_dispatch_schedule fifo_generic_spec candidates_of.
+
+(* ===== Phase 5: Abstract FIFO policy ===== *)
+
+(* Auxiliary: if choose_fifo returns None, all candidates are ineligible.
+   (Converse of choose_fifo_none_if_no_eligible.) *)
+Lemma choose_fifo_none_implies_no_eligible : forall jobs m sched t candidates,
+    choose_fifo jobs m sched t candidates = None ->
+    forall j, In j candidates -> ~eligible jobs m sched j t.
+Proof.
+  intros jobs m sched t candidates.
+  induction candidates as [| j0 rest IH].
+  - intros _ j Hin. exact (False_ind _ Hin).
+  - intros Hnone j Hin Helig.
+    simpl in Hnone.
+    destruct (eligibleb jobs m sched j0 t) eqn:Erb.
+    + discriminate.
+    + destruct Hin as [-> | Hin'].
+      * apply eligibleb_iff in Helig. rewrite Helig in Erb. discriminate.
+      * exact (IH Hnone j Hin' Helig).
+Qed.
+
+(* Abstract FIFO policy: the first eligible job in candidate order wins.
+   - None: all candidates are ineligible.
+   - Some j: j is the first eligible entry — there exist prefix and suffix such
+     that candidates = prefix ++ j :: suffix, j is eligible, and no job in
+     prefix is eligible. *)
+Definition fifo_policy : DispatchPolicy :=
+  fun jobs m sched t candidates oj =>
+    match oj with
+    | None =>
+        forall j, In j candidates -> ~eligible jobs m sched j t
+    | Some j =>
+        exists prefix suffix,
+          candidates = prefix ++ j :: suffix /\
+          eligible jobs m sched j t /\
+          forall j', In j' prefix -> ~eligible jobs m sched j' t
+    end.
+
+Lemma fifo_policy_sane : PolicySanity fifo_policy.
+Proof.
+  constructor.
+  - intros jobs m sched t candidates j Hpol.
+    unfold fifo_policy in Hpol.
+    destruct Hpol as [prefix [suffix [Heq _]]].
+    rewrite Heq.
+    apply in_or_app. right. left. reflexivity.
+  - intros jobs m sched t candidates j Hpol.
+    unfold fifo_policy in Hpol.
+    destruct Hpol as [prefix [suffix [_ [Helig _]]]].
+    exact Helig.
+Qed.
+
+Lemma choose_fifo_refines_fifo_policy :
+  dispatcher_refines_policy fifo_generic_spec fifo_policy.
+Proof.
+  unfold dispatcher_refines_policy.
+  intros jobs m sched t candidates.
+  unfold fifo_policy. simpl.
+  destruct (choose_fifo jobs m sched t candidates) as [j|] eqn:Hchoose.
+  - destruct (choose_fifo_first_eligible jobs m sched t candidates j Hchoose)
+        as [prefix [suffix [Heq Hpre]]].
+    exists prefix, suffix.
+    split. exact Heq.
+    split.
+    + exact (choose_fifo_eligible jobs m sched t candidates j Hchoose).
+    + exact Hpre.
+  - intros j Hin Helig.
+    exact (choose_fifo_none_implies_no_eligible jobs m sched t candidates Hchoose j Hin Helig).
+Qed.

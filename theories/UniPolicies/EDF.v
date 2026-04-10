@@ -5,6 +5,8 @@ Require Import ScheduleLemmas.ScheduleFacts.
 Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Require Import DispatchSchedulerBridge.
+Require Import SchedulerValidity.
+Require Import DispatcherRefinement.
 Import ListNotations.
 
 (* eligibleb and eligibleb_iff are defined in ScheduleModel and available via
@@ -317,3 +319,65 @@ Definition edf_scheduler
     (candidates_of : (JobId -> Job) -> nat -> Schedule -> Time -> list JobId)
     : Scheduler :=
   single_cpu_dispatch_schedule edf_generic_spec candidates_of.
+
+(* ===== Phase 8: Abstract EDF policy ===== *)
+
+(* Auxiliary: if choose_edf returns None, all candidates are ineligible.
+   (Converse of choose_edf_none_if_no_eligible.) *)
+Lemma choose_edf_none_implies_no_eligible : forall jobs m sched t candidates,
+    choose_edf jobs m sched t candidates = None ->
+    forall j, In j candidates -> ~eligible jobs m sched j t.
+Proof.
+  intros jobs m sched t candidates Hnone j Hin Helig.
+  unfold choose_edf in Hnone.
+  apply min_dl_job_none_iff in Hnone.
+  assert (Hin' : In j (filter (fun j0 => eligibleb jobs m sched j0 t) candidates)).
+  { apply filter_In. split. exact Hin. apply eligibleb_iff. exact Helig. }
+  rewrite Hnone in Hin'. exact Hin'.
+Qed.
+
+(* Abstract EDF policy: ties are permitted (any job with minimum deadline wins).
+   - None: all candidates are ineligible.
+   - Some j: j is in the list, eligible, and has minimum deadline among
+     all eligible candidates. *)
+Definition edf_policy : DispatchPolicy :=
+  fun jobs m sched t candidates oj =>
+    match oj with
+    | None =>
+        forall j, In j candidates -> ~eligible jobs m sched j t
+    | Some j =>
+        In j candidates /\
+        eligible jobs m sched j t /\
+        forall j',
+          In j' candidates ->
+          eligible jobs m sched j' t ->
+          job_abs_deadline (jobs j) <= job_abs_deadline (jobs j')
+    end.
+
+Lemma edf_policy_sane : PolicySanity edf_policy.
+Proof.
+  constructor.
+  - intros jobs m sched t candidates j Hpol.
+    unfold edf_policy in Hpol.
+    exact (proj1 Hpol).
+  - intros jobs m sched t candidates j Hpol.
+    unfold edf_policy in Hpol.
+    exact (proj1 (proj2 Hpol)).
+Qed.
+
+Lemma choose_edf_refines_edf_policy :
+  dispatcher_refines_policy edf_generic_spec edf_policy.
+Proof.
+  unfold dispatcher_refines_policy.
+  intros jobs m sched t candidates.
+  unfold edf_policy. simpl.
+  destruct (choose_edf jobs m sched t candidates) as [j|] eqn:Hchoose.
+  - split.
+    + exact (choose_edf_in_candidates jobs m sched t candidates j Hchoose).
+    + split.
+      * exact (choose_edf_eligible jobs m sched t candidates j Hchoose).
+      * intros j' Hin Helig.
+        exact (choose_edf_min_deadline jobs m sched t candidates j Hchoose j' Hin Helig).
+  - intros j Hin Helig.
+    exact (choose_edf_none_implies_no_eligible jobs m sched t candidates Hchoose j Hin Helig).
+Qed.

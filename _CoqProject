@@ -4,6 +4,8 @@ theories/DispatchClassicalLemmas.v
 theories/DispatchInterface.v
 theories/DispatchLemmas.v
 theories/DispatchSchedulerBridge.v
+theories/SchedulerValidity.v
+theories/DispatcherRefinement.v
 theories/FIFOExamples.v
 theories/FeasibleExamples.v
 theories/Partitioned.v

@@ -2259,3 +2259,101 @@
 - **Dependencies**: `edf_violationb_at_with_true_iff`, `repair_first_violation`, `repair_pushes_first_violation_forward`, `Nat.lt_succ_diag_r`
 - **Notes**: Conclusion is "no EDF violations before H" (not `matches_choose_edf_before`). The stronger `matches_choose_edf_before` would require handling equal-deadline tie-breaking which the current repair infrastructure (requiring strict deadline inequality) cannot handle. The "no violations" form is sufficient for the optimality argument in Phase 9/10. Fully constructive — violation check via bool decision avoids Classical.
 - **Date**: 2026-04-10
+
+---
+
+### `DispatchPolicy` / `PolicySanity` / `respects_policy_at_with` (SchedulerValidity.v)
+- **Type**: Definitions + Record
+- **Statement**:
+  ```coq
+  Definition DispatchPolicy :=
+    (JobId -> Job) -> nat -> Schedule -> Time -> list JobId -> option JobId -> Prop.
+
+  Record PolicySanity (policy : DispatchPolicy) : Prop := mkPolicySanity {
+    policy_some_in_candidates : forall jobs m sched t candidates j,
+        policy jobs m sched t candidates (Some j) -> In j candidates ;
+    policy_some_eligible : forall jobs m sched t candidates j,
+        policy jobs m sched t candidates (Some j) -> eligible jobs m sched j t
+  }.
+
+  Definition respects_policy_at_with policy jobs candidates_of sched t :=
+    policy jobs 1 sched t (candidates_of jobs 1 sched t) (sched t 0).
+  ```
+- **Proof Strategy**: Definitions only. Lemmas use `destruct Hsane as [Hin_cand _]` / `[_ Helig_cand]` — do NOT use dot notation `Hsane.(field)` because Rocq 9 reports "Projection ... expected 1 explicit parameter".
+- **Key Tactics**: `destruct Hsane as [...]`, `rewrite Hrun in Hresp`, `destruct cand_spec as [Hsound _ _]`
+- **Dependencies**: `Base`, `ScheduleModel`, `SchedulerInterface`, `DispatchSchedulerBridge`
+- **Notes**: None branch is intentionally unconstrained in `PolicySanity` to allow work-conserving and non-work-conserving policies. ⚠️ Never use `Hsane.(policy_some_in_candidates)` dot notation — use `destruct Hsane` instead.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-10
+
+---
+
+### `dispatcher_refines_policy` (DispatcherRefinement.v)
+- **Type**: Definition + Lemmas
+- **Statement**:
+  ```coq
+  Definition dispatcher_refines_policy (spec : GenericDispatchSpec) (policy : DispatchPolicy) : Prop :=
+    forall jobs m sched t candidates,
+      policy jobs m sched t candidates (spec.(dispatch) jobs m sched t candidates).
+
+  Lemma single_cpu_dispatch_schedule_respects_policy_at_with :
+    forall spec policy candidates_of jobs sched t,
+      dispatcher_refines_policy spec policy ->
+      scheduler_rel (single_cpu_dispatch_schedule spec candidates_of) jobs 1 sched ->
+      respects_policy_at_with policy jobs candidates_of sched t.
+  ```
+- **Proof Strategy**: Unfold `respects_policy_at_with`, rewrite `sched t 0` with `Heq` from bridge, then apply `Href`.
+- **Key Tactics**: `destruct Hrel as [_ Hrel]`, `destruct (Hrel t) as [Heq _]`, `rewrite Heq`, `exact (Href ...)`
+- **Dependencies**: `SchedulerValidity`, `DispatchInterface`, `DispatchSchedulerBridge`
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-10
+
+---
+
+### `edf_policy` / `choose_edf_refines_edf_policy` (UniPolicies/EDF.v)
+- **Type**: Definition + Lemma
+- **Statement**:
+  ```coq
+  Definition edf_policy : DispatchPolicy :=
+    fun jobs m sched t candidates oj =>
+      match oj with
+      | None => forall j, In j candidates -> ~eligible jobs m sched j t
+      | Some j =>
+          In j candidates /\ eligible jobs m sched j t /\
+          forall j', In j' candidates -> eligible jobs m sched j' t ->
+          job_abs_deadline (jobs j) <= job_abs_deadline (jobs j')
+      end.
+
+  Lemma choose_edf_refines_edf_policy : dispatcher_refines_policy edf_generic_spec edf_policy.
+  ```
+- **Proof Strategy**: Destruct `choose_edf ... = Some j / None`. Some: use `choose_edf_in_candidates`, `choose_edf_eligible`, `choose_edf_min_deadline`. None: need auxiliary `choose_edf_none_implies_no_eligible` (filter emptiness via `min_dl_job_none_iff`).
+- **Key Tactics**: `destruct (choose_edf ...) eqn:Hchoose`, `apply min_dl_job_none_iff`, `apply filter_In`, `apply eligibleb_iff`
+- **Dependencies**: `choose_edf_in_candidates`, `choose_edf_eligible`, `choose_edf_min_deadline`, `min_dl_job_none_iff`, `eligibleb_iff`
+- **Notes**: The auxiliary `choose_edf_none_implies_no_eligible` (None → no eligible) is the converse of the existing `choose_edf_none_if_no_eligible` and is needed here.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-10
+
+---
+
+### `fifo_policy` / `choose_fifo_refines_fifo_policy` (UniPolicies/FIFO.v)
+- **Type**: Definition + Lemma
+- **Statement**:
+  ```coq
+  Definition fifo_policy : DispatchPolicy :=
+    fun jobs m sched t candidates oj =>
+      match oj with
+      | None => forall j, In j candidates -> ~eligible jobs m sched j t
+      | Some j =>
+          exists prefix suffix,
+            candidates = prefix ++ j :: suffix /\
+            eligible jobs m sched j t /\
+            forall j', In j' prefix -> ~eligible jobs m sched j' t
+      end.
+
+  Lemma choose_fifo_refines_fifo_policy : dispatcher_refines_policy fifo_generic_spec fifo_policy.
+  ```
+- **Proof Strategy**: Some case: apply `choose_fifo_first_eligible` for prefix/suffix. None case: auxiliary `choose_fifo_none_implies_no_eligible` by induction on candidates.
+- **Key Tactics**: `destruct (choose_fifo ...) eqn:Hchoose`, `choose_fifo_first_eligible`, `in_or_app`
+- **Notes**: Auxiliary `choose_fifo_none_implies_no_eligible` proved by induction: `eligibleb_iff` handles the contradiction in the head case.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-10

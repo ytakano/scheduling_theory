@@ -6,6 +6,8 @@ Require Import ScheduleLemmas.SchedulePrefix.
 Require Import SchedulerInterface.
 Require Import DispatchInterface.
 Require Import DispatchSchedulerBridge.
+Require Import SchedulerValidity.
+Require Import DispatcherRefinement.
 Require Import UniPolicies.EDF.
 Import ListNotations.
 
@@ -478,4 +480,43 @@ Proof.
     exfalso.
     pose proof (first_nat_up_to_none_spec H _ Hopt t HtH) as Hcontra.
     rewrite Hcontra in Hviol_b. discriminate.
+Qed.
+
+(* ===== Section 10: Compatibility layer for edf_policy ===== *)
+
+(* 10-1: canonical EDF match implies respects_policy_at_with edf_policy.
+   Bridge from the old matches_choose_edf_at_with API to the new policy layer. *)
+Lemma matches_choose_edf_at_with_implies_respects_edf_policy_at_with :
+  forall jobs candidates_of sched t,
+    matches_choose_edf_at_with jobs candidates_of sched t ->
+    respects_policy_at_with edf_policy jobs candidates_of sched t.
+Proof.
+  intros jobs candidates_of sched t Hmatch.
+  unfold matches_choose_edf_at_with in Hmatch.
+  unfold respects_policy_at_with.
+  rewrite Hmatch.
+  exact (choose_edf_refines_edf_policy jobs 1 sched t (candidates_of jobs 1 sched t)).
+Qed.
+
+(* 10-2: respects_policy_at_with edf_policy implies respects_edf_priority_at_on.
+   Extracts the EDF priority invariant from the abstract policy view. *)
+Lemma respects_edf_policy_at_with_implies_respects_edf_priority_at_on :
+  forall J candidates_of
+         (cand_spec : CandidateSourceSpec J candidates_of)
+         jobs sched t,
+    respects_policy_at_with edf_policy jobs candidates_of sched t ->
+    respects_edf_priority_at_on J jobs sched t.
+Proof.
+  intros J candidates_of cand_spec jobs sched t Hresp.
+  unfold respects_edf_priority_at_on.
+  intros j j' _ HJj' Hsched Helig Hlt.
+  unfold respects_policy_at_with in Hresp.
+  rewrite Hsched in Hresp.
+  unfold edf_policy in Hresp.
+  destruct Hresp as [_ [_ Hmin]].
+  destruct cand_spec as [_ Hcomplete _].
+  assert (Hin : In j' (candidates_of jobs 1 sched t)).
+  { exact (Hcomplete jobs 1 sched t j' HJj' Helig). }
+  pose proof (Hmin j' Hin Helig) as Hle.
+  lia.
 Qed.
