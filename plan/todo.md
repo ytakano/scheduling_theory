@@ -1,644 +1,406 @@
-はい。
-実装を踏まえると、**壊さずに前進するための最短ルート**は次です。
+# 目標
 
-* まず `SchedulerValidity.v` で **「schedule が policy を満たす」** を一般化する
-* 次に `DispatcherRefinement.v` で **「dispatcher が policy を実装する」** を一般化する
-* その後で EDF/FIFO をこの層に載せる
-* 最後に必要なら `Partitioned.v` をこの新層へ接続する
+最終的に `Partitioned.v` を、
 
-以下、**そのまま着手できる具体 plan**です。
+* 各 CPU ごとに
 
----
+  * `local_jobset c`
+  * `local_candidates_of c`
+  * `CandidateSourceSpec (local_jobset c) (local_candidates_of c)`
+* 単一 CPU の `DispatchSchedulerBridge` を CPU ごとに貼り合わせる
 
-# 全体方針
+という形に直します。
 
-今回のポイントは、既存の
+つまり、今の
 
-* `GenericDispatchSpec`
-* `single_cpu_dispatch_schedule`
-* `matches_choose_edf_at_with`
+* `enumJ`
+* `filter (assign j = c) enumJ`
+* constant candidate list
 
-を壊さずに、
+ベースから、
 
-* `policy`
-* `schedule validity`
-* `dispatcher refinement`
+* **CPU ごとの CandidateSource ベース**
 
-を **別ファイルとして追加**することです。
-
-つまり、今回は **既存 EDF 最適性証明を書き換えるのではなく、上に新しい抽象層を増やす** 方針がよいです。
-
-特に重要なのは次の2点です。
-
-1. **policy は candidate list ベースで定義する**
-
-   * EDF だけでなく FIFO も扱うため
-   * FIFO は順序依存なので `J` だけでは足りない
-
-2. **EDF の tie は policy 側で吸収する**
-
-   * `choose_edf` は deterministic chooser のままでよい
-   * policy は「最小 deadline の job ならどれでもよい」とする
+に移します。
 
 ---
 
-# まずやる変更
+# 段階付き plan
 
-## 0. `_CoqProject` に新ファイルを追加
+## Phase 0: 先に壊さないための足場を作る
 
-順序はこれがよいです。
+### 目的
 
-```text
-theories/SchedulerValidity.v
-theories/DispatcherRefinement.v
-```
+大きく書き換える前に、「今の振る舞い」を補助定理として固定する。
 
-挿入位置は
+### 作業
 
-* `DispatchSchedulerBridge.v` の後
-* `UniPolicies/EDF.v` の前
+`Partitioned.v` の現行定義に対して、次を先に明示しておく。
 
-が自然です。
+* `local_candidates_of c` は現状 constant source である
+* `partitioned_schedule_on` は「各 CPU が local 1-CPU dispatch bridge を満たす」と同値
 
-つまり概ねこうです。
+  * これはすでに `partitioned_schedule_on_iff_local_rel` があるので活用
+* `partitioned_schedule_implies_valid_schedule`
+* `partitioned_schedule_implies_respects_assignment`
 
-```text
-theories/DispatchSchedulerBridge.v
-theories/SchedulerValidity.v
-theories/DispatcherRefinement.v
-theories/UniPolicies/EDF.v
-theories/UniPolicies/FIFO.v
-...
-```
+### 完了条件
 
----
+少なくとも次が今のまま通る。
 
-# Phase 1: `SchedulerValidity.v` を作る
+* `partitioned_schedule_on_iff_local_rel`
+* `partitioned_schedule_implies_valid_schedule`
+* `local_valid_feasible_on_implies_global`
 
-## 目的
+### メモ
 
-`DispatchSchedulerBridge.v` が提供している
-「dispatcher から schedule を作る」
-とは別に、
-
-**ある schedule が局所的に policy を満たしている**
-
-という概念を切り出します。
+これは実質、以後の refactor の**回帰チェック用の中間到達点**です。
 
 ---
 
-## 1-1. まず導入する定義
+## Phase 1: `local_candidates` を「実装例」に格下げする
 
-最初に、policy を candidate list ベースで定義します。
+### 目的
+
+`Partitioned.v` の中心を `enumJ/filter` から切り離す。
+
+### 作業
+
+Section の引数を次の形へ寄せます。
+
+現状:
+
+* `enumJ`
+* `enumJ_complete`
+* `enumJ_sound`
+
+を直接使っている
+
+変更後:
+
+* `local_candidates_of : CPU -> CandidateSource`
+* `local_candidates_spec :
+    forall c, c < m ->
+      CandidateSourceSpec (local_jobset c) (local_candidates_of c)`
+
+を主引数にする
+
+そして今の `enumJ` ベース実装は、
+**その abstract interface の具体例**として残す。
+
+つまり構造はこうです。
+
+### 1-1. abstract core
+
+`Partitioned.v` の core theorem 群は、以下だけを仮定する。
 
 ```coq
-Definition DispatchPolicy :=
-  (JobId -> Job) -> nat -> Schedule -> Time -> list JobId -> option JobId -> Prop.
+Variable assign : JobId -> CPU.
+Variable m : nat.
+Variable valid_assignment : forall j, assign j < m.
+Variable spec : GenericDispatchSpec.
+Variable J : JobId -> Prop.
+
+Definition local_jobset (c : CPU) : JobId -> Prop :=
+  fun j => J j /\ assign j = c.
+
+Variable local_candidates_of : CPU -> CandidateSource.
+Hypothesis local_candidates_spec :
+  forall c, c < m ->
+    CandidateSourceSpec (local_jobset c) (local_candidates_of c).
 ```
 
-これで
+### 1-2. concrete instance
 
-* EDF policy
-* FIFO policy
-* RR policy
-* fixed-priority policy
+別 Section か末尾で、
 
-を全部同じ型で置けます。
+```coq
+Definition enum_local_candidates ...
+Definition enum_local_candidates_of ...
+Lemma enum_local_candidates_spec ...
+```
+
+を作って、現行の `enumJ/filter` 方式をそこに押し込める。
+
+### 影響箇所
+
+`Partitioned.v` 内の以下を更新。
+
+* `partitioned_schedule_on`
+* `partitioned_schedule_on_iff_local_rel`
+* `partitioned_schedule_implies_respects_assignment`
+* `partitioned_schedule_implies_valid_schedule`
+
+### 完了条件
+
+core theorems が `enumJ` なしで書けること。
 
 ---
 
-## 1-2. 「その時刻で policy を満たす」の定義
+## Phase 2: `partitioned_schedule_on` の定義を bridge-style に揃える
 
-次に、schedule の実際の選択 `sched t 0` が
-policy に許されているかを表す述語を入れます。
+### 目的
+
+single-CPU の `DispatchSchedulerBridge` と揃える。
+
+### 作業
+
+今は
 
 ```coq
-Definition respects_policy_at
-    (policy : DispatchPolicy)
-    (jobs : JobId -> Job)
-    (sched : Schedule)
-    (t : Time)
-    (candidates : list JobId) : Prop :=
-  policy jobs 1 sched t candidates (sched t 0).
-
-Definition respects_policy_at_with
-    (policy : DispatchPolicy)
-    (jobs : JobId -> Job)
-    (candidates_of : CandidateSource)
-    (sched : Schedule)
-    (t : Time) : Prop :=
-  policy jobs 1 sched t (candidates_of jobs 1 sched t) (sched t 0).
-
-Definition respects_policy_before
-    (policy : DispatchPolicy)
-    (jobs : JobId -> Job)
-    (candidates_of : CandidateSource)
-    (sched : Schedule)
-    (H : Time) : Prop :=
-  forall t, t < H ->
-    respects_policy_at_with policy jobs candidates_of sched t.
+sched t c = spec.(dispatch) jobs 1 (cpu_schedule sched c) t (local_candidates c)
 ```
 
-この3つがこのファイルの中心です。
+ですが、これを
+
+```coq
+sched t c =
+  spec.(dispatch) jobs 1 (cpu_schedule sched c) t
+    (local_candidates_of c jobs 1 (cpu_schedule sched c) t)
+```
+
+の形に変えます。
+
+ただし、ここで重要なのは **local CPU view に対して source を呼ぶ**ことです。
+グローバル `sched` をそのまま渡すより、`cpu_schedule sched c` を渡した方が意味が揃います。
+
+### あわせて直す補題
+
+`partitioned_schedule_on_iff_local_rel` は、かなり自然に
+
+* 各 CPU の `single_cpu_dispatch_schedule spec (local_candidates_of c)`
+* を `cpu_schedule sched c` 上で満たす
+
+という形になります。
+
+### 完了条件
+
+`partitioned_schedule_on_iff_local_rel` が、定義展開なしに「設計の中心補題」として使えるようになること。
 
 ---
 
-## 1-3. policy の sanity 条件を record 化する
+## Phase 3: `valid_partitioned_schedule` を本当に公開述語にする
 
-`respects_policy_at_with` だけだと、
-そこから「選ばれた job は候補集合にいる」「eligible である」を一般に引けません。
+### 目的
 
-そこで、policy 側に最低限の健全性条件を持たせます。
+今は alias なので、client が将来巻き込まれやすい。
+これを **安定 API** にします。
+
+### 推奨する進め方
+
+一気に定義を強くするより、2 段階が安全です。
+
+### 3-1. 生の構成述語を分離
+
+まず
 
 ```coq
-Record PolicySanity (policy : DispatchPolicy) : Prop := mkPolicySanity {
-  policy_some_in_candidates :
-    forall jobs m sched t candidates j,
-      policy jobs m sched t candidates (Some j) ->
-      In j candidates ;
+Definition raw_partitioned_schedule_on ...
+```
 
-  policy_some_eligible :
-    forall jobs m sched t candidates j,
-      policy jobs m sched t candidates (Some j) ->
-      eligible jobs m sched j t
+を作り、現在の `partitioned_schedule_on` の中身を移す。
+
+### 3-2. 公開述語を `valid_partitioned_schedule` に寄せる
+
+次に
+
+```coq
+Definition valid_partitioned_schedule jobs sched : Prop :=
+  raw_partitioned_schedule_on jobs sched.
+```
+
+とし、**全ての client-facing theorem を `valid_partitioned_schedule` ベースに言い換える**。
+
+対象は少なくとも:
+
+* `assignment_respect`
+* `local_valid_feasible_on_implies_global`
+* 将来の `partitioned_schedulable_by_on_intro`
+
+### 3-3. その後で定義を強化
+
+client の移行が済んだら、将来的に
+
+```coq
+Definition valid_partitioned_schedule jobs sched : Prop :=
+  raw_partitioned_schedule_on jobs sched /\
+  respects_assignment sched /\
+  valid_schedule jobs m sched.
+```
+
+のように強められます。
+
+ただし現時点では、**すぐ強化しなくてもよい**です。
+まずは「公開定理が raw に依存しない」状態にするのが先です。
+
+### 完了条件
+
+`partitioned_schedule_on` は library 内部用、`valid_partitioned_schedule` が外向き用、という役割分担がはっきりすること。
+
+---
+
+## Phase 4: `partitioned_scheduler` に必要な証拠を寄せる
+
+### 目的
+
+今の `partitioned_scheduler` は `schedulable_by_on` に入るとき、外部からかなり多くの事実を再投入しないといけません。
+ここを single-CPU 側に近づけます。
+
+### 問題点
+
+今の constructor は
+
+```coq
+Definition partitioned_scheduler
+    (assign : JobId -> CPU)
+    (n : nat)
+    (spec : GenericDispatchSpec)
+    (enumJ : list JobId)
+    : Scheduler := ...
+```
+
+で、実際に必要な
+
+* `J`
+* `valid_assignment`
+* `CandidateSourceSpec`
+* local feasibility をどこから得るか
+
+が scheduler の外にあります。
+
+### 作業案
+
+record を 1 つ導入するのがよいです。たとえば:
+
+```coq
+Record PartitionedDispatchContext := {
+  part_assign : JobId -> CPU;
+  part_m : nat;
+  part_valid_assignment : forall j, part_assign j < part_m;
+  part_spec : GenericDispatchSpec;
+  part_J : JobId -> Prop;
+  part_candidates_of : CPU -> CandidateSource;
+  part_candidates_spec :
+    forall c, c < part_m ->
+      CandidateSourceSpec
+        (fun j => part_J j /\ part_assign j = c)
+        (part_candidates_of c)
 }.
 ```
 
-ここでは **None の意味までは固定しません**。
-これが重要です。
+この context から
 
-理由は、将来
+* `valid_partitioned_schedule`
+* `partitioned_scheduler`
 
-* idle を許す policy
-* work-conserving でない policy
-* OS 的な status event
+を作るようにすると、以後の補題がかなり整理されます。
 
-を入れる余地を残すためです。
+### 完了条件
 
----
-
-## 1-4. policy-valid schedule の wrapper を作る
-
-次に、「dispatcher が作った schedule」ではなく、
-「policy validity を満たす schedule」という scheduler relation を作ります。
-
-```coq
-Definition single_cpu_policy_schedule
-    (policy : DispatchPolicy)
-    (candidates_of : CandidateSource)
-    (jobs : JobId -> Job)
-    (m : nat)
-    (sched : Schedule) : Prop :=
-  m = 1 /\
-  forall t, respects_policy_at_with policy jobs candidates_of sched t.
-
-Definition single_cpu_policy_scheduler
-    (policy : DispatchPolicy)
-    (candidates_of : CandidateSource)
-    : Scheduler :=
-  mkScheduler (single_cpu_policy_schedule policy candidates_of).
-```
-
-これで、ロードマップにある
-
-> scheduler を「dispatch の実行結果」ではなく「policy validity を満たす schedule」としても見られるようにする
-
-が実現できます。
+`partitioned_scheduler` が「何を前提に正しいのか」が型に現れること。
 
 ---
 
-## 1-5. この file に置く補題
+## Phase 5: グローバル schedulability への標準導線を作る
 
-この file では、**policy sanity だけで証明できる補題**だけを置きます。
+### 目的
 
-### 補題A: 選ばれた job は candidates にいる
+今ある `local_valid_feasible_on_implies_global` を、
+今後の main theorem 群の入り口にする。
 
-```coq
-Lemma respects_policy_at_with_in_candidates :
-  forall policy
-         (Hsane : PolicySanity policy)
-         jobs candidates_of sched t j,
-    respects_policy_at_with policy jobs candidates_of sched t ->
-    sched t 0 = Some j ->
-    In j (candidates_of jobs 1 sched t).
-```
+### 作業
 
-### 補題B: 選ばれた job は eligible
+次の形の補題を標準入口にします。
 
 ```coq
-Lemma respects_policy_at_with_implies_eligible :
-  forall policy
-         (Hsane : PolicySanity policy)
-         jobs candidates_of sched t j,
-    respects_policy_at_with policy jobs candidates_of sched t ->
-    sched t 0 = Some j ->
-    eligible jobs 1 sched j t.
-```
-
-### 補題C: `CandidateSourceSpec` と組み合わせると `J j`
-
-```coq
-Lemma respects_policy_at_with_in_subset :
-  forall policy
-         (Hsane : PolicySanity policy)
-         J candidates_of
-         (cand_spec : CandidateSourceSpec J candidates_of)
-         jobs sched t j,
-    respects_policy_at_with policy jobs candidates_of sched t ->
-    sched t 0 = Some j ->
-    J j.
-```
-
-### 補題D: schedulable_by_on intro
-
-```coq
-Lemma single_cpu_policy_schedulable_by_on_intro :
-  forall J policy candidates_of jobs sched,
-    single_cpu_policy_schedule policy candidates_of jobs 1 sched ->
-    valid_schedule jobs 1 sched ->
-    feasible_schedule_on J jobs 1 sched ->
-    schedulable_by_on J (single_cpu_policy_scheduler policy candidates_of) jobs 1.
-```
-
----
-
-# Phase 2: `DispatcherRefinement.v` を作る
-
-## 目的
-
-ここで初めて
-
-**この concrete dispatcher はこの abstract policy を実装している**
-
-を定義します。
-
----
-
-## 2-1. refinement の定義
-
-```coq
-Definition dispatcher_refines_policy
-    (spec : GenericDispatchSpec)
-    (policy : DispatchPolicy) : Prop :=
-  forall jobs m sched t candidates,
-    policy jobs m sched t candidates
-      (dispatch spec jobs m sched t candidates).
-```
-
-これで
-
-* `edf_generic_spec` refines `edf_policy`
-* `fifo_generic_spec` refines `fifo_policy`
-
-を同じ形で言えます。
-
----
-
-## 2-2. dispatcher 生成 schedule は policy validity を満たす
-
-この file の主定理はこれです。
-
-```coq
-Lemma single_cpu_dispatch_schedule_respects_policy_at_with :
-  forall spec policy candidates_of jobs sched t,
-    dispatcher_refines_policy spec policy ->
-    single_cpu_dispatch_schedule spec candidates_of jobs 1 sched ->
-    respects_policy_at_with policy jobs candidates_of sched t.
-```
-
-これが通ると、各時刻の policy validity を
-既存 bridge から引けます。
-
-証明は単純で、
-
-* `single_cpu_dispatch_schedule` を展開
-* `sched t 0 = dispatch spec ...`
-* refinement を適用
-
-です。
-
----
-
-## 2-3. horizon 版
-
-```coq
-Lemma single_cpu_dispatch_schedule_respects_policy_before :
-  forall spec policy candidates_of jobs sched H,
-    dispatcher_refines_policy spec policy ->
-    single_cpu_dispatch_schedule spec candidates_of jobs 1 sched ->
-    respects_policy_before policy jobs candidates_of sched H.
-```
-
-これは上の時刻ごとの補題を回すだけです。
-
----
-
-## 2-4. scheduler relation の包含
-
-次に、既存の dispatcher-based scheduler から
-policy-valid scheduler への持ち上げを作ります。
-
-```coq
-Lemma single_cpu_dispatch_schedule_implies_single_cpu_policy_schedule :
-  forall spec policy candidates_of jobs sched,
-    dispatcher_refines_policy spec policy ->
-    single_cpu_dispatch_schedule spec candidates_of jobs 1 sched ->
-    single_cpu_policy_schedule policy candidates_of jobs 1 sched.
-```
-
-さらに scheduler 単位で見るなら
-
-```coq
-Lemma single_cpu_dispatch_scheduler_refines_policy_scheduler :
-  forall spec policy candidates_of jobs sched,
-    scheduler_rel (single_cpu_dispatch_scheduler_on spec candidates_of) jobs 1 sched ->
-    dispatcher_refines_policy spec policy ->
-    scheduler_rel (single_cpu_policy_scheduler policy candidates_of) jobs 1 sched.
-```
-
-のような形でもよいです。
-ただし、まずは前者だけで十分です。
-
----
-
-# Phase 3: EDF を新層へ載せる
-
-ここは **いきなり `EDFOptimality.v` を書き換えない** のが重要です。
-
----
-
-## 3-1. `UniPolicies/EDF.v` に `edf_policy` を追加
-
-定義は tie を許す形にします。
-
-```coq
-Definition edf_policy : DispatchPolicy :=
-  fun jobs m sched t candidates oj =>
-    match oj with
-    | None =>
-        forall j, In j candidates -> ~ eligible jobs m sched j t
-    | Some j =>
-        In j candidates /\
-        eligible jobs m sched j t /\
-        forall j',
-          In j' candidates ->
-          eligible jobs m sched j' t ->
-          job_abs_deadline (jobs j) <= job_abs_deadline (jobs j')
-    end.
-```
-
-これで
-
-* deterministic chooser としての `choose_edf`
-* abstract policy としての `edf_policy`
-
-が分離されます。
-
----
-
-## 3-2. `edf_policy` の sanity を証明
-
-```coq
-Lemma edf_policy_sane : PolicySanity edf_policy.
-```
-
-これは `Some` 分岐を壊すだけです。
-
----
-
-## 3-3. `choose_edf` が `edf_policy` を refine することを証明
-
-```coq
-Lemma choose_edf_refines_edf_policy :
-  dispatcher_refines_policy edf_generic_spec edf_policy.
-```
-
-使う既存補題はほぼそのままです。
-
-* `choose_edf_eligible`
-* `choose_edf_in_candidates`
-* `choose_edf_min_deadline`
-* `choose_edf_none_if_no_eligible`
-
-です。
-
-これはかなり低リスクです。
-
----
-
-## 3-4. `EDFLemmas.v` に互換レイヤを追加
-
-ここが実務上いちばん大事です。
-既存の
-
-* `matches_choose_edf_at_with`
-* `matches_choose_edf_before`
-
-をすぐには消しません。
-
-代わりに、まず次を追加します。
-
-### 新補題 1
-
-```coq
-Lemma matches_choose_edf_at_with_implies_respects_edf_policy_at_with :
-  forall jobs candidates_of sched t,
-    matches_choose_edf_at_with jobs candidates_of sched t ->
-    respects_policy_at_with edf_policy jobs candidates_of sched t.
-```
-
-これは `sched t 0 = choose_edf ...` と
-`choose_edf_refines_edf_policy` からすぐ出ます。
-
-### 新補題 2
-
-```coq
-Lemma respects_edf_policy_at_with_implies_respects_edf_priority_at_on :
-  forall J candidates_of
-         (cand_spec : CandidateSourceSpec J candidates_of)
-         jobs sched t,
-    respects_policy_at_with edf_policy jobs candidates_of sched t ->
-    respects_edf_priority_at_on J jobs sched t.
-```
-
-これで、今 `matches_choose_edf_at_with` から出している
-priority 性質を、新 API からも出せます。
-
-### 新補題 3
-
-既存名は wrapper にする
-
-```coq
-Lemma matches_choose_edf_at_with_implies_respects_edf_priority_at_on :
+Lemma partitioned_schedulable_by_on_from_local :
   ...
 ```
 
-の中身を
+内容は、
 
-* まず `respects_policy_at_with edf_policy ...` に落とす
-* そこから `respects_edf_priority_at_on` を出す
-
-構造に置き換えます。
-
-これで `EDFOptimality.v` はほぼ触らずに済みます。
-
----
-
-# Phase 4: FIFO も同じ枠に載せる
-
-EDF だけだと設計の良し悪しが見えにくいので、
-FIFO でも 1 本通すべきです。
-
----
-
-## 4-1. `UniPolicies/FIFO.v` に `fifo_policy` を追加
-
-```coq
-Definition fifo_policy : DispatchPolicy :=
-  fun jobs m sched t candidates oj =>
-    match oj with
-    | None =>
-        forall j, In j candidates -> ~ eligible jobs m sched j t
-    | Some j =>
-        exists prefix suffix,
-          candidates = prefix ++ j :: suffix /\
-          eligible jobs m sched j t /\
-          forall j', In j' prefix -> ~ eligible jobs m sched j' t
-    end.
-```
-
-これで FIFO の「最初の eligible」が abstract policy になります。
-
----
-
-## 4-2. `fifo_policy_sane`
-
-```coq
-Lemma fifo_policy_sane : PolicySanity fifo_policy.
-```
-
----
-
-## 4-3. `choose_fifo_refines_fifo_policy`
-
-```coq
-Lemma choose_fifo_refines_fifo_policy :
-  dispatcher_refines_policy fifo_generic_spec fifo_policy.
-```
-
-使うのは既存の
-
-* `choose_fifo_eligible`
-* `choose_fifo_none_if_no_eligible`
-* `choose_fifo_first_eligible`
-* `choose_fifo_in_candidates`
+* global schedule が `valid_partitioned_schedule`
+* 各 CPU の local 1-CPU view が `local_jobset c` 上で feasible
+* なら global に `schedulable_by_on J ... jobs m`
 
 です。
 
----
+今の `partitioned_schedulable_by_on_intro` は
+かなり薄い wrapper なので、これだけだと partitioned の旨味が弱いです。
+本命は「local から global を持ち上げる」方です。
 
-# Phase 5: ここまで終わったら初めて `Partitioned.v` へ接続
+### 完了条件
 
-これは今回の主目的ではないですが、
-新層が入ったあとにやると非常にきれいです。
+partitioned 層の典型的利用手順が
 
----
+1. 各 CPU の local scheduler 性質を示す
+2. `valid_partitioned_schedule` を示す
+3. global schedulability を得る
 
-## 5-1. まず今は `Partitioned.v` を壊さない
-
-`valid_partitioned_schedule` はまだ alias のままでよいです。
-
----
-
-## 5-2. 次の一手としてやるべきこと
-
-各 CPU の local view に対して
-
-* local dispatcher が local policy を refine
-* よって local schedule は local policy validity を満たす
-
-を示します。
-
-その上で将来的に
-
-```coq
-valid_partitioned_schedule jobs sched :=
-  partitioned_schedule_on jobs sched /\
-  respects_assignment sched /\
-  valid_schedule jobs m sched
-```
-
-あるいはさらに
-「各 CPU view が local policy validity を満たす」
-まで含める方向へ進めます。
-
-ただし、これは今回の 2 ファイルが安定してからで十分です。
+の 3 ステップで定着すること。
 
 ---
 
-# 実装順のおすすめ
+## Phase 6: FIFO / RR を入れられる形へ確認する
 
-実際の作業順は、次の順が安全です。
+### 目的
 
-## Step 1
+今回の refactor が本当に次の拡張を開くか確認する。
 
-`SchedulerValidity.v` を作る
+### 作業
 
-* `DispatchPolicy`
-* `PolicySanity`
-* `respects_policy_at`
-* `respects_policy_at_with`
-* `respects_policy_before`
-* `single_cpu_policy_schedule`
-* `single_cpu_policy_scheduler`
-* generic inspection lemmas
+最低限、次のどちらかを行う。
 
-## Step 2
+* `FIFO` 用の `local_candidates_of` の形を試作する
+* `RoundRobin` を想定し、「schedule prefix に依存する candidate order」が表現できることを確認する
 
-`DispatcherRefinement.v` を作る
+### 重要ポイント
 
-* `dispatcher_refines_policy`
-* `single_cpu_dispatch_schedule_respects_policy_at_with`
-* `..._before`
-* `single_cpu_dispatch_schedule_implies_single_cpu_policy_schedule`
+ここで初めて、今回の refactor の価値が出ます。
+今の static list 方式だと、RR の「回転」が素直に表せません。
 
-## Step 3
+### 完了条件
 
-`EDF.v` を拡張
-
-* `edf_policy`
-* `edf_policy_sane`
-* `choose_edf_refines_edf_policy`
-
-## Step 4
-
-`EDFLemmas.v` に互換補題を追加
-
-* `matches_choose_edf_at_with_implies_respects_edf_policy_at_with`
-* `respects_edf_policy_at_with_implies_respects_edf_priority_at_on`
-
-## Step 5
-
-`FIFO.v` を拡張
-
-* `fifo_policy`
-* `fifo_policy_sane`
-* `choose_fifo_refines_fifo_policy`
-
-## Step 6
-
-必要なら `EDFOptimality.v` の一部コメント・補題名を更新
-
-ただし大規模 rewrite はしない
+`Partitioned.v` が EDF 専用っぽい見た目から脱して、
+本当に generic dispatch multicore 層になっていること。
 
 ---
 
-# 直近の着手タスク
+# 実際の編集順
 
-一番最初にやるべき 3 つだけに絞ると、これです。
+実装順としては、次の順を勧めます。
 
-1. `SchedulerValidity.v` を新規作成
-2. `DispatcherRefinement.v` を新規作成
-3. `EDF.v` に `edf_policy` と `choose_edf_refines_edf_policy` を追加
+1. `Partitioned.v` に abstract な `local_candidates_of` / `local_candidates_spec` を導入
+2. `partitioned_schedule_on` をそれに合わせて変更
+3. 既存の `enumJ/filter` 方式を concrete instance として残す
+4. `partitioned_schedule_on_iff_local_rel` を通す
+5. `partitioned_schedule_implies_respects_assignment` を通す
+6. `partitioned_schedule_implies_valid_schedule` を通す
+7. `local_valid_feasible_on_implies_global` を通す
+8. `valid_partitioned_schedule` を public API として整理
+9. `partitioned_scheduler` を record/context ベースへ寄せる
 
-この3つが入れば、設計の芯はできます。
+---
+
+# この refactor で直ること
+
+この計画を完了すると、次が改善されます。
+
+* `Partitioned.v` が EDF 寄りの static enumeration 設計から外れる
+* single-CPU bridge と multicore bridge の形が揃う
+* `valid_partitioned_schedule` が本当に stable interface になる
+* FIFO / RR / priority 系を自然に載せやすくなる
+* その先の clustered / global / migration への拡張の土台になる
+
+---
+
+# 逆に、今すぐやらなくてよいこと
+
+今の段階では、まだ無理にやらなくてよいです。
+
+* `valid_partitioned_schedule` の即時強化
+* partitioned 用の巨大 typeclass 化
+* global scheduler まで一気に一般化
+* classical 除去のための大改造
+
+まずは **Partitioned を bridge-style に揃える**のが先です。
