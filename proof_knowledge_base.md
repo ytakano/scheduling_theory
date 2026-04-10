@@ -2158,3 +2158,59 @@
 - **Dependencies**: Lemmas 14, 15, 16
 - **Notes**: `t' < deadline(j)` follows from `t' < deadline(j') < deadline(j)` by `lia`. No Classical needed anywhere in Phase 6.
 - **Date**: 2026-04-10
+
+---
+
+### `first_violation_yields_canonical_repair_job` (Lemma 18')
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma first_violation_yields_canonical_repair_job :
+    forall J (candidates_of : CandidateSource)
+           (cand_spec : CandidateSourceSpec J candidates_of)
+           jobs sched t j,
+      valid_schedule jobs 1 sched ->
+      sched t 0 = Some j ->
+      J j ->
+      edf_violation_at_with J candidates_of jobs sched t ->
+      exists j',
+        In j' (candidates_of jobs 1 sched t) /\
+        eligible jobs 1 sched j' t /\
+        job_abs_deadline (jobs j') < job_abs_deadline (jobs j) /\
+        j' <> j /\
+        choose_edf jobs 1 sched t (candidates_of jobs 1 sched t) = Some j'.
+  ```
+- **Proof Strategy**: Unfold violation to extract j_viol with In+eligible+strict<. Apply `choose_edf_some_if_exists` (j_viol is eligible+in) to get j'. Then `choose_edf_min_deadline` with j_viol gives `deadline(j') <= deadline(j_viol) < deadline(j)` — strict by lia. `j' ≠ j` from strict deadline gap.
+- **Key Tactics**: `unfold edf_violation_at_with edf_violation_at_in`, `injection H as Heq; subst`, `choose_edf_some_if_exists`, `choose_edf_eligible`, `choose_edf_in_candidates`, `choose_edf_min_deadline`, `lia`
+- **Dependencies**: `edf_violation_at_with`, `choose_edf_some_if_exists`, `choose_edf_min_deadline`, `choose_edf_eligible`, `choose_edf_in_candidates`
+- **Notes**: The strict `<` (not `<=`) comes from the violation giving a strict witness; choose_edf minimum has `<=` to that witness, but the witness is `< deadline(j)`. Fully constructive.
+- **Date**: 2026-04-10
+
+---
+
+### `repair_first_violation` (Lemma 18)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma repair_first_violation :
+    forall J (J_bool : JobId -> bool) (candidates_of : CandidateSource)
+           (cand_spec : CandidateSourceSpec J candidates_of)
+           jobs sched (H : nat) t0 j,
+      (forall x, J_bool x = true <-> J x) ->
+      valid_schedule jobs 1 sched ->
+      feasible_schedule_on J jobs 1 sched ->
+      t0 < H ->
+      sched t0 0 = Some j ->
+      edf_violation_at_with J candidates_of jobs sched t0 ->
+      (forall t, t < t0 -> ~ edf_violation_at_with J candidates_of jobs sched t) ->
+      exists sched',
+        valid_schedule jobs 1 sched' /\
+        feasible_schedule_on J jobs 1 sched' /\
+        agrees_before sched sched' t0 /\
+        matches_choose_edf_at_with jobs candidates_of sched' t0.
+  ```
+- **Proof Strategy**: (1) Extract J j from violation. (2) Lemma 18' gives canonical j'. (3) candidates_sound gives J j'. (4) eligible_feasible_implies_runs_later_before_deadline gives t' in [t0, deadline(j')). (5) Assert agrees_before via swap_at_same_outside. (6) Use `refine (conj _ (conj _ (conj _ _)))` for the 4-conjunction. Valid/feasible from Phases 5-6. agrees_before = Hagree. matches_choose_edf: swap_at_t1 + candidates_of_agrees_before + choose_edf_agrees_before + eq_sym Hchoose.
+- **Key Tactics**: `refine (conj _ (conj _ (conj _ _)))`, `swap_at_preserves_valid_schedule`, `swap_at_preserves_feasible_schedule_on`, `swap_at_same_outside`, `candidates_of_agrees_before`, `choose_edf_agrees_before`, `agrees_before_sym`, `eq_sym`
+- **Dependencies**: Lemmas 13, 17, 18', `eligible_feasible_implies_runs_later_before_deadline`, `agrees_before_sym`, `candidates_of_agrees_before`, `choose_edf_agrees_before`
+- **Notes**: ⚠️ Do NOT use `repeat split` for a conjunction whose components are `Prop`s containing inner `forall ... -> A /\ B` — `repeat split` will recurse through the quantifiers and inner conjunctions, destroying goals. Use `refine (conj _ (conj _ (conj _ _)))` instead. ⚠️ After `rewrite swap_at_t1; rewrite Ht'_run` the LHS becomes `Some j'` and the RHS is `choose_edf ... = Some j'`, so need `exact (eq_sym Hchoose)` not `exact Hchoose`. Fully constructive, no Classical.
+- **Date**: 2026-04-10
