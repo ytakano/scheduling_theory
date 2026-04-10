@@ -170,3 +170,284 @@ Proof.
   - apply Nat.eqb_eq in Ht. subst t1. reflexivity.
   - rewrite Nat.eqb_refl. reflexivity.
 Qed.
+
+(* ===== Phase 4: swap が service に与える影響を解析する ===== *)
+
+(* --- CPU-count helpers for m=1 under swap_at --- *)
+
+(* At time t1, cpu_count in swap equals cpu_count in orig at t2. *)
+Lemma cpu_count_1_swap_at_t1 :
+  forall sched t1 t2 j,
+    cpu_count 1 (swap_at sched t1 t2) j t1 = cpu_count 1 sched j t2.
+Proof.
+  intros sched t1 t2 j.
+  simpl. unfold runs_on. rewrite swap_at_t1. reflexivity.
+Qed.
+
+(* At time t2, cpu_count in swap equals cpu_count in orig at t1. *)
+Lemma cpu_count_1_swap_at_t2 :
+  forall sched t1 t2 j,
+    cpu_count 1 (swap_at sched t1 t2) j t2 = cpu_count 1 sched j t1.
+Proof.
+  intros sched t1 t2 j.
+  simpl. unfold runs_on. rewrite swap_at_t2. reflexivity.
+Qed.
+
+(* At any time other than t1 or t2, cpu_count is unchanged. *)
+Lemma cpu_count_1_swap_at_other :
+  forall sched t1 t2 j t,
+    t <> t1 -> t <> t2 ->
+    cpu_count 1 (swap_at sched t1 t2) j t = cpu_count 1 sched j t.
+Proof.
+  intros sched t1 t2 j t Hne1 Hne2.
+  simpl. unfold runs_on.
+  rewrite (swap_at_same_outside sched t1 t2 t 0 (or_intror (conj Hne1 Hne2))).
+  reflexivity.
+Qed.
+
+(* When sched t 0 = Some j, cpu_count 1 sched j t = 1. *)
+Lemma cpu_count_1_some_eq :
+  forall sched j t,
+    sched t 0 = Some j ->
+    cpu_count 1 sched j t = 1.
+Proof.
+  intros sched j t Hsome.
+  assert (Hrun : runs_on sched j t 0 = true).
+  { apply runs_on_true_iff. exact Hsome. }
+  simpl. rewrite Hrun. simpl. reflexivity.
+Qed.
+
+(* When sched t 0 = Some j' with j <> j', cpu_count 1 sched j t = 0. *)
+Lemma cpu_count_1_some_neq :
+  forall sched j j' t,
+    sched t 0 = Some j' ->
+    j <> j' ->
+    cpu_count 1 sched j t = 0.
+Proof.
+  intros sched j j' t Hsome Hne.
+  apply (proj2 (cpu_count_zero_iff_not_executed 1 sched j t)).
+  intros c Hlt Heq.
+  assert (Hc : c = 0) by lia. subst c.
+  rewrite Hsome in Heq.
+  injection Heq as Heq'. subst j'.
+  exact (Hne eq_refl).
+Qed.
+
+(* --- Pointwise cpu_count equality implies service_job equality --- *)
+
+Lemma service_job_eq_of_cpu_count_eq :
+  forall m (sched1 sched2 : Schedule) j T,
+    (forall t, t < T -> cpu_count m sched1 j t = cpu_count m sched2 j t) ->
+    service_job m sched1 j T = service_job m sched2 j T.
+Proof.
+  intros m sched1 sched2 j T Heq.
+  induction T as [| T' IH].
+  - simpl. reflexivity.
+  - rewrite (service_job_step m sched1 j T').
+    rewrite (service_job_step m sched2 j T').
+    rewrite (Heq T' (Nat.lt_succ_diag_r T')).
+    f_equal.
+    apply IH.
+    intros t Hlt. apply Heq. lia.
+Qed.
+
+(* 8. swap_at_service_unchanged_other_job:
+   For j distinct from both swapped jobs, service_job is unaffected at all T.
+   Constructive proof: case-split on t = t1 / t = t2 / neither. *)
+Lemma swap_at_service_unchanged_other_job :
+  forall sched j j1 j2 t1 t2 T,
+    sched t1 0 = Some j1 ->
+    sched t2 0 = Some j2 ->
+    j <> j1 ->
+    j <> j2 ->
+    service_job 1 (swap_at sched t1 t2) j T =
+    service_job 1 sched j T.
+Proof.
+  intros sched j j1 j2 t1 t2 T Hj1 Hj2 Hne1 Hne2.
+  apply service_job_eq_of_cpu_count_eq.
+  intros t _.
+  destruct (Nat.eq_dec t t1) as [-> | Ht1ne].
+  - (* t = t1: swap sees j2 there; orig sees j1 there; both ≠ j → both 0 *)
+    rewrite cpu_count_1_swap_at_t1.
+    rewrite (cpu_count_1_some_neq sched j j2 t2 Hj2 Hne2).
+    rewrite (cpu_count_1_some_neq sched j j1 t1 Hj1 Hne1).
+    reflexivity.
+  - destruct (Nat.eq_dec t t2) as [-> | Ht2ne].
+    + (* t = t2: swap sees j1 there; orig sees j2 there; both ≠ j → both 0 *)
+      rewrite cpu_count_1_swap_at_t2.
+      rewrite (cpu_count_1_some_neq sched j j1 t1 Hj1 Hne1).
+      rewrite (cpu_count_1_some_neq sched j j2 t2 Hj2 Hne2).
+      reflexivity.
+    + (* t ≠ t1 and t ≠ t2: swap unchanged *)
+      exact (cpu_count_1_swap_at_other sched t1 t2 j t Ht1ne Ht2ne).
+Qed.
+
+(* 9. swap_at_service_prefix_before_t1:
+   For T ≤ t1 (and t1 ≤ t2), no swap point lies in [0,T), so service is unchanged.
+   Constructive: every t < T satisfies t < t1 ≤ t2, so t ≠ t1 and t ≠ t2. *)
+Lemma swap_at_service_prefix_before_t1 :
+  forall sched j t1 t2 T,
+    t1 <= t2 ->
+    T <= t1 ->
+    service_job 1 (swap_at sched t1 t2) j T =
+    service_job 1 sched j T.
+Proof.
+  intros sched j t1 t2 T Hle12 HT.
+  apply service_job_eq_of_cpu_count_eq.
+  intros t Hlt.
+  apply cpu_count_1_swap_at_other; lia.
+Qed.
+
+(* 10a. swap_at_service_j1_back_before_t2:
+   j1 = sched t1 0 (back/delayed job). In the interval (t1, t2], j1 loses its
+   t1 slot but does not yet gain the t2 slot, so orig service = 1 + swap service.
+   Constructive induction on T with case T = S t1 (base) and T > S t1 (step). *)
+Lemma swap_at_service_j1_back_before_t2 :
+  forall sched j1 j2 t1 t2 T,
+    t1 < t2 ->
+    sched t1 0 = Some j1 ->
+    sched t2 0 = Some j2 ->
+    j1 <> j2 ->
+    t1 < T ->
+    T <= t2 ->
+    service_job 1 sched j1 T = S (service_job 1 (swap_at sched t1 t2) j1 T).
+Proof.
+  intros sched j1 j2 t1 t2 T Hlt12 Hj1 Hj2 Hne.
+  induction T as [| T' IH]; intros Hgt1 Hle2.
+  - lia.
+  - rewrite (service_job_step 1 sched j1 T').
+    rewrite (service_job_step 1 (swap_at sched t1 t2) j1 T').
+    destruct (Nat.eq_dec T' t1) as [-> | HT'ne].
+    + (* T' = t1, T = S t1: base case *)
+      assert (Heq : service_job 1 (swap_at sched t1 t2) j1 t1 =
+                    service_job 1 sched j1 t1).
+      { apply (swap_at_service_prefix_before_t1 sched j1 t1 t2 t1);
+          [lia | lia]. }
+      rewrite Heq.
+      assert (Hcpu_orig : cpu_count 1 sched j1 t1 = 1).
+      { apply cpu_count_1_some_eq. exact Hj1. }
+      assert (Hcpu_swap : cpu_count 1 (swap_at sched t1 t2) j1 t1 = 0).
+      { rewrite cpu_count_1_swap_at_t1.
+        apply (cpu_count_1_some_neq sched j1 j2 t2 Hj2 Hne). }
+      lia.
+    + (* T' ≠ t1, so T' > t1 (since T = S T' > t1 means T' >= t1) *)
+      assert (HT'gt : t1 < T') by lia.
+      assert (HT'ne_t2 : T' <> t2) by lia.
+      assert (HT'le2 : T' <= t2) by lia.
+      rewrite (cpu_count_1_swap_at_other sched t1 t2 j1 T' HT'ne HT'ne_t2).
+      rewrite (IH HT'gt HT'le2).
+      lia.
+Qed.
+
+(* 10b. swap_at_service_j2_front_before_t2:
+   j2 = sched t2 0 (front/beneficiary job). In (t1, t2], j2 gains the t1 slot
+   but does not yet lose the t2 slot, so swap service = 1 + orig service. *)
+Lemma swap_at_service_j2_front_before_t2 :
+  forall sched j1 j2 t1 t2 T,
+    t1 < t2 ->
+    sched t1 0 = Some j1 ->
+    sched t2 0 = Some j2 ->
+    j1 <> j2 ->
+    t1 < T ->
+    T <= t2 ->
+    service_job 1 (swap_at sched t1 t2) j2 T = S (service_job 1 sched j2 T).
+Proof.
+  intros sched j1 j2 t1 t2 T Hlt12 Hj1 Hj2 Hne.
+  induction T as [| T' IH]; intros Hgt1 Hle2.
+  - lia.
+  - rewrite (service_job_step 1 (swap_at sched t1 t2) j2 T').
+    rewrite (service_job_step 1 sched j2 T').
+    destruct (Nat.eq_dec T' t1) as [-> | HT'ne].
+    + (* T' = t1, T = S t1: base case *)
+      assert (Heq : service_job 1 (swap_at sched t1 t2) j2 t1 =
+                    service_job 1 sched j2 t1).
+      { apply (swap_at_service_prefix_before_t1 sched j2 t1 t2 t1);
+          [lia | lia]. }
+      rewrite Heq.
+      assert (Hcpu_orig : cpu_count 1 sched j2 t1 = 0).
+      { apply (cpu_count_1_some_neq sched j2 j1 t1 Hj1).
+        exact (fun H => Hne (eq_sym H)). }
+      assert (Hcpu_swap : cpu_count 1 (swap_at sched t1 t2) j2 t1 = 1).
+      { rewrite cpu_count_1_swap_at_t1.
+        apply cpu_count_1_some_eq. exact Hj2. }
+      lia.
+    + (* T' ≠ t1 so T' > t1 *)
+      assert (HT'gt : t1 < T') by lia.
+      assert (HT'ne_t2 : T' <> t2) by lia.
+      assert (HT'le2 : T' <= t2) by lia.
+      rewrite (cpu_count_1_swap_at_other sched t1 t2 j2 T' HT'ne HT'ne_t2).
+      rewrite (IH HT'gt HT'le2).
+      lia.
+Qed.
+
+(* 10c. swap_at_service_j1_after_t2:
+   After t2, both the t1-loss and t2-gain of j1 are inside the window — net zero.
+   Base case T = S t2: uses swap_at_service_j1_back_before_t2 at t2 to cancel.
+   Inductive step T > S t2: cpu_count same at T' (≠ t1, ≠ t2). *)
+Lemma swap_at_service_j1_after_t2 :
+  forall sched j1 j2 t1 t2 T,
+    t1 < t2 ->
+    sched t1 0 = Some j1 ->
+    sched t2 0 = Some j2 ->
+    j1 <> j2 ->
+    t2 < T ->
+    service_job 1 (swap_at sched t1 t2) j1 T = service_job 1 sched j1 T.
+Proof.
+  intros sched j1 j2 t1 t2 T Hlt12 Hj1 Hj2 Hne.
+  induction T as [| T' IH]; intros Hlt.
+  - lia.
+  - rewrite (service_job_step 1 sched j1 T').
+    rewrite (service_job_step 1 (swap_at sched t1 t2) j1 T').
+    destruct (Nat.eq_dec T' t2) as [-> | HT'ne].
+    + (* T' = t2, T = S t2: base case *)
+      assert (Hcpu_orig : cpu_count 1 sched j1 t2 = 0).
+      { apply (cpu_count_1_some_neq sched j1 j2 t2 Hj2 Hne). }
+      assert (Hcpu_swap : cpu_count 1 (swap_at sched t1 t2) j1 t2 = 1).
+      { rewrite cpu_count_1_swap_at_t2. apply cpu_count_1_some_eq. exact Hj1. }
+      assert (Hservice : service_job 1 sched j1 t2 =
+                         S (service_job 1 (swap_at sched t1 t2) j1 t2)).
+      { apply (swap_at_service_j1_back_before_t2 sched j1 j2 t1 t2 t2
+                 Hlt12 Hj1 Hj2 Hne); lia. }
+      lia.
+    + (* T' ≠ t2, T' > t2 *)
+      assert (HT'gt : t2 < T') by lia.
+      assert (HT'ne1 : T' <> t1) by lia.
+      rewrite (cpu_count_1_swap_at_other sched t1 t2 j1 T' HT'ne1 HT'ne).
+      rewrite (IH HT'gt). reflexivity.
+Qed.
+
+(* 10d. swap_at_service_j2_after_t2:
+   Symmetric to 10c: after t2, j2's total service is unchanged. *)
+Lemma swap_at_service_j2_after_t2 :
+  forall sched j1 j2 t1 t2 T,
+    t1 < t2 ->
+    sched t1 0 = Some j1 ->
+    sched t2 0 = Some j2 ->
+    j1 <> j2 ->
+    t2 < T ->
+    service_job 1 (swap_at sched t1 t2) j2 T = service_job 1 sched j2 T.
+Proof.
+  intros sched j1 j2 t1 t2 T Hlt12 Hj1 Hj2 Hne.
+  induction T as [| T' IH]; intros Hlt.
+  - lia.
+  - rewrite (service_job_step 1 sched j2 T').
+    rewrite (service_job_step 1 (swap_at sched t1 t2) j2 T').
+    destruct (Nat.eq_dec T' t2) as [-> | HT'ne].
+    + (* T' = t2, T = S t2: base case *)
+      assert (Hcpu_orig : cpu_count 1 sched j2 t2 = 1).
+      { apply cpu_count_1_some_eq. exact Hj2. }
+      assert (Hcpu_swap : cpu_count 1 (swap_at sched t1 t2) j2 t2 = 0).
+      { rewrite cpu_count_1_swap_at_t2.
+        apply (cpu_count_1_some_neq sched j2 j1 t1 Hj1).
+        exact (fun H => Hne (eq_sym H)). }
+      assert (Hservice : service_job 1 (swap_at sched t1 t2) j2 t2 =
+                         S (service_job 1 sched j2 t2)).
+      { apply (swap_at_service_j2_front_before_t2 sched j1 j2 t1 t2 t2
+                 Hlt12 Hj1 Hj2 Hne); lia. }
+      lia.
+    + (* T' ≠ t2, T' > t2 *)
+      assert (HT'gt : t2 < T') by lia.
+      assert (HT'ne1 : T' <> t1) by lia.
+      rewrite (cpu_count_1_swap_at_other sched t1 t2 j2 T' HT'ne1 HT'ne).
+      rewrite (IH HT'gt). reflexivity.
+Qed.

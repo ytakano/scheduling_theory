@@ -1840,3 +1840,141 @@
 - **Dependencies**: `swap_at`
 - **Notes**: Must handle the `t2 = t1` case explicitly — the outer `Nat.eqb t t1` check fires before `Nat.eqb t t2`, so when `t2 = t1` we land in the `t1` branch and `sched t1 0 = sched t2 0` trivially by `subst`.
 - **Date**: 2026-04-10
+
+---
+
+### `cpu_count_1_swap_at_t1` / `cpu_count_1_swap_at_t2` / `cpu_count_1_swap_at_other`
+- **Type**: Lemma (3 helpers)
+- **Statement**:
+  ```coq
+  cpu_count 1 (swap_at sched t1 t2) j t1 = cpu_count 1 sched j t2.
+  cpu_count 1 (swap_at sched t1 t2) j t2 = cpu_count 1 sched j t1.
+  t <> t1 -> t <> t2 ->
+    cpu_count 1 (swap_at sched t1 t2) j t = cpu_count 1 sched j t.
+  ```
+- **Proof Strategy**: `simpl; unfold runs_on; rewrite swap_at_t1/t2/same_outside; reflexivity`.
+- **Key Tactics**: `simpl`, `unfold runs_on`, `rewrite swap_at_t1`, `rewrite swap_at_same_outside`
+- **Dependencies**: `swap_at_t1`, `swap_at_t2`, `swap_at_same_outside`
+- **Notes**: For `_other`, use `or_intror (conj Hne1 Hne2)` to pass the side condition to `swap_at_same_outside`.
+- **Date**: 2026-04-10
+
+---
+
+### `cpu_count_1_some_eq` / `cpu_count_1_some_neq`
+- **Type**: Lemma (2 helpers)
+- **Statement**:
+  ```coq
+  sched t 0 = Some j -> cpu_count 1 sched j t = 1.
+  sched t 0 = Some j' -> j <> j' -> cpu_count 1 sched j t = 0.
+  ```
+- **Proof Strategy**: `_some_eq`: `runs_on_true_iff + simpl + rewrite`. `_some_neq`: `cpu_count_zero_iff_not_executed`; show every cpu<1 runs j', but j≠j' → contradiction via `injection + subst + Hne eq_refl`.
+- **Key Tactics**: `runs_on_true_iff`, `cpu_count_zero_iff_not_executed`, `injection H as Heq'`, `subst`
+- **Dependencies**: `runs_on_true_iff`, `cpu_count_zero_iff_not_executed`
+- **Notes**: In `_some_neq`, note that `cpu < 1 → cpu = 0` by `lia`. Pass `exact (fun H => Hne (eq_sym H))` to reverse equality direction.
+- **Date**: 2026-04-10
+
+---
+
+### `service_job_eq_of_cpu_count_eq`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma service_job_eq_of_cpu_count_eq :
+    forall m (sched1 sched2 : Schedule) j T,
+      (forall t, t < T -> cpu_count m sched1 j t = cpu_count m sched2 j t) ->
+      service_job m sched1 j T = service_job m sched2 j T.
+  ```
+- **Proof Strategy**: Induction on T. Base: `simpl; reflexivity`. Step: `rewrite service_job_step` twice, rewrite pointwise at T' with `Nat.lt_succ_diag_r`, `f_equal`, apply IH with weakened bound.
+- **Key Tactics**: `induction T`, `service_job_step`, `f_equal`, `Nat.lt_succ_diag_r`
+- **Dependencies**: `service_job_step`
+- **Notes**: Very useful bridge lemma: reduce service_job equality to cpu_count pointwise equality.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_service_unchanged_other_job` (Lemma 8)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_service_unchanged_other_job :
+    forall sched j j1 j2 t1 t2 T,
+      sched t1 0 = Some j1 -> sched t2 0 = Some j2 ->
+      j <> j1 -> j <> j2 ->
+      service_job 1 (swap_at sched t1 t2) j T = service_job 1 sched j T.
+  ```
+- **Proof Strategy**: `service_job_eq_of_cpu_count_eq`; case split t=t1/t=t2/other; in each case both schedules see a job ≠ j, so cpu_count=0 on both sides.
+- **Key Tactics**: `service_job_eq_of_cpu_count_eq`, `Nat.eq_dec`, `cpu_count_1_swap_at_t1/t2/other`, `cpu_count_1_some_neq`, `rewrite`, `reflexivity`
+- **Dependencies**: `service_job_eq_of_cpu_count_eq`, `cpu_count_1_swap_at_t1`, `cpu_count_1_some_neq`
+- **Notes**: After two `rewrite ... = 0` calls, use `reflexivity` not `exact`; the `exact` direction would fail if LHS and RHS are symmetric.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_service_prefix_before_t1` (Lemma 9)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_service_prefix_before_t1 :
+    forall sched j t1 t2 T,
+      t1 <= t2 -> T <= t1 ->
+      service_job 1 (swap_at sched t1 t2) j T = service_job 1 sched j T.
+  ```
+- **Proof Strategy**: `service_job_eq_of_cpu_count_eq`; for every t < T, t < t1 ≤ t2 so t≠t1 and t≠t2; apply `cpu_count_1_swap_at_other` by lia.
+- **Key Tactics**: `service_job_eq_of_cpu_count_eq`, `cpu_count_1_swap_at_other`, `lia`
+- **Dependencies**: `service_job_eq_of_cpu_count_eq`, `cpu_count_1_swap_at_other`
+- **Notes**: Pass `[lia | lia]` inline when calling this from other proofs.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_service_j1_back_before_t2` (Lemma 10a)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_service_j1_back_before_t2 :
+    forall sched j1 j2 t1 t2 T,
+      t1 < t2 -> sched t1 0 = Some j1 -> sched t2 0 = Some j2 -> j1 <> j2 ->
+      t1 < T -> T <= t2 ->
+      service_job 1 sched j1 T = S (service_job 1 (swap_at sched t1 t2) j1 T).
+  ```
+- **Proof Strategy**: Induction on T; keep `t1 < T` and `T <= t2` as implications so the IH has them. Base T=S t1: use Lemma 9 to equate prefixes, show cpu_count orig=1 (j1 at t1) and cpu_count swap=0 (j2 at t1), lia. Step: cpu_count at T'∈(t1,t2) unchanged, rewrite with IH (both conditions), lia.
+- **Key Tactics**: `induction T`, `service_job_step`, `Nat.eq_dec`, `swap_at_service_prefix_before_t1`, `cpu_count_1_some_eq`, `cpu_count_1_some_neq`, `cpu_count_1_swap_at_t1`, `cpu_count_1_swap_at_other`, `lia`
+- **Dependencies**: `swap_at_service_prefix_before_t1`, `cpu_count_1_some_eq`, `cpu_count_1_some_neq`, `cpu_count_1_swap_at_t1`, `cpu_count_1_swap_at_other`
+- **Notes**: ⚠️ CRITICAL: `intros` must introduce `T` before the implications. Write `intros sched j1 j2 t1 t2 T Hlt12 Hj1 Hj2 Hne` NOT `intros sched j1 j2 t1 t2 Hlt12 Hj1 Hj2 Hne T`. The wrong order causes `induction T` to induct on the `j1 <> j2` Prop, giving "Expects a disjunctive pattern with 0 branches." Also: The IH requires BOTH conditions; provide `(IH HT'gt HT'le2)` where `HT'le2 : T' <= t2` from `lia`. The `Heq` assertion direction must be `swap = orig` (matching `swap_at_service_prefix_before_t1`'s conclusion).
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_service_j2_front_before_t2` (Lemma 10b)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_service_j2_front_before_t2 :
+    forall sched j1 j2 t1 t2 T,
+      t1 < t2 -> sched t1 0 = Some j1 -> sched t2 0 = Some j2 -> j1 <> j2 ->
+      t1 < T -> T <= t2 ->
+      service_job 1 (swap_at sched t1 t2) j2 T = S (service_job 1 sched j2 T).
+  ```
+- **Proof Strategy**: Symmetric to 10a. Base T=S t1: cpu_count orig=0 (j1≠j2 at t1), cpu_count swap=1 (j2 placed at t1 in swap), lia. Step: same as 10a.
+- **Key Tactics**: same as 10a; additionally `fun H => Hne (eq_sym H)` to reverse inequality direction
+- **Dependencies**: same as 10a
+- **Notes**: Same `intros` pitfall as 10a. Use `fun H => Hne (eq_sym H)` when the `cpu_count_1_some_neq` argument expects `j2 <> j1` but we have `j1 <> j2`.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_service_j1_after_t2` / `swap_at_service_j2_after_t2` (Lemma 10c/10d)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_service_j1_after_t2 :
+    forall sched j1 j2 t1 t2 T,
+      t1 < t2 -> sched t1 0 = Some j1 -> sched t2 0 = Some j2 -> j1 <> j2 ->
+      t2 < T ->
+      service_job 1 (swap_at sched t1 t2) j1 T = service_job 1 sched j1 T.
+  ```
+- **Proof Strategy**: Induction on T. Base T=S t2: cpu_count swap=1 (j1 at t2), cpu_count orig=0; use Lemma 10a at t2 to get `service orig t2 = S (service swap t2)`, then lia balances. Step T'>t2: cpu_count at T' unchanged (T'≠t1,T'≠t2), rewrite IH (single condition), reflexivity.
+- **Key Tactics**: `induction T`, `service_job_step`, `Nat.eq_dec`, `swap_at_service_j1_back_before_t2`, `cpu_count_1_some_eq`, `cpu_count_1_some_neq`, `cpu_count_1_swap_at_t2`, `cpu_count_1_swap_at_other`, `lia`, `reflexivity`
+- **Dependencies**: `swap_at_service_j1_back_before_t2`, `cpu_count_1_swap_at_t2`, `cpu_count_1_swap_at_other`
+- **Notes**: Same `intros` pitfall as 10a/10b. IH here has only one condition (`t2 < T'`), so `rewrite (IH HT'gt)` works directly.
+- **Date**: 2026-04-10
