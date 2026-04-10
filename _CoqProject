@@ -20,6 +20,7 @@ theories/ScheduleLemmas/SchedulePrefix.v
 theories/ScheduleLemmas/ScheduleRestriction.v
 theories/ScheduleLemmas/ScheduleTransform.v
 theories/ScheduleModel.v
+theories/MultiCoreBase.v
 theories/SchedulerInterface.v
 theories/UniPolicies/EDF.v
 theories/UniPolicies/FIFO.v
