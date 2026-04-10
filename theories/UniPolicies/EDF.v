@@ -381,3 +381,39 @@ Proof.
   - intros j Hin Helig.
     exact (choose_edf_none_implies_no_eligible jobs m sched t candidates Hchoose j Hin Helig).
 Qed.
+
+(* ===== Phase 9: UniSchedulerBundle instance for EDF ===== *)
+
+Require Import UniSchedulerInterface.
+Require Import UniSchedulerLemmas.
+
+(* Bundle that packages all EDF components into the standard UniSchedulerBundle
+   interface.  Client supplies the candidate source; the rest is fixed to EDF. *)
+Definition edf_bundle
+    (J : JobId -> Prop)
+    (candidates_of : CandidateSource)
+    (cand_spec : CandidateSourceSpec J candidates_of)
+  : UniSchedulerBundle J :=
+  mkUniSchedulerBundle J
+    candidates_of
+    cand_spec
+    edf_generic_spec
+    edf_policy
+    edf_policy_sane
+    choose_edf_refines_edf_policy.
+
+(* Thin wrapper: concrete single-CPU EDF scheduler from a bundle. *)
+Definition edf_scheduler_on
+    (J : JobId -> Prop)
+    (candidates_of : CandidateSource)
+    (cand_spec : CandidateSourceSpec J candidates_of)
+    : Scheduler :=
+  uni_scheduler_on (edf_bundle J candidates_of cand_spec).
+
+(* Thin wrapper: abstract EDF policy scheduler from a bundle. *)
+Definition edf_policy_scheduler_on
+    (J : JobId -> Prop)
+    (candidates_of : CandidateSource)
+    (cand_spec : CandidateSourceSpec J candidates_of)
+    : Scheduler :=
+  uni_policy_scheduler_on (edf_bundle J candidates_of cand_spec).

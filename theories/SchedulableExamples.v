@@ -8,6 +8,8 @@ Require Import DispatchSchedulerBridge.
 Require Import UniPolicies.EDF.
 Require Import UniPolicies.FIFO.
 Require Import Partitioned.
+Require Import UniSchedulerInterface.
+Require Import UniSchedulerLemmas.
 Import ListNotations.
 
 (**
@@ -456,4 +458,62 @@ Proof.
   - exact pair_partitioned_rel.
   - exact pair_partitioned_valid.
   - exact pair_partitioned_feasible_on.
+Qed.
+
+(* ================================================================= *)
+(** ** Bundle-based example: edf_bundle → uni_scheduler_on           *)
+(* ================================================================= *)
+
+(* Demonstrate the UniSchedulerBundle API:
+   1. Construct edf_bundle with a candidate source.
+   2. Extract the concrete scheduler via uni_scheduler_on.
+   3. Derive schedulable_by_on via uni_scheduler_on_schedulable_by_on_intro.
+
+   This is the new standard entry point: callers only need to supply a
+   candidate source and a feasibility witness, with no knowledge of the
+   underlying dispatch machinery.                                      *)
+
+Definition edf_single_bundle : UniSchedulerBundle J_single :=
+  edf_bundle J_single singleton_candidates singleton_candidates_spec.
+
+(* The concrete EDF scheduler extracted from the bundle. *)
+Definition edf_single_scheduler : Scheduler :=
+  uni_scheduler_on edf_single_bundle.
+
+(* edf_single_scheduler satisfies the scheduler relation for single_sched. *)
+Lemma edf_single_bundle_rel :
+    scheduler_rel edf_single_scheduler single_jobs 1 single_sched.
+Proof.
+  unfold edf_single_scheduler, uni_scheduler_on, edf_single_bundle, edf_bundle,
+         single_cpu_dispatch_scheduler_on, single_cpu_dispatch_schedule.
+  split.
+  - reflexivity.
+  - intro t.
+    split.
+    + destruct t as [| t'].
+      * unfold single_sched, singleton_candidates, choose_edf, min_dl_job,
+               eligibleb, single_jobs, single_job.
+        simpl.
+        reflexivity.
+      * unfold single_sched.
+        simpl.
+        symmetry.
+        apply choose_edf_none_if_no_eligible.
+        intros j Hin.
+        simpl in Hin.
+        destruct Hin as [Hj | []].
+        subst j.
+        apply single_job_not_eligible_after_start.
+        lia.
+    + exact (single_nonzero_cpu_idle t).
+Qed.
+
+(* Main result: the bundle-based EDF scheduler is schedulable for J_single. *)
+Theorem edf_bundle_schedulable_by_on :
+    schedulable_by_on J_single edf_single_scheduler single_jobs 1.
+Proof.
+  exact (uni_scheduler_on_schedulable_by_on_intro
+           J_single edf_single_bundle single_jobs single_sched
+           edf_single_bundle_rel
+           single_feasible_on).
 Qed.

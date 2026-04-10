@@ -243,3 +243,39 @@ Proof.
   - intros j Hin Helig.
     exact (choose_fifo_none_implies_no_eligible jobs m sched t candidates Hchoose j Hin Helig).
 Qed.
+
+(* ===== Phase 6: UniSchedulerBundle instance for FIFO ===== *)
+
+Require Import UniSchedulerInterface.
+Require Import UniSchedulerLemmas.
+
+(* Bundle that packages all FIFO components into the standard UniSchedulerBundle
+   interface.  Client supplies the candidate source; the rest is fixed to FIFO. *)
+Definition fifo_bundle
+    (J : JobId -> Prop)
+    (candidates_of : CandidateSource)
+    (cand_spec : CandidateSourceSpec J candidates_of)
+  : UniSchedulerBundle J :=
+  mkUniSchedulerBundle J
+    candidates_of
+    cand_spec
+    fifo_generic_spec
+    fifo_policy
+    fifo_policy_sane
+    choose_fifo_refines_fifo_policy.
+
+(* Thin wrapper: concrete single-CPU FIFO scheduler from a bundle. *)
+Definition fifo_scheduler_on
+    (J : JobId -> Prop)
+    (candidates_of : CandidateSource)
+    (cand_spec : CandidateSourceSpec J candidates_of)
+    : Scheduler :=
+  uni_scheduler_on (fifo_bundle J candidates_of cand_spec).
+
+(* Thin wrapper: abstract FIFO policy scheduler from a bundle. *)
+Definition fifo_policy_scheduler_on
+    (J : JobId -> Prop)
+    (candidates_of : CandidateSource)
+    (cand_spec : CandidateSourceSpec J candidates_of)
+    : Scheduler :=
+  uni_policy_scheduler_on (fifo_bundle J candidates_of cand_spec).
