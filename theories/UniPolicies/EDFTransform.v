@@ -416,7 +416,7 @@ Proof.
       rewrite (IH HT'gt). reflexivity.
 Qed.
 
-(* 10d. swap_at_service_j2_after_t2:
+(* 10d. swap_at_service_j2_after_t2 (forward declaration for reference):
    Symmetric to 10c: after t2, j2's total service is unchanged. *)
 Lemma swap_at_service_j2_after_t2 :
   forall sched j1 j2 t1 t2 T,
@@ -450,4 +450,232 @@ Proof.
       assert (HT'ne1 : T' <> t1) by lia.
       rewrite (cpu_count_1_swap_at_other sched t1 t2 j2 T' HT'ne1 HT'ne).
       rewrite (IH HT'gt). reflexivity.
+Qed.
+
+(* ===== Phase 5: swap が validity を壊さないことを示す ===== *)
+
+(* Helper: In a valid single-CPU schedule, service_job never exceeds job_cost.
+   Constructive induction: cpu_count = 0 → IH suffices; cpu_count = 1 → valid_schedule
+   gives ~completed at that slot → service < job_cost → service + 1 ≤ job_cost. *)
+Lemma valid_schedule_1_service_le_cost :
+  forall jobs sched j T,
+    valid_schedule jobs 1 sched ->
+    service_job 1 sched j T <= job_cost (jobs j).
+Proof.
+  intros jobs sched j T Hvalid.
+  induction T as [| T' IH].
+  - simpl. lia.
+  - rewrite service_job_step.
+    destruct (Nat.eq_dec (cpu_count 1 sched j T') 0) as [Hz | Hnz].
+    + rewrite Hz. lia.
+    + assert (Hpos : 0 < cpu_count 1 sched j T') by lia.
+      apply cpu_count_pos_iff_executed in Hpos.
+      destruct Hpos as [c [Hlt Hrun]].
+      assert (Hc : c = 0) by lia. subst c.
+      assert (Hncomp : ~completed jobs 1 sched j T').
+      { exact (valid_no_run_after_completion jobs 1 sched j T' 0 Hvalid
+                 (Nat.lt_succ_diag_r 0) Hrun). }
+      apply not_completed_iff_service_lt_cost in Hncomp.
+      assert (Hcpu1 : cpu_count 1 sched j T' = 1).
+      { apply cpu_count_1_some_eq. exact Hrun. }
+      lia.
+Qed.
+
+(* 11. swap_at_validity_new_front_job:
+   j' (the front/beneficiary job) placed at t in swap_at is eligible at t.
+   Its release time is unchanged (released is schedule-independent).
+   Its service up to t in swap equals service in orig by Lemma 9 (T ≤ t1 = t). *)
+Lemma swap_at_validity_new_front_job :
+  forall jobs sched j j' t t',
+    valid_schedule jobs 1 sched ->
+    sched t 0 = Some j ->
+    sched t' 0 = Some j' ->
+    t <= t' ->
+    eligible jobs 1 sched j' t ->
+    eligible jobs 1 (swap_at sched t t') j' t.
+Proof.
+  intros jobs sched j j' t t' Hvalid Hj Hj' Hle Helig.
+  split.
+  - exact (proj1 Helig).
+  - intro Hcomp_swap.
+    apply (proj2 Helig).
+    unfold completed in *.
+    rewrite (swap_at_service_prefix_before_t1 sched j' t t' t Hle (Nat.le_refl t))
+      in Hcomp_swap.
+    exact Hcomp_swap.
+Qed.
+
+(* 12. swap_at_validity_new_back_job:
+   j (the back/delayed job) placed at t' in swap_at is eligible at t'.
+   Released because j ran at t (valid_schedule → released at t) and t ≤ t'.
+   Not completed: by Lemma 10a, service_swap(j, t') = service_orig(j, t') - 1,
+   and service_orig(j, t') ≤ job_cost (valid_schedule_1_service_le_cost), so
+   service_swap < job_cost. *)
+Lemma swap_at_validity_new_back_job :
+  forall jobs sched j j' t t',
+    valid_schedule jobs 1 sched ->
+    sched t 0 = Some j ->
+    sched t' 0 = Some j' ->
+    t <= t' ->
+    job_abs_deadline (jobs j') < job_abs_deadline (jobs j) ->
+    eligible jobs 1 (swap_at sched t t') j t'.
+Proof.
+  intros jobs sched j j' t t' Hvalid Hj Hj' Hle Hdl.
+  assert (Hne : j <> j') by (intro Heq; subst; lia).
+  split.
+  - (* released at t': j ran at t → released at t → monotone *)
+    unfold released.
+    apply (valid_no_run_before_release jobs 1 sched j t 0 Hvalid
+             (Nat.lt_succ_diag_r 0)) in Hj.
+    lia.
+  - intro Hcomp_swap.
+    unfold completed in Hcomp_swap.
+    (* t = t' is impossible: both slots would equal Some j and Some j' → j = j' *)
+    assert (Hlt : t < t').
+    { destruct (Nat.eq_dec t t') as [Heqt | Hlt].
+      - subst t'. rewrite Hj in Hj'. injection Hj' as Heqjj'. exfalso. exact (Hne Heqjj').
+      - lia. }
+    (* Lemma 10a: service_orig(j, t') = S(service_swap(j, t')) *)
+    assert (Hservice : service_job 1 sched j t' =
+                       S (service_job 1 (swap_at sched t t') j t')).
+    { exact (swap_at_service_j1_back_before_t2 sched j j' t t' t'
+               Hlt Hj Hj' Hne Hlt (Nat.le_refl t')). }
+    (* service_orig(j, t') ≤ job_cost *)
+    assert (Hbound : service_job 1 sched j t' <= job_cost (jobs j)).
+    { exact (valid_schedule_1_service_le_cost jobs sched j t' Hvalid). }
+    lia.
+Qed.
+
+(* 13. swap_at_preserves_valid_schedule:
+   Swapping j at t with j' at t' preserves the valid_schedule invariant.
+   Case split on the running time t'':
+   - t'' = t   → Lemma 11 (front job eligible)
+   - t'' = t'  → Lemma 12 (back job eligible)
+   - otherwise → orig eligibility, with service equality shown case-by-case:
+       j'' ≠ j ∧ j'' ≠ j' : Lemma 8 (unchanged)
+       j'' = j, t'' < t    : Lemma 9 (prefix)
+       j'' = j, t < t'' < t': Lemma 10a (service decreases → stays < job_cost)
+       j'' = j, t'' > t'   : Lemma 10c (unchanged after t')
+       j'' = j', t'' < t   : Lemma 9 (prefix)
+       j'' = j', t < t'' < t': key argument: service_orig(j',t'') + 1 ≤
+                               service_orig(j',t') < job_cost (j' still runs at t')
+       j'' = j', t'' > t'  : Lemma 10d (unchanged after t') *)
+Lemma swap_at_preserves_valid_schedule :
+  forall jobs sched j j' t t',
+    valid_schedule jobs 1 sched ->
+    sched t 0 = Some j ->
+    sched t' 0 = Some j' ->
+    eligible jobs 1 sched j' t ->
+    t <= t' ->
+    job_abs_deadline (jobs j') < job_abs_deadline (jobs j) ->
+    valid_schedule jobs 1 (swap_at sched t t').
+Proof.
+  intros jobs sched j j' t t' Hvalid Hj Hj' Helig Hle Hdl.
+  assert (Hne : j <> j') by (intro Heq; subst; lia).
+  (* Derive t < t': if t = t', then j = j' (both run at t), contradiction *)
+  assert (Hlt : t < t').
+  { destruct (Nat.eq_dec t t') as [Heqt | Hlt].
+    - subst t'. rewrite Hj in Hj'. injection Hj' as Heqjj'. exfalso. exact (Hne Heqjj').
+    - lia. }
+  unfold valid_schedule.
+  intros j'' t'' c Hclt Hrun.
+  assert (Hc : c = 0) by lia. subst c.
+  destruct (Nat.eq_dec t'' t) as [-> | Htne].
+  - (* t'' = t: running job is j' (from swap) *)
+    rewrite swap_at_t1 in Hrun.
+    rewrite Hj' in Hrun. injection Hrun as Heq. subst j''.
+    exact (swap_at_validity_new_front_job
+             jobs sched j j' t t' Hvalid Hj Hj' Hle Helig).
+  - destruct (Nat.eq_dec t'' t') as [-> | Ht'ne].
+    + (* t'' = t': running job is j (from swap) *)
+      rewrite swap_at_t2 in Hrun.
+      rewrite Hj in Hrun. injection Hrun as Heq. subst j''.
+      exact (swap_at_validity_new_back_job
+               jobs sched j j' t t' Hvalid Hj Hj' Hle Hdl).
+    + (* t'' ≠ t, t'' ≠ t': swap is identity here *)
+      rewrite (swap_at_same_outside sched t t' t'' 0
+                 (or_intror (conj Htne Ht'ne))) in Hrun.
+      assert (Helig_orig : eligible jobs 1 sched j'' t'').
+      { exact (Hvalid j'' t'' 0 (Nat.lt_succ_diag_r 0) Hrun). }
+      split.
+      * exact (proj1 Helig_orig).
+      * intro Hcomp_swap. unfold completed in *.
+        destruct (Nat.eq_dec j'' j) as [-> | Hjne].
+        { (* j'' = j *)
+          destruct (lt_dec t'' t) as [Hlt_t | Hge_t].
+          - (* t'' < t: service unchanged (prefix) *)
+            apply (proj2 Helig_orig).
+            unfold completed.
+            rewrite <- (swap_at_service_prefix_before_t1 sched j t t' t''
+                          Hle (Nat.lt_le_incl t'' t Hlt_t)).
+            exact Hcomp_swap.
+          - assert (Hle_t : t <= t'') by lia.
+            destruct (lt_dec t'' t') as [Hlt_t' | Hge_t'].
+            + (* t < t'' < t': Lemma 10a gives service_orig = S service_swap *)
+              assert (Hlt12 : t < t') by lia.
+              assert (Hlt_t : t < t'') by lia.
+              assert (Hle_t' : t'' <= t') by lia.
+              assert (Hservice : service_job 1 sched j t'' =
+                                 S (service_job 1 (swap_at sched t t') j t'')).
+              { exact (swap_at_service_j1_back_before_t2 sched j j' t t' t''
+                         Hlt12 Hj Hj' Hne Hlt_t Hle_t'). }
+              apply (proj2 Helig_orig).
+              unfold completed. lia.
+            + (* t'' > t': Lemma 10c gives service_swap = service_orig *)
+              assert (Hlt12 : t < t') by lia.
+              assert (Hgt2 : t' < t'') by lia.
+              apply (proj2 Helig_orig).
+              unfold completed.
+              rewrite <- (swap_at_service_j1_after_t2 sched j j' t t' t''
+                            Hlt12 Hj Hj' Hne Hgt2).
+              exact Hcomp_swap. }
+        { destruct (Nat.eq_dec j'' j') as [-> | Hj'ne].
+          { (* j'' = j' *)
+            destruct (lt_dec t'' t) as [Hlt_t | Hge_t].
+            - (* t'' < t: service unchanged (prefix) *)
+              apply (proj2 Helig_orig).
+              unfold completed.
+              rewrite <- (swap_at_service_prefix_before_t1 sched j' t t' t''
+                            Hle (Nat.lt_le_incl t'' t Hlt_t)).
+              exact Hcomp_swap.
+            - assert (Hle_t : t <= t'') by lia.
+              destruct (lt_dec t'' t') as [Hlt_t' | Hge_t'].
+              + (* t < t'' < t': key argument using both j' runs at t'' and at t' *)
+                assert (Hlt12 : t < t') by exact Hlt.
+                assert (Hlt_t'' : t < t'') by lia.
+                assert (Hle_t'' : t'' <= t') by lia.
+                assert (Hservice : service_job 1 (swap_at sched t t') j' t'' =
+                                   S (service_job 1 sched j' t'')).
+                { exact (swap_at_service_j2_front_before_t2 sched j j' t t' t''
+                           Hlt12 Hj Hj' Hne Hlt_t'' Hle_t''). }
+                (* service_orig(j', t''+1) = service_orig(j', t'') + 1 *)
+                assert (Hcpu1 : cpu_count 1 sched j' t'' = 1).
+                { apply cpu_count_1_some_eq. exact Hrun. }
+                assert (Hstep : service_job 1 sched j' (S t'') =
+                                S (service_job 1 sched j' t'')).
+                { rewrite service_job_step. lia. }
+                (* service_orig(j', t''+1) ≤ service_orig(j', t') *)
+                assert (Hmono : service_job 1 sched j' (S t'') <=
+                                service_job 1 sched j' t').
+                { apply service_job_monotone. lia. }
+                (* service_orig(j', t') < job_cost (j' runs at t' in valid sched) *)
+                assert (Hncomp_t' : service_job 1 sched j' t' < job_cost (jobs j')).
+                { apply not_completed_iff_service_lt_cost.
+                  exact (valid_no_run_after_completion jobs 1 sched j' t' 0
+                           Hvalid (Nat.lt_succ_diag_r 0) Hj'). }
+                lia.
+              + (* t'' > t': Lemma 10d gives service_swap = service_orig *)
+                assert (Hlt12 : t < t') by lia.
+                assert (Hgt2 : t' < t'') by lia.
+                apply (proj2 Helig_orig).
+                unfold completed.
+                rewrite <- (swap_at_service_j2_after_t2 sched j j' t t' t''
+                              Hlt12 Hj Hj' Hne Hgt2).
+                exact Hcomp_swap. }
+          { (* j'' ≠ j ∧ j'' ≠ j': Lemma 8 gives service unchanged *)
+            apply (proj2 Helig_orig).
+            unfold completed.
+            rewrite <- (swap_at_service_unchanged_other_job sched j'' j j' t t' t''
+                          Hj Hj' Hjne Hj'ne).
+            exact Hcomp_swap. } }
 Qed.

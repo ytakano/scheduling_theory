@@ -1978,3 +1978,84 @@
 - **Dependencies**: `swap_at_service_j1_back_before_t2`, `cpu_count_1_swap_at_t2`, `cpu_count_1_swap_at_other`
 - **Notes**: Same `intros` pitfall as 10a/10b. IH here has only one condition (`t2 < T'`), so `rewrite (IH HT'gt)` works directly.
 - **Date**: 2026-04-10
+
+---
+
+### `valid_schedule_1_service_le_cost` (Phase 5 Helper)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma valid_schedule_1_service_le_cost :
+    forall jobs sched j T,
+      valid_schedule jobs 1 sched ->
+      service_job 1 sched j T <= job_cost (jobs j).
+  ```
+- **Proof Strategy**: Induction on T. Base: 0 ≤ job_cost. Step: destruct `cpu_count = 0` (IH + lia) or `cpu_count > 0` (→ j runs → valid_schedule → ~completed → service < job_cost; cpu_count_1_some_eq gives cpu_count = 1; lia closes).
+- **Key Tactics**: `induction T`, `service_job_step`, `Nat.eq_dec`, `cpu_count_pos_iff_executed`, `valid_no_run_after_completion`, `not_completed_iff_service_lt_cost`, `cpu_count_1_some_eq`, `lia`
+- **Dependencies**: `service_job_step`, `cpu_count_pos_iff_executed`, `valid_no_run_after_completion`, `not_completed_iff_service_lt_cost`, `cpu_count_1_some_eq`
+- **Notes**: Only works for m=1 because we derive c=0 from c<1. Uses cpu_count_1_some_eq to pin cpu_count=1.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_validity_new_front_job` (Lemma 11)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_validity_new_front_job :
+    forall jobs sched j j' t t',
+      valid_schedule jobs 1 sched ->
+      sched t 0 = Some j -> sched t' 0 = Some j' ->
+      t <= t' ->
+      eligible jobs 1 sched j' t ->
+      eligible jobs 1 (swap_at sched t t') j' t.
+  ```
+- **Proof Strategy**: released is schedule-independent (from orig eligible). ~completed: service_swap(j', t) = service_orig(j', t) by swap_at_service_prefix_before_t1 (T=t ≤ t1=t). Then orig ~completed implies swap ~completed.
+- **Key Tactics**: `split`, `unfold completed`, `swap_at_service_prefix_before_t1`, `Nat.le_refl`
+- **Dependencies**: `swap_at_service_prefix_before_t1`
+- **Notes**: The service equality direction: `rewrite ... in Hcomp_swap` converts swap completion to orig completion. The rewrite direction must match — Lemma 9 gives swap=orig, so rewrite in Hcomp_swap replaces swap with orig.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_validity_new_back_job` (Lemma 12)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_validity_new_back_job :
+    forall jobs sched j j' t t',
+      valid_schedule jobs 1 sched ->
+      sched t 0 = Some j -> sched t' 0 = Some j' ->
+      t <= t' ->
+      job_abs_deadline (jobs j') < job_abs_deadline (jobs j) ->
+      eligible jobs 1 (swap_at sched t t') j t'.
+  ```
+- **Proof Strategy**: j≠j' from deadline inequality. released: j ran at t → released at t (valid_no_run_before_release); released is `job_release ≤ t`; lia gives ≤ t'. ~completed: t=t' is impossible (j=j', contradiction); for t<t', Lemma 10a gives service_orig(j,t')=S(service_swap(j,t')); valid_schedule_1_service_le_cost bounds orig ≤ job_cost; lia.
+- **Key Tactics**: `unfold released`, `valid_no_run_before_release`, `Nat.eq_dec`, `injection ... as; exfalso`, `swap_at_service_j1_back_before_t2`, `valid_schedule_1_service_le_cost`, `lia`
+- **Dependencies**: `valid_no_run_before_release`, `swap_at_service_j1_back_before_t2`, `valid_schedule_1_service_le_cost`
+- **Notes**: ⚠️ When subst collapses t' to t and the goal is still `t < t` (a nat comparison), use `exfalso` before `exact (Hne ...)` since Hne has type False but goal is `t < t`. ⚠️ The call to swap_at_service_j1_back_before_t2 needs `Hlt` (not `Nat.lt_succ_diag_r t'`) for the `t1 < T` argument when T = t' = t2.
+- **Date**: 2026-04-10
+
+---
+
+### `swap_at_preserves_valid_schedule` (Lemma 13)
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma swap_at_preserves_valid_schedule :
+    forall jobs sched j j' t t',
+      valid_schedule jobs 1 sched ->
+      sched t 0 = Some j -> sched t' 0 = Some j' ->
+      eligible jobs 1 sched j' t ->
+      t <= t' ->
+      job_abs_deadline (jobs j') < job_abs_deadline (jobs j) ->
+      valid_schedule jobs 1 (swap_at sched t t').
+  ```
+- **Proof Strategy**: Derive t<t' at top (Hlt). unfold valid_schedule; c<1 implies c=0. Case split t''=t (Lemma 11), t''=t' (Lemma 12), other. For other: orig eligible; released is schedule-independent; for ~completed, case on j'':
+  - j''≠j∧j''≠j': Lemma 8 (service unchanged)
+  - j''=j, t''<t: Lemma 9 (prefix); j''=j, t<t''<t': Lemma 10a (service decreases, apply proj2 Helig_orig after lia); j''=j, t''>t': Lemma 10c (service unchanged)
+  - j''=j', t''<t: Lemma 9; j''=j', t''>t': Lemma 10d; j''=j', t<t''<t': KEY CASE: service_swap=S(service_orig) (Lemma 10b), cpu_count_1_some_eq gives cpu=1, service_job_step gives step, service_job_monotone gives step≤service(t'), valid_no_run_after_completion gives service(t')<job_cost, lia closes.
+- **Key Tactics**: `Nat.eq_dec`, `lt_dec`, `swap_at_t1/t2`, `swap_at_same_outside`, `swap_at_service_prefix_before_t1`, `swap_at_service_j1_back/after_t2`, `swap_at_service_j2_front/after_t2`, `swap_at_service_unchanged_other_job`, `service_job_step`, `service_job_monotone`, `cpu_count_1_some_eq`, `valid_no_run_after_completion`, `not_completed_iff_service_lt_cost`, `lia`
+- **Dependencies**: Lemmas 8, 9, 10a, 10b, 10c, 10d, 11, 12; `service_job_step`, `service_job_monotone`, `cpu_count_1_some_eq`, `valid_no_run_after_completion`
+- **Notes**: ⚠️ Derive `Hlt : t < t'` at the TOP before any case splits — later `lia` calls for `t < t'` will fail if `t = t'` is possible. ⚠️ After `rewrite swap_at_t1/t2 in Hrun`, must also `rewrite Hj'/Hj in Hrun` to make injection work (Hrun is not a constructor application otherwise). ⚠️ Name clash: `Hge_t'` appears both as assert name and as destruct branch — rename assert to `Hle_t`. ⚠️ The injection after swap_at_t1: `rewrite swap_at_t1 in Hrun` gives `Hrun : sched t' 0 = Some j''`; then `rewrite Hj' in Hrun` gives `Some j' = Some j''`; then `injection Hrun as Heq; subst j''` works.
+- **Date**: 2026-04-10
