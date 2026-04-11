@@ -1,4 +1,4 @@
-From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
 Require Import Base.
 Require Import ScheduleModel.
 Require Import ScheduleLemmas.ScheduleFacts.
@@ -7,91 +7,23 @@ Require Import SchedulingAlgorithmInterface.
 Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import SchedulerValidity.
 Require Import SchedulingAlgorithmRefinement.
+Require Import UniPolicies.MetricChooser.
 Import ListNotations.
 
-(* eligibleb and eligibleb_iff are defined in ScheduleModel and available via
-   Require Import ScheduleModel above. *)
+(* ===== Phase 1: EDF Metric and Dispatch Function ===== *)
 
-(* Select the job with the minimum absolute deadline from a list.
-   Returns None iff the list is empty.
-   Tie-breaking: the earlier element in the list wins (<=? is not strict). *)
-Fixpoint min_dl_job (jobs : JobId -> Job) (l : list JobId) : option JobId :=
-  match l with
-  | []       => None
-  | j :: rest =>
-    match min_dl_job jobs rest with
-    | None    => Some j
-    | Some j' => if job_abs_deadline (jobs j) <=? job_abs_deadline (jobs j')
-                 then Some j
-                 else Some j'
-    end
-  end.
+(* EDF metric: the absolute deadline of job j, as a Z for use with MetricChooser. *)
+Definition edf_metric (jobs : JobId -> Job) (j : JobId) : Z :=
+  Z.of_nat (job_abs_deadline (jobs j)).
 
 (* EDF dispatch function:
    From candidates, filter to those that are eligible, then select
    the one with the earliest (minimum) absolute deadline. *)
 Definition choose_edf (jobs : JobId -> Job) (m : nat) (sched : Schedule)
                        (t : Time) (candidates : list JobId) : option JobId :=
-  min_dl_job jobs (filter (fun j => eligibleb jobs m sched j t) candidates).
+  choose_min_metric (edf_metric jobs) jobs m sched t candidates.
 
-(* ===== Phase 2: min_dl_job Structural Properties ===== *)
-
-Lemma min_dl_job_none_iff : forall jobs l,
-    min_dl_job jobs l = None <-> l = [].
-Proof.
-  intros jobs l. induction l as [| j rest IH]; simpl.
-  - tauto.
-  - split; [| discriminate].
-    intro Hsome.
-    destruct (min_dl_job jobs rest) as [j'|].
-    + destruct (job_abs_deadline (jobs j) <=? job_abs_deadline (jobs j')); discriminate.
-    + discriminate.
-Qed.
-
-Lemma min_dl_job_in : forall jobs l j,
-    min_dl_job jobs l = Some j -> In j l.
-Proof.
-  intros jobs l. induction l as [| j0 rest IH]; simpl.
-  - discriminate.
-  - intros j Hsome.
-    destruct (min_dl_job jobs rest) as [j'|] eqn:Erest.
-    + destruct (job_abs_deadline (jobs j0) <=? job_abs_deadline (jobs j')) eqn:Ecmp.
-      * injection Hsome as Heq. subst. left. reflexivity.
-      * injection Hsome as Heq. subst. right. apply IH. reflexivity.
-    + injection Hsome as Heq. subst. left. reflexivity.
-Qed.
-
-Lemma min_dl_job_min : forall jobs l j,
-    min_dl_job jobs l = Some j ->
-    forall j', In j' l ->
-    job_abs_deadline (jobs j) <= job_abs_deadline (jobs j').
-Proof.
-  intros jobs l. induction l as [| j0 rest IH]; simpl.
-  - discriminate.
-  - intros j Hsome j' Hin.
-    destruct (min_dl_job jobs rest) as [jmin|] eqn:Erest.
-    + destruct (job_abs_deadline (jobs j0) <=? job_abs_deadline (jobs jmin)) eqn:Ecmp.
-      * (* chosen = j0 *)
-        injection Hsome as Heq. subst j.
-        apply Nat.leb_le in Ecmp.
-        destruct Hin as [-> | Hin'].
-        -- lia.
-        -- pose proof (IH jmin eq_refl j' Hin'). lia.
-      * (* chosen = jmin; after subst jmin, j is the result *)
-        injection Hsome as Heq. subst jmin.
-        apply Bool.not_true_iff_false in Ecmp.
-        rewrite Nat.leb_le in Ecmp.
-        destruct Hin as [-> | Hin'].
-        -- lia.
-        -- apply IH. reflexivity. exact Hin'.
-    + (* None branch: min_dl_job rest = None, so rest = [], j = j0 *)
-      injection Hsome as Heq. subst j.
-      destruct Hin as [-> | Hin'].
-      * lia.
-      * apply min_dl_job_none_iff in Erest. subst rest. contradiction.
-Qed.
-
-(* ===== Phase 2b: Additional min_dl_job / filter lemmas ===== *)
+(* ===== Phase 2: EDF Dispatch Correctness ===== *)
 
 (* If no candidate is eligible, choose_edf returns None. *)
 Lemma choose_edf_none_if_no_eligible : forall jobs m sched t candidates,
@@ -99,17 +31,8 @@ Lemma choose_edf_none_if_no_eligible : forall jobs m sched t candidates,
     choose_edf jobs m sched t candidates = None.
 Proof.
   intros jobs m sched t candidates Hnone.
-  unfold choose_edf.
-  apply min_dl_job_none_iff.
-  induction candidates as [| j0 rest IH].
-  - reflexivity.
-  - simpl. destruct (eligibleb jobs m sched j0 t) eqn:Erb.
-    + exfalso. apply (Hnone j0 (or_introl eq_refl)).
-      apply eligibleb_iff. exact Erb.
-    + apply IH. intros j Hin. apply Hnone. right. exact Hin.
+  exact (choose_min_metric_none_if_no_eligible _ jobs m sched t candidates Hnone).
 Qed.
-
-(* ===== Phase 3: EDF Dispatch Correctness ===== *)
 
 (* Theorem 1: The chosen job is eligible. *)
 Theorem choose_edf_eligible : forall jobs m sched t candidates j,
@@ -117,11 +40,7 @@ Theorem choose_edf_eligible : forall jobs m sched t candidates j,
     eligible jobs m sched j t.
 Proof.
   intros jobs m sched t candidates j Hchoose.
-  unfold choose_edf in Hchoose.
-  apply min_dl_job_in in Hchoose.
-  apply filter_In in Hchoose.
-  destruct Hchoose as [_ Hrb].
-  apply eligibleb_iff. exact Hrb.
+  exact (choose_min_metric_eligible _ jobs m sched t candidates j Hchoose).
 Qed.
 
 (* Theorem 2: The chosen job has the minimum deadline among all eligible candidates. *)
@@ -132,11 +51,9 @@ Theorem choose_edf_min_deadline : forall jobs m sched t candidates j,
     job_abs_deadline (jobs j) <= job_abs_deadline (jobs j').
 Proof.
   intros jobs m sched t candidates j Hchoose j' Hin Helig.
-  unfold choose_edf in Hchoose.
-  apply (min_dl_job_min jobs _ j Hchoose).
-  apply filter_In. split.
-  - exact Hin.
-  - apply eligibleb_iff. exact Helig.
+  pose proof (choose_min_metric_min (edf_metric jobs) jobs m sched t candidates j
+                Hchoose j' Hin Helig) as H.
+  unfold edf_metric in H. lia.
 Qed.
 
 (* Theorem 3: A job is always chosen when an eligible candidate exists. *)
@@ -144,20 +61,19 @@ Theorem choose_edf_some_if_exists : forall jobs m sched t candidates,
     (exists j, In j candidates /\ eligible jobs m sched j t) ->
     exists j', choose_edf jobs m sched t candidates = Some j'.
 Proof.
-  intros jobs m sched t candidates [j [Hin Helig]].
-  unfold choose_edf.
-  assert (Hne : filter (fun j => eligibleb jobs m sched j t) candidates <> []).
-  { intro Hempty.
-    assert (Hin' : In j (filter (fun j => eligibleb jobs m sched j t) candidates)).
-    { apply filter_In. split. exact Hin. apply eligibleb_iff. exact Helig. }
-    rewrite Hempty in Hin'. contradiction. }
-  destruct (min_dl_job jobs (filter (fun j => eligibleb jobs m sched j t) candidates))
-      as [j'|] eqn:Hmin.
-  - exists j'. reflexivity.
-  - apply min_dl_job_none_iff in Hmin. contradiction.
+  intros jobs m sched t candidates Hex.
+  exact (choose_min_metric_some_if_exists _ jobs m sched t candidates Hex).
 Qed.
 
-(* ===== Phase 4: Explicit Precondition Lemmas (NoDup + eligible-set coverage) ===== *)
+(* The chosen job is always a member of the candidate list. *)
+Lemma choose_edf_in_candidates : forall jobs m sched t candidates j,
+    choose_edf jobs m sched t candidates = Some j -> In j candidates.
+Proof.
+  intros jobs m sched t candidates j Hchoose.
+  exact (choose_min_metric_in_candidates _ jobs m sched t candidates j Hchoose).
+Qed.
+
+(* ===== Phase 3: Explicit Precondition Lemmas ===== *)
 
 (* B1: If candidates exactly represents the eligible set and an eligible job exists,
    choose_edf always returns Some. *)
@@ -166,11 +82,8 @@ Lemma choose_edf_complete : forall jobs m sched t candidates,
     (exists j, eligible jobs m sched j t) ->
     exists j', choose_edf jobs m sched t candidates = Some j'.
 Proof.
-  intros jobs m sched t candidates Href [j Helig].
-  apply choose_edf_some_if_exists.
-  exists j. split.
-  - apply Href. exact Helig.
-  - exact Helig.
+  intros jobs m sched t candidates Href Hex.
+  exact (choose_min_metric_complete _ jobs m sched t candidates Href Hex).
 Qed.
 
 (* B2: If candidates exactly represents the eligible set, the chosen job has
@@ -182,12 +95,12 @@ Lemma choose_edf_optimal : forall jobs m sched t candidates j,
     job_abs_deadline (jobs j) <= job_abs_deadline (jobs j').
 Proof.
   intros jobs m sched t candidates j Href Hchoose j' Helig.
-  apply (choose_edf_min_deadline jobs m sched t candidates j Hchoose).
-  - apply Href. exact Helig.
-  - exact Helig.
+  pose proof (choose_min_metric_optimal (edf_metric jobs) jobs m sched t candidates j
+                Href Hchoose j' Helig) as H.
+  unfold edf_metric in H. lia.
 Qed.
 
-(* ===== Phase 5: Uniqueness / Determinism ===== *)
+(* ===== Phase 4: Uniqueness / Determinism ===== *)
 
 (* A2: If job j has strictly smaller deadline than every other eligible candidate,
    EDF is forced to return j. *)
@@ -200,35 +113,12 @@ Lemma choose_edf_unique_min : forall jobs m sched t candidates j,
     choose_edf jobs m sched t candidates = Some j.
 Proof.
   intros jobs m sched t candidates j Hin Helig Hstrict.
-  destruct (choose_edf_some_if_exists jobs m sched t candidates) as [j' Hchoose].
-  { exists j. split. exact Hin. exact Helig. }
-  assert (Hj'_elig : eligible jobs m sched j' t).
-  { apply (choose_edf_eligible jobs m sched t candidates). exact Hchoose. }
-  assert (Hj'_in : In j' candidates).
-  { unfold choose_edf in Hchoose.
-    apply min_dl_job_in in Hchoose.
-    apply filter_In in Hchoose. exact (proj1 Hchoose). }
-  assert (Hle : job_abs_deadline (jobs j') <= job_abs_deadline (jobs j)).
-  { apply (choose_edf_min_deadline jobs m sched t candidates j' Hchoose j Hin Helig). }
-  destruct (Nat.eq_dec j' j) as [Heq | Hneq].
-  - rewrite Heq in Hchoose. exact Hchoose.
-  - exfalso.
-    pose proof (Hstrict j' Hj'_in Hj'_elig Hneq) as Hlt.
-    lia.
+  apply (choose_min_metric_unique_min (edf_metric jobs) jobs m sched t candidates j Hin Helig).
+  intros j' Hin' Helig' Hneq.
+  unfold edf_metric. pose proof (Hstrict j' Hin' Helig' Hneq). lia.
 Qed.
 
-(* ===== Phase 6: EDF satisfies GenericSchedulingAlgorithm and EDFSchedulerSpec ===== *)
-
-(* The chosen job is always a member of the candidate list. *)
-Lemma choose_edf_in_candidates : forall jobs m sched t candidates j,
-    choose_edf jobs m sched t candidates = Some j -> In j candidates.
-Proof.
-  intros jobs m sched t candidates j Hchoose.
-  unfold choose_edf in Hchoose.
-  apply min_dl_job_in in Hchoose.
-  apply filter_In in Hchoose.
-  exact (proj1 Hchoose).
-Qed.
+(* ===== Phase 5: EDF satisfies GenericSchedulingAlgorithm and EDFSchedulerSpec ===== *)
 
 (* EDF satisfies the generic (policy-independent) dispatch interface. *)
 Definition edf_generic_spec : GenericSchedulingAlgorithm :=
@@ -262,7 +152,7 @@ Definition edf_scheduler_spec : EDFSchedulerSpec :=
     edf_generic_spec
     choose_edf_min_deadline.
 
-(* ===== Phase 7: EDF-specific lemmas (policy invariant consequences) ===== *)
+(* ===== Phase 6: EDF-specific lemmas (policy invariant consequences) ===== *)
 
 Section EDFSchedulerLemmasSection.
 
@@ -320,7 +210,7 @@ Definition edf_scheduler
     : Scheduler :=
   single_cpu_algorithm_schedule edf_generic_spec candidates_of.
 
-(* ===== Phase 8: Abstract EDF policy ===== *)
+(* ===== Phase 7: Abstract EDF policy ===== *)
 
 (* Auxiliary: if choose_edf returns None, all candidates are ineligible.
    (Converse of choose_edf_none_if_no_eligible.) *)
@@ -329,11 +219,9 @@ Lemma choose_edf_none_implies_no_eligible : forall jobs m sched t candidates,
     forall j, In j candidates -> ~eligible jobs m sched j t.
 Proof.
   intros jobs m sched t candidates Hnone j Hin Helig.
-  unfold choose_edf in Hnone.
-  apply min_dl_job_none_iff in Hnone.
-  assert (Hin' : In j (filter (fun j0 => eligibleb jobs m sched j0 t) candidates)).
-  { apply filter_In. split. exact Hin. apply eligibleb_iff. exact Helig. }
-  rewrite Hnone in Hin'. exact Hin'.
+  assert (Hsome : exists j', choose_edf jobs m sched t candidates = Some j').
+  { apply choose_edf_some_if_exists. exists j. split. exact Hin. exact Helig. }
+  destruct Hsome as [j' Hsome]. rewrite Hnone in Hsome. discriminate.
 Qed.
 
 (* Abstract EDF policy: ties are permitted (any job with minimum deadline wins).
@@ -358,10 +246,8 @@ Lemma edf_policy_sane : SchedulingAlgorithmSpecSanity edf_policy.
 Proof.
   constructor.
   - intros jobs m sched t candidates j Hpol.
-    unfold edf_policy in Hpol.
     exact (proj1 Hpol).
   - intros jobs m sched t candidates j Hpol.
-    unfold edf_policy in Hpol.
     exact (proj1 (proj2 Hpol)).
 Qed.
 
@@ -382,7 +268,7 @@ Proof.
     exact (choose_edf_none_implies_no_eligible jobs m sched t candidates Hchoose j Hin Helig).
 Qed.
 
-(* ===== Phase 9: UniSchedulerBundle instance for EDF ===== *)
+(* ===== Phase 8: UniSchedulerBundle instance for EDF ===== *)
 
 Require Import UniSchedulerInterface.
 Require Import UniSchedulerLemmas.
@@ -425,3 +311,4 @@ Definition edf_policy_scheduler_on
     (cand_spec : CandidateSourceSpec J candidates_of)
     : Scheduler :=
   uni_policy_scheduler_on (edf_bundle J candidates_of cand_spec).
+

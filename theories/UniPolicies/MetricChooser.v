@@ -3,6 +3,7 @@ From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
 Require Import Base.
 Require Import ScheduleModel.
 Require Import ScheduleLemmas.ScheduleFacts.
+Require Import ScheduleLemmas.SchedulePrefix.
 Import ListNotations.
 
 (* Generic minimum-metric chooser over JobId lists.
@@ -182,6 +183,21 @@ Proof.
   apply (choose_min_metric_min metric jobs m sched t candidates j Hchoose).
   - apply Href. exact Helig.
   - exact Helig.
+Qed.
+
+(* If two schedules agree before time t, choose_min_metric gives the same result. *)
+Lemma choose_min_metric_agrees_before :
+  forall metric jobs m s1 s2 t candidates,
+    agrees_before s1 s2 t ->
+    choose_min_metric metric jobs m s1 t candidates =
+    choose_min_metric metric jobs m s2 t candidates.
+Proof.
+  intros metric jobs m s1 s2 t candidates Hagree.
+  unfold choose_min_metric.
+  f_equal.
+  apply List.filter_ext.
+  intro j.
+  apply eligibleb_agrees_before. exact Hagree.
 Qed.
 
 (* If job j has strictly minimum metric, choose_min_metric is forced to return j. *)

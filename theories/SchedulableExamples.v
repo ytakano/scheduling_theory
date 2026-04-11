@@ -6,6 +6,7 @@ Require Import SchedulerInterface.
 Require Import SchedulingAlgorithmInterface.
 Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import MultiCoreBase.
+Require Import UniPolicies.MetricChooser.
 Require Import UniPolicies.EDF.
 Require Import UniPolicies.FIFO.
 Require Import Partitioned.
@@ -143,7 +144,8 @@ Proof.
   - intro t.
     split.
     + destruct t as [| t'].
-      * unfold single_sched, singleton_candidates, choose_edf, min_dl_job,
+      * unfold single_sched, singleton_candidates, choose_edf, choose_min_metric,
+               min_metric_job, edf_metric,
                eligibleb, single_jobs, single_job.
         simpl.
         reflexivity.
@@ -494,7 +496,8 @@ Proof.
   - intro t.
     split.
     + destruct t as [| t'].
-      * unfold single_sched, singleton_candidates, choose_edf, min_dl_job,
+      * unfold single_sched, singleton_candidates, choose_edf, choose_min_metric,
+               min_metric_job, edf_metric,
                eligibleb, single_jobs, single_job.
         simpl.
         reflexivity.

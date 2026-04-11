@@ -8,6 +8,7 @@ Require Import SchedulingAlgorithmInterface.
 Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import SchedulerValidity.
 Require Import SchedulingAlgorithmRefinement.
+Require Import UniPolicies.MetricChooser.
 Require Import UniPolicies.EDF.
 Import ListNotations.
 
@@ -35,10 +36,7 @@ Lemma choose_edf_agrees_before :
 Proof.
   intros jobs s1 s2 t candidates Hagree.
   unfold choose_edf.
-  f_equal.
-  apply List.filter_ext.
-  intro j.
-  apply eligibleb_agrees_before. exact Hagree.
+  apply choose_min_metric_agrees_before. exact Hagree.
 Qed.
 
 (* 3-3: edf_generic_spec の dispatch は時刻 t の選択が prefix で決まる *)
