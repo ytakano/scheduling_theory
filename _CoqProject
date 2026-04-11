@@ -24,6 +24,7 @@ theories/UniPolicies/MetricChooserLemmas.v
 theories/UniPolicies/LLF.v
 theories/UniPolicies/LLFLemmas.v
 theories/UniPolicies/LLFTransform.v
+theories/UniPolicies/LLFOptimality.v
 theories/Partitioned.v
 theories/PartitionedCompose.v
 theories/PartitionedPolicies/PartitionedEDF.v

@@ -322,5 +322,6 @@ Proof.
       apply Hnot.
       unfold matches_choose_llf_at_with, matches_dispatch_at_with.
       simpl.
-      rewrite Hst0. reflexivity.
+      rewrite Hst0.
+      exact (eq_sym Hchoose).
 Qed.
