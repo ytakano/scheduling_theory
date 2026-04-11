@@ -243,3 +243,82 @@ Proof.
              Hagree).
   exact (Hcanon t Hlt).
 Qed.
+
+(* ===== Section 10: Bridge to scheduler_rel ===== *)
+
+Lemma canonical_and_idle_implies_scheduler_rel_llf :
+  forall J enumJ (candidates_of : CandidateSource)
+         (cand_spec : CandidateSourceSpec J candidates_of)
+         jobs sched,
+    (forall j, J j -> In j enumJ) ->
+    valid_schedule jobs 1 sched ->
+    feasible_schedule_on J jobs 1 sched ->
+    single_cpu_only sched ->
+    matches_choose_llf_before jobs candidates_of sched (deadline_horizon jobs enumJ) ->
+    (forall t, deadline_horizon jobs enumJ <= t -> sched t 0 = None) ->
+    scheduler_rel (llf_scheduler candidates_of) jobs 1 sched.
+Proof.
+  intros J enumJ candidates_of cand_spec jobs sched
+         HJ_in Hvalid Hfeas Honly Hcanon Hidle.
+  unfold llf_scheduler.
+  eapply canonical_and_idle_implies_scheduler_rel_generic; eauto.
+Qed.
+
+(* ===== Section 11: Main theorem ===== *)
+
+Theorem llf_optimality_on_finite_jobs :
+  forall J (J_bool : JobId -> bool) enumJ
+         (candidates_of : CandidateSource)
+         (cand_spec : CandidateSourceSpec J candidates_of)
+         jobs,
+    (forall x, J_bool x = true <-> J x) ->
+    (forall j, J j -> In j enumJ) ->
+    (forall j, In j enumJ -> J j) ->
+    feasible_on J jobs 1 ->
+    schedulable_by_on J (llf_scheduler candidates_of) jobs 1.
+Proof.
+  intros J J_bool enumJ candidates_of cand_spec jobs
+         HJbool HJ_in HJ_complete Hfeas_on.
+  destruct Hfeas_on as [sched0 [Hvalid0 Hfeas0]].
+  set (sched1 := J_restrict J_bool (mk_single_cpu sched0)).
+  assert (Hvalid1 : valid_schedule jobs 1 sched1).
+  { unfold sched1.
+    apply (J_restrict_valid J_bool J jobs (mk_single_cpu sched0) HJbool).
+    exact (mk_single_cpu_valid jobs sched0 Hvalid0). }
+  assert (Hfeas1 : feasible_schedule_on J jobs 1 sched1).
+  { unfold sched1.
+    apply (J_restrict_feasible J_bool J jobs (mk_single_cpu sched0) HJbool).
+    exact (mk_single_cpu_feasible J jobs sched0 Hfeas0). }
+  assert (HJonly1 : forall t j, sched1 t 0 = Some j -> J j).
+  { intros t j Hrun. unfold sched1 in Hrun.
+    exact (J_restrict_J_only J_bool J (mk_single_cpu sched0) t j HJbool Hrun). }
+  assert (Hcpu1 : single_cpu_only sched1).
+  { unfold sched1. exact (J_restrict_only J_bool (mk_single_cpu sched0)). }
+  set (H := deadline_horizon jobs enumJ).
+  destruct (llf_normalize_to_canonical J J_bool candidates_of cand_spec jobs sched1 H
+               HJbool Hvalid1 Hfeas1 HJonly1 Hcpu1)
+    as [sched2 [Hvalid2 [Hfeas2 [HJonly2 [Hcpu2 Hcanon2]]]]].
+  set (sched3 := trunc_sched sched2 H).
+  assert (Hvalid3 : valid_schedule jobs 1 sched3)
+    by (unfold sched3; exact (trunc_sched_valid jobs sched2 H Hvalid2)).
+  assert (Hfeas3 : feasible_schedule_on J jobs 1 sched3).
+  { unfold sched3.
+    apply (trunc_sched_feasible J jobs sched2 H).
+    - intros j HJj. apply Nat.lt_le_incl.
+      unfold H. exact (J_implies_deadline_lt_horizon J enumJ jobs j HJ_in HJj).
+    - exact Hfeas2. }
+  assert (Hcpu3 : single_cpu_only sched3).
+  { unfold sched3. exact (trunc_sched_single_cpu_only sched2 H Hcpu2). }
+  assert (Hcanon3 : matches_choose_llf_before jobs candidates_of sched3 H).
+  { unfold sched3.
+    exact (trunc_sched_llf_canonical J candidates_of cand_spec jobs sched2 H
+             Hcpu2 (trunc_sched_single_cpu_only sched2 H Hcpu2) Hcanon2). }
+  assert (Hidle3 : forall t, H <= t -> sched3 t 0 = None).
+  { intros t Hle. unfold sched3.
+    exact (trunc_sched_after sched2 H t 0 Hle). }
+  assert (Hrel : scheduler_rel (llf_scheduler candidates_of) jobs 1 sched3).
+  { exact (canonical_and_idle_implies_scheduler_rel_llf J enumJ candidates_of cand_spec
+             jobs sched3 HJ_in Hvalid3 Hfeas3 Hcpu3 Hcanon3 Hidle3). }
+  exact (single_cpu_algorithm_schedulable_by_on_intro J llf_generic_spec candidates_of
+           cand_spec jobs sched3 Hrel Hfeas3).
+Qed.
