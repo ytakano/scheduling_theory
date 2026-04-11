@@ -2543,3 +2543,33 @@
   - ⚠️ Use `single_cpu_algorithm_valid` not `uni_scheduler_on_valid` to avoid implicit argument inference issues
 - **Proof Kind**: Constructive
 - **Date**: 2025-01-01
+
+---
+
+### `partitioned_fifo_scheduler` and `local_fifo_witnesses_imply_partitioned_fifo_schedulable_by_on`
+- **Type**: Definition + Theorem
+- **Statement**:
+  ```coq
+  Definition partitioned_fifo_scheduler (m : nat) (cands : CPU -> CandidateSource) : Scheduler :=
+    partitioned_scheduler m fifo_generic_spec cands.
+
+  Theorem local_fifo_witnesses_imply_partitioned_fifo_schedulable_by_on :
+      forall (assign : JobId -> CPU) (m : nat)
+             (valid_assignment : forall j, assign j < m)
+             (J : JobId -> Prop)
+             (cands : CPU -> CandidateSource)
+             (cands_spec : forall c, c < m ->
+               CandidateSourceSpec (local_jobset assign J c) (cands c))
+             (jobs : JobId -> Job)
+             (locals : CPU -> Schedule),
+        (forall c, c < m ->
+          scheduler_rel (fifo_scheduler (cands c)) jobs 1 (locals c) /\
+          feasible_schedule_on (local_jobset assign J c) jobs 1 (locals c)) ->
+        schedulable_by_on J (partitioned_fifo_scheduler m cands) jobs m.
+  ```
+- **Proof Strategy**: Thin wrapper pattern — unfold `partitioned_fifo_scheduler` to expose `partitioned_scheduler m fifo_generic_spec cands`, then delegate entirely to `local_witnesses_imply_partitioned_schedulable_by_on` from `PartitionedCompose`. The only non-trivial step is unfolding `fifo_scheduler` in the per-CPU hypothesis to reveal the underlying `scheduler_rel`.
+- **Key Tactics**: `unfold partitioned_fifo_scheduler`, `apply local_witnesses_imply_partitioned_schedulable_by_on`, `unfold fifo_scheduler in Hrel`, `exact`
+- **Dependencies**: `PartitionedCompose.local_witnesses_imply_partitioned_schedulable_by_on`, `UniPolicies.FIFO.fifo_generic_spec`, `UniPolicies.FIFO.fifo_scheduler`, `Partitioned.partitioned_scheduler`, `Partitioned.local_jobset`
+- **Notes**: Mirrors `PartitionedEDF.v` and `PartitionedRR.v` exactly. The key insight is that `fifo_scheduler cands = single_cpu_algorithm_schedule fifo_generic_spec cands`, so unfolding it exposes the `scheduler_rel` form accepted by `local_witnesses_imply_partitioned_schedulable_by_on`.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-11

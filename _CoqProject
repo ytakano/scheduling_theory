@@ -21,6 +21,7 @@ theories/UniPolicies/RoundRobin.v
 theories/Partitioned.v
 theories/PartitionedCompose.v
 theories/PartitionedPolicies/PartitionedEDF.v
+theories/PartitionedPolicies/PartitionedFIFO.v
 theories/PartitionedPolicies/PartitionedRR.v
 theories/FIFOExamples.v
 theories/FeasibleExamples.v
