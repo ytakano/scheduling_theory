@@ -5,6 +5,7 @@ theories/MultiCoreBase.v
 theories/SchedulerInterface.v
 theories/SchedulingAlgorithmInterface.v
 theories/SchedulingAlgorithmSchedulerBridge.v
+theories/SchedulingAlgorithmCanonicalBridge.v
 theories/SchedulerValidity.v
 theories/SchedulingAlgorithmRefinement.v
 theories/SchedulingAlgorithmLemmas.v
@@ -19,7 +20,9 @@ theories/UniPolicies/EDFTransform.v
 theories/UniPolicies/EDFOptimality.v
 theories/UniPolicies/RoundRobin.v
 theories/UniPolicies/MetricChooser.v
+theories/UniPolicies/MetricChooserLemmas.v
 theories/UniPolicies/LLF.v
+theories/UniPolicies/LLFLemmas.v
 theories/Partitioned.v
 theories/PartitionedCompose.v
 theories/PartitionedPolicies/PartitionedEDF.v

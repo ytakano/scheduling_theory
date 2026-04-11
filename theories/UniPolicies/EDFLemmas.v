@@ -6,28 +6,16 @@ Require Import ScheduleLemmas.SchedulePrefix.
 Require Import SchedulerInterface.
 Require Import SchedulingAlgorithmInterface.
 Require Import SchedulingAlgorithmSchedulerBridge.
+Require Import SchedulingAlgorithmCanonicalBridge.
 Require Import SchedulerValidity.
 Require Import SchedulingAlgorithmRefinement.
 Require Import UniPolicies.MetricChooser.
+Require Import UniPolicies.MetricChooserLemmas.
 Require Import UniPolicies.EDF.
 Import ListNotations.
 
 (* ===== Section 3: Bridge / EDF の prefix 安定性 ===== *)
 
-(* 3-1: candidates_of は prefix で決まる (CandidateSourceSpec.candidates_prefix_extensional のラッパ) *)
-Lemma candidates_of_agrees_before :
-  forall J candidates_of
-         (cand_spec : CandidateSourceSpec J candidates_of)
-         jobs s1 s2 t,
-    agrees_before s1 s2 t ->
-    candidates_of jobs 1 s1 t = candidates_of jobs 1 s2 t.
-Proof.
-  intros J candidates_of cand_spec jobs s1 s2 t Hagree.
-  destruct cand_spec as [_ _ Hpx].
-  exact (Hpx jobs 1 s1 s2 t Hagree).
-Qed.
-
-(* 3-2: choose_edf の選択は prefix で決まる *)
 Lemma choose_edf_agrees_before :
   forall jobs s1 s2 t candidates,
     agrees_before s1 s2 t ->
@@ -39,7 +27,6 @@ Proof.
   apply choose_min_metric_agrees_before. exact Hagree.
 Qed.
 
-(* 3-3: edf_generic_spec の dispatch は時刻 t の選択が prefix で決まる *)
 Lemma edf_dispatch_agrees_before :
   forall J candidates_of
          (cand_spec : CandidateSourceSpec J candidates_of)
@@ -56,7 +43,6 @@ Qed.
 
 (* ===== Section 4: canonical EDF 一致と EDF priority violation の定義と抽出 ===== *)
 
-(* 4-1: canonical な choose_edf と一致している (候補リスト明示版) *)
 Definition matches_choose_edf_at
     (jobs : JobId -> Job)
     (sched : Schedule)
@@ -64,22 +50,19 @@ Definition matches_choose_edf_at
     (candidates : list JobId) : Prop :=
   sched t 0 = choose_edf jobs 1 sched t candidates.
 
-(* 4-1b: canonical な choose_edf と一致している (candidates_of 版) *)
 Definition matches_choose_edf_at_with
     (jobs : JobId -> Job)
     (candidates_of : CandidateSource)
     (sched : Schedule)
     (t : Time) : Prop :=
-  sched t 0 = choose_edf jobs 1 sched t (candidates_of jobs 1 sched t).
+  matches_dispatch_at_with edf_generic_spec jobs candidates_of sched t.
 
-(* 4-2: horizon H まで canonical choose_edf に一致する *)
 Definition matches_choose_edf_before
     (jobs : JobId -> Job)
     (candidates_of : CandidateSource)
     (sched : Schedule)
     (H : Time) : Prop :=
-  forall t, t < H ->
-    matches_choose_edf_at_with jobs candidates_of sched t.
+  matches_dispatch_before edf_generic_spec jobs candidates_of sched H.
 
 (* 4-3: EDF の本質的な priority 性質 (J なし版) *)
 Definition respects_edf_priority_at
@@ -156,7 +139,7 @@ Proof.
   (* Step 5: j' <> j from ~ matches_choose_edf_at_with *)
   assert (Hneq : j' <> j).
   { intro Heq. subst j'.
-    apply Hnot. unfold matches_choose_edf_at_with.
+    apply Hnot. unfold matches_choose_edf_at_with, matches_dispatch_at_with.
     rewrite Hsched. symmetry. exact Hchoose. }
   exists j'.
   split. exact Hj'_in.
@@ -199,7 +182,7 @@ Lemma matches_choose_edf_at_with_no_earlier_eligible_job :
       False.
 Proof.
   intros J candidates_of cand_spec jobs sched t j Hmatch Hsched j' HJj' Helig Hlt.
-  unfold matches_choose_edf_at_with in Hmatch.
+  unfold matches_choose_edf_at_with, matches_dispatch_at_with in Hmatch.
   rewrite Hsched in Hmatch.
   assert (Hchoose : choose_edf jobs 1 sched t (candidates_of jobs 1 sched t) = Some j).
   { symmetry. exact Hmatch. }
@@ -490,7 +473,7 @@ Lemma matches_choose_edf_at_with_implies_respects_edf_policy_at_with :
     respects_algorithm_spec_at_with edf_policy jobs candidates_of sched t.
 Proof.
   intros jobs candidates_of sched t Hmatch.
-  unfold matches_choose_edf_at_with in Hmatch.
+  unfold matches_choose_edf_at_with, matches_dispatch_at_with in Hmatch.
   unfold respects_algorithm_spec_at_with.
   rewrite Hmatch.
   exact (choose_edf_refines_edf_policy jobs 1 sched t (candidates_of jobs 1 sched t)).

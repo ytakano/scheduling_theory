@@ -8,6 +8,8 @@ Require Import ScheduleLemmas.ScheduleRestriction.
 Require Import SchedulerInterface.
 Require Import SchedulingAlgorithmInterface.
 Require Import SchedulingAlgorithmSchedulerBridge.
+Require Import SchedulingAlgorithmCanonicalBridge.
+Require Import UniPolicies.MetricChooserLemmas.
 Require Import UniPolicies.EDF.
 Require Import UniPolicies.EDFLemmas.
 Require Import UniPolicies.EDFTransform.
@@ -33,7 +35,8 @@ Lemma is_canonical_at_b_true_iff :
     matches_choose_edf_at_with jobs candidates_of sched t.
 Proof.
   intros candidates_of jobs sched t.
-  unfold is_canonical_at_b, matches_choose_edf_at_with.
+  unfold is_canonical_at_b, matches_choose_edf_at_with, matches_dispatch_at_with.
+  simpl.
   destruct (sched t 0) as [j|] eqn:Es;
   destruct (choose_edf jobs 1 sched t (candidates_of jobs 1 sched t)) as [j'|] eqn:Ec.
   - split.
@@ -81,7 +84,8 @@ Lemma repair_non_canonical_at :
 Proof.
   intros J J_bool candidates_of cand_spec jobs sched t
          HJbool Hvalid Hfeas HJonly Hcpu1 Hnot.
-  unfold matches_choose_edf_at_with in Hnot.
+  unfold matches_choose_edf_at_with, matches_dispatch_at_with in Hnot.
+  simpl in Hnot.
   (* Case split on sched t 0 *)
   destruct (sched t 0) as [j|] eqn:Hst0.
   - (* sched t 0 = Some j *)
@@ -138,7 +142,8 @@ Proof.
               exact (HJonly t'' j'' Hrun).
       * exact (swap_at_single_cpu_only sched t t' Hcpu1).
       * exact Hagree.
-      * unfold matches_choose_edf_at_with.
+      * unfold matches_choose_edf_at_with, matches_dispatch_at_with.
+        simpl.
         rewrite swap_at_t1. rewrite Ht'_run.
         assert (Hagree_sym : agrees_before (swap_at sched t t') sched t)
           by (exact (agrees_before_sym _ _ _ Hagree)).
@@ -195,7 +200,8 @@ Proof.
               exact (HJonly t'' j'' Hrun).
       * exact (swap_at_single_cpu_only sched t t' Hcpu1).
       * exact Hagree.
-      * unfold matches_choose_edf_at_with.
+      * unfold matches_choose_edf_at_with, matches_dispatch_at_with.
+        simpl.
         rewrite swap_at_t1. rewrite Ht'_run.
         assert (Hagree_sym : agrees_before (swap_at sched t t') sched t)
           by (exact (agrees_before_sym _ _ _ Hagree)).
@@ -206,7 +212,7 @@ Proof.
         exact (eq_sym Hchoose).
     + (* choose_edf = None and sched t 0 = None → canonical *)
       exfalso. apply Hnot.
-      unfold matches_choose_edf_at_with. congruence.
+      unfold matches_choose_edf_at_with, matches_dispatch_at_with. congruence.
 Qed.
 
 (* Propagation: repairing at t0 preserves canonical before t0. *)
@@ -223,14 +229,16 @@ Lemma repair_pushes_canonical_forward :
 Proof.
   intros J candidates_of cand_spec jobs sched sched' t0
          Honly Honly' Hagree Hmatch Hbefore.
-  unfold matches_choose_edf_before.
+  unfold matches_choose_edf_before, matches_dispatch_before.
   intros t Hlt.
   assert (Hcases : t < t0 \/ t = t0) by lia.
   destruct Hcases as [Hlt' | Heq].
   - (* t < t0: transfer from sched to sched' *)
-    unfold matches_choose_edf_at_with.
+    unfold matches_choose_edf_at_with, matches_dispatch_at_with.
+        simpl.
     specialize (Hbefore t Hlt').
-    unfold matches_choose_edf_at_with in Hbefore.
+    unfold matches_choose_edf_at_with, matches_dispatch_at_with in Hbefore.
+    simpl in Hbefore.
     (* sched and sched' agree before t0, so agree before t *)
     assert (Hpre : agrees_before sched sched' t).
     { apply (agrees_before_weaken sched sched' t t0). lia. exact Hagree. }
@@ -277,7 +285,7 @@ Proof.
   - intros Hvalid Hfeas HJonly Hcpu1.
     exists sched.
     refine (conj Hvalid (conj Hfeas (conj HJonly (conj Hcpu1 _)))).
-    unfold matches_choose_edf_before. intros t Hlt. lia.
+    unfold matches_choose_edf_before, matches_dispatch_before. intros t Hlt. lia.
   - intros Hvalid Hfeas HJonly Hcpu1.
     destruct (IH Hvalid Hfeas HJonly Hcpu1)
         as [sched_ih [Hih_valid [Hih_feas [Hih_Jonly [Hih_cpu1 Hih_canon]]]]].
@@ -286,7 +294,7 @@ Proof.
     + (* Canonical at H': done *)
       exists sched_ih.
       refine (conj Hih_valid (conj Hih_feas (conj Hih_Jonly (conj Hih_cpu1 _)))).
-      unfold matches_choose_edf_before.
+      unfold matches_choose_edf_before, matches_dispatch_before.
       intros t Hlt.
       assert (Hcases : t < H' \/ t = H') by lia.
       destruct Hcases as [Hlt' | Heq].
@@ -395,7 +403,8 @@ Lemma trunc_sched_canonical :
     matches_choose_edf_before jobs candidates_of (trunc_sched sched H) H.
 Proof.
   intros J candidates_of cand_spec jobs sched H Honly Htrunc_only Hcanon.
-  unfold matches_choose_edf_before, matches_choose_edf_at_with.
+  unfold matches_choose_edf_before, matches_dispatch_before, matches_choose_edf_at_with, matches_dispatch_at_with.
+  simpl.
   intros t Hlt.
   rewrite (trunc_sched_before sched H t 0 Hlt).
   (* Need: choose_edf jobs 1 (trunc_sched sched H) t (candidates_of ...) =
@@ -415,46 +424,6 @@ Qed.
 
 (* ===== Section 10: Bridge to scheduler_rel ===== *)
 
-(* All J jobs are completed at any time >= deadline_horizon. *)
-Lemma J_jobs_complete_at_or_after_deadline :
-  forall J jobs sched j t,
-    valid_schedule jobs 1 sched ->
-    feasible_schedule_on J jobs 1 sched ->
-    J j ->
-    job_abs_deadline (jobs j) <= t ->
-    completed jobs 1 sched j t.
-Proof.
-  intros J jobs sched j t _Hvalid Hfeas HJj Hdt.
-  unfold completed.
-  assert (Hnmiss : ~ missed_deadline jobs 1 sched j) by exact (Hfeas j HJj).
-  unfold missed_deadline in Hnmiss. unfold completed in Hnmiss.
-  assert (Hmono : service_job 1 sched j (job_abs_deadline (jobs j)) <=
-                  service_job 1 sched j t)
-    by (apply service_job_monotone; exact Hdt).
-  lia.
-Qed.
-
-(* Hmm, let me check what lemmas are available. *)
-
-Lemma J_jobs_not_eligible_at_horizon :
-  forall J enumJ jobs sched j t,
-    (forall x, J x -> In x enumJ) ->
-    valid_schedule jobs 1 sched ->
-    feasible_schedule_on J jobs 1 sched ->
-    J j ->
-    deadline_horizon jobs enumJ <= t ->
-    ~eligible jobs 1 sched j t.
-Proof.
-  intros J enumJ jobs sched j t HJ_in Hvalid Hfeas HJj Hdt Helig.
-  (* j's deadline < H <= t, so j should be completed by t *)
-  assert (Hdl : job_abs_deadline (jobs j) < deadline_horizon jobs enumJ).
-  { exact (J_implies_deadline_lt_horizon J enumJ jobs j HJ_in HJj). }
-  assert (Hcomp : completed jobs 1 sched j t).
-  { apply (J_jobs_complete_at_or_after_deadline J jobs sched j t Hvalid Hfeas HJj). lia. }
-  exact (proj2 Helig Hcomp).
-Qed.
-
-(* Given matches_choose_edf_before H and idle after H, build scheduler_rel. *)
 Lemma canonical_and_idle_implies_scheduler_rel :
   forall J enumJ (candidates_of : CandidateSource)
          (cand_spec : CandidateSourceSpec J candidates_of)
@@ -469,28 +438,8 @@ Lemma canonical_and_idle_implies_scheduler_rel :
 Proof.
   intros J enumJ candidates_of cand_spec jobs sched
          HJ_in Hvalid Hfeas Honly Hcanon Hidle.
-  unfold edf_scheduler, single_cpu_algorithm_scheduler_on, single_cpu_algorithm_schedule.
-  simpl.
-  split.
-  - reflexivity.
-  - intros t.
-    split.
-    + (* sched t 0 = choose_edf jobs 1 sched t ... *)
-      destruct (lt_dec t (deadline_horizon jobs enumJ)) as [Hlt | Hge].
-      * (* t < H: from canonical *)
-        exact (Hcanon t Hlt).
-      * (* t >= H: both None *)
-        assert (Ht_H : deadline_horizon jobs enumJ <= t) by lia.
-        rewrite (Hidle t Ht_H).
-        (* choose_edf = None since no J job is eligible *)
-        symmetry.
-        apply choose_edf_none_if_no_eligible.
-        intros j Hin Helig.
-        destruct cand_spec as [Hsound _ _].
-        assert (HJj : J j) by (exact (Hsound jobs 1 sched t j Hin)).
-        exact (J_jobs_not_eligible_at_horizon J enumJ jobs sched j t
-                 HJ_in Hvalid Hfeas HJj Ht_H Helig).
-    + exact (Honly t).
+  unfold edf_scheduler.
+  eapply canonical_and_idle_implies_scheduler_rel_generic; eauto.
 Qed.
 
 (* ===== Section 11: Main theorem ===== *)

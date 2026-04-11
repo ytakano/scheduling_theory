@@ -148,3 +148,29 @@ Proof.
   rewrite (agrees_before_service_job m s1 s2 j t Hagree).
   reflexivity.
 Qed.
+
+
+(* remaining_cost is prefix-extensional because it only depends on service_job
+   up to time t. *)
+Lemma agrees_before_remaining_cost :
+  forall jobs m s1 s2 j t,
+    agrees_before s1 s2 t ->
+    remaining_cost jobs m s1 j t = remaining_cost jobs m s2 j t.
+Proof.
+  intros jobs m s1 s2 j t Hagree.
+  unfold remaining_cost.
+  rewrite (agrees_before_service_job m s1 s2 j t Hagree).
+  reflexivity.
+Qed.
+
+(* laxity is prefix-extensional for the same reason. *)
+Lemma agrees_before_laxity :
+  forall jobs m s1 s2 j t,
+    agrees_before s1 s2 t ->
+    laxity jobs m s1 j t = laxity jobs m s2 j t.
+Proof.
+  intros jobs m s1 s2 j t Hagree.
+  unfold laxity.
+  rewrite (agrees_before_remaining_cost jobs m s1 s2 j t Hagree).
+  reflexivity.
+Qed.
