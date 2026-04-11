@@ -1,631 +1,623 @@
-# What to Prove
+# what_to_prove.md 追記・修正版
 
-# 証明すべきスケジューリング理論の定理（scheduler semantics / refinement 中心版）
+# スケジューリング理論の定理
 
-このファイルは、現在の実装と更新後の `roadmap.md` を踏まえて、
-**これから何を証明していくか** を難易度別に整理したものである。
+単一CPUのときより難しくなる理由は主に次の4つです。
 
-この版では、証明対象の重心を
+* 同じ時刻に **複数CPU** が動く
+* **同じ job を複数CPUで同時実行してはいけない**
+* **partitioned / global / clustered** で理論が分かれる
+* OS 寄りに行くと **migration / wakeup / IPI / per-CPU runqueue** が入る
 
-- **解析結果を増やすこと**
-ではなく、
-- **実行可能な scheduler semantics の整備**
-- **abstract policy と concrete dispatcher の refinement**
-- **single-CPU から multicore / OS semantics への拡張**
+なので、難易度表も次の3系統に分けて考えるのがよいです。
 
-に置いている。
+* **共通基盤**
+* **単一CPU / partitioned**
+* **global / OS寄りマルチコア**
 
-現在の実装はすでに次の段階まで進んでいる。
-
-- 共通基盤 (`Base.v`, `ScheduleModel.v`, `SchedulerInterface.v`)
-- dispatch 抽象 (`DispatchInterface.v`, `DispatchLemmas.v`, `DispatchClassicalLemmas.v`)
-- single-CPU bridge (`DispatchSchedulerBridge.v`)
-- concrete policy としての EDF / FIFO (`UniPolicies/EDF.v`, `UniPolicies/FIFO.v`)
-- partitioned scheduling の基礎 (`Partitioned.v`)
-- periodic task model の骨格 (`PeriodicTasks.v`)
-
-したがって、次の中心目標は
-
-- **single-CPU scheduler semantics の整理**
-- **dispatcher refinement の導入**
-- **EDF 最適性定理**
-- **partitioned / global / OS semantics への接続**
-
-である。
-
-以下では、難易度を Lv.0 から順に上げる。
-難易度は「重要度」ではなく、**現在の実装からどれだけ自然に到達できるか** を基準にしている。
-
----
-
-# 全体の見取り図
-
-更新後のロードマップに沿うと、証明対象は大きく次の順で積み上がる。
-
-1. **共通基盤の整合性**
-2. **dispatch / bridge の健全性**
-3. **policy / scheduler validity / concrete dispatcher の局所仕様**
-4. **dispatcher refinement**
-5. **single-CPU の一般補題層**
-6. **EDF 最適性定理**
-7. **single-CPU policy family の拡充**
-8. **partitioned multicore semantics**
-9. **global / clustered multicore semantics**
-10. **affinity / migration semantics**
-11. **OS寄り operational semantics と refinement**
-12. **task model / analysis adapter**
-
-重要なのは、**今後の中心が「解析結果」そのものではなく、「scheduler semantics と refinement」になること**である。
-EDF 最適性は依然として重要な中核定理だが、それは **dispatcher refinement を持つ単一CPU理論の代表例**として位置付けられる。
+以下では、難易度を Lv.0 から順に上げます。
 
 ---
 
 # Lv.0: 共通基盤の定義整合性
 
-ここは単一CPUでも multicore でも共通の最下層である。
-実装上は `ScheduleModel.v` を中心とする補題群に対応する。
-
-## 0-1. `runs_on` / `cpu_count` / `service_job` の基本補題
+## 0-1. service の基本補題
 
 証明すべきこと:
 
-- `service_job` は時間に関して単調増加
-- 1 tick あたりの増分は `cpu_count` に一致する
-- `sequential_jobs` 仮定の下で、1 tick で高々 1 増える
-- 実行されなければ増えない
-- 単一CPUでは `service_job 1` がそのまま実行回数になる
+* `service` は単調増加
+* 1ステップで高々 1 増える
+* 実行されたときだけ増える
+* 実行されなければ増えない
 
-## 0-2. `completed` / `eligible` / `ready` / `running` の整合性
-
-証明すべきこと:
-
-- `completed` なら `eligible` でない
-- release 前には `eligible` でない
-- `ready -> eligible`
-- `running -> eligible`
-- `ready` と `running` は両立しない
-- `completed` は時間に関して単調
-
-## 0-3. `valid_schedule` の基本性質
+## 0-2. completed / ready の整合性
 
 証明すべきこと:
 
-- release 前に走らない
-- completed 後に走らない
-- スケジュールされた job は常に eligible
-- `valid_schedule` から局所的な異常が起きない
+* completed なら ready でない
+* release 前には ready でない
+* completed は単調
+* ready は service/completion と整合する
 
-## 0-4. `feasible` / `feasible_on` の基本関係
+## 0-3. remaining cost / laxity の基本補題
 
 証明すべきこと:
 
-- `feasible` と `feasible_on` の関係
-- subset を狭めたときの単調性
-- `feasible_schedule` から `feasible_schedule_on` が導けること
+* `remaining_cost` は 0 以上
+* completed なら `remaining_cost = 0`
+* 実行で `remaining_cost` が減少する
+* idle なら `remaining_cost` は変わらない
+* `laxity = deadline - now - remaining_cost` の整合性
+* 実行で laxity がどう変化するか
+* 待機で laxity がどう減るか
 
 ### 難易度
 
-**最も低い。**
-現在の実装を今後の理論全体で再利用するための整理段階である。
+**低い**です。
+ただし laxity を `nat` で持つか `Z` で持つかで補題の形がかなり変わります。
 
 ---
 
-# Lv.1: dispatch 抽象と bridge の健全性
+# Lv.1: マルチコア schedule の基本健全性
 
-ここは現在の実装でかなり進んでいる層であり、
-`DispatchInterface.v` と `DispatchSchedulerBridge.v` に対応する。
-
-## 1-1. Generic dispatch の局所健全性
+## 1-1. no-duplication
 
 証明すべきこと:
 
-- dispatch が返した job は eligible
-- eligible な candidate があれば `Some` を返す
-- eligible candidate がなければ `None`
-- 選ばれた job は candidate list に属する
+* 同じ時刻に同じ job が複数CPUで走らない
 
-## 1-2. Candidate source の健全性
+## 1-2. per-CPU exclusivity
 
 証明すべきこと:
 
-- candidate source が返す job は対象 job 集合 `J` に属する
-- `J` の eligible job は candidate list に含まれる
-- subset reasoning が concrete policy に漏れない
+* 各 CPU は各時刻に高々 1 job しか走らせない
 
-## 1-3. single-CPU bridge の妥当性
+## 1-3. affinity / allowed CPU
+
+入れるなら:
+
+* job は許された CPU 上でしか走らない
+
+## 1-4. multicore service の安全性
 
 証明すべきこと:
 
-- `single_cpu_dispatch_schedule` が valid schedule を作る
-- CPU 0 以外は常に idle
-- 実際に動く job は subset `J` に属する
-- subset 上の feasible 性から `schedulable_by_on` を導ける
+* migration があっても service は正しく累積される
+* CPU 間の移動があっても completion 判定は壊れない
+
+## 1-5. multicore laxity の安全性
+
+証明すべきこと:
+
+* migration があっても `remaining_cost` / `laxity` は job ごとに一意に定まる
+* no-duplication のもとで laxity 更新が曖昧にならない
 
 ### 難易度
 
-**低い。**
-このレベルはかなり mechanize 済みであり、今後は公開インターフェースとして安定化する段階である。
+**低〜中**です。
 
 ---
 
-# Lv.2: policy / scheduler validity / concrete dispatcher の局所仕様
+# Lv.2: 抽象 scheduler の健全性
 
-ここでは、単一CPU上で
-
-- abstract policy
-- schedule がその policy を満たすこと
-- concrete dispatcher の局所仕様
-
-を分けて整理する。
-
-## 2-1. EDF の局所補題
+## 2-1. dispatch 健全性
 
 証明すべきこと:
 
-- `choose_edf` が選ぶ job は eligible
-- eligible candidate が存在すれば `choose_edf` は `Some` を返す
-- `choose_edf` は candidate の中から選ぶ
-- `choose_edf` が選んだ job は、他の eligible candidate より deadline が遅くない
-- 一意な最小 deadline があるとき、その job を選ぶ
+* choose された job は ready
+* completed / unreleased job は選ばれない
+* allowed CPU でのみ選ばれる
 
-## 2-2. FIFO の局所補題
+## 2-2. state invariant 保存
 
 証明すべきこと:
 
-- `choose_fifo` は最初の eligible job を選ぶ
-- 前に eligible な job があれば、それを飛ばさない
-- candidate list がそのまま FIFO 順序を表すこと
+* arrival 後も well-formed
+* completion 後も well-formed
+* requeue / migration 後も well-formed
 
-## 2-3. policy validity の局所述語
+## 2-3. no-loss
 
 証明すべきこと:
 
-- `respects_policy_at` のような局所述語が妥当であること
-- schedule validity と policy validity が混同されていないこと
-- tie を含む仕様を policy 側で吸収できること
+* ready job が勝手に失われない
+* migration で job が消えない
+* per-CPU queue 間の転送で one-copy が保たれる
 
-## 2-4. 将来の concrete policy
+## 2-4. metric-min chooser の一般補題
 
-今後入れる候補:
+証明すべきこと:
 
-- Round Robin
-- prioritized FIFO
-- fixed-priority scheduler
+* metric 最小の ready job が選ばれる
+* tie-break を含めて決定的
+* candidate 集合外の job は選ばれない
 
-ここではまず、
-
-- queue / rotation / tie-break が局所仕様として正しく書けること
-
-を示す。
+ここで EDF は `metric = absolute deadline`、
+laxity-based は `metric = laxity` として扱う。
 
 ### 難易度
 
-**低〜中。**
-EDF/FIFO はすでにかなり進んでいる。ここでは「chooser の正しさ」だけでなく、「policy / validity / chooser の分離」を進める。
+**低〜中**です。
 
 ---
 
-# Lv.3: dispatcher refinement
+# Lv.3: 単一CPU policy の局所仕様
 
-ここは更新後のロードマップで新しく前面に出した層である。
+## 3-1. FIFO
 
-## 3-1. dispatcher が policy を実装すること
+* queue 先頭が選ばれる
+* overtaking がない
+* non-preemptive なら current は完了まで継続
 
-証明すべきこと:
+## 3-2. RR
 
-- `choose_edf` が EDF policy を実装する
-- `choose_fifo` が FIFO policy を実装する
-- tie を含む場合でも、concrete dispatcher が abstract policy の許容範囲に入る
+* queue rotation が正しい
+* 未完了なら末尾へ戻る
+* 巡回順が保存される
 
-## 3-2. dispatcher が scheduler validity を生むこと
+## 3-3. Prioritized FIFO
 
-証明すべきこと:
+* 高 priority が先
+* 同 priority 内 FIFO
 
-- `single_cpu_dispatch_schedule` が対応する policy validity を満たす
-- bridge を通した concrete schedule が abstract scheduler semantics に入る
-- dispatcher の出力は valid schedule と policy validity の両方を満たす
+## 3-4. EDF
 
-## 3-3. deterministic / executable 性
+* deadline 最小の ready job を選ぶ
+* tie-break 一貫性
 
-証明すべきこと:
+## 3-5. LLF / LST
 
-- concrete dispatcher が決定的であること
-- finite candidate ベースで chooser が構成的に定義されていること
-- `None` を返す条件が abstract 側の idle 条件と一致すること
+* laxity 最小の ready job を選ぶ
+* tie-break 一貫性
+* 0-laxity job があるときの選択性質
+* 実行状態に依存する key を使っても chooser が健全
 
 ### 難易度
 
-**中。**
-ここは単なる dispatch 抽象から一歩進み、**理論と実装の接続**を定理として明示化する段階である。
+**中**です。
+EDF よりも LLF/LST の方が、metric が state-dependent な分だけ少し重いです。
 
 ---
 
-# Lv.4: single-CPU の一般補題層
+# Lv.4: 単一CPU trace 全体の性質
 
-ここが **次に本格的に整備すべき層** である。
-`EDFLemmas.v` や `ScheduleTransform.v` に相当する補題群を想定している。
+## 4-1. trace 由来 schedule の妥当性
 
-## 4-1. prefix / suffix / 区間 service の補題
+* state trace から得た schedule は valid
 
-証明すべきこと:
+## 4-2. service と step semantics の一致
 
-- prefix を伸ばすと `service_job` は減らない
-- 区間 `[a,b)` の service を prefix 差で表せる
-- completion は prefix service と対応する
-- deadline 時刻の比較を service の比較へ落とせる
+* 1ステップ実行で service が 1 増える
+* idle なら増えない
 
-## 4-2. schedule 変換補題
+## 4-3. weak fairness / finite progress
 
-証明すべきこと:
+* RR で ready に残る job は再選択される
+* FIFO で順序が trace 全体で保存される
 
-- 2つの時刻の実行を入れ替えても、他の job の service は不変
-- swap 後の total service が保存される
-- swap 後も `valid_schedule` が保たれる条件
-- ある job を前倒ししたとき、その job の completion は悪化しない
-- より遅い deadline の job を後ろへ送っても安全である条件
+## 4-4. laxity-based progress
 
-## 4-3. EDF 違反時刻の抽出
-
-証明すべきこと:
-
-- EDF でない schedule があれば、最初の違反時刻を取れる
-- その時刻には、選ばれた job よりも deadline の早い eligible job が存在する
-- その job は finite candidate の中から取り出せる
-- 必要なら Classical を使わずに議論できる
-
-## 4-4. EDF 形への正規化
-
-証明すべきこと:
-
-- feasible schedule を、先頭から順に EDF 形へ変換できる
-- 変換後も feasible 性を保つ
-- finite horizon 上で時刻帰納法が回る
+* 最小 laxity job が ready に残るなら、適切な仮定の下で service が進む
+* 0-laxity job が放置されない
+* feasible 仮定のもとで「危険な job を先に走らせる」性質を整理する
 
 ### 難易度
 
-**中。**
-ここが EDF 最適性定理と dispatcher refinement の両方を支える核心である。
+**中〜やや高い**です。
 
 ---
 
-# Lv.5: EDF 最適性定理
+# Lv.5: partitioned scheduling の合成性
 
-ここが **単一CPU scheduling theory の中心定理** である。
-ただしこの版では、EDF 最適性は **dispatcher refinement を伴う代表定理** として位置付ける。
-
-## 5-1. 単一CPU EDF 最適性
+## 5-1. per-CPU valid から global valid
 
 証明すべきこと:
 
-- feasible な単一CPU job 集合なら EDF でも deadline miss を起こさない
-- 形式的には `feasible_on J jobs 1 -> schedulable_by_on J edf_scheduler jobs 1` に近い形
-- あるいは「feasible schedule が存在すれば EDF 条件を満たす feasible schedule が存在する」でもよい
+* 各 CPU 上の schedule が valid なら、全体 multicore schedule も valid
 
-## 5-2. 系: EDF 失敗なら infeasible
+## 5-2. service の分解
 
 証明すべきこと:
 
-- 単一CPU・preemptive・独立 job 系では、EDF で失敗するならその job 集合は feasible でない
+* partitioned では job の service は割当先 CPU 上の service と一致
+* 他 CPU の寄与は 0
 
-## 5-3. EDF と feasibility の一致
-
-より整った形としては:
-
-- `feasible_on J jobs 1 <-> schedulable_by_on J edf_scheduler jobs 1`
-
-を目指せる。
-ただし最初は片方向だけでも十分に価値がある。
-
-## 5-4. refinement つき EDF 定理
+## 5-3. completion / deadline 性質の持ち上げ
 
 証明すべきこと:
 
-- `choose_edf` が生成する schedule は EDF validity を満たす
-- feasible なら abstract EDF schedule だけでなく、concrete EDF dispatcher による schedule でも feasible
-- abstract optimality と concrete implementation が接続される
+* 各 CPU 上で期限を守るなら、全体でも守る
+* 各 CPU 上で starvation-free なら、全体でもそう
+
+## 5-4. scheduler-specific lifting
+
+* per-CPU EDF を束ねた partitioned EDF
+* per-CPU LLF/LST を束ねた partitioned laxity-based scheduler
+* per-CPU RR を束ねた partitioned RR
+* per-CPU prioritized FIFO など
 
 ### 難易度
 
-**中〜やや高い。**
-理論的重要度は非常に高く、現在の実装からもかなり自然に到達できる。
+**やや高いが、かなり現実的**です。
 
 ---
 
-# Lv.6: single-CPU policy family の拡充
+# Lv.6: マルチコア共通性質
 
-EDF 以外の policy を同じ枠組みで扱い、理論化を広げる段階である。
-
-## 6-1. Round Robin
+## 6-1. multicore work-conserving
 
 証明すべきこと:
 
-- rotation が正しい
-- quantum 消費後に末尾へ送られる
-- ready に残り続ける job は再び選ばれる
-- RR dispatcher が RR policy を実装する
+* runnable job があり、それを走らせられる idle CPU があるなら、無駄に idle しない
 
-## 6-2. prioritized FIFO / fixed priority
+## 6-2. multicore determinism
 
 証明すべきこと:
 
-- 高 priority job を優先する
-- 同 priority 内では FIFO
-- concrete chooser が対応する policy class を実装する
+* 同じ global state なら同じ CPU 割当てが得られる
+* tie-break を含めて一意
 
-## 6-3. 比較定理
+## 6-3. one-copy invariant
 
 証明すべきこと:
 
-- FIFO は EDF のような最適性を持たないことの反例
-- RR は fairness では有利だが deadline optimal ではないこと
-- policy ごとの強みを theorem / counterexample として整理する
+* 各 job は任意時刻で高々1箇所にしか存在しない
+* current / runqueue / blocked / migrating の分割が保たれる
+
+## 6-4. idle/busy core 基本補題
+
+証明すべきこと:
+
+* busy core では何かが実行される
+* idle core の存在と ready set の関係
+
+## 6-5. dynamic-metric scheduling の共通補題
+
+証明すべきこと:
+
+* deadline や laxity のような動的 metric を使っても top-`m` 選択が定義できる
+* 再計算によっても no-duplication / determinism が壊れない
 
 ### 難易度
 
-**高め。**
-EDF のあとに進めることで、比較の軸が明確になる。
+**高め**です。
 
 ---
 
-# Lv.7: partitioned multicore semantics
+# Lv.7: global scheduling の局所仕様
 
-ここは `Partitioned.v` に直接対応する。
-ここから multicore を **解析対象** ではなく **意味論対象** として本格的に扱う。
-
-## 7-1. assignment respect / local-to-global validity
+## 7-1. top-m selection の正しさ
 
 証明すべきこと:
 
-- `partitioned_schedule_on` から assignment respect が従う
-- 各 CPU 上の local view が正しければ global schedule も valid
-- `valid_partitioned_schedule` を安定した公開インターフェースとして使う
+* ready set から高々 `m` 個選ぶ
+* それらは distinct
+* 各 CPU へ矛盾なく割り当てられる
 
-## 7-2. service 分解
+## 7-2. global EDF
 
-証明すべきこと:
+* ready job のうち deadline 最小 `m` 個を選ぶ
+* より遅い deadline job を、より早い deadline job より先に置かない
 
-- partitioned では job の service は割当先 CPU 上の service と一致する
-- 他 CPU 上の寄与は 0
-- `completed` / `missed_deadline` が割当先 CPU の local schedule に還元できる
+## 7-3. global prioritized FIFO
 
-## 7-3. local refinement から global refinement
+* 高 priority job を優先して最大 `m` 個選ぶ
+* 同 priority 内 FIFO
 
-証明すべきこと:
+## 7-4. global laxity-based scheduling
 
-- 各 CPU の local dispatcher refinement から global partitioned refinement を導ける
-- local EDF / FIFO / RR が global partitioned semantics に持ち上がる
-- partitioned scheduler が abstract partitioned policy を実装する
+* ready job のうち laxity 最小 `m` 個を選ぶ
+* 0-laxity / minimum-laxity job を後回しにしない
+* tie-break を含めた一意性
+* dynamic metric を用いても top-`m` 選択が健全
+
+## 7-5. global FIFO / RR
+
+定義は可能ですが、EDF/priority/laxity より少し不自然です。
 
 ### 難易度
 
-**やや高いが、かなり現実的。**
-現在の `Partitioned.v` を theorem layer として育てる段階である。
+**高い**です。
 
 ---
 
-# Lv.8: global / clustered multicore semantics
+# Lv.8: 進行性・公平性・bounded waiting
 
-ここからは現在の実装にはまだ直接入っていない。
-将来の multicore 拡張として整理する段階である。
+## 8-1. partitioned での進行性
 
-## 8-1. global scheduling の局所仕様
+* 各 CPU 上の進行性から全体へ持ち上げる
+* RR の bounded waiting を CPU ごとに示す
 
-証明すべきこと:
-
-- ready set から高々 `m` 個選ぶ
-- 選ばれた job たちは distinct
-- CPU ごとの割当が矛盾しない
-
-## 8-2. global EDF
+## 8-2. global RR / fair queue 系
 
 証明すべきこと:
 
-- ready job のうち deadline 最小 `m` 個を選ぶ
-- より遅い deadline job を、より早い deadline job より先に置かない
-- top-`m` chooser が global EDF policy を実装する
+* ready に残り続ける job は繰り返し service を受ける
+* bounded service gap
 
-## 8-3. clustered scheduling
-
-証明すべきこと:
-
-- cluster ごとの local scheduler
-- cluster 間 migration 制約
-- partitioned と global の中間モデルとしての基本補題
-- cluster-local refinement と cluster-global validity の関係
-
-## 8-4. multicore work-conserving / one-copy invariant
+## 8-3. priority 系の starvation 条件付き議論
 
 証明すべきこと:
 
-- runnable job があり、それを走らせられる idle CPU があるなら無駄に idle しない
-- 各 job は任意時刻で高々 1 箇所にしか存在しない
+* 高 priority 飽和がなければ低 priority も eventually run
+* ある workload 制約の下で starvation-freedom
+
+## 8-4. EDF 系の progress
+
+* finite ready set なら service が進む
+* feasibility 仮定の下で miss-free を導く準備
+
+## 8-5. laxity-based 系の progress
+
+証明すべきこと:
+
+* minimum-laxity job が危険域で放置されない
+* 0-laxity job の優先実行
+* 有限 ready set の下での進行性
+* starvation 条件付き議論
+* EDF と一致する条件の整理
 
 ### 難易度
 
-**高い。**
-単一CPUとは違って、「1つ選ぶ」ではなく「上位 `m` 個を整合的に選ぶ」必要がある。
+**高い**です。
 
 ---
 
-# Lv.9: affinity / migration semantics
+# Lv.9: busy interval / interference / response time
 
-ここは multicore semantics をさらに現実的にする層である。
+## 9-1. partitioned response time
 
-## 9-1. affinity 制約
+* 各 CPU 上で単一CPU解析
+* 全体へ合成
 
-証明すべきこと:
-
-- 許可された CPU 上でしか job が実行されない
-- affinity 制約と partitioned / clustered / global scheduler の関係が整理できる
-
-## 9-2. migration
+## 9-2. global interference 基本補題
 
 証明すべきこと:
 
-- migration で job が lost しない
-- migration の前後で one-copy invariant が保たれる
-- migration を許す / 禁じる policy の違いを定式化できる
+* ある job が受ける干渉の上界
+* top-`m` 競合の上界
+* carry-in 的な先行負荷の定式化
 
-## 9-3. assignment-preserving / migration-aware refinement
+## 9-3. multicore busy interval / busy window
 
 証明すべきこと:
 
-- concrete multicore dispatcher が affinity / migration 制約を満たす
-- assignment-preserving な scheduler refinement を定義できる
+* ある期間、十分多くの CPU が埋まっている
+* idle core の不在と干渉量の関係
+
+## 9-4. response time / tardiness
+
+証明すべきこと:
+
+* finish time が定義できる
+* 応答時間上界または tardiness bound
+
+## 9-5. laxity-based interference
+
+証明すべきこと:
+
+* laxity-driven preemption が干渉へどう反映されるか
+* dynamic priority / dynamic laxity に基づく busy-window 補題
+* LLF/LST の十分条件または反例
 
 ### 難易度
 
-**高い。**
-OS 寄りモデルへ進む前の重要な橋渡しになる。
+**非常に高い**です。
 
 ---
 
-# Lv.10: OS寄り operational semantics と refinement
+# Lv.10: schedulability / sufficient tests
 
-最後に、抽象 scheduling theory を OS 寄りモデルへ接続する。
-この層は現在の job-level / schedule-level 理論のかなり先にあるが、本プロジェクトの独自性が最も強く出る。
+## 10-1. partitioned schedulability
 
-## 10-1. per-CPU machine invariants
+* 各 CPU が feasible なら全体 feasible
+* per-CPU EDF, per-CPU fixed-priority, per-CPU prioritized FIFO, per-CPU LLF/LST など
 
-証明すべきこと:
+## 10-2. global EDF schedulability
 
-- `current[c]` と runqueue の排他
-- blocked / ready / running / completed / migrating の分割
-- one-copy invariant
+候補:
 
-## 10-2. wakeup / migration / timer / preemption
+* simple sufficient conditions
+* bounded tardiness
+* workload-based tests
+* speedup-bounded guarantees
 
-証明すべきこと:
+## 10-3. global laxity-based schedulability
 
-- wakeup が正しい queue / CPU に入る
-- timer が正しく reschedule を引き起こす
-- preemption で service が二重計上されない
-- migration event が局所状態と大域状態の整合性を壊さない
+候補:
 
-## 10-3. operational step から abstract schedule への対応
+* simple sufficient conditions
+* EDF と一致する特殊場合
+* bounded tardiness 的結果
+* 非最適性や過剰 preemption の反例整理
 
-証明すべきこと:
+## 10-4. RR / FIFO 系の期限保証
 
-- concrete machine trace が abstract schedule に対応する
-- operational semantics から schedule semantics を抽出できる
-- abstract EDF / FIFO / RR が concrete 実装の上位仕様になる
-
-## 10-4. kernel scheduler refinement
-
-証明すべきこと:
-
-- concrete runqueue 操作が abstract dispatcher と対応する
-- concrete scheduler implementation が abstract scheduler spec を満たす
+* finite job set なら全完了
+* bounded response under assumptions
+* soft real-time 的 bound
 
 ### 難易度
 
-**最上位クラス。**
-これは単なる scheduling theory を超え、OS 実装検証へ接続する段階である。
+**非常に高い**です。
 
 ---
 
-# Lv.11: task model / analysis adapter
+# Lv.11: 最適性・比較定理・speedup bound
 
-この層では periodic / sporadic task model や analysis を **本体** ではなく **adapter** として接続する。
+## 11-1. partitioned vs global 比較
 
-## 11-1. periodic task model の基本補題
+* partitioned が単一CPU理論に還元できる
+* global はより柔軟だが解析が難しい
+
+## 11-2. global EDF の性能保証
+
+* bounded tardiness
+* speedup bound
+* resource augmentation 的結果
+
+## 11-3. policy comparison
+
+たとえば:
+
+* RR は FIFO より fairness が高い
+* prioritized FIFO は priority respect を最大化する
+* EDF は deadline 順序に関して優越する
+* laxity-based は危険 job を早く拾うが、解析と preemption は重くなる
+
+## 11-4. EDF と laxity-based の比較
 
 証明すべきこと:
 
-- `generated_by_periodic_task` から `valid_job_of_task`
-- release / absolute deadline / WCET 境界の基本補題
-- `periodic_job_model_on` と `feasible_on` の接続
-
-## 11-2. task model と scheduler semantics の橋渡し
-
-証明すべきこと:
-
-- task set から誘導される job 集合が scheduler semantics の仮定を満たす
-- implicit deadline tasks の下で task-level schedulability を job-level EDF 理論へ落とせる
-
-## 11-3. analysis adapter
-
-必要なら将来的に次を扱う:
-
-- utilization 定理
-- demand bound function
-- processor demand criterion
-- constrained / arbitrary deadline への拡張
-
-ただしこの層の主目的は、
-**analysis 結果そのものを増やすことではなく、scheduler semantics の上に task model / analysis を接続できること**
-である。
+* 一致する条件
+* 分岐する条件
+* 反例比較
+* optimum / non-optimum をどう位置づけるか
 
 ### 難易度
 
-**やや高い。**
-理論としては重要だが、本プロジェクトでは本体より後段に置かれる。
+**かなり高い**です。
 
 ---
 
-# 直近の優先順位
+# 現実的なおすすめ順序
 
-現在の実装状況を踏まえると、次の優先順位が自然である。
+## 第1段階
 
-## 最優先
+* Lv.0 共通基盤
+* Lv.1 multicore schedule 健全性
+* Lv.2 抽象 scheduler 健全性
 
-1. **Lv.3 dispatcher refinement** を導入する
-   - `choose_edf` / `choose_fifo` が policy を実装することを明示する
-   - `single_cpu_dispatch_schedule` が scheduler validity を満たすことを整理する
+## 第2段階
 
-2. **Lv.4 single-CPU の一般補題層** を整備する
-   - `service_job` / `completed` / prefix / swap 補題
-   - EDF 違反時刻抽出
-   - EDF 形への正規化
+* Lv.3 単一CPU policy 局所仕様
+* Lv.4 単一CPU trace 全体性質
 
-3. **Lv.5 EDF 最適性定理** を証明する
-   - `EDFOptimality.v` の導入
-   - abstract optimality と concrete EDF dispatcher の接続
+このとき EDF と LLF/LST は並行ではなく、
 
-## 次点
+1. EDF を metric-min chooser の最初のインスタンスとして固める
+2. その後 laxity を 2つ目のインスタンスとして入れる
 
-4. **Lv.6 single-CPU policy family の拡充**
-   - `RoundRobin.v`
-   - `PrioritizedFIFO.v`
+のがよい。
 
-5. **Lv.7 partitioned multicore semantics**
-   - `valid_partitioned_schedule` を安定した公開述語として育てる
-   - local refinement から global refinement を導く
+## 第3段階
 
-6. **Lv.8 global / clustered multicore semantics**
-   - top-`m` dispatch の最小骨格
-   - global EDF の局所仕様
+* Lv.5 partitioned 合成性
 
-## さらにその次
+## 第4段階
 
-7. **Lv.9 affinity / migration semantics**
-8. **Lv.10 OS寄り operational semantics と refinement**
-9. **Lv.11 task model / analysis adapter**
+* Lv.6 multicore 共通性質
+* Lv.7 global policy 局所仕様
+
+## 第5段階
+
+* Lv.8 進行性・公平性
+* Lv.9 response time / interference
+
+## 第6段階
+
+* Lv.10 schedulability
+* Lv.11 performance guarantees
+
+## 第7段階
+
+* Lv.12 OS 寄り operational semantics
+* Lv.13 refinement
+
+---
+
+# スケジューラ別に優先すべき証明
+
+## FIFO
+
+優先順位:
+
+1. 単一CPU順序保持
+2. partitioned lift
+3. finite progress
+4. OS queue refinement
+
+## RR
+
+優先順位:
+
+1. 単一CPU rotation
+2. bounded waiting
+3. partitioned multicore RR
+4. timer/quantum correctness
+5. per-CPU operational refinement
+
+## Prioritized FIFO
+
+優先順位:
+
+1. lexicographic 選択
+2. partitioned priority correctness
+3. global top-m priority selection
+4. response time / starvation 条件付き解析
+
+## EDF
+
+優先順位:
+
+1. 単一CPU earliest-deadline
+2. partitioned EDF
+3. global EDF top-m selection
+4. interference / schedulability / bounded tardiness
+5. performance guarantees
+
+## LLF / LST
+
+優先順位:
+
+1. laxity の定義整合性
+2. 単一CPU minimum-laxity chooser
+3. 0-laxity job の進行性
+4. partitioned laxity-based scheduler
+5. global top-m minimum-laxity selection
+6. interference / schedulability / 反例整理
 
 ---
 
 # まとめ
 
-今の開発段階では、重要なのは
+マルチコア込みで難易度順に並べると、証明すべきことは次のように整理できます。
 
-- まず **single-CPU scheduler semantics** を整理すること
-- **dispatcher refinement** を明示的な theorem layer にすること
-- その中心定理として **EDF 最適性** を置くこと
-- その後 **multicore semantics** と **OS寄り operational model** へ進むこと
+1. **共通基盤の整合性**
+   `service`, `completed`, `ready`, `remaining_cost`, `laxity`, `valid schedule`
 
-である。
+2. **マルチコア schedule の基本安全性**
+   no-duplication, per-CPU exclusivity, affinity
 
-したがって、難易度表も
+3. **抽象 scheduler の健全性**
+   choose/update の正しさ、不変条件保存、metric-min chooser
 
-- **共通基盤**
-- **dispatch / bridge**
-- **policy / validity / concrete dispatcher**
-- **dispatcher refinement**
-- **EDF 最適性**
-- **single-CPU policy family**
-- **partitioned / global / clustered**
-- **affinity / migration**
-- **OS寄り refinement**
-- **task model / analysis adapter**
+4. **単一CPU policy の局所仕様**
+   FIFO, RR, prioritized FIFO, EDF, LLF/LST
 
-の順に並べるのが、更新後のロードマップと最も整合的である。
+5. **単一CPU trace 全体性質**
+   service 一致、進行性の弱い形、laxity progress
+
+6. **partitioned scheduling の合成性**
+   per-CPU 理論から全体理論へ
+
+7. **マルチコア共通性質**
+   multicore work-conserving, determinism, one-copy
+
+8. **global scheduling の局所仕様**
+   top-m selection, global EDF / priority / laxity-based
+
+9. **公平性・bounded waiting・progress**
+   RR, priority, EDF, laxity-based の進行性
+
+10. **interference / response time / busy interval**
+    特に global と laxity-based で難しい
+
+11. **schedulability / bounded tardiness / speedup**
+    partitioned から始め、global は後
+
+12. **OS 寄り operational semantics**
+    migration, wakeup, IPI, timer, preemption
+
+13. **refinement**
+    abstract policy と concrete multicore machine の一致
