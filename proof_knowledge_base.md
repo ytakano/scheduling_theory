@@ -2573,3 +2573,98 @@
 - **Notes**: Mirrors `PartitionedEDF.v` and `PartitionedRR.v` exactly. The key insight is that `fifo_scheduler cands = single_cpu_algorithm_schedule fifo_generic_spec cands`, so unfolding it exposes the `scheduler_rel` form accepted by `local_witnesses_imply_partitioned_schedulable_by_on`.
 - **Proof Kind**: Constructive
 - **Date**: 2026-04-11
+
+---
+
+### `remaining_cost` / `laxity`
+- **Type**: Definition
+- **Statement**:
+  ```coq
+  Definition remaining_cost (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+      (j : JobId) (t : Time) : nat :=
+    job_cost (jobs j) - service_job m sched j t.
+
+  Definition laxity (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+      (j : JobId) (t : Time) : Z :=
+    Z.of_nat (job_abs_deadline (jobs j))
+    - Z.of_nat t
+    - Z.of_nat (remaining_cost jobs m sched j t).
+  ```
+- **Proof Strategy**: Direct definitions. `remaining_cost` uses Nat.sub (floored at 0). `laxity` uses Z (can be negative after deadline miss). Requires `From Stdlib Require Import ZArith` in `ScheduleModel.v`.
+- **Key Tactics**: N/A (definitions)
+- **Dependencies**: `service_job`, `job_cost`, `job_abs_deadline`, `ZArith`
+- **Notes**: `remaining_cost : nat` (never negative), `laxity : Z` (negative = overdue). The split avoids awkward 0-clipping for laxity comparisons.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-11
+
+---
+
+### `laxity_step_running_uni` / `laxity_step_not_running_uni`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma laxity_step_running_uni : forall jobs sched j t,
+      sched t 0%nat = Some j -> ~ completed jobs 1 sched j t ->
+      laxity jobs 1 sched j (S t) = laxity jobs 1 sched j t.
+
+  Lemma laxity_step_not_running_uni : forall jobs sched j t,
+      sched t 0%nat <> Some j ->
+      (laxity jobs 1 sched j (S t) = laxity jobs 1 sched j t - 1)%Z.
+  ```
+- **Proof Strategy**: `rewrite !laxity_unfold`, then `rewrite remaining_cost_step_running/not_running_uni`, then `rewrite Nat2Z.inj_sub` / `Nat2Z.inj_succ`, then `lia`.
+- **Key Tactics**: `rewrite !laxity_unfold`, `Nat2Z.inj_sub`, `Nat2Z.inj_succ`, `lia`
+- **Dependencies**: `laxity_unfold`, `remaining_cost_step_running_uni`, `remaining_cost_step_not_running_uni`, `not_completed_implies_remaining_cost_pos`
+- **Notes**: ⚠️ Z_scope pitfall: do NOT `Open Scope Z_scope` in ScheduleFacts.v — it causes `sched t 0` to be parsed as `sched t (0:Z)` (CPU = nat ≠ Z). Instead, use `%Z` annotations in lemma statements and `0%nat` for CPU. The `- 1` in `laxity_step_not_running_uni` must be annotated as `(... - 1)%Z`.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-11
+
+---
+
+### `min_metric_job` / `choose_min_metric`
+- **Type**: Definition + Lemmas (UniPolicies/MetricChooser.v)
+- **Statement**:
+  ```coq
+  Fixpoint min_metric_job (metric : JobId -> Z) (l : list JobId) : option JobId := ...
+  Definition choose_min_metric (metric : JobId -> Z) (jobs : JobId -> Job)
+      (m : nat) (sched : Schedule) (t : Time) (candidates : list JobId) : option JobId :=
+    min_metric_job metric (filter (fun j => eligibleb jobs m sched j t) candidates).
+  ```
+- **Proof Strategy**: Generalizes EDF's `min_dl_job` to any `Z`-valued metric. `min_metric_job_min` uses `Z.leb_le` and `Z.leb_nle` for the comparison branches. All 4 `GenericSchedulingAlgorithm` obligations follow from `min_metric_job_in` + `filter_In` + `eligibleb_iff`.
+- **Key Tactics**: `Z.leb_le`, `Z.leb_nle`, `filter_In`, `eligibleb_iff`, `min_metric_job_none_iff`
+- **Dependencies**: `eligibleb_iff`, `filter_In`
+- **Notes**: Uses `Z.leb` (not `Nat.leb`) for comparison. `Z.leb_nle` corresponds to `Bool.not_true_iff_false` + `Nat.leb_le` pattern used in EDF's `min_dl_job_min`.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-11
+
+---
+
+### `llf_generic_spec` / `llf_scheduler`
+- **Type**: Definition + Lemmas (UniPolicies/Laxity.v)
+- **Statement**:
+  ```coq
+  Definition llf_generic_spec : GenericSchedulingAlgorithm := ...
+  Definition llf_scheduler (candidates_of : ...) : Scheduler :=
+    single_cpu_algorithm_schedule llf_generic_spec candidates_of.
+  ```
+- **Proof Strategy**: Delegates entirely to MetricChooser.v lemmas. `choose_llf_none_implies_no_eligible` uses contradiction: if choose_llf returns None but j is eligible+in candidates, `choose_llf_some_if_exists` would give Some.
+- **Key Tactics**: `choose_min_metric_eligible`, `choose_min_metric_min`, contradiction via `choose_llf_some_if_exists`
+- **Dependencies**: `MetricChooser.v`, `laxity`, `UniSchedulerInterface`, `UniSchedulerLemmas`
+- **Notes**: ⚠️ `Restart` is invalid in compiled mode — always write clean single-attempt proofs. Carries `LLFSchedulerSpec` record (mirrors `EDFSchedulerSpec`) with the min-laxity invariant.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-11
+
+---
+
+### `partitioned_llf_scheduler`
+- **Type**: Definition + Theorem (PartitionedPolicies/PartitionedLLF.v)
+- **Statement**:
+  ```coq
+  Definition partitioned_llf_scheduler (m : nat) (cands : CPU -> CandidateSource) : Scheduler :=
+    partitioned_scheduler m llf_generic_spec cands.
+  ```
+- **Proof Strategy**: Thin wrapper. Same pattern as PartitionedEDF/FIFO/RR: unfold `partitioned_llf_scheduler`, unfold `llf_scheduler`, apply `local_witnesses_imply_partitioned_schedulable_by_on`.
+- **Key Tactics**: `unfold partitioned_llf_scheduler`, `unfold llf_scheduler`, `apply local_witnesses_imply_partitioned_schedulable_by_on`
+- **Dependencies**: `PartitionedCompose`, `llf_generic_spec`, `llf_scheduler`
+- **Notes**: Mirrors `PartitionedEDF.v` exactly, replacing `edf_generic_spec` / `edf_scheduler` with `llf_generic_spec` / `llf_scheduler`.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-11

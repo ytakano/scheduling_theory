@@ -1,4 +1,4 @@
-From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
 Require Import Base.
 Require Import ScheduleModel.
 Import ListNotations.
@@ -645,7 +645,148 @@ Proof.
       exists t2'. split. split. lia. lia. lia.
 Qed.
 
-(* 2-2: eligible かつ feasible なら、deadline 前に実行スロットが存在する *)
+(* ===== Section 3: remaining_cost and laxity lemmas ===== *)
+
+(* --- remaining_cost basics --- *)
+
+(* remaining_cost is at most job_cost. *)
+Lemma remaining_cost_le_cost : forall jobs m sched j t,
+    remaining_cost jobs m sched j t <= job_cost (jobs j).
+Proof.
+  intros jobs m sched j t.
+  unfold remaining_cost. lia.
+Qed.
+
+(* completed implies remaining_cost = 0. *)
+Lemma completed_implies_remaining_cost_zero : forall jobs m sched j t,
+    completed jobs m sched j t ->
+    remaining_cost jobs m sched j t = 0.
+Proof.
+  intros jobs m sched j t Hcomp.
+  unfold remaining_cost, completed in *.
+  lia.
+Qed.
+
+(* remaining_cost = 0 implies completed. *)
+Lemma remaining_cost_zero_implies_completed : forall jobs m sched j t,
+    remaining_cost jobs m sched j t = 0 ->
+    completed jobs m sched j t.
+Proof.
+  intros jobs m sched j t Hz.
+  unfold remaining_cost, completed in *.
+  lia.
+Qed.
+
+(* not completed implies remaining_cost > 0. *)
+Lemma not_completed_implies_remaining_cost_pos : forall jobs m sched j t,
+    ~ completed jobs m sched j t ->
+    remaining_cost jobs m sched j t > 0.
+Proof.
+  intros jobs m sched j t Hnc.
+  unfold remaining_cost, completed in *.
+  lia.
+Qed.
+
+(* --- 1-step service lemma for the single-CPU case --- *)
+
+(* service_job 1 advances by 1 iff job j ran on CPU 0 at time t. *)
+Lemma service_job_step_uni : forall sched j t,
+    service_job 1 sched j (S t) =
+    service_job 1 sched j t + (if runs_on sched j t 0 then 1 else 0).
+Proof.
+  intros sched j t.
+  rewrite service_job_step.
+  simpl cpu_count.
+  destruct (runs_on sched j t 0); simpl; lia.
+Qed.
+
+(* If j ran at t on CPU 0 and was not yet completed, remaining_cost decreases by 1. *)
+Lemma remaining_cost_step_running_uni : forall jobs sched j t,
+    sched t 0 = Some j ->
+    ~ completed jobs 1 sched j t ->
+    remaining_cost jobs 1 sched j (S t) =
+    remaining_cost jobs 1 sched j t - 1.
+Proof.
+  intros jobs sched j t Hrun Hnc.
+  unfold remaining_cost.
+  rewrite service_job_step_uni.
+  assert (Hro : runs_on sched j t 0 = true).
+  { apply runs_on_true_iff. exact Hrun. }
+  rewrite Hro.
+  pose proof (not_completed_implies_remaining_cost_pos jobs 1 sched j t Hnc) as Hpos.
+  unfold remaining_cost in Hpos.
+  lia.
+Qed.
+
+(* If j did not run at t on CPU 0, remaining_cost is unchanged. *)
+Lemma remaining_cost_step_not_running_uni : forall jobs sched j t,
+    sched t 0 <> Some j ->
+    remaining_cost jobs 1 sched j (S t) =
+    remaining_cost jobs 1 sched j t.
+Proof.
+  intros jobs sched j t Hnrun.
+  unfold remaining_cost.
+  rewrite service_job_step_uni.
+  assert (Hro : runs_on sched j t 0 = false).
+  { apply runs_on_false_iff. exact Hnrun. }
+  rewrite Hro. lia.
+Qed.
+
+(* --- laxity basics --- *)
+
+(* Unfold laxity to its definition. *)
+Lemma laxity_unfold : forall jobs m sched j t,
+    laxity jobs m sched j t =
+      (Z.of_nat (job_abs_deadline (jobs j))
+      - Z.of_nat t
+      - Z.of_nat (remaining_cost jobs m sched j t))%Z.
+Proof.
+  intros. unfold laxity. reflexivity.
+Qed.
+
+(* After completion, remaining_cost = 0, so laxity simplifies. *)
+Lemma completed_implies_laxity_deadline_minus_now : forall jobs m sched j t,
+    completed jobs m sched j t ->
+    laxity jobs m sched j t =
+      (Z.of_nat (job_abs_deadline (jobs j)) - Z.of_nat t)%Z.
+Proof.
+  intros jobs m sched j t Hcomp.
+  rewrite laxity_unfold.
+  rewrite (completed_implies_remaining_cost_zero jobs m sched j t Hcomp).
+  lia.
+Qed.
+
+(* --- 1-step laxity change for the single-CPU case --- *)
+
+(* If j ran at t on CPU 0 and was not yet completed:
+   time advances by 1, remaining_cost decreases by 1 → laxity unchanged. *)
+Lemma laxity_step_running_uni : forall jobs sched j t,
+    sched t 0%nat = Some j ->
+    ~ completed jobs 1 sched j t ->
+    laxity jobs 1 sched j (S t) = laxity jobs 1 sched j t.
+Proof.
+  intros jobs sched j t Hrun Hnc.
+  rewrite !laxity_unfold.
+  pose proof (not_completed_implies_remaining_cost_pos jobs 1 sched j t Hnc) as Hpos.
+  rewrite (remaining_cost_step_running_uni jobs sched j t Hrun Hnc).
+  rewrite Nat2Z.inj_sub by lia.
+  rewrite Nat2Z.inj_succ.
+  lia.
+Qed.
+
+(* If j did not run at t on CPU 0:
+   time advances by 1, remaining_cost unchanged → laxity decreases by 1. *)
+Lemma laxity_step_not_running_uni : forall jobs sched j t,
+    sched t 0%nat <> Some j ->
+    (laxity jobs 1 sched j (S t) = laxity jobs 1 sched j t - 1)%Z.
+Proof.
+  intros jobs sched j t Hnrun.
+  rewrite !laxity_unfold.
+  rewrite (remaining_cost_step_not_running_uni jobs sched j t Hnrun).
+  rewrite Nat2Z.inj_succ.
+  lia.
+Qed.
+
 Lemma eligible_feasible_implies_runs_later_before_deadline :
   forall J jobs sched j t,
     J j ->

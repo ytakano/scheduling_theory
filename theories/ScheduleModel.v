@@ -1,4 +1,4 @@
-From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
+From Stdlib Require Import Arith Arith.PeanoNat Lia Bool ZArith.
 Require Import Base.
 (* Note: Base.pre_release (t < release_time, schedule-independent) is now in scope.
    Schedule.eligible (released AND NOT completed) is the dispatch condition for
@@ -103,4 +103,23 @@ Definition feasible_schedule_on (J : JobId -> Prop)
 Definition feasible_on (J : JobId -> Prop)
     (jobs : JobId -> Job) (m : nat) : Prop :=
   exists sched, valid_schedule jobs m sched /\ feasible_schedule_on J jobs m sched.
+
+(* ===== Phase 2: Laxity Definitions ===== *)
+
+(* Remaining work for job j at time t: job_cost minus cumulative service.
+   Uses Nat.sub, so the result is floored at 0 once the job has completed. *)
+Definition remaining_cost
+    (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+    (j : JobId) (t : Time) : nat :=
+  job_cost (jobs j) - service_job m sched j t.
+
+(* Laxity (slack) of job j at time t: how much time remains before the job
+   must run continuously without preemption to meet its deadline.
+   Uses Z so that negative laxity (overdue / deadline miss) is representable. *)
+Definition laxity
+    (jobs : JobId -> Job) (m : nat) (sched : Schedule)
+    (j : JobId) (t : Time) : Z :=
+  Z.of_nat (job_abs_deadline (jobs j))
+  - Z.of_nat t
+  - Z.of_nat (remaining_cost jobs m sched j t).
 
