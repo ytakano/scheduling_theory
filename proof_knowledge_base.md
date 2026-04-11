@@ -2668,3 +2668,20 @@
 - **Notes**: Mirrors `PartitionedEDF.v` exactly, replacing `edf_generic_spec` / `edf_scheduler` with `llf_generic_spec` / `llf_scheduler`.
 - **Proof Kind**: Constructive
 - **Date**: 2026-04-11
+
+---
+
+### `valid_partitioned_schedule` (strengthened definition)
+- **Type**: Definition + API Lemmas
+- **Statement**:
+  ```coq
+  Definition valid_partitioned_schedule (jobs : JobId -> Job) (sched : Schedule) : Prop :=
+    raw_partitioned_schedule_on jobs sched /\
+    respects_assignment sched.
+  ```
+- **Proof Strategy**: Two-component conjunction. Projection lemmas `valid_partitioned_schedule_raw` and `valid_partitioned_schedule_respects_assignment` provide `proj1`/`proj2`.
+- **Key Tactics**: `exact (conj H1 H2)`, `intros [H _]. exact H`, `intros [_ H]. exact H`
+- **Dependencies**: `raw_partitioned_schedule_on`, `respects_assignment`
+- **Notes**: This is the public API predicate. `partitioned_scheduler` stores `raw_partitioned_schedule_on` (not `valid_partitioned_schedule`) because `respects_assignment` depends on `assign` which is a section variable — after section discharge it becomes an explicit arg, but `partitioned_scheduler` is defined outside the section without `assign`. The bridge: when proving `scheduler_rel` in `partitioned_schedulable_by_on_from_local`, use `valid_partitioned_schedule_raw` to extract raw from the conjunction. The deprecated `valid_partitioned_schedule_elim` was removed; use the two projection lemmas instead. After strengthening, the discharge of `partitioned_schedule_implies_valid_schedule` no longer includes `J` or `cands_spec` as explicit args (they were needed only by the old `partitioned_schedule_implies_respects_assignment` call; now `valid_partitioned_schedule_respects_assignment` handles that without those args).
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-11

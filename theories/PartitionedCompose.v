@@ -140,10 +140,11 @@ Proof.
   set (sched := glue_local_schedules m locals).
   apply (partitioned_schedulable_by_on_from_local
            assign m valid_assignment spec J cands cands_spec jobs sched).
-  - apply valid_partitioned_schedule_intro.
-    apply glue_local_rels_imply_partitioned_schedule_on.
-    intros c Hlt.
-    exact (proj1 (Hlocals c Hlt)).
+  - pose proof (glue_local_rels_imply_partitioned_schedule_on
+                  m spec cands jobs locals
+                  (fun c Hlt => proj1 (Hlocals c Hlt))) as Hraw.
+    apply (valid_partitioned_schedule_intro assign m spec cands jobs sched Hraw).
+    apply (partitioned_schedule_implies_respects_assignment assign m spec J cands cands_spec jobs sched Hraw).
   - intros c Hlt.
     pose proof (Hlocals c Hlt) as [Hrel Hfeas].
     unfold sched.

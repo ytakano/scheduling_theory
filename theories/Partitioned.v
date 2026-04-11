@@ -101,38 +101,51 @@ Section PartitionedSection.
   (* valid_partitioned_schedule is the public specification predicate for
    partitioned schedulers.
 
-   Current status:
-   - At the moment, this is just an alias of [partitioned_schedule_on].
+   This predicate bundles two conditions:
+   1. [raw_partitioned_schedule_on]: the internal dispatch equation — at every
+      time step each CPU runs exactly what its per-CPU policy selects.
+   2. [respects_assignment]: every running job executes on its statically
+      assigned CPU.
 
    Design intent:
-   - We keep this name as an abstraction boundary.
-   - In the future, this predicate is expected to be strengthened to include
-     additional well-formedness / validity conditions of a partitioned schedule,
-     such as assignment-respect and global schedule validity.
-
-   Usage guideline:
-   - Client code should preferably state results in terms of
-     [valid_partitioned_schedule] rather than [partitioned_schedule_on],
-     so that future strengthening of the definition causes minimal churn. *)
+   - Clients should use this predicate (not [raw_partitioned_schedule_on])
+     as the entry point for any partitioned-scheduler reasoning.
+   - The projection lemmas [valid_partitioned_schedule_raw] and
+     [valid_partitioned_schedule_respects_assignment] extract the individual
+     components, keeping client proofs independent of the conjunction layout.
+   - A third component ([valid_schedule]) may be added in the future; the
+     projection-lemma API will absorb such changes without client churn. *)
   Definition valid_partitioned_schedule (jobs : JobId -> Job) (sched : Schedule) : Prop :=
-    raw_partitioned_schedule_on jobs sched.
+    raw_partitioned_schedule_on jobs sched /\
+    respects_assignment sched.
 
-  (* Public introduction rule for [valid_partitioned_schedule]. *)
+  (* Introduction rule for [valid_partitioned_schedule]:
+     requires both the raw dispatch equation and assignment respect. *)
   Lemma valid_partitioned_schedule_intro :
     forall jobs sched,
       raw_partitioned_schedule_on jobs sched ->
+      respects_assignment sched ->
       valid_partitioned_schedule jobs sched.
   Proof.
-    intros jobs sched H. exact H.
+    intros jobs sched H1 H2. exact (conj H1 H2).
   Qed.
 
-  (* Elimination rule for [valid_partitioned_schedule]. *)
-  Lemma valid_partitioned_schedule_elim :
+  (* Projection: extract [raw_partitioned_schedule_on] from [valid_partitioned_schedule]. *)
+  Lemma valid_partitioned_schedule_raw :
     forall jobs sched,
       valid_partitioned_schedule jobs sched ->
       raw_partitioned_schedule_on jobs sched.
   Proof.
-    intros jobs sched H. exact H.
+    intros jobs sched [H _]. exact H.
+  Qed.
+
+  (* Projection: extract [respects_assignment] from [valid_partitioned_schedule]. *)
+  Lemma valid_partitioned_schedule_respects_assignment :
+    forall jobs sched,
+      valid_partitioned_schedule jobs sched ->
+      respects_assignment sched.
+  Proof.
+    intros jobs sched [_ H]. exact H.
   Qed.
 
   (* ===== Helper Lemmas ===== *)
@@ -310,7 +323,7 @@ Section PartitionedSection.
         c < m -> sched t c = Some j -> assign j = c.
   Proof.
     intros jobs sched Hvps j t c Hlt Hrun.
-    exact (partitioned_schedule_implies_respects_assignment jobs sched Hvps j t c Hlt Hrun).
+    exact (valid_partitioned_schedule_respects_assignment jobs sched Hvps j t c Hlt Hrun).
   Qed.
 
   (* Theorem: partitioned_schedule_on implies global validity. *)
@@ -320,8 +333,9 @@ Section PartitionedSection.
       valid_schedule jobs m sched.
   Proof.
     intros jobs sched Hpart j t c Hlt Hrun.
-    pose proof (partitioned_schedule_implies_respects_assignment jobs sched Hpart) as Hresp.
-    pose proof (Hpart t c Hlt) as Heq.
+    pose proof (valid_partitioned_schedule_raw jobs sched Hpart) as Hraw.
+    pose proof (valid_partitioned_schedule_respects_assignment jobs sched Hpart) as Hresp.
+    pose proof (Hraw t c Hlt) as Heq.
     rewrite Hrun in Heq. symmetry in Heq.
     pose proof (spec.(dispatch_eligible) jobs 1 (cpu_schedule sched c) t
                   (local_candidates_of c jobs 1 (cpu_schedule sched c) t) j Heq) as Heloc.
@@ -404,8 +418,9 @@ Section PartitionedSection.
   Proof.
     intros jobs sched Hpart Hlocal.
     pose proof (partitioned_schedule_implies_respects_assignment jobs sched Hpart) as Hresp.
+    pose proof (valid_partitioned_schedule_intro jobs sched Hpart Hresp) as Hvps.
     split.
-    - apply partitioned_schedule_implies_valid_schedule. exact Hpart.
+    - apply partitioned_schedule_implies_valid_schedule. exact Hvps.
     - apply local_feasible_implies_global_feasible_schedule.
       + exact Hresp.
       + exact Hlocal.
@@ -421,7 +436,7 @@ Section PartitionedSection.
       valid_schedule jobs m sched /\ feasible_schedule_on J jobs m sched.
   Proof.
     intros jobs sched Hpart Hlocal.
-    pose proof (partitioned_schedule_implies_respects_assignment jobs sched Hpart) as Hresp.
+    pose proof (valid_partitioned_schedule_respects_assignment jobs sched Hpart) as Hresp.
     split.
     - apply partitioned_schedule_implies_valid_schedule. exact Hpart.
     - apply local_feasible_on_implies_global_feasible_on.
@@ -555,7 +570,7 @@ Definition partitioned_scheduler
     : Scheduler :=
   mkScheduler (fun jobs m sched =>
     m = n /\
-    valid_partitioned_schedule n spec cands jobs sched).
+    raw_partitioned_schedule_on n spec cands jobs sched).
 
 (* Build a Scheduler from a PartitionedAlgorithmContext. *)
 Definition partitioned_scheduler_of (ctx : PartitionedAlgorithmContext) : Scheduler :=
@@ -599,30 +614,30 @@ Lemma partitioned_schedulable_by_on_from_local :
              CandidateSourceSpec (local_jobset assign J c) (cands c))
            (jobs : JobId -> Job)
            (sched : Schedule),
-      valid_partitioned_schedule n spec cands jobs sched ->
+      valid_partitioned_schedule assign n spec cands jobs sched ->
       (forall c, c < n ->
         feasible_schedule_on (local_jobset assign J c) jobs 1
           (cpu_schedule sched c)) ->
       schedulable_by_on J (partitioned_scheduler n spec cands) jobs n.
 Proof.
   intros assign n valid_assign spec J cands cands_spec jobs sched Hvps Hlocal.
-  (* Step 1: global validity from valid_partitioned_schedule *)
+  (* Step 1: extract components from valid_partitioned_schedule *)
+  pose proof (valid_partitioned_schedule_respects_assignment
+                assign n spec cands jobs sched Hvps) as Hresp.
+  (* Step 2: global validity from valid_partitioned_schedule *)
   pose proof (partitioned_schedule_implies_valid_schedule
-                assign n valid_assign spec J cands cands_spec jobs sched Hvps)
+                assign n valid_assign spec cands jobs sched Hvps)
     as Hvalid.
-  (* Step 2: global feasibility from per-CPU local feasibility *)
-  pose proof (partitioned_schedule_implies_respects_assignment
-                assign n spec J cands cands_spec jobs sched Hvps)
-    as Hresp.
+  (* Step 3: global feasibility from per-CPU local feasibility *)
   pose proof (local_feasible_on_implies_global_feasible_on
                 assign n valid_assign J jobs sched Hresp Hlocal)
     as Hfeas.
-  (* Step 3: build scheduler_rel from valid_partitioned_schedule *)
+  (* Step 4: build scheduler_rel from valid_partitioned_schedule *)
   apply (schedulable_by_on_intro J (partitioned_scheduler n spec cands)
            jobs n sched).
   - unfold partitioned_scheduler, scheduler_rel. split.
     + reflexivity.
-    + exact Hvps.
+    + exact (valid_partitioned_schedule_raw assign n spec cands jobs sched Hvps).
   - exact Hvalid.
   - exact Hfeas.
 Qed.

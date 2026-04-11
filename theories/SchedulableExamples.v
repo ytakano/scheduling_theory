@@ -386,51 +386,64 @@ Proof.
 Qed.
 
 Lemma pair_partitioned_schedule :
-    valid_partitioned_schedule 2 fifo_generic_spec pair_cands pair_jobs pair_sched.
+    valid_partitioned_schedule assign_pair 2 fifo_generic_spec pair_cands pair_jobs pair_sched.
 Proof.
   apply valid_partitioned_schedule_intro.
-  unfold raw_partitioned_schedule_on.
-  intros t c Hlt.
-  assert (Hc : c = 0 \/ c = 1) by lia.
-  destruct Hc as [-> | ->].
-  - destruct t as [| t'].
-    + unfold pair_sched, assign_pair, cpu_schedule,
-             pair_cands, enum_local_candidates_of, local_candidates.
-      simpl.
-      reflexivity.
-    + unfold pair_sched, pair_cands, enum_local_candidates_of, local_candidates.
-      simpl.
-      replace
-        (filter (fun j : JobId => Nat.eqb (assign_pair j) 0) [0; 1])
-        with [0] by reflexivity.
-      symmetry.
-      change (choose_fifo pair_jobs 1 (cpu_schedule pair_sched 0) (S t') [0] = None).
-      apply choose_fifo_none_if_no_eligible.
-      intros j Hin.
-      simpl in Hin.
-      destruct Hin as [Hj | []].
-      subst j.
-      apply pair_job0_local_not_eligible_after_start.
-      lia.
-  - destruct t as [| t'].
-    + unfold pair_sched, assign_pair, cpu_schedule,
-             pair_cands, enum_local_candidates_of, local_candidates.
-      simpl.
-      reflexivity.
-    + unfold pair_sched, pair_cands, enum_local_candidates_of, local_candidates.
-      simpl.
-      replace
-        (filter (fun j : JobId => Nat.eqb (assign_pair j) 1) [0; 1])
-        with [1] by reflexivity.
-      symmetry.
-      change (choose_fifo pair_jobs 1 (cpu_schedule pair_sched 1) (S t') [1] = None).
-      apply choose_fifo_none_if_no_eligible.
-      intros j Hin.
-      simpl in Hin.
-      destruct Hin as [Hj | []].
-      subst j.
-      apply pair_job1_local_not_eligible_after_start.
-      lia.
+  - unfold raw_partitioned_schedule_on.
+    intros t c Hlt.
+    assert (Hc : c = 0 \/ c = 1) by lia.
+    destruct Hc as [-> | ->].
+    + destruct t as [| t'].
+      * unfold pair_sched, assign_pair, cpu_schedule,
+               pair_cands, enum_local_candidates_of, local_candidates.
+        simpl.
+        reflexivity.
+      * unfold pair_sched, pair_cands, enum_local_candidates_of, local_candidates.
+        simpl.
+        replace
+          (filter (fun j : JobId => Nat.eqb (assign_pair j) 0) [0; 1])
+          with [0] by reflexivity.
+        symmetry.
+        change (choose_fifo pair_jobs 1 (cpu_schedule pair_sched 0) (S t') [0] = None).
+        apply choose_fifo_none_if_no_eligible.
+        intros j Hin.
+        simpl in Hin.
+        destruct Hin as [Hj | []].
+        subst j.
+        apply pair_job0_local_not_eligible_after_start.
+        lia.
+    + destruct t as [| t'].
+      * unfold pair_sched, assign_pair, cpu_schedule,
+               pair_cands, enum_local_candidates_of, local_candidates.
+        simpl.
+        reflexivity.
+      * unfold pair_sched, pair_cands, enum_local_candidates_of, local_candidates.
+        simpl.
+        replace
+          (filter (fun j : JobId => Nat.eqb (assign_pair j) 1) [0; 1])
+          with [1] by reflexivity.
+        symmetry.
+        change (choose_fifo pair_jobs 1 (cpu_schedule pair_sched 1) (S t') [1] = None).
+        apply choose_fifo_none_if_no_eligible.
+        intros j Hin.
+        simpl in Hin.
+        destruct Hin as [Hj | []].
+        subst j.
+        apply pair_job1_local_not_eligible_after_start.
+        lia.
+  - intros j t c Hlt Hrun.
+    unfold pair_sched in Hrun.
+    destruct (Nat.eqb t 0) eqn:Et.
+    + destruct (Nat.eqb c 0) eqn:Ec0.
+      * apply Nat.eqb_eq in Ec0. subst c.
+        injection Hrun as <-.
+        reflexivity.
+      * destruct (Nat.eqb c 1) eqn:Ec1.
+        -- apply Nat.eqb_eq in Ec1. subst c.
+           injection Hrun as <-.
+           reflexivity.
+        -- discriminate.
+    + discriminate.
 Qed.
 
 Lemma pair_partitioned_rel :
@@ -441,15 +454,17 @@ Proof.
   unfold partitioned_scheduler, scheduler_rel.
   split.
   - reflexivity.
-  - exact pair_partitioned_schedule.
+  - exact (valid_partitioned_schedule_raw
+             assign_pair 2 fifo_generic_spec pair_cands
+             pair_jobs pair_sched pair_partitioned_schedule).
 Qed.
 
 Lemma pair_partitioned_valid :
     valid_schedule pair_jobs 2 pair_sched.
 Proof.
   exact (partitioned_schedule_implies_valid_schedule
-           assign_pair 2 assign_pair_valid fifo_generic_spec J_pair pair_cands
-           pair_cands_spec pair_jobs pair_sched pair_partitioned_schedule).
+           assign_pair 2 assign_pair_valid fifo_generic_spec pair_cands
+           pair_jobs pair_sched pair_partitioned_schedule).
 Qed.
 
 Theorem pair_partitioned_schedulable_by_on :
