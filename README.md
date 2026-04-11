@@ -2,6 +2,12 @@
 
 This project is focused on the formalization of scheduling theory using the Rocq proof assistant.
 
+# Design Principles
+
+This project aims to provide a shared foundation for **executable scheduler semantics** and **scheduling-algorithm refinement**. Its central concern is not only whether scheduling theory can be stated abstractly, but also whether it can be connected to concrete scheduling choices, executable decision procedures, and implementation-oriented semantics. From this foundation, the project is intended to scale from **single-CPU scheduling**, to **multicore scheduling**, and eventually to **OS-level operational semantics**.
+
+Desing principles are detailed in [DesignPrinciples.md](DesignPrinciples.md).
+
 # Plan
 
 - Roadmap: [plan/roadmap.md](plan/roadmap.md)
