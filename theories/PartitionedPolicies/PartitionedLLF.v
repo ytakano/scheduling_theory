@@ -6,7 +6,7 @@ Require Import SchedulingAlgorithmInterface.
 Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import Partitioned.
 Require Import PartitionedCompose.
-Require Import UniPolicies.Laxity.
+Require Import UniPolicies.LLF.
 
 (* Fully constructive: no Classical import. *)
 

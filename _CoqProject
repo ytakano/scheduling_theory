@@ -19,7 +19,7 @@ theories/UniPolicies/EDFTransform.v
 theories/UniPolicies/EDFOptimality.v
 theories/UniPolicies/RoundRobin.v
 theories/UniPolicies/MetricChooser.v
-theories/UniPolicies/Laxity.v
+theories/UniPolicies/LLF.v
 theories/Partitioned.v
 theories/PartitionedCompose.v
 theories/PartitionedPolicies/PartitionedEDF.v
