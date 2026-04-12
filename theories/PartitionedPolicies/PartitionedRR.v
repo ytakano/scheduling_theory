@@ -62,3 +62,27 @@ Proof.
     exact Hrel.
   - exact Hfeas.
 Qed.
+
+Theorem local_rr_schedulable_by_on_implies_partitioned_rr_schedulable_by_on :
+    forall (assign : JobId -> CPU) (m : nat)
+           (valid_assignment : forall j, assign j < m)
+           (J : JobId -> Prop)
+           (cands : CPU -> CandidateSource)
+           (cands_spec : forall c, c < m ->
+             CandidateSourceSpec (local_jobset assign J c) (cands c))
+           (jobs : JobId -> Job),
+      (forall c, c < m ->
+        schedulable_by_on
+          (local_jobset assign J c)
+          (rr_scheduler (cands c))
+          jobs 1) ->
+      schedulable_by_on J (partitioned_rr_scheduler m cands) jobs m.
+Proof.
+  intros assign m valid_assignment J cands cands_spec jobs Hlocal.
+  unfold partitioned_rr_scheduler.
+  eapply (local_schedulable_by_on_implies_partitioned_schedulable_by_on
+            assign m valid_assignment rr_generic_spec J cands cands_spec jobs).
+  intros c Hlt.
+  unfold rr_scheduler.
+  exact (Hlocal c Hlt).
+Qed.

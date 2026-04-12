@@ -78,6 +78,29 @@ Proof.
   exact (proj2 (Hsteps t) cpu' Hlt).
 Qed.
 
+(* ===== Helper: finite choice over CPUs < m ===== *)
+
+(** Constructively choose one local schedule witness for each CPU c < m. *)
+Lemma finite_schedule_choice_lt :
+    forall m (P : CPU -> Schedule -> Prop),
+      (forall c, c < m -> exists sched, P c sched) ->
+      exists locals : CPU -> Schedule,
+        forall c, c < m -> P c (locals c).
+Proof.
+  induction m as [|m IH]; intros P Hex.
+  - exists (fun _ _ _ => None).
+    intros c Hlt. lia.
+  - assert (Hprev : forall c, c < m -> exists sched, P c sched).
+    { intros c Hlt. apply Hex. lia. }
+    destruct (IH P Hprev) as [locals Hlocals].
+    destruct (Hex m (Nat.lt_succ_diag_r m)) as [schedm Hschedm].
+    exists (fun c => if Nat.eq_dec c m then schedm else locals c).
+    intros c Hlt.
+    destruct (Nat.eq_dec c m) as [-> | Hneq].
+    + exact Hschedm.
+    + apply Hlocals. lia.
+Qed.
+
 (* ===== Theorem: glue_local_rels_imply_partitioned_schedule_on ===== *)
 
 (** Main composition theorem: if each CPU c < m satisfies the local
@@ -103,6 +126,44 @@ Proof.
   - intros t cpu' Hcpu'.
     exact (scheduler_rel_single_cpu_idle spec (cands c) jobs (locals c) t cpu'
              Hrel Hcpu').
+Qed.
+
+(* ===== Lemma: extract local witnesses from local schedulability ===== *)
+
+(** If each local job set is schedulable on its assigned CPU, then there
+    exists a family of local schedules witnessing the scheduler relation
+    and local feasibility on every CPU c < m. *)
+Lemma local_schedulable_by_on_implies_local_witnesses :
+    forall (assign : JobId -> CPU) (m : nat)
+           (spec : GenericSchedulingAlgorithm)
+           (J : JobId -> Prop)
+           (cands : CPU -> CandidateSource)
+           (jobs : JobId -> Job),
+      (forall c, c < m ->
+        schedulable_by_on
+          (local_jobset assign J c)
+          (single_cpu_algorithm_schedule spec (cands c))
+          jobs 1) ->
+      exists locals : CPU -> Schedule,
+        forall c, c < m ->
+          scheduler_rel
+            (single_cpu_algorithm_schedule spec (cands c))
+            jobs 1 (locals c) /\
+          feasible_schedule_on (local_jobset assign J c) jobs 1 (locals c).
+Proof.
+  intros assign m spec J cands jobs Hsched.
+  eapply (finite_schedule_choice_lt m
+            (fun c sched =>
+               scheduler_rel
+                 (single_cpu_algorithm_schedule spec (cands c))
+                 jobs 1 sched /\
+               feasible_schedule_on (local_jobset assign J c) jobs 1 sched)).
+  intros c Hlt.
+  destruct (Hsched c Hlt) as [sched [Hrel [_ Hfeas]]].
+  exists sched.
+  split.
+  - exact Hrel.
+  - exact Hfeas.
 Qed.
 
 (* ===== Theorem: local_witnesses_imply_partitioned_schedulable_by_on ===== *)
@@ -153,4 +214,35 @@ Proof.
     + intros t cpu' Hcpu'.
       exact (scheduler_rel_single_cpu_idle spec (cands c) jobs (locals c) t cpu'
                Hrel Hcpu').
+Qed.
+
+(* ===== Theorem: local schedulability implies partitioned schedulability ===== *)
+
+(** High-level entry point for partitioned schedulability.
+
+    If every CPU-local job set is schedulable by the corresponding single-CPU
+    scheduler, then the whole job set is schedulable by the partitioned global
+    scheduler obtained by gluing those local schedulers. *)
+Theorem local_schedulable_by_on_implies_partitioned_schedulable_by_on :
+    forall (assign : JobId -> CPU) (m : nat)
+           (valid_assignment : forall j, assign j < m)
+           (spec : GenericSchedulingAlgorithm)
+           (J : JobId -> Prop)
+           (cands : CPU -> CandidateSource)
+           (cands_spec : forall c, c < m ->
+             CandidateSourceSpec (local_jobset assign J c) (cands c))
+           (jobs : JobId -> Job),
+      (forall c, c < m ->
+        schedulable_by_on
+          (local_jobset assign J c)
+          (single_cpu_algorithm_schedule spec (cands c))
+          jobs 1) ->
+      schedulable_by_on J (partitioned_scheduler m spec cands) jobs m.
+Proof.
+  intros assign m valid_assignment spec J cands cands_spec jobs Hlocal.
+  destruct (local_schedulable_by_on_implies_local_witnesses
+              assign m spec J cands jobs Hlocal) as [locals Hlocals].
+  eapply (local_witnesses_imply_partitioned_schedulable_by_on
+            assign m valid_assignment spec J cands cands_spec jobs locals).
+  exact Hlocals.
 Qed.
