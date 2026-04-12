@@ -11,6 +11,8 @@
   - an `XCanonicalRepairSpec` instance
   - a final instantiation of `finite_optimality_via_normalization`
 - Shared infrastructure now supplies:
+  - `CanonicalRepairSpec` as the policy integration record for canonical predicates, constructive decidability, and one-step repair
+  - `DispatchAgreesBefore` as the named prefix-invariance contract for dispatch
   - the normalization induction
   - the generic push-forward lemma
   - finite-horizon truncation
@@ -19,8 +21,146 @@
   - a custom push-forward lemma
   - a custom scheduler-rel bridge wrapper
   - a custom normalization skeleton
+- Interface notes:
+  - `normalize_to_canonical_generic` no longer takes `cand_spec`
+  - candidate-source obligations still matter indirectly when proving policy-specific `DispatchAgreesBefore`
+
+## Canonicalization Responsibility Split
+
+- Generic core:
+  - `matches_dispatch_at_with`
+  - `matches_dispatch_before`
+  - `deadline_horizon`
+  - `J_implies_deadline_le_horizon`
+  - `CanonicalRepairSpec`
+  - `DispatchAgreesBefore`
+  - `repair_pushes_forward_generic`
+  - `normalize_to_canonical_generic`
+  - `finite_optimality_via_normalization`
+- Policy-specific:
+  - canonical boolean/decider lemmas
+  - local repair lemmas such as `repair_non_canonical_at` / `repair_non_canonical_at_llf`
+  - dispatch prefix lemmas such as `edf_dispatch_agrees_before` / `llf_dispatch_agrees_before`
+  - policy instances such as `EDFCanonicalRepairSpec` / `LLFCanonicalRepairSpec`
+- Wrapper-only:
+  - `edf_normalize_to_canonical`
+  - `llf_normalize_to_canonical`
+  - `edf_optimality_on_finite_jobs`
+  - `llf_optimality_on_finite_jobs`
 
 ## Lemmas and Theorems
+
+### `DispatchAgreesBefore`
+- **Type**: Definition
+- **Statement**:
+  ```coq
+  Definition DispatchAgreesBefore
+      (alg : GenericSchedulingAlgorithm)
+      (jobs : JobId -> Job)
+      (candidates_of : CandidateSource) : Prop := ...
+  ```
+- **Proof Strategy**: Not proved directly; discharged per policy by combining candidate prefix-extensionality with chooser prefix-invariance.
+- **Key Tactics**: N/A (definition)
+- **Dependencies**: `agrees_before`, `dispatch`, `CandidateSource`
+- **Notes**: This is the named contract used by the generic canonicalization stack. It replaces anonymous “dispatch agrees before” hypotheses in theorem statements and makes the policy integration surface explicit.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-12
+
+---
+
+### `CanonicalRepairSpec`
+- **Type**: Record
+- **Statement**:
+  ```coq
+  Record CanonicalRepairSpec
+      (alg : GenericSchedulingAlgorithm)
+      (J : JobId -> Prop)
+      (candidates_of : CandidateSource)
+      (jobs : JobId -> Job) : Type := { ... }.
+  ```
+- **Proof Strategy**: A policy instantiates the record by providing:
+  - canonical predicates (`canonical_at`, `canonical_before`)
+  - equivalence lemmas back to `matches_dispatch_*`
+  - a constructive decider
+  - a one-step repair lemma
+- **Key Tactics**: Typically `refine` for the record and direct reuse of policy-specific lemmas
+- **Dependencies**: `matches_dispatch_at_with`, `matches_dispatch_before`, `valid_schedule`, `feasible_schedule_on`, `agrees_before`, `single_cpu_only`
+- **Notes**: The record no longer carries a policy-specific push-forward theorem. That step is now generic and factored through `DispatchAgreesBefore`.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-12
+
+---
+
+### `repair_pushes_forward_generic`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma repair_pushes_forward_generic :
+    forall alg candidates_of jobs sched sched' t,
+      DispatchAgreesBefore alg jobs candidates_of ->
+      agrees_before sched sched' t ->
+      matches_dispatch_at_with alg jobs candidates_of sched' t ->
+      matches_dispatch_before alg jobs candidates_of sched t ->
+      matches_dispatch_before alg jobs candidates_of sched' (S t).
+  ```
+- **Proof Strategy**: Split on `t' < t \/ t' = t`. For `t' < t`, weaken prefix agreement to `t'`, rewrite CPU-0 equality, then use `DispatchAgreesBefore` to transport the dispatch result from `sched` to `sched'`. For `t' = t`, use the canonical-at hypothesis directly.
+- **Key Tactics**: `lia`, `agrees_before_weaken`, `agrees_before_sym`, `rewrite`
+- **Dependencies**: `DispatchAgreesBefore`, `matches_dispatch_at_with`, `matches_dispatch_before`, `agrees_before`
+- **Notes**: This is the generic replacement for the former EDF/LLF-specific push-forward lemmas.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-12
+
+---
+
+### `normalize_to_canonical_generic`
+- **Type**: Lemma
+- **Statement**:
+  ```coq
+  Lemma normalize_to_canonical_generic :
+    forall alg J (J_bool : JobId -> bool)
+           (candidates_of : CandidateSource)
+           jobs sched H,
+      CanonicalRepairSpec alg J candidates_of jobs ->
+      DispatchAgreesBefore alg jobs candidates_of ->
+      (forall x, J_bool x = true <-> J x) ->
+      valid_schedule jobs 1 sched ->
+      feasible_schedule_on J jobs 1 sched ->
+      (forall t j, sched t 0 = Some j -> J j) ->
+      single_cpu_only sched ->
+      exists sched', ... /\
+        matches_dispatch_before alg jobs candidates_of sched' H.
+  ```
+- **Proof Strategy**: Induction on `H`. The base case is vacuous. In the step case, normalize up to `H'`, decide canonicality at `H'`, and either keep the schedule or apply the policy’s one-step repair. In both branches, extend canonicality to `S H'` via `repair_pushes_forward_generic`.
+- **Key Tactics**: `induction`, `destruct`, `refine`, `eapply`
+- **Dependencies**: `CanonicalRepairSpec`, `DispatchAgreesBefore`, `repair_pushes_forward_generic`
+- **Notes**: The current interface no longer includes `cand_spec`; only actually used hypotheses remain.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-12
+
+---
+
+### `finite_optimality_via_normalization`
+- **Type**: Theorem
+- **Statement**:
+  ```coq
+  Theorem finite_optimality_via_normalization :
+    forall alg J (J_bool : JobId -> bool) enumJ
+           (candidates_of : CandidateSource)
+           (cand_spec : CandidateSourceSpec J candidates_of)
+           jobs, ...
+  ```
+- **Proof Strategy**: The proof has four stages:
+  1. restrict a feasible witness to CPU 0 and the designated job set,
+  2. normalize it to a canonical prefix with `normalize_to_canonical_generic`,
+  3. truncate it to `deadline_horizon`,
+  4. derive `scheduler_rel` via the generic bridge and conclude `schedulable_by_on`.
+- **Key Tactics**: `destruct`, `eapply`, `exact`
+- **Dependencies**: `finite_J_restricted_schedule`, `finite_normalized_schedule`, `finite_truncated_schedule`, `finite_canonical_schedule_yields_scheduler_rel`
+- **Notes**: EDF/LLF now instantiate this theorem rather than carrying their own finite-optimality skeleton or custom scheduler-rel bridge wrappers.
+- **Proof Kind**: Constructive
+- **Date**: 2026-04-12
+
+---
 
 ### `glue_local_schedules`
 - **Type**: Definition
