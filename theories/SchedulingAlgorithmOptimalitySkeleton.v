@@ -11,6 +11,21 @@ Require Import SchedulingAlgorithmCanonicalBridge.
 Require Import SchedulingAlgorithmNormalization.
 Import ListNotations.
 
+(* This file packages the generic finite-job optimality pipeline into three
+   conceptual stages:
+
+   1. Restrict an arbitrary feasible witness schedule to the target finite job
+      set and the single-CPU view.
+   2. Normalize that restricted schedule into one that matches the dispatcher
+      on the relevant finite prefix.
+   3. Truncate the normalized schedule at the deadline horizon and turn the
+      resulting canonical schedule into a witness for [scheduler_rel].
+
+   Policy-specific files are expected to instantiate only the normalization
+   interface and the dispatcher prefix-agreement lemma. *)
+
+(* Stage 1: extract a single-CPU witness schedule that only runs jobs from [J].
+   This isolates the job set of interest before any canonicalization begins. *)
 Lemma finite_J_restricted_schedule :
   forall J (J_bool : JobId -> bool) jobs,
     (forall x, J_bool x = true <-> J x) ->
@@ -33,6 +48,8 @@ Proof.
   - exact (J_restrict_only J_bool (mk_single_cpu sched0)).
 Qed.
 
+(* Stage 2: apply a policy-specific normalization result to obtain a schedule
+   that matches the dispatcher on the finite prefix of interest. *)
 Lemma finite_normalized_schedule :
   forall alg J candidates_of jobs sched1 H,
     (forall sched0 H0,
@@ -61,6 +78,9 @@ Proof.
   exact (Hnorm sched1 H Hvalid1 Hfeas1 HJonly1 Hcpu1).
 Qed.
 
+(* Stage 3a: truncate the normalized schedule at the deadline horizon.
+   Feasibility is preserved because every job in [J] has its deadline within
+   the chosen finite horizon. *)
 Lemma finite_truncated_schedule :
   forall alg J enumJ candidates_of
          (cand_spec : CandidateSourceSpec J candidates_of)
@@ -92,6 +112,9 @@ Proof.
     exact (trunc_sched_after sched2 (deadline_horizon jobs enumJ) t 0 Hle).
 Qed.
 
+(* Stage 3b: once a schedule is canonical on the finite horizon and empty
+   afterwards, it can be re-packaged as a witness for the scheduler relation
+   induced by the scheduling algorithm. *)
 Lemma finite_canonical_schedule_yields_scheduler_rel :
   forall alg J enumJ candidates_of
          (cand_spec : CandidateSourceSpec J candidates_of)
