@@ -1,770 +1,683 @@
-# what_to_prove.md 追記・修正版
+# what_to_prove.md
 
-# スケジューリング理論の定理
+# Proof Inventory and Next Theorems
 
-まず現在地を明確にしておく。
+このファイルの目的は、理論的に面白い定理を列挙することだけではなく、
+**現在の実装に照らして、何が完了し、何が進行中で、何が未着手か**を明確にすることにある。
 
-単一CPUについては、すでに
+現在の実装は、すでに次の段階まで進んでいる。
 
-* generic scheduling-algorithm abstraction
-* canonicality を scheduling algorithm agreement として捉える generic bridge
-* local repair を反復する generic normalization skeleton
-* finite witness を `scheduler_rel` に接続する finite optimality skeleton
+- 共通 schedule / service / readiness / feasibility の基盤
+- 単一CPU scheduler / scheduling algorithm abstraction
+- generic canonical bridge
+- generic normalization skeleton
+- generic finite optimality skeleton
+- EDF finite optimality
+- LLF finite optimality
+- partitioned scheduling の generic compose 層
+- partitioned EDF / FIFO / RR / LLF wrapper
+- multicore-common の初期層
+- periodic task generation の初期層
 
-が存在する。
+したがって、このファイルでは
+「証明すべきこと」を単なる未来の一覧ではなく、
 
-したがって単一CPUで今後整理すべき対象は、
-generic 骨格そのものを新たに作ることではなく、
+- **Done**
+- **In progress**
+- **Planned**
 
-* 各 policy の局所仕様
-* local repair obligation
-* prefix agreement obligation
-* skeleton の追加 instantiation
-
-を見通しよく並べることにある。
-
-単一CPUのときより難しくなる理由は主に次の4つです。
-
-* 同じ時刻に **複数CPU** が動く
-* **同じ job を複数CPUで同時実行してはいけない**
-* **partitioned / global / clustered** で理論が分かれる
-* OS 寄りに行くと **migration / wakeup / IPI / per-CPU runqueue** が入る
-
-なので、難易度表も次の3系統に分けて考えるのがよいです。
-
-* **共通基盤**
-* **単一CPU / partitioned**
-* **global / OS寄りマルチコア**
-
-以下では、難易度を Lv.0 から順に上げます。
+に分けて整理する。
 
 ---
 
-# Lv.0: 共通基盤の定義整合性
+# 0. Reading Guide
 
-## 0-1. service の基本補題
+## Status labels
 
-証明すべきこと:
+- **Done**: 主要な定義・補題・定理がすでにコードにある
+- **In progress**: 主要な骨格はあるが、整理や一般化がまだ必要
+- **Planned**: まだ本格的な実装に入っていない
 
-* `service` は単調増加
-* 1ステップで高々 1 増える
-* 実行されたときだけ増える
-* 実行されなければ増えない
+## Main tracks
 
-## 0-2. completed / ready の整合性
+今後の証明対象は、次の 6 系統に分けて考える。
 
-証明すべきこと:
-
-* completed なら ready でない
-* release 前には ready でない
-* completed は単調
-* ready は service/completion と整合する
-
-## 0-3. remaining cost / laxity の基本補題
-
-証明すべきこと:
-
-* `remaining_cost` は 0 以上
-* completed なら `remaining_cost = 0`
-* 実行で `remaining_cost` が減少する
-* idle なら `remaining_cost` は変わらない
-* `laxity = deadline - now - remaining_cost` の整合性
-* 実行で laxity がどう変化するか
-* 待機で laxity がどう減るか
-
-### 難易度
-
-**低い**です。
-ただし laxity を `nat` で持つか `Z` で持つかで補題の形がかなり変わります。
+1. 共通基盤
+2. 単一CPU policy
+3. repair / normalization / finite optimality
+4. partitioned multicore
+5. task-generation model
+6. multicore / DAG / OS / refinement
 
 ---
 
-# Lv.1: マルチコア schedule の基本健全性
+# Lv.0: Common schedule semantics
+**Status: Mostly done**
 
-## 1-1. no-duplication
+ここは最下層であり、単一CPUでもマルチコアでも再利用される。
 
-証明すべきこと:
+## 0-1. service / cpu_count basics
+**Status: Done**
 
-* 同じ時刻に同じ job が複数CPUで走らない
+証明済みとして扱うもの:
 
-## 1-2. per-CPU exclusivity
+- `runs_on_true_iff`, `runs_on_false_iff`
+- `cpu_count_zero_iff_not_executed`
+- `cpu_count_pos_iff_executed`
+- `cpu_count_nonzero_iff_executed`
+- `cpu_count_le_1` under sequential-job assumption
+- `cpu_count_eq_1_iff_executed`
+- `service_job_step`
+- `service_job_monotone`
+- `service_job_increase_at_most_1`
+- `service_job_no_increase_if_not_executed`
+- `service_job_increases_iff_executed`
 
-証明すべきこと:
+## 0-2. completed / released / pending / ready consistency
+**Status: Done**
 
-* 各 CPU は各時刻に高々 1 job しか走らせない
+証明済みとして扱うもの:
 
-## 1-3. affinity / allowed CPU
+- `completed_not_pending`
+- `completed_not_ready`
+- `pre_release_not_pending`
+- `pre_release_not_ready`
+- `pending_after_release`
+- `ready_after_release`
+- `scheduled_implies_running`
+- `valid_schedule` から release / completion / ready の整合性を引き出す補題群
 
-入れるなら:
+## 0-3. deadline / feasibility basics
+**Status: Done**
 
-* job は許された CPU 上でしか走らない
+証明済みとして扱うもの:
 
-## 1-4. multicore service の安全性
+- `completed_iff_service_ge_cost`
+- `not_completed_iff_service_lt_cost`
+- `missed_deadline_iff_not_completed_at_deadline`
+- `missed_deadline_iff_service_lt_cost_at_deadline`
 
-証明すべきこと:
+## 0-4. interval service
+**Status: Done**
 
-* migration があっても service は正しく累積される
-* CPU 間の移動があっても completion 判定は壊れない
+証明済みとして扱うもの:
 
-## 1-5. multicore laxity の安全性
+- `service_between_eq`
+- `service_between_0_r`
+- `service_between_refl`
+- `service_between_split`
+- `service_between_nonneg`
+- `service_before_release_zero`
+- `service_at_release_zero`
+- `service_increases_implies_executed_in_interval`
 
-証明すべきこと:
+## 0-5. remaining cost / laxity basics
+**Status: Mostly done**
 
-* migration があっても `remaining_cost` / `laxity` は job ごとに一意に定まる
-* no-duplication のもとで laxity 更新が曖昧にならない
+証明済みとして扱うもの:
 
-### 難易度
+- `remaining_cost_le_cost`
+- `completed_implies_remaining_cost_zero`
+- `remaining_cost_zero_implies_completed`
+- `not_completed_implies_remaining_cost_pos`
+- `remaining_cost_step_running_uni`
+- `remaining_cost_step_not_running_uni`
+- `laxity_unfold`
+- `completed_implies_laxity_deadline_minus_now`
+- `laxity_step_running_uni`
+- `laxity_step_not_running_uni`
 
-**低〜中**です。
+残作業:
 
----
-
-# Lv.2: 抽象 scheduler の健全性
-
-## 2-1. choose 健全性
-
-証明すべきこと:
-
-* choose された job は ready
-* completed / unreleased job は選ばれない
-* allowed CPU でのみ選ばれる
-
-## 2-2. state invariant 保存
-
-証明すべきこと:
-
-* arrival 後も well-formed
-* completion 後も well-formed
-* requeue / migration 後も well-formed
-
-## 2-3. no-loss
-
-証明すべきこと:
-
-* ready job が勝手に失われない
-* migration で job が消えない
-* per-CPU queue 間の転送で one-copy が保たれる
-
-## 2-4. metric-min chooser の一般補題
-
-証明すべきこと:
-
-* metric 最小の ready job が選ばれる
-* tie-break を含めて決定的
-* candidate 集合外の job は選ばれない
-
-ここで EDF は `metric = absolute deadline`、
-laxity-based は `metric = laxity` として扱う。
-
-### 難易度
-
-**低〜中**です。
-
----
-
-# Lv.3: 単一CPU policy の局所仕様
-
-このレベルは policy ごとの chooser / local priority 性質を扱う。
-generic normalization や finite optimality はここではなく、
-後述の Lv.4-Lv.5 で共通骨格として扱う。
-
-## 3-1. FIFO
-
-* queue 先頭が選ばれる
-* overtaking がない
-* non-preemptive なら current は完了まで継続
-
-## 3-2. RR
-
-* queue rotation が正しい
-* 未完了なら末尾へ戻る
-* 巡回順が保存される
-
-## 3-3. Prioritized FIFO
-
-* 高 priority が先
-* 同 priority 内 FIFO
-
-## 3-4. EDF
-
-* deadline 最小の ready job を選ぶ
-* tie-break 一貫性
-
-For EDF, it is also useful to track the canonicalization pipeline explicitly:
-
-* a canonical-at predicate tied to scheduling algorithm agreement
-* a constructive decider for canonicality
-* a one-step local repair lemma
-* a finite-horizon normalization theorem
-* a finite optimality theorem obtained from the shared skeleton
-
-## 3-5. LLF / LST
-
-* laxity 最小の ready job を選ぶ
-* tie-break 一貫性
-* 0-laxity job があるときの選択性質
-* 実行状態に依存する key を使っても chooser が健全
-
-For LLF/LST, the same layered structure is important, but slightly more subtle
-because the metric depends on the current schedule state:
-
-* a schedule-dependent canonical-at predicate
-* a constructive canonicality decider
-* a local repair lemma for one non-canonical time point
-* a finite-horizon normalization theorem
-* a finite optimality theorem via the shared normalization skeleton
-
-### 難易度
-
-**中**です。
-EDF よりも LLF/LST の方が、metric が state-dependent な分だけ少し重いです。
+- 単一CPU向けだけでなく、multicore 共通形で remaining-cost / laxity をどこまで上げるか整理する
+- dynamic metric policy 向けに、再利用しやすい補題セットへ整理する
 
 ---
 
-A useful way to organize uniprocessor policy results is the following
-five-layer structure:
+# Lv.1: Single-CPU scheduler / algorithm abstraction
+**Status: Mostly done**
 
-1. policy definition / chooser
-2. local chooser properties
-3. local repair
-4. finite-horizon normalization
-5. finite optimality
+ここでは「policy そのもの」よりも、
+policy を抽象 scheduler / scheduling algorithm として扱うための基盤を指す。
 
-This structure matches the current EDF and LLF development and should be used
-as the standard template for future uniprocessor policies.
+## 1-1. scheduler interface basics
+**Status: Done**
 
----
+証明済みとして扱うもの:
 
-# Lv.4: 単一CPU repair と normalization
+- `schedulable_by_implies_feasible`
+- `schedulable_by_implies_schedulable_by_on`
+- `schedulable_by_on_monotone`
+- `schedulable_by_on_intro`
 
-ここでは単一CPU optimality のうち、policy 固有部分と generic 部分を分離して考える。
+## 1-2. algorithm-spec validity layer
+**Status: Done**
 
-## 4-1. policy-facing canonicality
+証明済みとして扱うもの:
 
-証明すべきこと:
+- `respects_algorithm_spec_at_with_in_candidates`
+- `respects_algorithm_spec_at_with_implies_eligible`
+- `respects_algorithm_spec_at_with_in_subset`
+- `single_cpu_algorithm_spec_schedulable_by_on_intro`
 
-* 各 policy で `canonical_at` に対応する局所 canonicality を定義する
-* 各 policy で `canonical_before` に対応する prefix canonicality を定義する
-* それらが generic な scheduling algorithm-match predicate と同値であることを示す
+## 1-3. algorithm-to-scheduler bridge
+**Status: Done**
 
-## 4-2. local repair
+証明済みとして扱うもの:
 
-証明すべきこと:
+- `single_cpu_algorithm_valid`
+- `single_cpu_algorithm_eq_cpu0`
+- `single_cpu_algorithm_idle_on_other_cpus`
+- `single_cpu_algorithm_in_subset`
+- `single_cpu_algorithm_some_if_subset_eligible`
+- `single_cpu_algorithm_none_if_no_subset_eligible`
+- `single_cpu_algorithm_schedulable_by_on_intro`
 
-* 非 canonical な時刻を 1 点だけ修復する local repair を与える
-* repair 後も valid / feasible / J-only / single-CPU が保たれる
-* repair 前 schedule と repaired schedule が修復時刻より前で一致する
+## 1-4. abstract refinement bridge
+**Status: Done**
 
-## 4-3. prefix agreement
+証明済みとして扱うもの:
 
-証明すべきこと:
+- `single_cpu_algorithm_schedule_respects_algorithm_spec_at_with`
+- `single_cpu_algorithm_schedule_respects_algorithm_spec_before`
+- `single_cpu_algorithm_schedule_implies_single_cpu_algorithm_spec_schedule`
 
-* `ChooseAgreesBefore` を各 policy について示す
-* candidate source の prefix extensionality と chooser 側の prefix extensionality を接続する
+残作業:
 
-## 4-4. generic normalization の instantiation
-
-すでにある基盤:
-
-* `normalize_to_canonical_generic`
-
-policy ごとにやること:
-
-* `CanonicalRepairSpec` を満たす
-* local repair と prefix agreement を与えて generic skeleton を適用する
-
-### 難易度
-
-**中〜やや高い**です。
-generic skeleton は共有されるので、難しさは policy ごとの repair と prefix agreement に集中します。
+- 単一CPU abstraction の説明を `Design.md` / `DesignPrinciples.md` / roadmap と揃える
+- 新 policy 追加時の最小 obligation をテンプレート化する
 
 ---
 
-# Lv.5: 単一CPU finite optimality pipeline
+# Lv.2: Single-CPU policy local properties
+**Status: In progress, with EDF / LLF largely mature**
 
-ここは単一CPU optimality の共通終端であり、
-generic infrastructure としてかなり整っている。
+## 2-1. FIFO
+**Status: Mostly done**
 
-## 5-1. finite witness restriction
+証明済みとして扱うもの:
 
-すでにある基盤:
+- eligible / none-if-no-eligible / some-if-exists
+- candidate membership
+- first-eligible property
+- policy sanity
+- chooser refines policy
 
-* target job set `J` への restriction
-* single-CPU view への変換
+残作業:
 
-## 5-2. finite normalization
+- FIFO を generic normalization / finite optimality に載せるかは要判断
+- completion / waiting / fairness 系の inventory を追加する
 
-すでにある基盤:
+## 2-2. Round Robin
+**Status: Implemented, but theorem inventory still thin**
 
-* finite prefix 上で canonicality を得る generic pipeline
+現状:
 
-policy ごとにやること:
+- policy 実装と example はある
 
-* Lv.4 の obligation を満たして instantiation する
+残作業:
 
-## 5-3. truncation and scheduler bridge
+- local rotation correctness を inventory 上で明示する
+- bounded waiting / fairness 的な定理を追加候補として整理する
+- generic optimality pipeline に載せる対象かどうかを明確化する
 
-すでにある基盤:
+## 2-3. EDF
+**Status: Done for the finite optimality pipeline**
 
-* deadline horizon での truncation
-* canonical schedule + idle tail から `scheduler_rel` への bridge
+証明済みとして扱うもの:
 
-## 5-4. policy-specific optimality instantiation
+- choose-EDF の局所性質
+- canonicality decider
+- one-step local repair
+- finite-horizon normalization wrapper
+- finite optimality wrapper
 
-整理すべきこと:
+## 2-4. LLF
+**Status: Done for the finite optimality pipeline**
 
-* EDF はどこまで generic pipeline に載っているか
-* LLF/LST はどこまで generic pipeline に載っているか
-* 新 policy を追加するとき、どこまでが局所 obligation でどこから先が自動的に流れるか
+証明済みとして扱うもの:
 
-### 難易度
+- choose-LLF の局所性質
+- schedule-dependent canonicality decider
+- one-step local repair
+- finite-horizon normalization wrapper
+- finite optimality wrapper
 
-**中**です。
-最難所は共通骨格ではなく、policy-specific repair と chooser 性質です。
+## 2-5. metric-based chooser layer
+**Status: In progress**
 
----
+現状:
 
-# Lv.6: 単一CPU trace 全体の性質
+- EDF / LLF を支える chooser infrastructure はある
+- static metric / dynamic metric の両方が実例付きで存在する
 
-## 6-1. trace 由来 schedule の妥当性
+残作業:
 
-* state trace から得た schedule は valid
+- `MetricChooser` を policy inventory 上の独立レイヤとして明示する
+- 将来の LST などを見据えた obligation を整理する
 
-## 6-2. service と step semantics の一致
-
-* 1ステップ実行で service が 1 増える
-* idle なら増えない
-
-## 6-3. weak fairness / finite progress
-
-* RR で ready に残る job は再選択される
-* FIFO で順序が trace 全体で保存される
-
-## 6-4. laxity-based progress
-
-* 最小 laxity job が ready に残るなら、適切な仮定の下で service が進む
-* 0-laxity job が放置されない
-* feasible 仮定のもとで「危険な job を先に走らせる」性質を整理する
-
-### 難易度
-
-**中〜やや高い**です。
-
----
-
-# Lv.7: partitioned scheduling の合成性
-
-## 7-1. per-CPU valid から global valid
-
-証明すべきこと:
-
-* 各 CPU 上の schedule が valid なら、全体 multicore schedule も valid
-
-## 7-2. service の分解
-
-証明すべきこと:
-
-* partitioned では job の service は割当先 CPU 上の service と一致
-* 他 CPU の寄与は 0
-
-## 7-3. completion / deadline 性質の持ち上げ
-
-証明すべきこと:
-
-* 各 CPU 上で期限を守るなら、全体でも守る
-* 各 CPU 上で starvation-free なら、全体でもそう
-
-## 7-4. scheduler-specific lifting
-
-* per-CPU EDF を束ねた partitioned EDF
-* per-CPU LLF/LST を束ねた partitioned laxity-based scheduler
-* per-CPU RR を束ねた partitioned RR
-* per-CPU prioritized FIFO など
-
-### 難易度
-
-**やや高いが、かなり現実的**です。
-
----
-
-# Lv.8: マルチコア共通性質
-
-## 8-1. multicore work-conserving
-
-証明すべきこと:
-
-* runnable job があり、それを走らせられる idle CPU があるなら、無駄に idle しない
-
-## 8-2. multicore determinism
-
-証明すべきこと:
-
-* 同じ global state なら同じ CPU 割当てが得られる
-* tie-break を含めて一意
-
-## 8-3. one-copy invariant
-
-証明すべきこと:
-
-* 各 job は任意時刻で高々1箇所にしか存在しない
-* current / runqueue / blocked / migrating の分割が保たれる
-
-## 8-4. idle/busy core 基本補題
-
-証明すべきこと:
-
-* busy core では何かが実行される
-* idle core の存在と ready set の関係
-
-## 8-5. dynamic-metric scheduling の共通補題
-
-証明すべきこと:
-
-* deadline や laxity のような動的 metric を使っても top-`m` 選択が定義できる
-* 再計算によっても no-duplication / determinism が壊れない
-
-### 難易度
-
-**高め**です。
-
----
-
-# Lv.9: global scheduling の局所仕様
-
-## 9-1. top-m selection の正しさ
-
-証明すべきこと:
-
-* ready set から高々 `m` 個選ぶ
-* それらは distinct
-* 各 CPU へ矛盾なく割り当てられる
-
-## 9-2. global EDF
-
-* ready job のうち deadline 最小 `m` 個を選ぶ
-* より遅い deadline job を、より早い deadline job より先に置かない
-
-## 9-3. global prioritized FIFO
-
-* 高 priority job を優先して最大 `m` 個選ぶ
-* 同 priority 内 FIFO
-
-## 9-4. global laxity-based scheduling
-
-* ready job のうち laxity 最小 `m` 個を選ぶ
-* 0-laxity / minimum-laxity job を後回しにしない
-* tie-break を含めた一意性
-* dynamic metric を用いても top-`m` 選択が健全
-
-## 9-5. global FIFO / RR
-
-定義は可能ですが、EDF/priority/laxity より少し不自然です。
-
-### 難易度
-
-**高い**です。
-
----
-
-# Lv.10: 進行性・公平性・bounded waiting
-
-## 10-1. partitioned での進行性
-
-* 各 CPU 上の進行性から全体へ持ち上げる
-* RR の bounded waiting を CPU ごとに示す
-
-## 10-2. global RR / fair queue 系
-
-証明すべきこと:
-
-* ready に残り続ける job は繰り返し service を受ける
-* bounded service gap
-
-## 10-3. priority 系の starvation 条件付き議論
-
-証明すべきこと:
-
-* 高 priority 飽和がなければ低 priority も eventually run
-* ある workload 制約の下で starvation-freedom
-
-## 10-4. EDF 系の progress
-
-* finite ready set なら service が進む
-* feasibility 仮定の下で miss-free を導く準備
-
-## 10-5. laxity-based 系の progress
-
-証明すべきこと:
-
-* minimum-laxity job が危険域で放置されない
-* 0-laxity job の優先実行
-* 有限 ready set の下での進行性
-* starvation 条件付き議論
-* EDF と一致する条件の整理
-
-### 難易度
-
-**高い**です。
-
----
-
-# Lv.11: busy interval / interference / response time
-
-## 11-1. partitioned response time
-
-* 各 CPU 上で単一CPU解析
-* 全体へ合成
-
-## 11-2. global interference 基本補題
-
-証明すべきこと:
-
-* ある job が受ける干渉の上界
-* top-`m` 競合の上界
-* carry-in 的な先行負荷の定式化
-
-## 11-3. multicore busy interval / busy window
-
-証明すべきこと:
-
-* ある期間、十分多くの CPU が埋まっている
-* idle core の不在と干渉量の関係
-
-## 11-4. response time / tardiness
-
-証明すべきこと:
-
-* finish time が定義できる
-* 応答時間上界または tardiness bound
-
-## 11-5. laxity-based interference
-
-証明すべきこと:
-
-* laxity-driven preemption が干渉へどう反映されるか
-* dynamic priority / dynamic laxity に基づく busy-window 補題
-* LLF/LST の十分条件または反例
-
-### 難易度
-
-**非常に高い**です。
-
----
-
-# Lv.12: schedulability / sufficient tests
-
-## 12-1. partitioned schedulability
-
-* 各 CPU が feasible なら全体 feasible
-* per-CPU EDF, per-CPU fixed-priority, per-CPU prioritized FIFO, per-CPU LLF/LST など
-
-## 12-2. global EDF schedulability
+## 2-6. prioritized FIFO / fixed-priority family
+**Status: Not started**
 
 候補:
 
-* simple sufficient conditions
-* bounded tardiness
-* workload-based tests
-* speedup-bounded guarantees
+- prioritized FIFO
+- RM / DM
+- fixed-priority ready-set chooser
 
-## 12-3. global laxity-based schedulability
+---
+
+# Lv.3: Repair / normalization / finite optimality
+**Status: Done as a generic uniprocessor core**
+
+ここはこのプロジェクトの単一CPU側の中核であり、
+「未着手」ではなく **すでに中核部分が完成している層** とみなす。
+
+## 3-1. policy-facing canonicality
+**Status: Done generically, instantiated for EDF / LLF**
+
+証明済みとして扱うもの:
+
+- generic canonical bridge
+- finite-horizon canonicality-to-scheduler-rel bridge
+- policy-specific canonical predicates for EDF / LLF
+
+## 3-2. local repair
+**Status: Done generically, instantiated for EDF / LLF**
+
+証明済みとして扱うもの:
+
+- local one-step repair interface
+- generic repair-pushes-forward lemma
+- EDF local repair
+- LLF local repair
+
+## 3-3. finite-horizon normalization
+**Status: Done generically, instantiated for EDF / LLF**
+
+証明済みとして扱うもの:
+
+- generic normalization theorem
+- EDF normalization wrapper
+- LLF normalization wrapper
+
+## 3-4. finite optimality
+**Status: Done generically, instantiated for EDF / LLF**
+
+証明済みとして扱うもの:
+
+- generic finite optimality skeleton
+- EDF finite optimality theorem
+- LLF finite optimality theorem
+
+残作業:
+
+- この 5 層構造
+  1. chooser
+  2. local properties
+  3. local repair
+  4. normalization
+  5. finite optimality
+  を `what_to_prove.md` 全体の標準テンプレートにする
+- EDF / LLF 以外の policy へ適用するかどうかを個別に判断する
+
+---
+
+# Lv.4: Schedule transformation / prefix reasoning
+**Status: Mostly done**
+
+これは repair / normalization を支える共通補題層である。
+
+## 4-1. prefix agreement
+**Status: Done**
+
+証明済みとして扱うもの:
+
+- `agrees_before_*`
+- service / completed / eligible / ready / remaining_cost / laxity の prefix invariance
+- candidate / choose の prefix agreement に必要な基礎補題
+
+## 4-2. schedule restriction / truncation
+**Status: Done**
+
+証明済みとして扱うもの:
+
+- single-CPU restriction
+- J-restriction
+- truncation
+- finite restricted schedule 補題群
+
+## 4-3. schedule swapping / transformation
+**Status: Mostly done**
+
+証明済みとして扱うもの:
+
+- `swap_at` 系の service preservation
+- validity preservation
+- feasibility preservation
+
+残作業:
+
+- transformation 補題の分類を整理し、
+  repair 用 / generic schedule reasoning 用に章立てを分ける
+
+---
+
+# Lv.5: Partitioned multicore composition
+**Status: In progress, but already substantial**
+
+この層は「未着手」ではなく、すでに generic theorem layer が立ち上がっている。
+
+## 5-1. partitioned local-to-global composition
+**Status: Done for the generic witness-lifting core**
+
+証明済みとして扱うもの:
+
+- glued schedule の基本補題
+- local witness schedules から global partitioned schedule を作る定理
+- local `schedulable_by_on` から partitioned `schedulable_by_on` への lifting
+
+## 5-2. partitioned policy wrappers
+**Status: Done at the wrapper level**
+
+証明済みとして扱うもの:
+
+- partitioned EDF
+- partitioned FIFO
+- partitioned RR
+- partitioned LLF
+
+## 5-3. partitioned EDF from local feasibility
+**Status: Done**
+
+証明済みとして扱うもの:
+
+- local finite-job EDF feasibility から
+  partitioned EDF `schedulable_by_on` を導く定理
+
+## 5-4. remaining work for partitioned
+**Status: In progress**
+
+残作業:
+
+- theorem inventory を
+  - assignment respect
+  - local scheduler validity
+  - global valid partitioned schedule
+  - schedulability lifting
+  に分ける
+- EDF 以外の policy についても
+  「local feasible から partitioned schedulable_by_on」
+  までをどこまで揃えるか決める
+- partitioned を roadmap 上で「最初の multicore major result」として明示する
+
+---
+
+# Lv.6: Task-generation models
+**Status: In progress at the periodic skeleton level**
+
+## 6-1. Task / Job consistency
+**Status: Done as a base-layer skeleton**
+
+証明済みとして扱うもの:
+
+- `Task`
+- `job_task`, `job_index`
+- `valid_job_of_task`
+
+## 6-2. periodic task generation
+**Status: Initial layer done**
+
+証明済みとして扱うもの:
+
+- expected release
+- expected absolute deadline
+- generated-by-periodic-task predicate
+- periodic job model
+- periodic job model on `J`
+- implicit-deadline task predicate
+- generated job -> `valid_job_of_task`
+
+## 6-3. sporadic task generation
+**Status: Not started**
+
+予定:
+
+- minimum inter-arrival constraint
+- sporadic job-generation predicate
+- periodic との関係整理
+
+## 6-4. periodic schedulability / utilization theorems
+**Status: Not started**
+
+予定:
+
+- utilization lemmas
+- Liu & Layland 型の定理
+- periodic EDF / RM 系の定理
+
+注意:
+
+- ここは「generation semantics」と「analysis theorem」を分けて管理する
+
+---
+
+# Lv.7: Multicore-common semantics beyond partitioned
+**Status: Initial layer done**
+
+## 7-1. cpu-local views and no-duplication bridge
+**Status: Done**
+
+証明済みとして扱うもの:
+
+- `cpu_schedule`
+- `no_duplication <-> sequential_jobs`
+- idle / busy / all-cpus-idle
+- globally-runnable 関連補題
+
+## 7-2. affinity / admissible CPU
+**Status: Skeleton only**
+
+現状:
+
+- forward-compatible hook はある
+
+残作業:
+
+- allowed-CPU / affinity invariants
+- admissibility-aware work-conserving 定義
+- migration 制約と接続する補題
+
+## 7-3. multicore service / completion under migration
+**Status: Initial layer only**
+
+残作業:
+
+- migration を許したときの service / completion / remaining-cost 一貫性
+- global / clustered で再利用できる補題層の整備
+
+---
+
+# Lv.8: Global / clustered scheduling
+**Status: Not started**
+
+## 8-1. global scheduling
+**Status: Not started**
 
 候補:
 
-* simple sufficient conditions
-* EDF と一致する特殊場合
-* bounded tardiness 的結果
-* 非最適性や過剰 preemption の反例整理
+- global EDF
+- top-`m` choose
+- multicore candidate completeness
+- work-conserving under admissibility
 
-## 12-4. RR / FIFO 系の期限保証
+## 8-2. clustered scheduling
+**Status: Not started**
 
-* finite job set なら全完了
-* bounded response under assumptions
-* soft real-time 的 bound
+候補:
 
-### 難易度
+- cluster-local global scheduling
+- cluster confinement
+- partitioned と global の中間モデル
 
-**非常に高い**です。
+## 8-3. global dynamic-metric policies
+**Status: Not started**
 
----
+候補:
 
-# Lv.13: 最適性・比較定理・speedup bound
-
-## 13-1. partitioned vs global 比較
-
-* partitioned が単一CPU理論に還元できる
-* global はより柔軟だが解析が難しい
-
-## 13-2. global EDF の性能保証
-
-* bounded tardiness
-* speedup bound
-* resource augmentation 的結果
-
-## 13-3. policy comparison
-
-たとえば:
-
-* RR は FIFO より fairness が高い
-* prioritized FIFO は priority respect を最大化する
-* EDF は deadline 順序に関して優越する
-* laxity-based は危険 job を早く拾うが、解析と preemption は重くなる
-
-## 13-4. EDF と laxity-based の比較
-
-証明すべきこと:
-
-* 一致する条件
-* 分岐する条件
-* 反例比較
-* optimum / non-optimum をどう位置づけるか
-
-### 難易度
-
-**かなり高い**です。
+- global LLF
+- migration-aware dynamic metric
 
 ---
 
-# 現実的なおすすめ順序
+# Lv.9: DAG / node-level semantics
+**Status: Not started**
 
-## 第1段階
+この層は periodic task の延長ではなく、
+**job 内部構造の拡張** として扱う。
 
-* Lv.0 共通基盤
-* Lv.1 multicore schedule 健全性
-* Lv.2 抽象 scheduler 健全性
+## 9-1. node model
+**Status: Not started**
 
-## 第2段階
+予定:
 
-* Lv.3 単一CPU policy 局所仕様
-* Lv.4 単一CPU repair と normalization
-* Lv.5 単一CPU finite optimality pipeline
+- `NodeId`
+- node-level service
+- node-level completed
+- node-level ready
+- precedence constraints
 
-このとき EDF と LLF/LST は並行ではなく、
+## 9-2. schedule model migration
+**Status: Not started**
 
-1. EDF を metric-min chooser の最初のインスタンスとして固める
-2. その後 laxity を 2つ目のインスタンスとして入れる
+予定:
 
-のがよい。
+- `Schedule : Time -> CPU -> option JobId`
+  から
+  `option NodeId` または `option (JobId * NodeId)` への拡張
 
-## 第3段階
+## 9-3. job-level semantics との接続
+**Status: Not started**
 
-* Lv.6 単一CPU trace 全体性質
-* Lv.7 partitioned 合成性
+予定:
 
-## 第4段階
-
-* Lv.8 multicore 共通性質
-* Lv.9 global policy 局所仕様
-
-## 第5段階
-
-* Lv.10 進行性・公平性
-* Lv.11 response time / interference
-
-## 第6段階
-
-* Lv.12 schedulability
-* Lv.13 performance guarantees
-
-## 第7段階
-
-* Lv.12 OS 寄り operational semantics
-* Lv.13 refinement
+- job completion と node completion の関係
+- job-level work と node-level work の関係
+- no-duplication の node-level 化
 
 ---
 
-# スケジューラ別に優先すべき証明
+# Lv.10: OS-like operational semantics
+**Status: Not started**
 
-## FIFO
+予定:
 
-優先順位:
-
-1. 単一CPU順序保持
-2. partitioned lift
-3. finite progress
-4. OS queue refinement
-
-## RR
-
-優先順位:
-
-1. 単一CPU rotation
-2. bounded waiting
-3. partitioned multicore RR
-4. timer/quantum correctness
-5. per-CPU operational refinement
-
-## Prioritized FIFO
-
-優先順位:
-
-1. lexicographic 選択
-2. partitioned priority correctness
-3. global top-m priority selection
-4. response time / starvation 条件付き解析
-
-## EDF
-
-優先順位:
-
-1. 単一CPU earliest-deadline
-2. partitioned EDF
-3. global EDF top-m selection
-4. interference / schedulability / bounded tardiness
-5. performance guarantees
-
-## LLF / LST
-
-優先順位:
-
-1. laxity の定義整合性
-2. 単一CPU minimum-laxity chooser
-3. 0-laxity job の進行性
-4. partitioned laxity-based scheduler
-5. global top-m minimum-laxity selection
-6. interference / schedulability / 反例整理
+- per-CPU current
+- per-CPU runqueue / global runqueue
+- migration
+- remote wakeup
+- timer / quantum / preemption
+- reschedule IPI
+- machine trace から abstract schedule への projection
 
 ---
 
-# まとめ
+# Lv.11: Refinement
+**Status: Partially done only at the abstract single-CPU bridge level**
 
-マルチコア込みで難易度順に並べると、証明すべきことは次のように整理できます。
+## 11-1. abstract policy -> executable single-CPU scheduler
+**Status: Done**
 
-1. **共通基盤の整合性**
-   `service`, `completed`, `ready`, `remaining_cost`, `laxity`, `valid schedule`
+これは現在の single-CPU algorithm/scheduler bridge でほぼ達成済みとみなす。
 
-2. **マルチコア schedule の基本安全性**
-   no-duplication, per-CPU exclusivity, affinity
+## 11-2. partitioned refinement
+**Status: Planned**
 
-3. **抽象 scheduler の健全性**
-   choose/update の正しさ、不変条件保存、metric-min chooser
+予定:
 
-4. **単一CPU policy の局所仕様**
-   FIFO, RR, prioritized FIFO, EDF, LLF/LST
+- per-CPU concrete scheduler が abstract partitioned scheduler を実現する
 
-5. **単一CPU trace 全体性質**
-   service 一致、進行性の弱い形、laxity progress
+## 11-3. global refinement
+**Status: Planned**
 
-6. **partitioned scheduling の合成性**
-   per-CPU 理論から全体理論へ
+予定:
 
-7. **マルチコア共通性質**
-   multicore work-conserving, determinism, one-copy
+- global queue / heap / balancing 実装が abstract global scheduling を実現する
 
-8. **global scheduling の局所仕様**
-   top-m selection, global EDF / priority / laxity-based
+## 11-4. service refinement
+**Status: Planned**
 
-9. **公平性・bounded waiting・progress**
-   RR, priority, EDF, laxity-based の進行性
+予定:
 
-10. **interference / response time / busy interval**
-    特に global と laxity-based で難しい
+- operational trace の execution count = abstract service
 
-11. **schedulability / bounded tardiness / speedup**
-    partitioned から始め、global は後
+## 11-5. schedule refinement
+**Status: Planned**
 
-12. **OS 寄り operational semantics**
-    migration, wakeup, IPI, timer, preemption
+予定:
 
-13. **refinement**
-    abstract policy と concrete multicore machine の一致
+- machine trace から得た schedule が abstract policy schedule を満たす
+
+---
+
+# Lv.12: Analysis and advanced guarantees
+**Status: Mostly planned**
+
+## 12-1. partitioned schedulability analysis
+**Status: Planned**
+
+候補:
+
+- partitioned EDF / fixed-priority response time
+- partitioned completion guarantees
+
+## 12-2. global schedulability analysis
+**Status: Planned**
+
+候補:
+
+- global EDF sufficient tests
+- bounded tardiness
+- speedup bounds
+
+## 12-3. policy comparison
+**Status: Planned**
+
+候補:
+
+- EDF vs LLF
+- FIFO vs RR
+- partitioned vs global
+
+---
+
+# Recommended next proof priorities
+
+## Priority 1
+`Lv.5 Partitioned` を theorem inventory として整理し直す。
+
+## Priority 2
+`Lv.6 Periodic` を「generation semantics」として前倒しで強化する。
+
+## Priority 3
+`Lv.7 Multicore-common` で affinity / admissibility / migration-aware service を入れる。
+
+## Priority 4
+その後に `Lv.8 Global EDF` へ進む。
+
+## Priority 5
+`Lv.9 DAG` は独立フェーズとして導入する。
+
+---
+
+# One-line summary
+
+単一CPUの generic optimality core はすでに主要部分が完成している。
+今後の主戦場は、
+
+- partitioned の theorem-layer completion
+- periodic/sporadic task-generation strengthening
+- multicore-common semantics
+- global / DAG / operational refinement
+
+である。
