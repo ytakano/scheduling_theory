@@ -33,10 +33,10 @@ theories/PartitionedPolicies/PartitionedEDF.v
 theories/PartitionedPolicies/PartitionedFIFO.v
 theories/PartitionedPolicies/PartitionedRR.v
 theories/PartitionedPolicies/PartitionedLLF.v
-theories/FIFOExamples.v
-theories/FeasibleExamples.v
-theories/SchedulableExamples.v
-theories/RRExamples.v
+theories/Examples/FIFOExamples.v
+theories/Examples/FeasibleExamples.v
+theories/Examples/SchedulableExamples.v
+theories/Examples/RRExamples.v
 theories/ScheduleLemmas/ScheduleFacts.v
 theories/ScheduleLemmas/SchedulePrefix.v
 theories/ScheduleLemmas/ScheduleRestriction.v

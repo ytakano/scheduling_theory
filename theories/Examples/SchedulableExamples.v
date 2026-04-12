@@ -17,7 +17,7 @@ Require Import PartitionedPolicies.PartitionedEDF.
 Import ListNotations.
 
 (**
-  SchedulableExamples.v
+  Examples/SchedulableExamples.v
   =====================
   現行の relation-based scheduler API を concrete scheduler で使う例。
 

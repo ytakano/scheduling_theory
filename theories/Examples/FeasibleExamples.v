@@ -14,7 +14,7 @@
   - feasible_schedule jobs m sched
                CPUが m 台のスケジュール sched において、
                全ジョブが締切を守る（missed_deadline になるジョブがない）こと。
-  - current model では schedulability の例は `SchedulableExamples.v` に分け、
+  - current model では schedulability の例は `Examples/SchedulableExamples.v` に分け、
     relation-based scheduler と `schedulable_by_on` を扱う。
 *)
 

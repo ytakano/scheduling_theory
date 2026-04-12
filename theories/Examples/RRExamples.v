@@ -12,7 +12,7 @@ Require Import UniPolicies.RoundRobin.
 Import ListNotations.
 
 (**
-  RRExamples.v
+  Examples/RRExamples.v
   ============
   Concrete examples for the Round Robin dispatch policy.
 
