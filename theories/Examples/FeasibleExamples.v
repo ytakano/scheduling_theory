@@ -19,9 +19,9 @@
 *)
 
 From Stdlib Require Import Arith Arith.PeanoNat Lia.
-Require Import Base.
-Require Import ScheduleModel.
-Require Import ScheduleLemmas.ScheduleFacts.
+From SchedulingTheory Require Import Foundation.Base.
+From SchedulingTheory Require Import Semantics.Schedule.
+From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 
 (* ================================================================= *)
 (** ** Example 1: Feasible な例                                       *)

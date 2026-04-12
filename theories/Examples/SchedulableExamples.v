@@ -1,19 +1,19 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
-Require Import Base.
-Require Import ScheduleModel.
-Require Import ScheduleLemmas.ScheduleFacts.
-Require Import SchedulerInterface.
-Require Import SchedulingAlgorithmInterface.
-Require Import SchedulingAlgorithmSchedulerBridge.
-Require Import MultiCoreBase.
-Require Import UniPolicies.MetricChooser.
-Require Import UniPolicies.EDF.
-Require Import UniPolicies.FIFO.
-Require Import Partitioned.
-Require Import UniSchedulerInterface.
-Require Import UniSchedulerLemmas.
-Require Import PartitionedCompose.
-Require Import PartitionedPolicies.PartitionedEDF.
+From SchedulingTheory Require Import Foundation.Base.
+From SchedulingTheory Require Import Semantics.Schedule.
+From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
+From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
+From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
+From SchedulingTheory Require Import Uniprocessor.Policies.Common.MetricChooser.
+From SchedulingTheory Require Import Uniprocessor.Policies.EDF.
+From SchedulingTheory Require Import Uniprocessor.Policies.FIFO.
+From SchedulingTheory Require Import Multicore.Partitioned.Partitioned.
+From SchedulingTheory Require Import Uniprocessor.Core.UniSchedulerInterface.
+From SchedulingTheory Require Import Uniprocessor.Core.UniSchedulerLemmas.
+From SchedulingTheory Require Import Multicore.Partitioned.PartitionedCompose.
+From SchedulingTheory Require Import Multicore.Partitioned.Policies.PartitionedEDF.
 Import ListNotations.
 
 (**

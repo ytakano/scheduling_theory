@@ -1,14 +1,14 @@
 (* Fully constructive: no Classical import. *)
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
-Require Import Base.
-Require Import ScheduleModel.
-Require Import ScheduleLemmas.ScheduleFacts.
-Require Import SchedulerInterface.
-Require Import SchedulingAlgorithmInterface.
-Require Import SchedulingAlgorithmSchedulerBridge.
-Require Import UniSchedulerInterface.
-Require Import UniSchedulerLemmas.
-Require Import UniPolicies.RoundRobin.
+From SchedulingTheory Require Import Foundation.Base.
+From SchedulingTheory Require Import Semantics.Schedule.
+From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
+From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
+From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From SchedulingTheory Require Import Uniprocessor.Core.UniSchedulerInterface.
+From SchedulingTheory Require Import Uniprocessor.Core.UniSchedulerLemmas.
+From SchedulingTheory Require Import Uniprocessor.Policies.RoundRobin.
 Import ListNotations.
 
 (**

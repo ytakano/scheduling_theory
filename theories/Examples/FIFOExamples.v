@@ -1,8 +1,8 @@
 From Stdlib Require Import List Bool Arith.
-Require Import Base.
-Require Import ScheduleModel.
-Require Import ScheduleLemmas.ScheduleFacts.
-Require Import UniPolicies.FIFO.
+From SchedulingTheory Require Import Foundation.Base.
+From SchedulingTheory Require Import Semantics.Schedule.
+From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From SchedulingTheory Require Import Uniprocessor.Policies.FIFO.
 Import ListNotations.
 
 (* Concrete examples for the FIFO choose policy.
