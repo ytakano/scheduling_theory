@@ -68,17 +68,27 @@ EDF/LLF のために作った仕組みを「個別定理の集合」ではなく
 - `SchedulingAlgorithmCanonicalBridge`
 - `SchedulingAlgorithmNormalization`
 - `SchedulingAlgorithmOptimalitySkeleton`
+- `Design.md`
 
 やること:
 
-- EDF と LLF で共通化できている前提を再確認する
-- policy 固有に残っている仮定を明示化する
-- repair spec の最小要件をコメントと補題で固定する
+- generic canonical bridge / normalization skeleton / finite optimality skeleton
+  を、単一CPU policy 拡張の標準インターフェースとして固定する
+- policy 固有に残る責務を
+  - local canonicality
+  - local repair
+  - prefix agreement
+  に分けて明示する
+- `Design.md` とコードコメントを同期させ、
+  新 policy 追加者が読むべき設計文書を維持する
 
 完了条件:
 
-- 「新しい単一CPU policy を 1 つ追加して canonicalization まで接続する」ための最小テンプレートが明確
+- 「新しい単一CPU policy を 1 つ追加して finite optimality pipeline に接続する」
+  ための最小テンプレートが明確
 - EDF / LLF の両方がそのテンプレートの実例になっている
+- 残作業が「設計探索」ではなく
+  「新 policy への適用」「コメント保守」「追加補題の整備」として整理されている
 
 ### A-2. metric-based chooser 理論の整理
 
@@ -116,6 +126,7 @@ EDF/LLF のために作った仕組みを「個別定理の集合」ではなく
 - 未着手のもの
 を分離する
 - 「定義」「局所性質」「repair」「normalization」「optimality」の 5 層で整理する
+- `Design.md` の architecture 用語と `what_to_prove.md` の inventory 用語を揃える
 
 完了条件:
 
@@ -401,7 +412,8 @@ analysis は core の上に構築する。
 ### Step 1
 単一CPU共通理論の固定
 
-- canonicalization / normalization / optimality skeleton の整理
+- canonicalization / normalization / optimality skeleton の保守運用化
+- `Design.md` / `roadmap.md` / `what_to_prove.md` の同期
 - metric-based chooser の整理
 - what_to_prove の再構成
 
@@ -454,14 +466,16 @@ partitioned EDF / FIFO / RR / LLF の wrapper を見比べて、
 
 ### 優先度C
 `what_to_prove.md` を、
-「すでにできた単一CPU optimality」を前提にした形へ更新する。
+「generic normalization / finite optimality pipeline がすでに存在する」前提で更新し、
+未完部分を局所 policy obligation と multicore 側課題に切り分ける。
 
 ---
 
 ## 12. このロードマップの要点
 
 - 旧 roadmap の「単一CPU基盤構築」はかなり完了している
-- いま重要なのは、単一CPUの成果を**理論的に固定して再利用可能化**すること
+- いま重要なのは、単一CPUの成果を**理論的に固定して再利用可能化**し、
+  policy 追加テンプレートとして維持すること
 - 次の本命は **partitioned multicore**
 - その次に **multicore 共通意味論**
 - さらにその先に **global/clustered** と **OS operational semantics**
