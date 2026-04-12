@@ -21,6 +21,8 @@ RUN apt-get update && \
       npm && \
     rm -rf /var/lib/apt/lists/*
 
+RUN npm i -g @openai/codex
+
 RUN set -eux; \
     OLD_USER_BY_UID="$(getent passwd "${UID}" | cut -d: -f1 || true)"; \
     OLD_GROUP_BY_GID="$(getent group "${GID}" | cut -d: -f1 || true)"; \

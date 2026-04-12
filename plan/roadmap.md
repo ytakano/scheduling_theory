@@ -1,425 +1,468 @@
-# roadmap.md 追記・修正版
+# New Roadmap
 
-# ロードマップ
+## 0. 現在地
 
-単一CPU・マルチコア・OS寄りモデル・refinement を一度に混ぜると見通しが悪くなる。特にマルチコアでは、
+このプロジェクトは、単なる schedulability analysis ライブラリではなく、  
+**executable scheduler semantics** と  
+**scheduling-algorithm refinement**  
+を中心に据えた Rocq formalization を目指している。
 
-* **単一CPUで成り立つ直感がそのまま使えない**
-* **partitioned / global / clustered** で理論が分かれる
-* **work-conserving, fairness, interference, schedulability** の定義が複雑になる
-* OS 寄りモデルでは **migration, per-CPU runqueue, load balancing, wakeup, timer, IPI** が入る
+最新実装では、すでに次が揃っている。
 
-ため、最初から 1 本の巨大モデルで扱うのではなく、**共通基盤 → 単一CPU理論 → マルチコア理論 → OS operational model → refinement** の順に積み上げるのがよい。
+- 共通 schedule / service / feasibility / scheduler interface
+- generic scheduling-algorithm abstraction
+- canonical bridge / normalization skeleton / optimality skeleton
+- 単一CPU policy:
+  - FIFO
+  - Round Robin
+  - EDF
+  - LLF
+- EDF optimality
+- LLF optimality の骨格と repair / normalization / optimality
+- partitioned scheduling の基本構成
+- partitioned EDF / FIFO / RR / LLF の policy wrapper
+- periodic task の初期層
 
-さらに、将来の拡張として入れたい **周期タスク** と **DAG タスク** は性質が異なる。
-
-* **周期タスク**は主として **job 生成規則の拡張**
-* **DAG タスク**は主として **job 内部構造の拡張**
-
-である。したがって、両者は同じ「発展テーマ」ではあっても、導入のタイミングと必要な基盤が異なることを最初に明示しておく。
-
-加えて、単一CPU policy の中では、**deadline-based policy** を EDF だけでなく **laxity-based policy** まで含めて整理する。
-ここで laxity は典型的には
-
-* `laxity(j,t) = job_abs_deadline(j) - t - remaining_cost(j,t)`
-
-で与える。
-EDF が「絶対デッドラインだけ」を見るのに対し、laxity-based policy は「残り余裕時間」を見るため、
-同じ deadline-based 系でも、より実行状態依存の policy である。
-
----
-
-# 全体方針
-
-最初から 1 本のモデルで全部扱うのではなく、次の 4 層に分ける。
-
-## 層A: 共通基盤
-
-* Job / Task /（将来）Node
-* service
-* completion
-* remaining cost
-* laxity
-* ready / pending
-* deadline miss
-
-## 層B: 単一CPU policy
-
-* FIFO
-* RR
-* prioritized FIFO
-* EDF
-* laxity-based scheduling（LLF / LST など）
-
-## 層C: マルチコア policy
-
-* partitioned scheduling
-* global scheduling
-* clustered scheduling
-* per-CPU queue / global queue
-
-## 層D: OS 寄り operational model
-
-* per-CPU current
-* per-CPU runqueue / global runqueue
-* migration
-* balancing
-* wakeup / preemption / timer / IPI
-
-この分け方にすると、
-
-1. まず共通理論の核を作る
-2. 単一CPU scheduler 理論を完成させる
-3. その後マルチコア固有要素を載せる
-4. 最後に OS モデルへ接続する
-
-という自然な順序になる。
+したがって今後の主眼は、
+**単一CPU policy を増やすことそのもの**ではなく、
+**共通理論の安定化 → multicore 理論 → OS semantics → refinement の強化**
+に置く。
 
 ---
 
-# 修正版ロードマップ概要
+## 1. 設計の主軸
 
-## Phase 0. 設計方針の固定
+### 1.1 何を中心に据えるか
 
-## Phase 1. 共通理論基盤
+本プロジェクトの中心は次の 4 点である。
 
-## Phase 2. 単一CPU scheduler 抽象化
+1. executable scheduler semantics
+2. concrete scheduling algorithm
+3. abstract policy / validity / refinement の分離
+4. uniprocessor から multicore / OS semantics への拡張
 
-## Phase 3. 単一CPU policy 実装
+### 1.2 何を後段に置くか
 
-## Phase 4. 単一CPU 共通性質
+以下は重要だが、中心構造ではなく後段に置く。
 
-## Phase 5. マルチコア固有基盤
+- schedulability analysis
+- response-time analysis
+- utilization-based tests
+- task model ごとの classical theorem library
 
-## Phase 6. マルチコア scheduler 抽象化
-
-## Phase 7. partitioned / global / clustered policy
-
-## Phase 8. マルチコア共通性質
-
-## Phase 9. マルチコア schedulability / response-time 理論
-
-## Phase 10. OS 寄りマルチコア operational semantics
-
-## Phase 11. refinement
-
-## Phase 12. 発展テーマ（周期タスク / DAG タスク）
+つまり、**解析のための理論**ではなく、  
+**意味論・アルゴリズム・refinement のための理論**を先に固める。
 
 ---
 
-# Phase 1. 共通理論基盤
+## 2. Phase A: 単一CPU共通理論の固定
 
-ここでは CPU 数や具体 policy に依存しない、共通の抽象定義を整える。
+この phase の目標は、
+EDF/LLF のために作った仕組みを「個別定理の集合」ではなく、
+**再利用可能な単一CPU scheduling theory core** として整理し直すことにある。
 
-## 1.1 Job / Task 基本属性
+### A-1. generic canonicalization 層の安定化
 
-Job 基本属性:
+対象:
 
-* release time
-* execution cost
-* absolute deadline
-* static priority（必要なら）
-* affinity / allowed CPUs（将来用）
+- `SchedulingAlgorithmCanonicalBridge`
+- `SchedulingAlgorithmNormalization`
+- `SchedulingAlgorithmOptimalitySkeleton`
 
-Task 基本属性（将来の周期タスク用）:
+やること:
 
-* cost
-* period
-* relative deadline
+- EDF と LLF で共通化できている前提を再確認する
+- policy 固有に残っている仮定を明示化する
+- repair spec の最小要件をコメントと補題で固定する
 
-この段階では Task はまだ補助的でよいが、後で周期タスクへ進むための受け皿として定義しておく。
+完了条件:
 
-## 1.2 Schedule
+- 「新しい単一CPU policy を 1 つ追加して canonicalization まで接続する」ための最小テンプレートが明確
+- EDF / LLF の両方がそのテンプレートの実例になっている
 
-単一CPUでは
+### A-2. metric-based chooser 理論の整理
 
-* `time -> option JobId`
+対象:
 
-マルチコアでは
+- `MetricChooser.v`
+- `MetricChooserLemmas.v`
+- EDF / LLF chooser 関連補題
 
-* `time -> CPU -> option JobId`
+やること:
 
-を使う。
+- static metric と dynamic metric を明確に整理する
+- `deadline`
+- `priority`
+- `laxity`
+の違いをインターフェース上で明確化する
+- prefix-invariance が必要な箇所を共通補題に寄せる
 
-ただしこの段階では、「CPU が複数ある」という型だけ導入し、マルチコア固有の制約はまだ後段に分ける。
+完了条件:
 
-## 1.3 service / remaining cost / laxity
+- EDF と LLF を「metric-based policy の 2 例」として説明できる
+- 今後 LST や別の dynamic metric policy を追加しやすい
 
-`service sched j t` は
+### A-3. 単一CPUの定理一覧を整理する
 
-> 区間 `[0,t)` において、job `j` が受けた累積実行量
+対象:
 
-を表す。
+- `what_to_prove.md`
+- 単一CPU policy ファイル群
 
-加えて、deadline-based policy を EDF 以外にも拡張するために、
+やること:
 
-* `remaining_cost jobs m sched j t`
-* `laxity jobs m sched j t`
+- すでに証明済みのもの
+- skeleton はあるが整理不足のもの
+- 未着手のもの
+を分離する
+- 「定義」「局所性質」「repair」「normalization」「optimality」の 5 層で整理する
 
-を導入する。
+完了条件:
 
-典型的には
-
-* `remaining_cost = job_cost - service`
-* `laxity = deadline - now - remaining_cost`
-
-とするが、Rocq では nat / Z のどちらで定義するかを早めに固定する。
-最初は「deadline miss の直前で 0 以上を仮定できる範囲」の補題を揃え、
-必要なら後で signed slack に拡張する。
-
-## 1.4 completed / pending / ready
-
-* `completed`
-* `released`
-* `pending`
-* `ready`
-
-を定義する。
-
-ここでの `ready` はまずは job-level の抽象概念として置く。将来 DAG を入れる場合には node-level ready が別に必要になる。
-
-## 1.5 deadline miss
-
-* `missed_deadline`
-* `feasible_schedule`
-* `feasible`
-
-を定義する。
-
-ここで
-
-* **feasible_schedule** = ある具体 schedule が締切違反を起こさない
-* **feasible** = 条件を満たす schedule が存在する
-
-を区別しておくと、後の理論が整理しやすい。
-
-## 1.6 この段階の成果物
-
-* `Task`
-* `Job`
-* `Schedule`
-* `service`
-* `remaining_cost`
-* `laxity`
-* `completed / pending / ready`
-* `missed_deadline / feasible_schedule / feasible`
+- 単一CPUについて何が終わっていて、何が未完かが一目で分かる
 
 ---
 
-# Phase 2. 単一CPU scheduler 抽象化
+## 3. Phase B: partitioned multicore を理論として完成させる
 
-ここでは単一CPU scheduler の抽象インターフェースを整える。
+現状、partitioned scheduling は「multicore への最初の橋」として最も自然であり、
+Design Principles の方針とも整合的である。
+したがって次の主戦場は partitioned である。
 
-対象はまず
+### B-1. partitioned compose の定理層を完成させる
 
-* FIFO
-* RR
-* prioritized FIFO
-* EDF
-* laxity-based scheduling
+対象:
 
-である。
+- `Partitioned.v`
+- `PartitionedCompose.v`
 
-この段階では
+やること:
 
-* ready set から次に実行すべき 1 job を選ぶ
-* idle を返してもよい / 返してはいけない条件
-* tie-break の扱い
-* preemptive / non-preemptive の差
-* state-dependent key（deadline, priority, laxity）の違い
+- per-CPU valid から global valid
+- service decomposition
+- completion / missed deadline の持ち上げ
+- feasible / schedulable の持ち上げ
+を補題として揃える
 
-を明示する。
+完了条件:
 
-特に laxity-based scheduling では、EDF と違って鍵が `t` と `sched` に依存するため、
-chooser のインターフェースが
+- 各 CPU 上の uniprocessor reasoning を global partitioned schedule に持ち上げる標準補題群がある
 
-* static key 型
-ではなく
-* `jobs -> sched -> t -> candidate -> metric`
+### B-2. partitioned policy lifting を共通化する
 
-を許せるようにしておく。
+対象:
 
----
+- `PartitionedPolicies/PartitionedEDF.v`
+- `PartitionedPolicies/PartitionedFIFO.v`
+- `PartitionedPolicies/PartitionedLLF.v`
+- `PartitionedPolicies/PartitionedRR.v`
 
-# Phase 3. 単一CPU policy 実装
+やること:
 
-ここでは具体 policy を単一CPU上で実装・定式化する。
+- policy ごとの wrapper を共通パターンに揃える
+- 「assignment respect + per-CPU scheduler validity + global schedule validity」を分離して整理する
+- 単一CPU optimality / scheduler_rel / schedulable_by の lifting 方針を固定する
 
-* non-preemptive FIFO
-* RR quantum = 1
-* prioritized FIFO
-* EDF
-* LLF / LST などの laxity-based scheduler
+完了条件:
 
-この段階で policy 固有の基本補題を揃える。
+- partitioned policy 追加時に必要な構成要素が統一される
+- EDF / LLF / FIFO / RR の partitioned 版が同じ形式で並ぶ
 
-## 3.x laxity-based policy
+### B-3. partitioned schedulability lifting を定理化する
 
-最低限、以下のどちらか一方を最初の対象にする。
+やること:
 
-* **LLF (Least Laxity First)**: laxity 最小の ready job を選ぶ
-* **LST (Least Slack Time)**: 実質的には同系統として扱う
+- 各 CPU ごとに schedulable なら、assignment 下で partitioned global scheduler も schedulable
+- feasible / schedulable の lifting を theorem として固定する
 
-まずは preemptive 単一CPU版から始める。
-non-preemptive laxity-based は意味づけがやや不自然になりやすいので後回しでよい。
+完了条件:
 
-必要な論点:
-
-* `remaining_cost` の定義
-* laxity の時刻依存性
-* 同一 laxity の tie-break
-* 0-laxity job の扱い
-* negative laxity をどう表現するか
+- 「単一CPUの結果を multicore partitioned へ持ち上げる」標準 theorem がある
 
 ---
 
-# Phase 4. 単一CPU 共通性質
+## 4. Phase C: multicore 共通意味論の導入
 
-ここでは単一CPU scheduler 一般に成り立つ性質を整理する。
+partitioned の次に進むべきは、
+いきなり global EDF の解析ではなく、
+**multicore 共通意味論** の整備である。
 
-* dispatch 健全性
-* determinism
-* work-conserving
-* no-loss
-* service と trace の一致
-* FIFO / RR / EDF / LLF の局所仕様
+### C-1. multicore 共通 validity / exclusivity / one-copy invariant
 
-## 4.x deadline-based / laxity-based 共通補題
+やること:
 
-EDF と laxity-based をまとめるために、以下の共通補題層を設ける。
+- 同時に複数 CPU で同一 job を走らせない
+- CPU ごとの slot 妥当性
+- affinity / allowed CPU の制約
+- multicore service の一貫性
+を整理する
 
-* metric-min chooser の一般補題
-* tie-break を含む determinism
-* ready でない job は metric 比較対象に入らない
-* 最小 metric job が選ばれることの健全性
+完了条件:
 
-この層を先に置くと、EDF は
-`metric = absolute deadline`
-LLF は
-`metric = laxity`
-として再利用できる。
+- partitioned / global / clustered で共通に使える multicore validity 層ができる
 
----
+### C-2. multicore scheduler abstraction
 
-# Phase 7. partitioned / global / clustered policy
+やること:
 
-## 7.1 Partitioned scheduling
+- single-CPU chooser ではなく
+  - top-m selection
+  - per-CPU local chooser
+  - queue-based semantics
+などを表せる抽象化を作る
+- partitioned / global / clustered を同じ大枠に載せる
 
-### 証明対象
+完了条件:
 
-* partitioned EDF schedulability
-* partitioned laxity-based progress / bounded waiting
-* partitioned fixed-priority / prioritized FIFO response time
-* FIFO / RR の completion or bounded waiting per CPU
+- multicore scheduling algorithm interface の原型が定まる
 
-## 7.2 Global scheduling
+### C-3. multicore dynamic-metric policy の足場
 
-### policy 候補
+やること:
 
-* global EDF
-* global laxity-based scheduling
-* global FIFO
-* global prioritized FIFO
-* global RR は定義できるがやや不自然で重い
+- EDF / LLF の multicore 版で必要になる
+  - candidate completeness
+  - top-m metric choice
+  - migration を伴う選択
+の共通補題を準備する
 
-### 新しく必要な概念
+完了条件:
 
-* top-`m` selection
-* carry-in interference
-* idle CPU があるのに他 job が待つ、という状況の排除
-* work-conserving の multicore 版
-* dynamic metric の top-`m` 選択
-
-### 証明対象
-
-* top-`m` の正しさ
-* same job not duplicated
-* global work-conserving
-* dispatch consistency
-* deadline-based / laxity-based top-`m` chooser の健全性
+- global EDF / global LLF を定義する前提が揃う
 
 ---
 
-# Phase 8. マルチコア共通性質
+## 5. Phase D: global / clustered scheduling
 
-## 8.5 progress / fairness
+この phase ではじめて、partitioned を超えて本格的な multicore scheduling policy に進む。
 
-* finite ready jobs なら idle core があれば何かが進む
-* global RR 系では巡回性
-* global priority 系では starvation 条件付き議論
-* global / partitioned laxity-based では 0-laxity / minimum-laxity job の進行性
+### D-1. global scheduling の最小骨格
 
----
+やること:
 
-# Phase 9. マルチコア schedulability / response-time 理論
+- global ready set から m 個選ぶ semantics
+- no-duplication
+- top-m metric 選択
+- idle core の扱い
+を定義する
 
-## 9.1 Partitioned schedulability
+最初の対象:
 
-### 証明対象
+- global EDF
 
-* partitioned EDF schedulability
-* partitioned laxity-based sufficient conditions
-* partitioned fixed-priority / prioritized FIFO response time
-* FIFO / RR の completion or bounded waiting per CPU
+理由:
 
-## 9.2 Global schedulability
+- 既存の EDF 理論を最も活かしやすい
+- priority ordering が明確
+- global scheduling の共通問題を最初に露出できる
 
-### 代表テーマ
+### D-2. clustered scheduling
 
-* global EDF
-* global laxity-based scheduling
-* bounded tardiness
-* speedup bound
-* workload / interference bound
+やること:
 
-### 必要概念
+- CPU cluster ごとの local-global hybrid モデル
+- cluster 内 chooser と cluster 間 isolation
+- partitioned と global の中間として整理する
 
-* carry-in tasks / jobs
-* top-`m` interference
-* busy window の multicore 版
-* lag / fluid schedule 比較
-* dynamic-priority / dynamic-laxity interference
+完了条件:
 
-### 注意
+- partitioned / clustered / global が 3 系統として並ぶ
 
-最初から exact schedulability を狙わず、まずは
+### D-3. global LLF は後続で導入
 
-* work-conserving
-* no-duplication
-* bounded interference
-* simple sufficient conditions
+理由:
 
-あたりから始めるのが現実的。
+- LLF は state-dependent metric のため multicore で難易度が高い
+- まず global EDF を通して multicore top-m semantics を安定化すべき
 
 ---
 
-# Phase 12. 発展テーマ
+## 6. Phase E: OS-level operational semantics
 
-## 12.5 周期タスク (Periodic Tasks)
+Design Principles に最も強く対応する長期フェーズ。
+ここでは schedule を「結果」ではなく、「状態遷移の観測像」として捉える。
 
-### 前提条件
+### E-1. operational state の導入
 
-* Phase 3–4（単一CPU EDF / RM / laxity-based の基盤）完了
-* 最初は **independent implicit-deadline periodic tasks** から始める
+候補:
 
-### 証明対象
+- per-CPU current
+- local/global runqueue
+- wakeup
+- block
+- completion
+- timer event
+- preemption point
+- migration event
+- IPI / reschedule request
 
-* 生成規則の well-formedness（release 単調増加など）
-* 生成された job 列が `valid_jobs` を満たすこと
-* 利用率上限定理 (Liu & Layland): `Σ(cost_i / period_i) ≤ 1`
-* EDF の周期タスクに対する最適性
-* RM (Rate Monotonic) の schedulability 条件（必要なら）
-* laxity-based policy に対する基本健全性・反例整理・十分条件（必要なら）
+### E-2. trace semantics と schedule projection
 
-### 進め方
+やること:
 
-まず `Task -> Job` 生成関数を定義し、生成された job 列が共通基盤と整合することを示す。
-その上で利用率計算と EDF/RM schedulability を証明する。
-laxity-based については、最初から大定理を狙うより、
+- operational trace から schedule を射影する
+- schedule-level theorem を trace-level invariant へ接続する
+- service / completion / missed deadline と trace semantics の整合性を示す
 
-* laxity 定義の整合性
-* 0-laxity job の扱い
-* EDF と一致する条件
-* 反例や非最適性の整理
+### E-3. executable scheduler state machine
 
-を先に行うのがよい。
+やること:
+
+- 単なる chooser 関数ではなく、queue を持つ実行可能 state machine を formalize する
+- RR や FIFO の operational semantics を先に行う
+- EDF / LLF はその次に接続する
+
+完了条件:
+
+- 「抽象 schedule semantics」と「OSに近い operational semantics」が refinement で結ばれる
+
+---
+
+## 7. Phase F: refinement の強化
+
+この phase は本プロジェクトの中核であり、OS semantics 導入後に本格化する。
+
+### F-1. abstract policy -> executable algorithm
+
+すでに単一CPU EDF / LLF で実施している流れを一般化する。
+
+- abstract policy
+- chooser / dispatch
+- canonical schedule
+- normalization
+- scheduler relation
+- schedulable_by
+
+を refinement pipeline として整理する。
+
+### F-2. executable algorithm -> operational scheduler
+
+やること:
+
+- queue state を持つ operational scheduler が、
+  schedule-level chooser semantics を refine することを示す
+- runqueue / migration / wakeup のある実装寄りモデルを、
+  既存 schedule semantics に結びつける
+
+### F-3. operational scheduler -> OS kernel model
+
+長期目標:
+
+- timer / IPI / wakeup race を含む OS scheduling semantics
+- 実行可能 kernel scheduling model
+- schedule-level theorem との接続
+
+---
+
+## 8. Phase G: task model extensions
+
+task model は semantic core の上に載る extension として扱う。
+
+### G-1. periodic tasks
+
+やること:
+
+- task-to-job generation
+- hyperperiod reasoning
+- release pattern の基本補題
+- schedule semantics との接続
+
+### G-2. sporadic tasks
+
+periodic より一般化した release 制約を導入する
+
+### G-3. DAG tasks
+
+これは job generation ではなく内部構造拡張として扱う
+
+- node-level ready
+- precedence
+- carry-in / carry-out 的構造
+- scheduler semantics への接続
+
+---
+
+## 9. Phase H: analysis を上に載せる
+
+analysis は core の上に構築する。
+
+### H-1. partitioned response-time / schedulability
+### H-2. global EDF analysis
+### H-3. multicore interference / busy interval
+### H-4. LLF / dynamic-metric analysis
+### H-5. speedup bound / policy comparison
+
+ただし、これは multicore semantics と refinement が十分安定してからでよい。
+
+---
+
+## 10. 現実的な優先順序
+
+### Step 1
+単一CPU共通理論の固定
+
+- canonicalization / normalization / optimality skeleton の整理
+- metric-based chooser の整理
+- what_to_prove の再構成
+
+### Step 2
+partitioned multicore の定理層を完成
+
+- compose 補題
+- schedulability lifting
+- policy lifting の共通化
+
+### Step 3
+multicore 共通意味論
+
+- no-duplication
+- affinity
+- multicore validity
+- top-m chooser の抽象化
+
+### Step 4
+global EDF
+
+### Step 5
+clustered scheduling
+
+### Step 6
+OS-level operational semantics
+
+### Step 7
+refinement を operational model まで延長
+
+### Step 8
+periodic / sporadic / DAG extensions
+
+### Step 9
+response-time / schedulability / speedup bound
+
+---
+
+## 11. 次に着手すべき具体タスク
+
+現状から最も自然な次タスクは以下。
+
+### 優先度A
+`PartitionedCompose.v` と `Partitioned.v` を中心に、
+**per-CPU reasoning を global reasoning に持ち上げる定理群**を完成させる。
+
+### 優先度B
+partitioned EDF / FIFO / RR / LLF の wrapper を見比べて、
+**policy lifting の共通パターン**を抽出する。
+
+### 優先度C
+`what_to_prove.md` を、
+「すでにできた単一CPU optimality」を前提にした形へ更新する。
+
+---
+
+## 12. このロードマップの要点
+
+- 旧 roadmap の「単一CPU基盤構築」はかなり完了している
+- いま重要なのは、単一CPUの成果を**理論的に固定して再利用可能化**すること
+- 次の本命は **partitioned multicore**
+- その次に **multicore 共通意味論**
+- さらにその先に **global/clustered** と **OS operational semantics**
+- analysis は最後に上に積む
