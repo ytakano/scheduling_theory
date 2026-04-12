@@ -185,7 +185,7 @@ Proof.
   - (* agrees_before sched sched' t0 *)
     exact Hagree.
   - (* matches_choose_edf_at_with jobs candidates_of sched' t0 *)
-    unfold matches_choose_edf_at_with, matches_dispatch_at_with.
+    unfold matches_choose_edf_at_with, matches_choose_at_with.
     (* LHS: sched' t0 0 = swap_at sched t0 t' t0 0 = sched t' 0 = Some j' *)
     rewrite swap_at_t1.
     rewrite Ht'_run.

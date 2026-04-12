@@ -8,7 +8,7 @@
 
    Non-goals of this file:
    - assignment-specific partitioned reasoning
-   - top-m global dispatch
+   - top-m global choose
    - work-conserving definitions tied to a specific admissibility model
    - operational / refinement semantics
  *)

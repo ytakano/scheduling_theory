@@ -9,7 +9,7 @@ Require Import SchedulerValidity.
 Require Import SchedulingAlgorithmRefinement.
 Import ListNotations.
 
-(* FIFO dispatch function:
+(* FIFO choose function:
    Linear scan through candidates in order; return the first eligible job.
    This implements "ordered eligible queue" semantics: the candidate list
    determines priority, and the first eligible entry wins.

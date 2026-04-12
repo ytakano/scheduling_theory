@@ -2,12 +2,12 @@
 
 ## Generic Core
 
-- `matches_dispatch_at_with`
-- `matches_dispatch_before`
+- `matches_choose_at_with`
+- `matches_choose_before`
 - `deadline_horizon`
 - `J_implies_deadline_le_horizon`
 - `CanonicalRepairSpec`
-- `DispatchAgreesBefore`
+- `ChooseAgreesBefore`
 - `repair_pushes_forward_generic`
 - `normalize_to_canonical_generic`
 - `finite_J_restricted_schedule`
@@ -22,13 +22,13 @@
   - `is_canonical_at_b_*`
   - `edf_canonical_at_dec`
   - `repair_non_canonical_at`
-  - `edf_dispatch_agrees_before`
+  - `edf_choose_agrees_before`
   - `EDFCanonicalRepairSpec`
 - LLF:
   - `is_llf_canonical_at_b_*`
   - `llf_canonical_at_dec`
   - `repair_non_canonical_at_llf`
-  - `llf_dispatch_agrees_before`
+  - `llf_choose_agrees_before`
   - `LLFCanonicalRepairSpec`
 
 ## Wrapper-Only
@@ -48,7 +48,7 @@ top of the shared canonicalization and optimality skeletons.
    - `x_generic_spec : GenericSchedulingAlgorithm`
 
 2. A policy-facing canonical-at predicate, or a direct alias to
-   `matches_dispatch_at_with`.
+   `matches_choose_at_with`.
 
 3. A constructive decider for canonicality at a single time point:
    - `x_canonical_at_dec`
@@ -61,8 +61,8 @@ top of the shared canonicalization and optimality skeletons.
    - preserves the single-CPU shape invariant
    - preserves agreement before `t`
 
-5. A dispatcher prefix-agreement lemma:
-   - `x_dispatch_agrees_before : DispatchAgreesBefore ...`
+5. A scheduling algorithm prefix-agreement lemma:
+   - `x_choose_agrees_before : ChooseAgreesBefore ...`
 
 6. A packaged repair specification:
    - `XCanonicalRepairSpec : CanonicalRepairSpec ...`

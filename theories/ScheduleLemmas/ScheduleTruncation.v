@@ -119,19 +119,19 @@ Lemma trunc_sched_preserves_canonical_before :
          jobs sched H,
     (forall s1 s2 t,
         agrees_before s1 s2 t ->
-        dispatch alg jobs 1 s1 t (candidates_of jobs 1 s1 t) =
-        dispatch alg jobs 1 s2 t (candidates_of jobs 1 s2 t)) ->
-    matches_dispatch_before alg jobs candidates_of sched H ->
-    matches_dispatch_before alg jobs candidates_of (trunc_sched sched H) H.
+        choose alg jobs 1 s1 t (candidates_of jobs 1 s1 t) =
+        choose alg jobs 1 s2 t (candidates_of jobs 1 s2 t)) ->
+    matches_choose_before alg jobs candidates_of sched H ->
+    matches_choose_before alg jobs candidates_of (trunc_sched sched H) H.
 Proof.
-  intros alg J candidates_of cand_spec jobs sched H Hdispatch Hcanon.
-  unfold matches_dispatch_before, matches_dispatch_at_with.
+  intros alg J candidates_of cand_spec jobs sched H Hchoose_agree Hcanon.
+  unfold matches_choose_before, matches_choose_at_with.
   intros t Hlt.
   rewrite (trunc_sched_before sched H t 0 Hlt).
   assert (Hagree : agrees_before (trunc_sched sched H) sched t).
   { apply agrees_before_weaken with H.
     - lia.
     - apply trunc_sched_agrees_before. }
-  rewrite (Hdispatch (trunc_sched sched H) sched t Hagree).
+  rewrite (Hchoose_agree (trunc_sched sched H) sched t Hagree).
   exact (Hcanon t Hlt).
 Qed.

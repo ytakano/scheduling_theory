@@ -10,20 +10,20 @@ Require Import SchedulingAlgorithmRefinement.
 Require Import UniPolicies.MetricChooser.
 Import ListNotations.
 
-(* ===== Phase 1: EDF Metric and Dispatch Function ===== *)
+(* ===== Phase 1: EDF Metric and Choose Function ===== *)
 
 (* EDF metric: the absolute deadline of job j, as a Z for use with MetricChooser. *)
 Definition edf_metric (jobs : JobId -> Job) (j : JobId) : Z :=
   Z.of_nat (job_abs_deadline (jobs j)).
 
-(* EDF dispatch function:
+(* EDF choose function:
    From candidates, filter to those that are eligible, then select
    the one with the earliest (minimum) absolute deadline. *)
 Definition choose_edf (jobs : JobId -> Job) (m : nat) (sched : Schedule)
                        (t : Time) (candidates : list JobId) : option JobId :=
   choose_min_metric (edf_metric jobs) jobs m sched t candidates.
 
-(* ===== Phase 2: EDF Dispatch Correctness ===== *)
+(* ===== Phase 2: EDF Choose Correctness ===== *)
 
 (* If no candidate is eligible, choose_edf returns None. *)
 Lemma choose_edf_none_if_no_eligible : forall jobs m sched t candidates,
@@ -120,7 +120,7 @@ Qed.
 
 (* ===== Phase 5: EDF satisfies GenericSchedulingAlgorithm and EDFSchedulerSpec ===== *)
 
-(* EDF satisfies the generic (policy-independent) dispatch interface. *)
+(* EDF satisfies the generic (policy-independent) scheduling algorithm interface. *)
 Definition edf_generic_spec : GenericSchedulingAlgorithm :=
   mkGenericSchedulingAlgorithm
     choose_edf
@@ -140,7 +140,7 @@ Record EDFSchedulerSpec : Type := mkEDFSchedulerSpec {
      among all eligible candidates. *)
   edf_choose_min_deadline :
     forall jobs m sched t candidates j,
-      dispatch edf_generic jobs m sched t candidates = Some j ->
+      choose edf_generic jobs m sched t candidates = Some j ->
       forall j', In j' candidates ->
       eligible jobs m sched j' t ->
       job_abs_deadline (jobs j) <= job_abs_deadline (jobs j') ;
@@ -166,7 +166,7 @@ Section EDFSchedulerLemmasSection.
   (* A5: the chosen job has minimum absolute deadline among all eligible candidates. *)
   Lemma edf_choose_some_implies_min_deadline :
       forall j j',
-        spec.(dispatch) jobs m sched t candidates = Some j ->
+        spec.(choose) jobs m sched t candidates = Some j ->
         In j' candidates ->
         eligible jobs m sched j' t ->
         job_abs_deadline (jobs j) <= job_abs_deadline (jobs j').
@@ -178,7 +178,7 @@ Section EDFSchedulerLemmasSection.
   (* C1: no eligible candidate has strictly smaller deadline than the chosen job. *)
   Lemma edf_choose_some_implies_no_earlier_deadline_candidate :
       forall j,
-        spec.(dispatch) jobs m sched t candidates = Some j ->
+        spec.(choose) jobs m sched t candidates = Some j ->
         ~exists j', In j' candidates /\ eligible jobs m sched j' t /\
                     job_abs_deadline (jobs j') < job_abs_deadline (jobs j).
   Proof.
@@ -190,7 +190,7 @@ Section EDFSchedulerLemmasSection.
   (* C2: if an eligible candidate has deadline <= chosen deadline, they are equal. *)
   Lemma edf_choose_some_tie_deadline :
       forall j j',
-        spec.(dispatch) jobs m sched t candidates = Some j ->
+        spec.(choose) jobs m sched t candidates = Some j ->
         In j' candidates ->
         eligible jobs m sched j' t ->
         job_abs_deadline (jobs j') <= job_abs_deadline (jobs j) ->
@@ -311,4 +311,3 @@ Definition edf_policy_scheduler_on
     (cand_spec : CandidateSourceSpec J candidates_of)
     : Scheduler :=
   uni_policy_scheduler_on (edf_bundle J candidates_of cand_spec).
-

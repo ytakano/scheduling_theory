@@ -40,7 +40,7 @@ Qed.
    - the LLF canonical predicate,
    - its constructive decider,
    - the local one-step repair lemma,
-   - and the dispatcher prefix-agreement proof.
+   - and the scheduling algorithm prefix-agreement proof.
 
    This definition only packages those ingredients for reuse by the generic
    normalization theorem. *)
@@ -90,7 +90,7 @@ Proof.
       (sched := sched).
   - exact (LLFCanonicalRepairSpec J candidates_of cand_spec jobs).
   - intros s1 s2 t Hagree.
-    exact (llf_dispatch_agrees_before J candidates_of cand_spec jobs s1 s2 t Hagree).
+    exact (llf_choose_agrees_before J candidates_of cand_spec jobs s1 s2 t Hagree).
   - exact HJbool.
   - exact Hvalid.
   - exact Hfeas.
@@ -128,6 +128,6 @@ Proof.
     exact (llf_normalize_to_canonical J J_bool candidates_of cand_spec jobs sched0 H
              HJbool Hvalid Hfeas HJonly Hcpu).
   - intros s1 s2 t Hagree.
-    exact (llf_dispatch_agrees_before J candidates_of cand_spec jobs s1 s2 t Hagree).
+    exact (llf_choose_agrees_before J candidates_of cand_spec jobs s1 s2 t Hagree).
   - exact Hfeas_on.
 Qed.

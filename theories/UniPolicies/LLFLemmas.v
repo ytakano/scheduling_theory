@@ -26,14 +26,14 @@ Definition matches_choose_llf_at_with
     (candidates_of : CandidateSource)
     (sched : Schedule)
     (t : Time) : Prop :=
-  matches_dispatch_at_with llf_generic_spec jobs candidates_of sched t.
+  matches_choose_at_with llf_generic_spec jobs candidates_of sched t.
 
 Definition matches_choose_llf_before
     (jobs : JobId -> Job)
     (candidates_of : CandidateSource)
     (sched : Schedule)
     (H : Time) : Prop :=
-  matches_dispatch_before llf_generic_spec jobs candidates_of sched H.
+  matches_choose_before llf_generic_spec jobs candidates_of sched H.
 
 Definition is_llf_canonical_at_b
     (candidates_of : CandidateSource)
@@ -52,7 +52,7 @@ Lemma is_llf_canonical_at_b_true_iff :
     matches_choose_llf_at_with jobs candidates_of sched t.
 Proof.
   intros candidates_of jobs sched t.
-  unfold is_llf_canonical_at_b, matches_choose_llf_at_with, matches_dispatch_at_with.
+  unfold is_llf_canonical_at_b, matches_choose_llf_at_with, matches_choose_at_with.
   simpl.
   destruct (sched t 0) as [j|] eqn:Es;
   destruct (choose_llf jobs 1 sched t (candidates_of jobs 1 sched t)) as [j'|] eqn:Ec.
@@ -101,13 +101,13 @@ Proof.
   exact Hagree.
 Qed.
 
-Lemma llf_dispatch_agrees_before :
+Lemma llf_choose_agrees_before :
   forall J candidates_of
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs s1 s2 t,
     agrees_before s1 s2 t ->
-    dispatch llf_generic_spec jobs 1 s1 t (candidates_of jobs 1 s1 t) =
-    dispatch llf_generic_spec jobs 1 s2 t (candidates_of jobs 1 s2 t).
+    choose llf_generic_spec jobs 1 s1 t (candidates_of jobs 1 s1 t) =
+    choose llf_generic_spec jobs 1 s2 t (candidates_of jobs 1 s2 t).
 Proof.
   intros J candidates_of cand_spec jobs s1 s2 t Hagree.
   simpl.
@@ -163,7 +163,7 @@ Lemma matches_choose_llf_at_with_no_lower_laxity_eligible_job :
     (laxity jobs 1 sched j t <= laxity jobs 1 sched j' t)%Z.
 Proof.
   intros J candidates_of cand_spec jobs sched t j j' Hmatch Hsched Hin Helig.
-  unfold matches_choose_llf_at_with, matches_dispatch_at_with in Hmatch.
+  unfold matches_choose_llf_at_with, matches_choose_at_with in Hmatch.
   rewrite Hsched in Hmatch.
   assert (Hchoose : choose_llf jobs 1 sched t (candidates_of jobs 1 sched t) = Some j).
   { symmetry. exact Hmatch. }
@@ -239,7 +239,7 @@ Proof.
   assert (Hneq : j' <> j).
   { intro Heq. subst j'.
     apply Hnot.
-    unfold matches_choose_llf_at_with, matches_dispatch_at_with.
+    unfold matches_choose_llf_at_with, matches_choose_at_with.
     rewrite Hsched. symmetry. exact Hchoose. }
   exists j'.
   split. exact Hin_j'.

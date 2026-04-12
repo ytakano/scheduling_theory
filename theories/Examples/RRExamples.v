@@ -14,7 +14,7 @@ Import ListNotations.
 (**
   Examples/RRExamples.v
   ============
-  Concrete examples for the Round Robin dispatch policy.
+  Concrete examples for the Round Robin choose policy.
 
   Design:
     Two jobs (ids 0 and 1) on a single CPU with unit quantum (q=1).

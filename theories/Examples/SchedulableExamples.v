@@ -491,7 +491,7 @@ Qed.
 
    This is the new standard entry point: callers only need to supply a
    candidate source and a feasibility witness, with no knowledge of the
-   underlying dispatch machinery.                                      *)
+   underlying choose machinery.                                      *)
 
 Definition edf_single_bundle : UniSchedulerBundle J_single EDFSchedulerSpec :=
   edf_bundle J_single singleton_candidates singleton_candidates_spec.

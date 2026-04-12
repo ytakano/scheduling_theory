@@ -28,7 +28,7 @@ Import ListNotations.
      - raw_partitioned_schedule_on (internal) / valid_partitioned_schedule (public
        API) distinction is stable: clients use valid_partitioned_schedule.
      - The enumJ/filter concrete implementation lives in PartitionedEnumCandidates.
-     - partitioned_schedule_on_iff_local_rel aligns multicore dispatch with
+     - partitioned_schedule_on_iff_local_rel aligns multicore choose with
        single_cpu_algorithm_schedule per CPU (bridge-style).
      - partitioned_schedulable_by_on_from_local is the canonical 3-step entry
        point for global schedulability from per-CPU local feasibility.
@@ -56,7 +56,7 @@ Section PartitionedSection.
   (* All assigned CPUs are valid indices. *)
   Variable valid_assignment : forall j, assign j < m.
 
-  (* Per-CPU dispatch policy (generic; any scheduler satisfying
+  (* Per-CPU choose policy (generic; any scheduler satisfying
      GenericSchedulingAlgorithm can be used, e.g. EDF, FIFO, RR). *)
   Variable spec : GenericSchedulingAlgorithm.
 
@@ -95,14 +95,14 @@ Section PartitionedSection.
   Definition raw_partitioned_schedule_on (jobs : JobId -> Job) (sched : Schedule) : Prop :=
     forall t c, c < m ->
       sched t c =
-        spec.(dispatch) jobs 1 (cpu_schedule sched c) t
+        spec.(choose) jobs 1 (cpu_schedule sched c) t
           (local_candidates_of c jobs 1 (cpu_schedule sched c) t).
 
   (* valid_partitioned_schedule is the public specification predicate for
    partitioned schedulers.
 
    This predicate bundles two conditions:
-   1. [raw_partitioned_schedule_on]: the internal dispatch equation — at every
+   1. [raw_partitioned_schedule_on]: the internal choose equation — at every
       time step each CPU runs exactly what its per-CPU policy selects.
    2. [respects_assignment]: every running job executes on its statically
       assigned CPU.
@@ -120,7 +120,7 @@ Section PartitionedSection.
     respects_assignment sched.
 
   (* Introduction rule for [valid_partitioned_schedule]:
-     requires both the raw dispatch equation and assignment respect. *)
+     requires both the raw choose equation and assignment respect. *)
   Lemma valid_partitioned_schedule_intro :
     forall jobs sched,
       raw_partitioned_schedule_on jobs sched ->
@@ -151,7 +151,7 @@ Section PartitionedSection.
   (* ===== Helper Lemmas ===== *)
 
   (* Key new theorem: partitioned_schedule_on implies respects_assignment.
-     Proof: if sched t c = Some j, then by partitioned_schedule_on the dispatch
+     Proof: if sched t c = Some j, then by partitioned_schedule_on the choose
      chose j from local_candidates_of c ..., so j is in that list, hence
      candidates_sound gives J j /\ assign j = c. *)
   Theorem partitioned_schedule_implies_respects_assignment :
@@ -163,7 +163,7 @@ Section PartitionedSection.
     pose proof (Hpart t c Hlt) as Heq.
     rewrite Hrun in Heq.
     symmetry in Heq.
-    pose proof (spec.(dispatch_in_candidates) jobs 1 (cpu_schedule sched c) t
+    pose proof (spec.(choose_in_candidates) jobs 1 (cpu_schedule sched c) t
                   (local_candidates_of c jobs 1 (cpu_schedule sched c) t) j Heq) as Hin.
     pose proof (local_candidates_spec_hyp c Hlt) as Hcspec.
     destruct Hcspec as [Hsound _ _].
@@ -251,7 +251,7 @@ Section PartitionedSection.
   (* ===== Core Theorems ===== *)
 
   (* partitioned_schedule_on is equivalent to each CPU satisfying the
-     single-CPU dispatch bridge relation on its local view.
+     single-CPU choose bridge relation on its local view.
      This is the bridge alignment: partitioned multicore reduces to
      single_cpu_algorithm_schedule per CPU. *)
   Lemma partitioned_schedule_on_iff_local_rel :
@@ -337,7 +337,7 @@ Section PartitionedSection.
     pose proof (valid_partitioned_schedule_respects_assignment jobs sched Hpart) as Hresp.
     pose proof (Hraw t c Hlt) as Heq.
     rewrite Hrun in Heq. symmetry in Heq.
-    pose proof (spec.(dispatch_eligible) jobs 1 (cpu_schedule sched c) t
+    pose proof (spec.(choose_eligible) jobs 1 (cpu_schedule sched c) t
                   (local_candidates_of c jobs 1 (cpu_schedule sched c) t) j Heq) as Heloc.
     unfold eligible in *.
     destruct Heloc as [Hrel Hncomp_local].
@@ -532,7 +532,7 @@ End PartitionedEnumCandidates.
      part_assign       — static CPU assignment
      part_m            — number of CPUs
      part_valid_assign — validity: every assigned CPU index is in range
-     part_spec         — per-CPU dispatch policy
+     part_spec         — per-CPU choose policy
      part_J            — the job set in the system
      part_candidates   — abstract per-CPU CandidateSource
      part_cand_spec    — CandidateSourceSpec proof for every CPU *)
@@ -556,7 +556,7 @@ Record PartitionedAlgorithmContext := mkPartitionedAlgorithmContext {
 
 (* Lift the partitioned_schedule_on relation into the Scheduler abstraction.
    partitioned_scheduler holds for a global schedule whenever that schedule
-   satisfies the abstract dispatch policy given by cands (a per-CPU
+   satisfies the abstract choose policy given by cands (a per-CPU
    CandidateSource).
 
    Note: assign is no longer an argument of partitioned_scheduler because
@@ -601,7 +601,7 @@ Qed.
      2. Prove per-CPU local feasibility on local_jobset c.
      3. Invoke this lemma to conclude global schedulable_by_on J.
 
-   This combines the dispatcher validity check with the feasibility lifting
+   This combines the scheduling algorithm validity check with the feasibility lifting
    and is the preferred entry point for concrete partitioned examples and
    future scheduler proofs. *)
 Lemma partitioned_schedulable_by_on_from_local :

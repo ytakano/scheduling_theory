@@ -7,12 +7,12 @@
   - a canonical-at predicate or alias such as `matches_choose_x_at_with`
   - a constructive canonical decider
   - a local repair lemma that fixes one non-canonical step while preserving validity, feasibility, J-only execution, and prefix agreement
-  - a `DispatchAgreesBefore` proof for the policy
+  - a `ChooseAgreesBefore` proof for the policy
   - an `XCanonicalRepairSpec` instance
   - a final instantiation of `finite_optimality_via_normalization`
 - Shared infrastructure now supplies:
   - `CanonicalRepairSpec` as the policy integration record for canonical predicates, constructive decidability, and one-step repair
-  - `DispatchAgreesBefore` as the named prefix-invariance contract for dispatch
+  - `ChooseAgreesBefore` as the named prefix-invariance contract for choose
   - the normalization induction
   - the generic push-forward lemma
   - finite-horizon truncation
@@ -23,24 +23,24 @@
   - a custom normalization skeleton
 - Interface notes:
   - `normalize_to_canonical_generic` no longer takes `cand_spec`
-  - candidate-source obligations still matter indirectly when proving policy-specific `DispatchAgreesBefore`
+  - candidate-source obligations still matter indirectly when proving policy-specific `ChooseAgreesBefore`
 
 ## Canonicalization Responsibility Split
 
 - Generic core:
-  - `matches_dispatch_at_with`
-  - `matches_dispatch_before`
+  - `matches_choose_at_with`
+  - `matches_choose_before`
   - `deadline_horizon`
   - `J_implies_deadline_le_horizon`
   - `CanonicalRepairSpec`
-  - `DispatchAgreesBefore`
+  - `ChooseAgreesBefore`
   - `repair_pushes_forward_generic`
   - `normalize_to_canonical_generic`
   - `finite_optimality_via_normalization`
 - Policy-specific:
   - canonical boolean/decider lemmas
   - local repair lemmas such as `repair_non_canonical_at` / `repair_non_canonical_at_llf`
-  - dispatch prefix lemmas such as `edf_dispatch_agrees_before` / `llf_dispatch_agrees_before`
+  - choose prefix lemmas such as `edf_choose_agrees_before` / `llf_choose_agrees_before`
   - policy instances such as `EDFCanonicalRepairSpec` / `LLFCanonicalRepairSpec`
 - Wrapper-only:
   - `edf_normalize_to_canonical`
@@ -50,19 +50,19 @@
 
 ## Lemmas and Theorems
 
-### `DispatchAgreesBefore`
+### `ChooseAgreesBefore`
 - **Type**: Definition
 - **Statement**:
   ```coq
-  Definition DispatchAgreesBefore
+  Definition ChooseAgreesBefore
       (alg : GenericSchedulingAlgorithm)
       (jobs : JobId -> Job)
       (candidates_of : CandidateSource) : Prop := ...
   ```
 - **Proof Strategy**: Not proved directly; discharged per policy by combining candidate prefix-extensionality with chooser prefix-invariance.
 - **Key Tactics**: N/A (definition)
-- **Dependencies**: `agrees_before`, `dispatch`, `CandidateSource`
-- **Notes**: This is the named contract used by the generic canonicalization stack. It replaces anonymous “dispatch agrees before” hypotheses in theorem statements and makes the policy integration surface explicit.
+- **Dependencies**: `agrees_before`, `choose`, `CandidateSource`
+- **Notes**: This is the named contract used by the generic canonicalization stack. It replaces anonymous “choose agrees before” hypotheses in theorem statements and makes the policy integration surface explicit.
 - **Proof Kind**: Constructive
 - **Date**: 2026-04-12
 
@@ -80,12 +80,12 @@
   ```
 - **Proof Strategy**: A policy instantiates the record by providing:
   - canonical predicates (`canonical_at`, `canonical_before`)
-  - equivalence lemmas back to `matches_dispatch_*`
+  - equivalence lemmas back to `matches_choose_*`
   - a constructive decider
   - a one-step repair lemma
 - **Key Tactics**: Typically `refine` for the record and direct reuse of policy-specific lemmas
-- **Dependencies**: `matches_dispatch_at_with`, `matches_dispatch_before`, `valid_schedule`, `feasible_schedule_on`, `agrees_before`, `single_cpu_only`
-- **Notes**: The record no longer carries a policy-specific push-forward theorem. That step is now generic and factored through `DispatchAgreesBefore`.
+- **Dependencies**: `matches_choose_at_with`, `matches_choose_before`, `valid_schedule`, `feasible_schedule_on`, `agrees_before`, `single_cpu_only`
+- **Notes**: The record no longer carries a policy-specific push-forward theorem. That step is now generic and factored through `ChooseAgreesBefore`.
 - **Proof Kind**: Constructive
 - **Date**: 2026-04-12
 
@@ -97,15 +97,15 @@
   ```coq
   Lemma repair_pushes_forward_generic :
     forall alg candidates_of jobs sched sched' t,
-      DispatchAgreesBefore alg jobs candidates_of ->
+      ChooseAgreesBefore alg jobs candidates_of ->
       agrees_before sched sched' t ->
-      matches_dispatch_at_with alg jobs candidates_of sched' t ->
-      matches_dispatch_before alg jobs candidates_of sched t ->
-      matches_dispatch_before alg jobs candidates_of sched' (S t).
+      matches_choose_at_with alg jobs candidates_of sched' t ->
+      matches_choose_before alg jobs candidates_of sched t ->
+      matches_choose_before alg jobs candidates_of sched' (S t).
   ```
-- **Proof Strategy**: Split on `t' < t \/ t' = t`. For `t' < t`, weaken prefix agreement to `t'`, rewrite CPU-0 equality, then use `DispatchAgreesBefore` to transport the dispatch result from `sched` to `sched'`. For `t' = t`, use the canonical-at hypothesis directly.
+- **Proof Strategy**: Split on `t' < t \/ t' = t`. For `t' < t`, weaken prefix agreement to `t'`, rewrite CPU-0 equality, then use `ChooseAgreesBefore` to transport the choose result from `sched` to `sched'`. For `t' = t`, use the canonical-at hypothesis directly.
 - **Key Tactics**: `lia`, `agrees_before_weaken`, `agrees_before_sym`, `rewrite`
-- **Dependencies**: `DispatchAgreesBefore`, `matches_dispatch_at_with`, `matches_dispatch_before`, `agrees_before`
+- **Dependencies**: `ChooseAgreesBefore`, `matches_choose_at_with`, `matches_choose_before`, `agrees_before`
 - **Notes**: This is the generic replacement for the former EDF/LLF-specific push-forward lemmas.
 - **Proof Kind**: Constructive
 - **Date**: 2026-04-12
@@ -121,18 +121,18 @@
            (candidates_of : CandidateSource)
            jobs sched H,
       CanonicalRepairSpec alg J candidates_of jobs ->
-      DispatchAgreesBefore alg jobs candidates_of ->
+      ChooseAgreesBefore alg jobs candidates_of ->
       (forall x, J_bool x = true <-> J x) ->
       valid_schedule jobs 1 sched ->
       feasible_schedule_on J jobs 1 sched ->
       (forall t j, sched t 0 = Some j -> J j) ->
       single_cpu_only sched ->
       exists sched', ... /\
-        matches_dispatch_before alg jobs candidates_of sched' H.
+        matches_choose_before alg jobs candidates_of sched' H.
   ```
 - **Proof Strategy**: Induction on `H`. The base case is vacuous. In the step case, normalize up to `H'`, decide canonicality at `H'`, and either keep the schedule or apply the policy’s one-step repair. In both branches, extend canonicality to `S H'` via `repair_pushes_forward_generic`.
 - **Key Tactics**: `induction`, `destruct`, `refine`, `eapply`
-- **Dependencies**: `CanonicalRepairSpec`, `DispatchAgreesBefore`, `repair_pushes_forward_generic`
+- **Dependencies**: `CanonicalRepairSpec`, `ChooseAgreesBefore`, `repair_pushes_forward_generic`
 - **Notes**: The current interface no longer includes `cand_spec`; only actually used hypotheses remain.
 - **Proof Kind**: Constructive
 - **Date**: 2026-04-12
@@ -1211,9 +1211,9 @@
       partitioned_schedule jobs sched xs ->
       respects_assignment sched.
   ```
-- **Proof Strategy**: Given `sched t c = Some j`, use `partitioned_schedule` to get `sched t c = dispatch ... (candidates_for c xs)`, so `dispatch ... = Some j`. Apply `dispatch_in_candidates` to get `j ∈ candidates_for c xs`, then `candidates_for_assign_sound` gives `assign j = c`.
-- **Key Tactics**: `pose proof (Hpart t c Hlt)`, `rewrite Hrun in Heq`, `symmetry in Heq`, `eapply spec.(dispatch_in_candidates)`
-- **Dependencies**: `partitioned_schedule`, `candidates_for_assign_sound`, `dispatch_in_candidates`
+- **Proof Strategy**: Given `sched t c = Some j`, use `partitioned_schedule` to get `sched t c = choose ... (candidates_for c xs)`, so `choose ... = Some j`. Apply `choose_in_candidates` to get `j ∈ candidates_for c xs`, then `candidates_for_assign_sound` gives `assign j = c`.
+- **Key Tactics**: `pose proof (Hpart t c Hlt)`, `rewrite Hrun in Heq`, `symmetry in Heq`, `eapply spec.(choose_in_candidates)`
+- **Dependencies**: `partitioned_schedule`, `candidates_for_assign_sound`, `choose_in_candidates`
 - **Notes**: After Phase 3 refactor, `respects_assignment` is no longer an axiom/conjunct — it is a derived theorem. `valid_partitioned_schedule` is now just `partitioned_schedule`.
 - **Date**: 2026-04-09
 
@@ -1228,10 +1228,10 @@
       partitioned_schedule jobs sched xs ->
       valid_schedule jobs m sched.
   ```
-- **Proof Strategy**: Given `sched t c = Some j`: (1) derive `Hresp` via `partitioned_schedule_implies_respects_assignment`; (2) from `partitioned_schedule`, extract `dispatch ... = Some j`; (3) `dispatch_ready` gives `ready jobs 1 (cpu_schedule sched c) j t`; (4) unfold `ready` and `eligible` to get `released` and local `~completed`; (5) lift `~completed` globally via `completed_iff_on_assigned_cpu` + `assign j = c` from `Hresp`.
-- **Key Tactics**: `symmetry in Heq`, `spec.(dispatch_ready)`, `unfold ready`, `unfold eligible`, `rewrite completed_iff_on_assigned_cpu by exact Hresp`, `rewrite Hassign`
-- **Dependencies**: `partitioned_schedule_implies_respects_assignment`, `dispatch_ready`, `completed_iff_on_assigned_cpu`
-- **Notes**: Old `local_to_global_validity` required external per-CPU `valid_schedule` hypotheses. This theorem needs only `partitioned_schedule` — validity is derived directly from `dispatch_ready`. ⚠️ Need `symmetry in Heq` after `rewrite Hrun in Heq` because `partitioned_schedule` equality is `sched t c = dispatch ...` not `dispatch ... = sched t c`.
+- **Proof Strategy**: Given `sched t c = Some j`: (1) derive `Hresp` via `partitioned_schedule_implies_respects_assignment`; (2) from `partitioned_schedule`, extract `choose ... = Some j`; (3) `choose_ready` gives `ready jobs 1 (cpu_schedule sched c) j t`; (4) unfold `ready` and `eligible` to get `released` and local `~completed`; (5) lift `~completed` globally via `completed_iff_on_assigned_cpu` + `assign j = c` from `Hresp`.
+- **Key Tactics**: `symmetry in Heq`, `spec.(choose_ready)`, `unfold ready`, `unfold eligible`, `rewrite completed_iff_on_assigned_cpu by exact Hresp`, `rewrite Hassign`
+- **Dependencies**: `partitioned_schedule_implies_respects_assignment`, `choose_ready`, `completed_iff_on_assigned_cpu`
+- **Notes**: Old `local_to_global_validity` required external per-CPU `valid_schedule` hypotheses. This theorem needs only `partitioned_schedule` — validity is derived directly from `choose_ready`. ⚠️ Need `symmetry in Heq` after `rewrite Hrun in Heq` because `partitioned_schedule` equality is `sched t c = choose ...` not `choose ... = sched t c`.
 - **Date**: 2026-04-09
 
 ---
@@ -1243,7 +1243,7 @@
   Lemma single_cpu_algorithm_eq_cpu0 :
       forall spec candidates_of jobs sched t,
         scheduler_rel (single_cpu_algorithm_schedule spec candidates_of) jobs 1 sched ->
-        sched t 0 = spec.(dispatch) jobs 1 sched t (candidates_of jobs 1 sched t).
+        sched t 0 = spec.(choose) jobs 1 sched t (candidates_of jobs 1 sched t).
   ```
 - **Proof Strategy**: Destruct the relation to get the `forall t` component, then `exact (proj1 (Hrel t))`.
 - **Key Tactics**: `destruct Hrel as [_ Hrel]`, `exact (proj1 (Hrel t))`
@@ -1650,21 +1650,21 @@
 
 ---
 
-### `edf_dispatch_agrees_before`
+### `edf_choose_agrees_before`
 - **Type**: Lemma
 - **Statement**:
   ```coq
-  Lemma edf_dispatch_agrees_before :
+  Lemma edf_choose_agrees_before :
     forall J candidates_of (cand_spec : CandidateSourceSpec J candidates_of)
            jobs s1 s2 t,
       agrees_before s1 s2 t ->
-      dispatch edf_generic_spec jobs 1 s1 t (candidates_of jobs 1 s1 t) =
-      dispatch edf_generic_spec jobs 1 s2 t (candidates_of jobs 1 s2 t).
+      choose edf_generic_spec jobs 1 s1 t (candidates_of jobs 1 s1 t) =
+      choose edf_generic_spec jobs 1 s2 t (candidates_of jobs 1 s2 t).
   ```
-- **Proof Strategy**: `simpl` unfolds `dispatch edf_generic_spec` to `choose_edf`. Then `rewrite candidates_of_agrees_before` to equate the candidate lists, then `apply choose_edf_agrees_before`.
+- **Proof Strategy**: `simpl` unfolds `choose edf_generic_spec` to `choose_edf`. Then `rewrite candidates_of_agrees_before` to equate the candidate lists, then `apply choose_edf_agrees_before`.
 - **Key Tactics**: `simpl`, `rewrite candidates_of_agrees_before`, `apply choose_edf_agrees_before`
 - **Dependencies**: `candidates_of_agrees_before`, `choose_edf_agrees_before`
-- **Notes**: `dispatch edf_generic_spec` reduces via `simpl` because `edf_generic_spec = mkGenericSchedulingAlgorithm choose_edf ...` and `dispatch` is just the first field projection.
+- **Notes**: `choose edf_generic_spec` reduces via `simpl` because `edf_generic_spec = mkGenericSchedulingAlgorithm choose_edf ...` and `choose` is just the first field projection.
 - **Date**: 2026-04-09
 
 ---
@@ -2505,7 +2505,7 @@
 ### EDF canonicalization pipeline after generic refactor
 - **Current Status**: EDF no longer maintains a policy-specific finite-horizon normalization loop in `EDFTransform.v`.
 - **Local Repair Layer**: `repair_first_violation` and `repair_non_canonical_at` remain in `theories/UniPolicies/EDFTransform.v`.
-- **Generic Normalization Layer**: `DispatchAgreesBefore`, `repair_pushes_forward_generic`, and `normalize_to_canonical_generic` live in `theories/SchedulingAlgorithmNormalization.v`.
+- **Generic Normalization Layer**: `ChooseAgreesBefore`, `repair_pushes_forward_generic`, and `normalize_to_canonical_generic` live in `theories/SchedulingAlgorithmNormalization.v`.
 - **EDF Instantiation Layer**: `EDFCanonicalRepairSpec`, `edf_normalize_to_canonical`, and `edf_optimality_on_finite_jobs` live in `theories/UniPolicies/EDFOptimality.v`.
 - **Notes**: The older EDF-only lemmas `repair_pushes_first_violation_forward` and `edf_normalize_up_to` were removed once the generic canonicalization skeleton became the supported path.
 - **Date**: 2026-04-12
@@ -2544,7 +2544,7 @@
   ```coq
   Definition algorithm_refines_spec (spec : GenericSchedulingAlgorithm) (policy : SchedulingAlgorithmSpec) : Prop :=
     forall jobs m sched t candidates,
-      policy jobs m sched t candidates (spec.(dispatch) jobs m sched t candidates).
+      policy jobs m sched t candidates (spec.(choose) jobs m sched t candidates).
 
   Lemma single_cpu_algorithm_schedule_respects_algorithm_spec_at_with :
     forall spec policy candidates_of jobs sched t,

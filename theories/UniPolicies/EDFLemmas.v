@@ -27,13 +27,13 @@ Proof.
   apply choose_min_metric_agrees_before. exact Hagree.
 Qed.
 
-Lemma edf_dispatch_agrees_before :
+Lemma edf_choose_agrees_before :
   forall J candidates_of
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs s1 s2 t,
     agrees_before s1 s2 t ->
-    dispatch edf_generic_spec jobs 1 s1 t (candidates_of jobs 1 s1 t) =
-    dispatch edf_generic_spec jobs 1 s2 t (candidates_of jobs 1 s2 t).
+    choose edf_generic_spec jobs 1 s1 t (candidates_of jobs 1 s1 t) =
+    choose edf_generic_spec jobs 1 s2 t (candidates_of jobs 1 s2 t).
 Proof.
   intros J candidates_of cand_spec jobs s1 s2 t Hagree.
   simpl.
@@ -55,14 +55,14 @@ Definition matches_choose_edf_at_with
     (candidates_of : CandidateSource)
     (sched : Schedule)
     (t : Time) : Prop :=
-  matches_dispatch_at_with edf_generic_spec jobs candidates_of sched t.
+  matches_choose_at_with edf_generic_spec jobs candidates_of sched t.
 
 Definition matches_choose_edf_before
     (jobs : JobId -> Job)
     (candidates_of : CandidateSource)
     (sched : Schedule)
     (H : Time) : Prop :=
-  matches_dispatch_before edf_generic_spec jobs candidates_of sched H.
+  matches_choose_before edf_generic_spec jobs candidates_of sched H.
 
 (* 4-3: EDF の本質的な priority 性質 (J なし版) *)
 Definition respects_edf_priority_at
@@ -139,7 +139,7 @@ Proof.
   (* Step 5: j' <> j from ~ matches_choose_edf_at_with *)
   assert (Hneq : j' <> j).
   { intro Heq. subst j'.
-    apply Hnot. unfold matches_choose_edf_at_with, matches_dispatch_at_with.
+    apply Hnot. unfold matches_choose_edf_at_with, matches_choose_at_with.
     rewrite Hsched. symmetry. exact Hchoose. }
   exists j'.
   split. exact Hj'_in.
@@ -182,7 +182,7 @@ Lemma matches_choose_edf_at_with_no_earlier_eligible_job :
       False.
 Proof.
   intros J candidates_of cand_spec jobs sched t j Hmatch Hsched j' HJj' Helig Hlt.
-  unfold matches_choose_edf_at_with, matches_dispatch_at_with in Hmatch.
+  unfold matches_choose_edf_at_with, matches_choose_at_with in Hmatch.
   rewrite Hsched in Hmatch.
   assert (Hchoose : choose_edf jobs 1 sched t (candidates_of jobs 1 sched t) = Some j).
   { symmetry. exact Hmatch. }
@@ -473,7 +473,7 @@ Lemma matches_choose_edf_at_with_implies_respects_edf_policy_at_with :
     respects_algorithm_spec_at_with edf_policy jobs candidates_of sched t.
 Proof.
   intros jobs candidates_of sched t Hmatch.
-  unfold matches_choose_edf_at_with, matches_dispatch_at_with in Hmatch.
+  unfold matches_choose_edf_at_with, matches_choose_at_with in Hmatch.
   unfold respects_algorithm_spec_at_with.
   rewrite Hmatch.
   exact (choose_edf_refines_edf_policy jobs 1 sched t (candidates_of jobs 1 sched t)).

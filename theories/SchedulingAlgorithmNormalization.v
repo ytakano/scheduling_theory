@@ -33,20 +33,20 @@ Record CanonicalRepairSpec
   (* These equivalence fields serve as the bridge between a policy-facing
      presentation and the generic normalization infrastructure. A policy is
      free to expose canonicality under its own preferred names, as long as it
-     proves equivalence with the generic dispatcher-match predicates. *)
+     proves equivalence with the generic scheduling algorithm-match predicates. *)
   (* The policy-specific prefix notion must coincide with the generic
-     dispatcher-based notion used by the normalization skeleton. *)
+     scheduling algorithm-based notion used by the normalization skeleton. *)
   canonical_before_def :
     forall sched H,
       canonical_before sched H <->
-      matches_dispatch_before alg jobs candidates_of sched H;
+      matches_choose_before alg jobs candidates_of sched H;
 
   (* The policy-specific one-step notion must coincide with the generic
-     dispatcher-match predicate at the current time. *)
+     scheduling algorithm-match predicate at the current time. *)
   canonical_at_def :
     forall sched t,
       canonical_at sched t <->
-      matches_dispatch_at_with alg jobs candidates_of sched t;
+      matches_choose_at_with alg jobs candidates_of sched t;
 
   (* Decidability keeps the normalization proof constructive: at each time
      point, we can inspect whether repair is needed. *)
@@ -75,21 +75,21 @@ Record CanonicalRepairSpec
 }.
 
 (* Generic normalization does not only rely on candidate-source extensionality.
-   It also needs the policy-specific dispatcher to be prefix-extensional:
+   It also needs the policy-specific scheduling algorithm to be prefix-extensional:
    if two schedules agree strictly before [t], then the policy decision made
    at [t] from the corresponding candidate lists must also agree.
 
    Intuitively, normalization rewrites the future while keeping the past fixed.
    This hypothesis guarantees that changing the schedule at or after [t] does
-   not retroactively change what the dispatcher should have done before [t]. *)
-Definition DispatchAgreesBefore
+   not retroactively change what the scheduling algorithm should have done before [t]. *)
+Definition ChooseAgreesBefore
     (alg : GenericSchedulingAlgorithm)
     (jobs : JobId -> Job)
     (candidates_of : CandidateSource) : Prop :=
   forall s1 s2 t,
     agrees_before s1 s2 t ->
-    dispatch alg jobs 1 s1 t (candidates_of jobs 1 s1 t) =
-    dispatch alg jobs 1 s2 t (candidates_of jobs 1 s2 t).
+    choose alg jobs 1 s1 t (candidates_of jobs 1 s1 t) =
+    choose alg jobs 1 s2 t (candidates_of jobs 1 s2 t).
 
 (* One-step propagation lemma for canonicalization.
 
@@ -100,27 +100,27 @@ Definition DispatchAgreesBefore
 Lemma repair_pushes_forward_generic :
   forall alg candidates_of
          jobs sched sched' t,
-    DispatchAgreesBefore alg jobs candidates_of ->
+    ChooseAgreesBefore alg jobs candidates_of ->
     agrees_before sched sched' t ->
-    matches_dispatch_at_with alg jobs candidates_of sched' t ->
-    matches_dispatch_before alg jobs candidates_of sched t ->
-    matches_dispatch_before alg jobs candidates_of sched' (S t).
+    matches_choose_at_with alg jobs candidates_of sched' t ->
+    matches_choose_before alg jobs candidates_of sched t ->
+    matches_choose_before alg jobs candidates_of sched' (S t).
 Proof.
   intros alg candidates_of jobs sched sched' t
-         Hdispatch Hagree Hmatch Hbefore.
-  unfold matches_dispatch_before.
+         Hchoose_agree Hagree Hmatch Hbefore.
+  unfold matches_choose_before.
   intros t' Hlt.
   assert (Hcases : t' < t \/ t' = t) by lia.
   destruct Hcases as [Hlt' | ->].
-  - unfold matches_dispatch_at_with.
+  - unfold matches_choose_at_with.
     specialize (Hbefore t' Hlt').
-    unfold matches_dispatch_at_with in Hbefore.
+    unfold matches_choose_at_with in Hbefore.
     assert (Hpre : agrees_before sched sched' t').
     { apply (agrees_before_weaken sched sched' t' t). lia. exact Hagree. }
     assert (Hsched_eq : sched' t' 0 = sched t' 0)
       by (symmetry; exact (Hagree t' 0 Hlt')).
     rewrite Hsched_eq.
-    rewrite (Hdispatch sched' sched t').
+    rewrite (Hchoose_agree sched' sched t').
     + exact Hbefore.
     + exact (agrees_before_sym _ _ _ Hpre).
   - exact Hmatch.
@@ -141,7 +141,7 @@ Lemma normalize_to_canonical_generic :
          (candidates_of : CandidateSource)
          jobs sched H,
     CanonicalRepairSpec alg J candidates_of jobs ->
-    DispatchAgreesBefore alg jobs candidates_of ->
+    ChooseAgreesBefore alg jobs candidates_of ->
     (forall x, J_bool x = true <-> J x) ->
     valid_schedule jobs 1 sched ->
     feasible_schedule_on J jobs 1 sched ->
@@ -152,16 +152,16 @@ Lemma normalize_to_canonical_generic :
       feasible_schedule_on J jobs 1 sched' /\
       (forall t j, sched' t 0 = Some j -> J j) /\
       single_cpu_only sched' /\
-      matches_dispatch_before alg jobs candidates_of sched' H.
+      matches_choose_before alg jobs candidates_of sched' H.
 Proof.
-  intros alg J J_bool candidates_of jobs sched H Hspec Hdispatch HJbool.
+  intros alg J J_bool candidates_of jobs sched H Hspec Hchoose_agree HJbool.
   destruct Hspec as [canonical_at canonical_before
                       Hbefore_def Hat_def Hdec Hrepair].
   induction H as [| H' IH].
   - intros Hvalid Hfeas HJonly Hcpu.
     exists sched.
     refine (conj Hvalid (conj Hfeas (conj HJonly (conj Hcpu _)))).
-    unfold matches_dispatch_before.
+    unfold matches_choose_before.
     intros t Hlt. lia.
   - intros Hvalid Hfeas HJonly Hcpu.
     destruct (IH Hvalid Hfeas HJonly Hcpu)
@@ -171,7 +171,7 @@ Proof.
       refine (conj Hvalid_ih (conj Hfeas_ih (conj HJonly_ih (conj Hcpu_ih _)))).
       eapply (repair_pushes_forward_generic
                 alg candidates_of jobs sched_ih sched_ih H').
-      * exact Hdispatch.
+      * exact Hchoose_agree.
       * apply agrees_before_refl.
       * apply (proj1 (Hat_def sched_ih H')).
         exact Hat.
@@ -183,7 +183,7 @@ Proof.
       refine (conj Hvalid_r (conj Hfeas_r (conj HJonly_r (conj Hcpu_r _)))).
       eapply (repair_pushes_forward_generic
                 alg candidates_of jobs sched_ih sched_r H').
-      * exact Hdispatch.
+      * exact Hchoose_agree.
       * exact Hagree.
       * apply (proj1 (Hat_def sched_r H')).
         exact Hat_r.

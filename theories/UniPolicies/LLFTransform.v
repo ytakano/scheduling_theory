@@ -180,7 +180,7 @@ Proof.
         exact (HJonly t'' j0 Hrun0).
   - exact (swap_at_single_cpu_only sched t t' Hcpu1).
   - exact Hagree.
-  - unfold matches_choose_llf_at_with, matches_dispatch_at_with.
+  - unfold matches_choose_llf_at_with, matches_choose_at_with.
     simpl.
     rewrite swap_at_t1. rewrite Hrun'.
     assert (Hagree_sym : agrees_before (swap_at sched t t') sched t)
@@ -309,7 +309,7 @@ Proof.
               exact (HJonly t'' j0 Hrun0).
       * exact (swap_at_single_cpu_only sched t t' Hcpu1).
       * exact Hagree.
-      * unfold matches_choose_llf_at_with, matches_dispatch_at_with.
+      * unfold matches_choose_llf_at_with, matches_choose_at_with.
         simpl.
         rewrite swap_at_t1. rewrite Hrun'.
         assert (Hagree_sym : agrees_before (swap_at sched t t') sched t)
@@ -320,7 +320,7 @@ Proof.
         exact (eq_sym Hchoose).
     + exfalso.
       apply Hnot.
-      unfold matches_choose_llf_at_with, matches_dispatch_at_with.
+      unfold matches_choose_llf_at_with, matches_choose_at_with.
       simpl.
       rewrite Hst0.
       exact (eq_sym Hchoose).

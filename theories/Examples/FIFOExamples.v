@@ -5,7 +5,7 @@ Require Import ScheduleLemmas.ScheduleFacts.
 Require Import UniPolicies.FIFO.
 Import ListNotations.
 
-(* Concrete examples for the FIFO dispatch policy.
+(* Concrete examples for the FIFO choose policy.
    Kept separate from FIFO.v so policy definitions remain uncluttered. *)
 
 (* Example: candidates = [j1; j2; j3], j1 not ready, j2 ready, j3 ready.

@@ -1,7 +1,7 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia Bool ZArith.
 Require Import Base.
 (* Note: Base.pre_release (t < release_time, schedule-independent) is now in scope.
-   Schedule.eligible (released AND NOT completed) is the dispatch condition for
+   Schedule.eligible (released AND NOT completed) is the choose condition for
    valid_schedule; running jobs satisfy eligible but NOT ready.
    Schedule.ready (eligible AND NOT running) is the classical ready-queue state. *)
 

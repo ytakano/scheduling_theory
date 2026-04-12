@@ -7,7 +7,7 @@
 単一CPUについては、すでに
 
 * generic scheduling-algorithm abstraction
-* canonicality を dispatcher agreement として捉える generic bridge
+* canonicality を scheduling algorithm agreement として捉える generic bridge
 * local repair を反復する generic normalization skeleton
 * finite witness を `scheduler_rel` に接続する finite optimality skeleton
 
@@ -121,7 +121,7 @@ generic 骨格そのものを新たに作ることではなく、
 
 # Lv.2: 抽象 scheduler の健全性
 
-## 2-1. dispatch 健全性
+## 2-1. choose 健全性
 
 証明すべきこと:
 
@@ -192,7 +192,7 @@ generic normalization や finite optimality はここではなく、
 
 For EDF, it is also useful to track the canonicalization pipeline explicitly:
 
-* a canonical-at predicate tied to dispatcher agreement
+* a canonical-at predicate tied to scheduling algorithm agreement
 * a constructive decider for canonicality
 * a one-step local repair lemma
 * a finite-horizon normalization theorem
@@ -245,7 +245,7 @@ as the standard template for future uniprocessor policies.
 
 * 各 policy で `canonical_at` に対応する局所 canonicality を定義する
 * 各 policy で `canonical_before` に対応する prefix canonicality を定義する
-* それらが generic な dispatcher-match predicate と同値であることを示す
+* それらが generic な scheduling algorithm-match predicate と同値であることを示す
 
 ## 4-2. local repair
 
@@ -259,7 +259,7 @@ as the standard template for future uniprocessor policies.
 
 証明すべきこと:
 
-* `DispatchAgreesBefore` を各 policy について示す
+* `ChooseAgreesBefore` を各 policy について示す
 * candidate source の prefix extensionality と chooser 側の prefix extensionality を接続する
 
 ## 4-4. generic normalization の instantiation

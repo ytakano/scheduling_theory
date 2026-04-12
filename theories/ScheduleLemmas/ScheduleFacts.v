@@ -85,7 +85,7 @@ Qed.
 
 (* Boolean version of ready: needed for filter (requires bool-valued function).
    readyb_iff proves readyb j t = true <-> ready j t.
-   Shared by all dispatch policies (EDF, FIFO, RR, …).
+   Shared by all choose policies (EDF, FIFO, RR, …).
    Placed here because readyb_iff uses cpu_count_zero_iff_not_executed. *)
 Definition readyb (jobs : JobId -> Job) (m : nat) (sched : Schedule)
                    (j : JobId) (t : Time) : bool :=
@@ -116,7 +116,7 @@ Proof.
 Qed.
 
 (* Boolean version of eligible: like readyb but without the cpu_count = 0 check.
-   Needed for dispatch policies that select from eligible (not necessarily idle) jobs.
+   Needed for choose policies that select from eligible (not necessarily idle) jobs.
    eligibleb_iff proves eligibleb j t = true <-> eligible j t. *)
 Definition eligibleb (jobs : JobId -> Job) (m : nat) (sched : Schedule)
                      (j : JobId) (t : Time) : bool :=

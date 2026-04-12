@@ -21,7 +21,7 @@ Require Import Partitioned.
     CPUs c >= m are always idle.
 
     The main theorems are:
-    - [glue_local_rels_imply_partitioned_schedule_on]: local dispatch rels →
+    - [glue_local_rels_imply_partitioned_schedule_on]: local choose rels →
       [raw_partitioned_schedule_on] for the glued schedule.
     - [local_witnesses_imply_partitioned_schedulable_by_on]: the canonical
       entry point — give per-CPU (rel, feasibility) witnesses and obtain
@@ -67,7 +67,7 @@ Qed.
 (* ===== Helper: extract idle condition from scheduler_rel ===== *)
 
 (** Extract the "locals c is idle on virtual CPUs > 0" condition from a
-    single-CPU dispatch scheduler_rel hypothesis. *)
+    single-CPU choose scheduler_rel hypothesis. *)
 Lemma scheduler_rel_single_cpu_idle :
     forall spec cands jobs (sched : Schedule) t cpu',
       scheduler_rel (single_cpu_algorithm_schedule spec cands) jobs 1 sched ->
@@ -81,7 +81,7 @@ Qed.
 (* ===== Theorem: glue_local_rels_imply_partitioned_schedule_on ===== *)
 
 (** Main composition theorem: if each CPU c < m satisfies the local
-    single-CPU dispatch relation, then [glue_local_schedules m locals]
+    single-CPU choose relation, then [glue_local_schedules m locals]
     satisfies [raw_partitioned_schedule_on]. *)
 Theorem glue_local_rels_imply_partitioned_schedule_on :
     forall m spec (cands : CPU -> CandidateSource)
@@ -112,10 +112,10 @@ Qed.
 
     Given:
     - A static CPU assignment [assign] with [valid_assignment]
-    - A dispatch policy [spec] with per-CPU candidate sources [cands]
+    - A choose policy [spec] with per-CPU candidate sources [cands]
     - Proof that [cands c] satisfies [CandidateSourceSpec] for each c < m
     - Per-CPU witness schedules [locals c] each satisfying:
-        (a) the local dispatch scheduler_rel, and
+        (a) the local choose scheduler_rel, and
         (b) feasibility on the local job set
 
     Conclude: [schedulable_by_on J (partitioned_scheduler m spec cands) jobs m]. *)

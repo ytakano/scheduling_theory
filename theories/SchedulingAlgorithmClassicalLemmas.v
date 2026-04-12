@@ -6,7 +6,7 @@ Require Import SchedulingAlgorithmLemmas.
 Import ListNotations.
 
 (* Lemmas derived from GenericSchedulingAlgorithm that require classical logic.
-   Kept separate from DispatchLemmas.v so the constructive core remains
+   Kept separate from SchedulingAlgorithmLemmas.v so the constructive core remains
    Classical-free. *)
 
 Section SchedulingAlgorithmClassicalLemmasSection.
@@ -22,7 +22,7 @@ Section SchedulingAlgorithmClassicalLemmasSection.
      (eligible = released AND NOT completed;
       NOT eligible means NOT released OR completed.) *)
   Lemma choose_none_implies_each_candidate_unreleased_or_completed :
-      spec.(dispatch) jobs m sched t candidates = None ->
+      spec.(choose) jobs m sched t candidates = None ->
       forall j, In j candidates ->
         ~released jobs j t \/ completed jobs m sched j t.
   Proof.

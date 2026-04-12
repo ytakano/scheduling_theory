@@ -96,7 +96,7 @@ Current status:
 - EDF and LLF both instantiate that core successfully.
 - The remaining work is not to invent a new abstraction, but to stabilize the
   boundary between generic and policy-specific obligations.
-- In particular, `CanonicalRepairSpec` and `DispatchAgreesBefore` should become
+- In particular, `CanonicalRepairSpec` and `ChooseAgreesBefore` should become
   the documented template for adding future uniprocessor policies.
 
 ### A-2. metric-based chooser 理論の整理
@@ -359,7 +359,7 @@ Design Principles に最も強く対応する長期フェーズ。
 すでに単一CPU EDF / LLF で実施している流れを一般化する。
 
 - abstract policy
-- chooser / dispatch
+- chooser / choose
 - canonical schedule
 - normalization
 - scheduler relation

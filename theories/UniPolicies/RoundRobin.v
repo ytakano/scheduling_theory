@@ -10,7 +10,7 @@ Require Import SchedulerValidity.
 Require Import SchedulingAlgorithmRefinement.
 Import ListNotations.
 
-(** * Round Robin dispatch policy (unit quantum, q = 1)
+(** * Round Robin choose policy (unit quantum, q = 1)
 
     Design note:
     The *semantics* of Round Robin lives entirely in the [CandidateSource],
@@ -33,9 +33,9 @@ Import ListNotations.
     by all other policies in this project and keeps the chooser simple and
     reusable. *)
 
-(* ===== Phase 1: choose_rr dispatch function ===== *)
+(* ===== Phase 1: choose_rr choose function ===== *)
 
-(** Round Robin dispatch: linear scan through the candidate list; return the
+(** Round Robin choose: linear scan through the candidate list; return the
     first eligible job.  The candidate list encodes RR order, so "first
     eligible" is exactly the RR choice. *)
 Fixpoint choose_rr (jobs : JobId -> Job) (m : nat) (sched : Schedule)

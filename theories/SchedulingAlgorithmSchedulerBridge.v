@@ -6,12 +6,12 @@ Require Import SchedulingAlgorithmInterface.
 Import ListNotations.
 
 (* Bridge between GenericSchedulingAlgorithm and the Scheduler abstraction.
-   This file provides the standard route from a single-CPU dispatch policy
+   This file provides the standard route from a single-CPU choose policy
    to `schedulable_by_on` for a designated job set J.
 
    Reading order:
      1. CandidateSource / CandidateSourceSpec — how job candidates are supplied
-     2. single_cpu_algorithm_schedule — wraps a dispatch policy into a Scheduler
+     2. single_cpu_algorithm_schedule — wraps a choose policy into a Scheduler
      3. single_cpu_algorithm_valid — the produced schedule is valid
      4. single_cpu_algorithm_scheduler_on — subset-aware wrapper
      5. Inspection lemmas (eq_cpu0, idle_on_other_cpus, in_subset, …)
@@ -20,8 +20,8 @@ Import ListNotations.
 (* ===== 1. Candidate Source Abstraction ===== *)
 
 (* CandidateSource: a function that supplies the candidate job list at each
-   time step.  The candidates do NOT need to all be eligible; the dispatcher
-   skips ineligible ones (see GenericSchedulingAlgorithm.dispatch_eligible). *)
+   time step.  The candidates do NOT need to all be eligible; the scheduling algorithm
+   skips ineligible ones (see GenericSchedulingAlgorithm.choose_eligible). *)
 Definition CandidateSource :=
   (JobId -> Job) -> nat -> Schedule -> Time -> list JobId.
 
@@ -53,9 +53,9 @@ Record CandidateSourceSpec
 
 (* ===== 2. single_cpu_algorithm_schedule ===== *)
 
-(* Wrap a dispatch policy into a Scheduler relation for the single-CPU
+(* Wrap a choose policy into a Scheduler relation for the single-CPU
    (m = 1) case.  The relation holds for a schedule sched when:
-     - CPU 0 follows the dispatch policy at every time step
+     - CPU 0 follows the choose policy at every time step
      - All other CPUs are idle                                            *)
 Definition single_cpu_algorithm_schedule
     (spec : GenericSchedulingAlgorithm)
@@ -64,13 +64,13 @@ Definition single_cpu_algorithm_schedule
   mkScheduler (fun jobs m sched =>
     m = 1 /\
     forall t,
-      sched t 0 = spec.(dispatch) jobs 1 sched t (candidates_of jobs 1 sched t) /\
+      sched t 0 = spec.(choose) jobs 1 sched t (candidates_of jobs 1 sched t) /\
       forall c, 0 < c -> sched t c = None).
 
 (* ===== 3. single_cpu_algorithm_valid ===== *)
 
 (* A schedule produced by single_cpu_algorithm_schedule is valid (on 1 CPU),
-   because dispatch_eligible guarantees every dispatched job is eligible,
+   because choose_eligible guarantees every chosen job is eligible,
    and idle CPUs carry no job. *)
 Lemma single_cpu_algorithm_valid :
     forall spec candidates_of jobs sched,
@@ -84,7 +84,7 @@ Proof.
   assert (c = 0) by lia. subst c.
   destruct (Hrel t) as [Heq _].
   rewrite Heq in Hsched.
-  exact (spec.(dispatch_eligible) jobs 1 sched t _ j Hsched).
+  exact (spec.(choose_eligible) jobs 1 sched t _ j Hsched).
 Qed.
 
 (* ===== 4. single_cpu_algorithm_scheduler_on ===== *)
@@ -101,11 +101,11 @@ Definition single_cpu_algorithm_scheduler_on
 
 (* ===== 5. Inspection lemmas ===== *)
 
-(* CPU 0 carries exactly the dispatch result. *)
+(* CPU 0 carries exactly the choose result. *)
 Lemma single_cpu_algorithm_eq_cpu0 :
     forall spec candidates_of jobs sched t,
       scheduler_rel (single_cpu_algorithm_schedule spec candidates_of) jobs 1 sched ->
-      sched t 0 = spec.(dispatch) jobs 1 sched t (candidates_of jobs 1 sched t).
+      sched t 0 = spec.(choose) jobs 1 sched t (candidates_of jobs 1 sched t).
 Proof.
   intros spec candidates_of jobs sched t Hrel.
   destruct Hrel as [_ Hrel].
@@ -136,7 +136,7 @@ Proof.
   destruct Hrel as [_ Hrel].
   destruct (Hrel t) as [Heq _].
   apply (Hsound jobs 1 sched t j).
-  eapply spec.(dispatch_in_candidates).
+  eapply spec.(choose_in_candidates).
   rewrite <- Heq.
   exact Hrun.
 Qed.
@@ -153,16 +153,16 @@ Proof.
   destruct Hcand as [_ Hcomplete _].
   destruct Hrel as [_ Hrel].
   destruct (Hrel t) as [Heq _].
-  destruct (spec.(dispatch_some_if_eligible_candidate)
+  destruct (spec.(choose_some_if_eligible_candidate)
               jobs 1 sched t (candidates_of jobs 1 sched t))
-      as [j' Hdispatch].
+      as [j' Hchoose_agree].
   - exists j.
     split.
     + apply (Hcomplete jobs 1 sched t j HJ Helig).
     + exact Helig.
   - exists j'.
     rewrite Heq.
-    exact Hdispatch.
+    exact Hchoose_agree.
 Qed.
 
 (* If no job in J is eligible, CPU 0 is idle. *)
@@ -178,7 +178,7 @@ Proof.
   destruct Hrel as [_ Hrel].
   destruct (Hrel t) as [Heq _].
   rewrite Heq.
-  apply spec.(dispatch_none_if_no_eligible_candidate).
+  apply spec.(choose_none_if_no_eligible_candidate).
   intros j Hin Helig.
   exact (Hnone j (Hsound jobs 1 sched t j Hin) Helig).
 Qed.

@@ -24,7 +24,7 @@ Multicore scheduling is treated as an early semantic concern rather than a late 
 
 ### 6. Toward OS-level operational models
 
-The long-term direction is to move beyond abstract scheduling models toward operational semantics that are closer to actual systems. This includes concepts such as runqueues, the current task, wakeup and blocking events, dispatch and preemption points, migration events, and timer- or IPI-driven scheduling behavior.
+The long-term direction is to move beyond abstract scheduling models toward operational semantics that are closer to actual systems. This includes concepts such as runqueues, the current task, wakeup and blocking events, choose and preemption points, migration events, and timer- or IPI-driven scheduling behavior.
 
 ### 7. Task models as extensions over a semantic core
 

@@ -9,24 +9,24 @@ Require Import SchedulingAlgorithmInterface.
 Require Import SchedulingAlgorithmSchedulerBridge.
 Import ListNotations.
 
-(* Generic canonical schedule predicates for a dispatch algorithm. *)
+(* Generic canonical schedule predicates for a scheduling algorithm. *)
 
-Definition matches_dispatch_at_with
+Definition matches_choose_at_with
     (alg : GenericSchedulingAlgorithm)
     (jobs : JobId -> Job)
     (candidates_of : CandidateSource)
     (sched : Schedule)
     (t : Time) : Prop :=
-  sched t 0 = dispatch alg jobs 1 sched t (candidates_of jobs 1 sched t).
+  sched t 0 = choose alg jobs 1 sched t (candidates_of jobs 1 sched t).
 
-Definition matches_dispatch_before
+Definition matches_choose_before
     (alg : GenericSchedulingAlgorithm)
     (jobs : JobId -> Job)
     (candidates_of : CandidateSource)
     (sched : Schedule)
     (H : Time) : Prop :=
   forall t, t < H ->
-    matches_dispatch_at_with alg jobs candidates_of sched t.
+    matches_choose_at_with alg jobs candidates_of sched t.
 
 (* Finite horizon: one past the maximum absolute deadline in enumJ. *)
 Definition deadline_horizon
@@ -129,7 +129,7 @@ Lemma canonical_and_idle_implies_scheduler_rel_generic :
     valid_schedule jobs 1 sched ->
     feasible_schedule_on J jobs 1 sched ->
     single_cpu_only sched ->
-    matches_dispatch_before alg jobs candidates_of sched (deadline_horizon jobs enumJ) ->
+    matches_choose_before alg jobs candidates_of sched (deadline_horizon jobs enumJ) ->
     (forall t, deadline_horizon jobs enumJ <= t -> sched t 0 = None) ->
     scheduler_rel (single_cpu_algorithm_schedule alg candidates_of) jobs 1 sched.
 Proof.
@@ -146,7 +146,7 @@ Proof.
       * assert (Ht_H : deadline_horizon jobs enumJ <= t) by lia.
         rewrite (Hidle t Ht_H).
         symmetry.
-        apply dispatch_none_if_no_eligible_candidate.
+        apply choose_none_if_no_eligible_candidate.
         intros j Hin Helig.
         destruct cand_spec as [Hsound _ _].
         assert (HJj : J j) by (exact (Hsound jobs 1 sched t j Hin)).

@@ -21,7 +21,7 @@ Rocq compilation is the test mechanism here: a file passes when it compiles with
 ## Coding Style & Naming Conventions
 Use spaces for indentation and keep record fields and proof scripts vertically aligned when it improves readability. Prefer descriptive PascalCase filenames for major modules and example files, matching current names such as `ScheduleModel.v` and `FIFOExamples.v`.
 
-Use clear identifier names that reflect proof intent: `eligible`, `dispatch_in_candidates`, `valid_partitioned_schedule`. Keep constructive results separate from classical ones; classical lemmas belong in files like `SchedulingAlgorithmClassicalLemmas.v`.
+Use clear identifier names that reflect proof intent: `eligible`, `choose_in_candidates`, `valid_partitioned_schedule`. Keep constructive results separate from classical ones; classical lemmas belong in files like `SchedulingAlgorithmClassicalLemmas.v`.
 
 ## Testing Guidelines
 There is no separate test framework or coverage gate. Validate every change by compiling the edited file and any impacted dependents. For cross-cutting changes, run `make` before opening a PR.
@@ -29,7 +29,7 @@ There is no separate test framework or coverage gate. Validate every change by c
 When adding examples, keep them in dedicated `*Examples.v` files and name lemmas consistently with the property being demonstrated.
 
 ## Commit & Pull Request Guidelines
-Recent history favors short imperative subjects, often with a scope prefix, for example `refactor: replace ready with eligible in dispatch interface` or `phase 3: rewrite Partitioned.v to local-view dispatch`. Keep the first line specific and under control; explain proof strategy or refactor impact in the body when needed.
+Recent history favors short imperative subjects, often with a scope prefix, for example `refactor: replace ready with eligible in choose interface` or `phase 3: rewrite Partitioned.v to local-view choose`. Keep the first line specific and under control; explain proof strategy or refactor impact in the body when needed.
 
 Pull requests should summarize the theorem, model change, or refactor, list affected modules, and note the exact compile commands you ran. Include links to relevant `plan/` or `progress/` documents when the change follows an existing proof plan.
 

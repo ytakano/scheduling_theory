@@ -7,7 +7,7 @@ Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import UniPolicies.MetricChooser.
 Import ListNotations.
 
-(* Common lemmas for metric-based dispatchers (EDF, LLF, ...). *)
+(* Common lemmas for metric-based scheduling algorithms (EDF, LLF, ...). *)
 
 Lemma min_metric_job_ext :
   forall metric1 metric2 l,

@@ -11,7 +11,7 @@ Require Import SchedulingAlgorithmRefinement.
 Require Import UniPolicies.MetricChooser.
 Import ListNotations.
 
-(* ===== Phase 1: LLF Metric and Dispatch Function ===== *)
+(* ===== Phase 1: LLF Metric and Choose Function ===== *)
 
 (* The LLF metric: the laxity of job j at time t under schedule sched. *)
 Definition llf_metric
@@ -19,7 +19,7 @@ Definition llf_metric
     (j : JobId) : Z :=
   laxity jobs m sched j t.
 
-(* LLF dispatch function:
+(* LLF choose function:
    From candidates, filter to those that are eligible, then select
    the one with the minimum laxity. *)
 Definition choose_llf
@@ -153,7 +153,7 @@ Record LLFSchedulerSpec : Type := mkLLFSchedulerSpec {
   llf_generic :> GenericSchedulingAlgorithm ;
   llf_choose_min_laxity :
     forall jobs m sched t candidates j,
-      dispatch llf_generic jobs m sched t candidates = Some j ->
+      choose llf_generic jobs m sched t candidates = Some j ->
       forall j', In j' candidates ->
       eligible jobs m sched j' t ->
       (laxity jobs m sched j t <= laxity jobs m sched j' t)%Z ;

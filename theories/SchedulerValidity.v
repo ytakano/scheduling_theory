@@ -8,7 +8,7 @@ Import ListNotations.
 
 (* ===== 1. SchedulingAlgorithmSpec type ===== *)
 
-(* A dispatch policy relates the execution context (job map, CPU count,
+(* A choose policy relates the execution context (job map, CPU count,
    schedule-so-far, time, candidate list) to the selected job (or None).
    This single type covers EDF, FIFO, RR, fixed-priority, etc. *)
 Definition SchedulingAlgorithmSpec :=

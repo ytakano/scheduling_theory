@@ -8,9 +8,9 @@ obligations. The goal is to let a new policy reuse the normalization and
 optimality skeletons without re-proving the same inductive argument structure.
 
 The core idea is to express "canonical" schedules generically as schedules that
-match the policy dispatcher on a finite prefix. Policy files are then
+match the policy scheduling algorithm on a finite prefix. Policy files are then
 responsible only for exposing their own canonical predicates, proving that they
-coincide with the generic dispatcher-based predicates, and providing a local
+coincide with the generic scheduling algorithm-based predicates, and providing a local
 repair step for non-canonical time points.
 
 ## Architecture
@@ -18,14 +18,14 @@ repair step for non-canonical time points.
 The normalization design is split across four layers.
 
 1. `SchedulingAlgorithmCanonicalBridge.v`
-   Defines the generic dispatcher-matching predicates used as the canonical
+   Defines the generic scheduling algorithm-matching predicates used as the canonical
    notion in the shared infrastructure. This layer also contains the bridge
    from a finite canonical schedule with an idle tail to `scheduler_rel`.
 
 2. `SchedulingAlgorithmNormalization.v`
    Provides the reusable finite-horizon normalization proof. Its interface is
    the record `CanonicalRepairSpec` together with the hypothesis
-   `DispatchAgreesBefore`.
+   `ChooseAgreesBefore`.
 
 3. `SchedulingAlgorithmOptimalitySkeleton.v`
    Packages the end-to-end finite optimality pipeline: restrict a feasible
@@ -50,7 +50,7 @@ participate in generic normalization.
   horizon is canonical.
 - `canonical_at_def` and `canonical_before_def` are bridge lemmas: they connect
   the policy's preferred presentation to the generic predicates
-  `matches_dispatch_at_with` and `matches_dispatch_before`.
+  `matches_choose_at_with` and `matches_choose_before`.
 - `canonical_at_dec` keeps normalization constructive by allowing the proof to
   inspect whether repair is needed at each step.
 - `repair_non_canonical` is a local repair lemma. Given a schedule that is
@@ -65,10 +65,10 @@ current step without disturbing the past.
 ## Prefix Agreement Requirement
 
 Normalization rewrites schedules from left to right. Because of this, the
-generic proof also needs `DispatchAgreesBefore`.
+generic proof also needs `ChooseAgreesBefore`.
 
 This hypothesis says that if two schedules agree strictly before time `t`, then
-the dispatcher makes the same decision at `t` when run on those schedules with
+the scheduling algorithm makes the same decision at `t` when run on those schedules with
 their corresponding candidate lists. In practice this combines two facts:
 
 - the candidate source depends only on the prefix before `t`
@@ -89,7 +89,7 @@ stages.
 
 2. Normalization
    Apply the generic normalization result on the finite horizon of interest so
-   that the restricted witness becomes dispatcher-matching on that prefix.
+   that the restricted witness becomes scheduling algorithm-matching on that prefix.
 
 3. Truncation and Bridge
    Truncate the normalized schedule at the deadline horizon. Since all jobs in
@@ -105,17 +105,17 @@ interface.
 
 To add a new uniprocessor policy without duplicating the generic skeleton:
 
-1. Define the policy's dispatcher and candidate source in the usual policy
+1. Define the policy's scheduling algorithm and candidate source in the usual policy
    files.
 2. Introduce policy-facing predicates for one-step and finite-prefix
    canonicality.
 3. Prove equivalence between those predicates and the generic
-   dispatcher-matching predicates.
+   scheduling algorithm-matching predicates.
 4. Prove decidability of the one-step canonical predicate.
 5. Prove a local repair lemma that fixes one non-canonical time point while
    preserving validity, feasibility, J-only execution, single-CPU shape, and
    prefix agreement.
-6. Prove `DispatchAgreesBefore` for the policy.
+6. Prove `ChooseAgreesBefore` for the policy.
 7. Instantiate `normalize_to_canonical_generic` and then
    `finite_optimality_via_normalization` instead of rebuilding the induction
    manually.

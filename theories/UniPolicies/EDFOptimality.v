@@ -33,7 +33,7 @@ Lemma is_canonical_at_b_true_iff :
     matches_choose_edf_at_with jobs candidates_of sched t.
 Proof.
   intros candidates_of jobs sched t.
-  unfold is_canonical_at_b, matches_choose_edf_at_with, matches_dispatch_at_with.
+  unfold is_canonical_at_b, matches_choose_edf_at_with, matches_choose_at_with.
   simpl.
   destruct (sched t 0) as [j|] eqn:Es;
   destruct (choose_edf jobs 1 sched t (candidates_of jobs 1 sched t)) as [j'|] eqn:Ec.
@@ -77,7 +77,7 @@ Lemma repair_non_canonical_at :
 Proof.
   intros J J_bool candidates_of cand_spec jobs sched t
          HJbool Hvalid Hfeas HJonly Hcpu1 Hnot.
-  unfold matches_choose_edf_at_with, matches_dispatch_at_with in Hnot.
+  unfold matches_choose_edf_at_with, matches_choose_at_with in Hnot.
   simpl in Hnot.
   destruct (sched t 0) as [j|] eqn:Hst0.
   - destruct (choose_edf jobs 1 sched t (candidates_of jobs 1 sched t)) as [j'|] eqn:Hchoose.
@@ -127,7 +127,7 @@ Proof.
               exact (HJonly t'' j'' Hrun).
       * exact (swap_at_single_cpu_only sched t t' Hcpu1).
       * exact Hagree.
-      * unfold matches_choose_edf_at_with, matches_dispatch_at_with.
+      * unfold matches_choose_edf_at_with, matches_choose_at_with.
         simpl.
         rewrite swap_at_t1. rewrite Ht'_run.
         assert (Hagree_sym : agrees_before (swap_at sched t t') sched t)
@@ -180,7 +180,7 @@ Proof.
               exact (HJonly t'' j'' Hrun).
       * exact (swap_at_single_cpu_only sched t t' Hcpu1).
       * exact Hagree.
-      * unfold matches_choose_edf_at_with, matches_dispatch_at_with.
+      * unfold matches_choose_edf_at_with, matches_choose_at_with.
         simpl.
         rewrite swap_at_t1. rewrite Ht'_run.
         assert (Hagree_sym : agrees_before (swap_at sched t t') sched t)
@@ -191,7 +191,7 @@ Proof.
                    Hagree_sym).
         exact (eq_sym Hchoose).
     + exfalso. apply Hnot.
-      unfold matches_choose_edf_at_with, matches_dispatch_at_with. congruence.
+      unfold matches_choose_edf_at_with, matches_choose_at_with. congruence.
 Qed.
 
 (* === Canonicality decider === *)
@@ -214,10 +214,10 @@ Qed.
 (* EDF adapter into the generic canonical-repair interface.
 
    The actual EDF-specific reasoning lives elsewhere:
-   - the canonical predicate is the EDF dispatcher-match predicate,
+   - the canonical predicate is the EDF scheduling algorithm-match predicate,
    - the decider is [edf_canonical_at_dec],
    - the local repair lemma is [repair_non_canonical_at],
-   - prefix extensionality of the dispatcher is proved separately.
+   - prefix extensionality of the scheduling algorithm is proved separately.
 
    This record merely packages those ingredients for the generic
    normalization framework. *)
@@ -267,7 +267,7 @@ Proof.
       (sched := sched).
   - exact (EDFCanonicalRepairSpec J candidates_of cand_spec jobs).
   - intros s1 s2 t Hagree.
-    exact (edf_dispatch_agrees_before J candidates_of cand_spec jobs s1 s2 t Hagree).
+    exact (edf_choose_agrees_before J candidates_of cand_spec jobs s1 s2 t Hagree).
   - exact HJbool.
   - exact Hvalid.
   - exact Hfeas.
@@ -278,7 +278,7 @@ Qed.
 (* === Finite optimality wrapper === *)
 
 (* EDF-specific wrapper around the generic finite optimality theorem.
-   Once EDF provides finite-horizon normalization and dispatcher prefix
+   Once EDF provides finite-horizon normalization and scheduling algorithm prefix
    extensionality, the optimality result follows from the shared skeleton. *)
 Theorem edf_optimality_on_finite_jobs :
   forall J (J_bool : JobId -> bool) enumJ
@@ -304,6 +304,6 @@ Proof.
     exact (edf_normalize_to_canonical J J_bool candidates_of cand_spec jobs sched0 H
              HJbool Hvalid Hfeas HJonly Hcpu).
   - intros s1 s2 t Hagree.
-    exact (edf_dispatch_agrees_before J candidates_of cand_spec jobs s1 s2 t Hagree).
+    exact (edf_choose_agrees_before J candidates_of cand_spec jobs s1 s2 t Hagree).
   - exact Hfeas_on.
 Qed.

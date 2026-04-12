@@ -16,13 +16,13 @@ Import ListNotations.
 
    1. Restrict an arbitrary feasible witness schedule to the target finite job
       set and the single-CPU view.
-   2. Normalize that restricted schedule into one that matches the dispatcher
+   2. Normalize that restricted schedule into one that matches the scheduling algorithm choice
       on the relevant finite prefix.
    3. Truncate the normalized schedule at the deadline horizon and turn the
       resulting canonical schedule into a witness for [scheduler_rel].
 
    Policy-specific files are expected to instantiate only the normalization
-   interface and the dispatcher prefix-agreement lemma. *)
+   interface and the choose prefix-agreement lemma. *)
 
 (* Stage 1: extract a single-CPU witness schedule that only runs jobs from [J].
    This isolates the job set of interest before any canonicalization begins. *)
@@ -49,7 +49,7 @@ Proof.
 Qed.
 
 (* Stage 2: apply a policy-specific normalization result to obtain a schedule
-   that matches the dispatcher on the finite prefix of interest. *)
+   that matches the scheduling algorithm choice on the finite prefix of interest. *)
 Lemma finite_normalized_schedule :
   forall alg J candidates_of jobs sched1 H,
     (forall sched0 H0,
@@ -62,7 +62,7 @@ Lemma finite_normalized_schedule :
           feasible_schedule_on J jobs 1 sched' /\
           (forall t j, sched' t 0 = Some j -> J j) /\
           single_cpu_only sched' /\
-          matches_dispatch_before alg jobs candidates_of sched' H0) ->
+          matches_choose_before alg jobs candidates_of sched' H0) ->
     valid_schedule jobs 1 sched1 ->
     feasible_schedule_on J jobs 1 sched1 ->
     (forall t j, sched1 t 0 = Some j -> J j) ->
@@ -72,7 +72,7 @@ Lemma finite_normalized_schedule :
       feasible_schedule_on J jobs 1 sched2 /\
       (forall t j, sched2 t 0 = Some j -> J j) /\
       single_cpu_only sched2 /\
-      matches_dispatch_before alg jobs candidates_of sched2 H.
+      matches_choose_before alg jobs candidates_of sched2 H.
 Proof.
   intros alg J candidates_of jobs sched1 H Hnorm Hvalid1 Hfeas1 HJonly1 Hcpu1.
   exact (Hnorm sched1 H Hvalid1 Hfeas1 HJonly1 Hcpu1).
@@ -85,20 +85,20 @@ Lemma finite_truncated_schedule :
   forall alg J enumJ candidates_of
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs sched2,
-    DispatchAgreesBefore alg jobs candidates_of ->
+    ChooseAgreesBefore alg jobs candidates_of ->
     (forall j, J j -> In j enumJ) ->
     valid_schedule jobs 1 sched2 ->
     feasible_schedule_on J jobs 1 sched2 ->
     single_cpu_only sched2 ->
-    matches_dispatch_before alg jobs candidates_of sched2 (deadline_horizon jobs enumJ) ->
+    matches_choose_before alg jobs candidates_of sched2 (deadline_horizon jobs enumJ) ->
     exists sched3,
       valid_schedule jobs 1 sched3 /\
       feasible_schedule_on J jobs 1 sched3 /\
       single_cpu_only sched3 /\
-      matches_dispatch_before alg jobs candidates_of sched3 (deadline_horizon jobs enumJ) /\
+      matches_choose_before alg jobs candidates_of sched3 (deadline_horizon jobs enumJ) /\
       (forall t, deadline_horizon jobs enumJ <= t -> sched3 t 0 = None).
 Proof.
-  intros alg J enumJ candidates_of cand_spec jobs sched2 Hdispatch HJ_in
+  intros alg J enumJ candidates_of cand_spec jobs sched2 Hchoose_agree HJ_in
          Hvalid2 Hfeas2 Hcpu2 Hcanon2.
   exists (trunc_sched sched2 (deadline_horizon jobs enumJ)).
   refine (conj _ (conj _ (conj _ (conj _ _)))).
@@ -123,7 +123,7 @@ Lemma finite_canonical_schedule_yields_scheduler_rel :
     valid_schedule jobs 1 sched3 ->
     feasible_schedule_on J jobs 1 sched3 ->
     single_cpu_only sched3 ->
-    matches_dispatch_before alg jobs candidates_of sched3 (deadline_horizon jobs enumJ) ->
+    matches_choose_before alg jobs candidates_of sched3 (deadline_horizon jobs enumJ) ->
     (forall t, deadline_horizon jobs enumJ <= t -> sched3 t 0 = None) ->
     scheduler_rel (single_cpu_algorithm_schedule alg candidates_of) jobs 1 sched3.
 Proof.
@@ -137,7 +137,7 @@ Qed.
    The theorem itself is policy-agnostic. All policy-specific reasoning is
    pushed into:
    - a normalization theorem up to an arbitrary finite horizon, and
-   - a proof that the dispatcher depends only on the schedule prefix.
+   - a proof that the scheduling algorithm depends only on the schedule prefix.
 
    This is the final wrapper consumed by concrete policies such as EDF and LLF. *)
 Theorem finite_optimality_via_normalization :
@@ -157,8 +157,8 @@ Theorem finite_optimality_via_normalization :
           feasible_schedule_on J jobs 1 sched' /\
           (forall t j, sched' t 0 = Some j -> J j) /\
           single_cpu_only sched' /\
-          matches_dispatch_before alg jobs candidates_of sched' H) ->
-    DispatchAgreesBefore alg jobs candidates_of ->
+          matches_choose_before alg jobs candidates_of sched' H) ->
+    ChooseAgreesBefore alg jobs candidates_of ->
     feasible_on J jobs 1 ->
     schedulable_by_on
       J
@@ -166,14 +166,14 @@ Theorem finite_optimality_via_normalization :
       jobs 1.
 Proof.
   intros alg J J_bool enumJ candidates_of cand_spec jobs
-         HJbool HJ_in Hnorm Hdispatch Hfeas_on.
+         HJbool HJ_in Hnorm Hchoose_agree Hfeas_on.
   destruct (finite_J_restricted_schedule J J_bool jobs HJbool Hfeas_on)
     as [sched1 [Hvalid1 [Hfeas1 [HJonly1 Hcpu1]]]].
   destruct (finite_normalized_schedule alg J candidates_of jobs sched1
               (deadline_horizon jobs enumJ) Hnorm Hvalid1 Hfeas1 HJonly1 Hcpu1)
     as [sched2 [Hvalid2 [Hfeas2 [HJonly2 [Hcpu2 Hcanon2]]]]].
   destruct (finite_truncated_schedule alg J enumJ candidates_of cand_spec jobs sched2
-              Hdispatch HJ_in Hvalid2 Hfeas2 Hcpu2 Hcanon2)
+              Hchoose_agree HJ_in Hvalid2 Hfeas2 Hcpu2 Hcanon2)
     as [sched3 [Hvalid3 [Hfeas3 [Hcpu3 [Hcanon3 Hidle3]]]]].
   assert (Hrel :
             scheduler_rel (single_cpu_algorithm_schedule alg candidates_of) jobs 1 sched3).

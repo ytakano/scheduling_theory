@@ -29,18 +29,18 @@ Instance HasGenericSchedulingAlgorithm_GenericSchedulingAlgorithm
 (* ===== UniSchedulerBundle ===== *)
 
 (* UniSchedulerBundle: the minimal package needed to build a verified single-CPU
-   scheduler from a concrete dispatch function and an abstract policy.
+   scheduler from a concrete choose function and an abstract policy.
 
    The Spec type parameter lets callers carry a richer spec (e.g., EDFSchedulerSpec)
    in usb_spec while converting to GenericSchedulingAlgorithm via HasGenericSchedulingAlgorithm.
 
    Fields:
      usb_candidates     — how to generate the candidate job list at each time step
-     usb_spec           — concrete dispatch spec (of type Spec)
+     usb_spec           — concrete choose spec (of type Spec)
      usb_candidates_ok  — soundness/completeness/prefix-extensionality of candidates
-     usb_alg_spec         — abstract dispatch policy (SchedulingAlgorithmSpec)
+     usb_alg_spec         — abstract choose policy (SchedulingAlgorithmSpec)
      usb_alg_spec_sane    — minimum health conditions for the abstract policy
-     usb_algorithm_refines        — the concrete dispatcher refines the abstract policy
+     usb_algorithm_refines        — the concrete scheduling algorithm refines the abstract scheduling algorithm spec
 
    Design notes:
      - validity is NOT a field: derivable from usb_spec + usb_candidates_ok
