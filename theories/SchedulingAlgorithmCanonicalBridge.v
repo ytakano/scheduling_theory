@@ -73,6 +73,17 @@ Proof.
   apply Hcomplete. exact HJj.
 Qed.
 
+Lemma J_implies_deadline_le_horizon :
+  forall J enumJ jobs j,
+    (forall j, J j -> In j enumJ) ->
+    J j ->
+    job_abs_deadline (jobs j) <= deadline_horizon jobs enumJ.
+Proof.
+  intros J enumJ jobs j Hcomplete HJj.
+  pose proof (J_implies_deadline_lt_horizon J enumJ jobs j Hcomplete HJj) as Hlt.
+  lia.
+Qed.
+
 Lemma J_jobs_complete_at_or_after_deadline :
   forall J jobs sched j t,
     valid_schedule jobs 1 sched ->

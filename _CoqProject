@@ -6,6 +6,8 @@ theories/SchedulerInterface.v
 theories/SchedulingAlgorithmInterface.v
 theories/SchedulingAlgorithmSchedulerBridge.v
 theories/SchedulingAlgorithmCanonicalBridge.v
+theories/SchedulingAlgorithmNormalization.v
+theories/SchedulingAlgorithmOptimalitySkeleton.v
 theories/SchedulerValidity.v
 theories/SchedulingAlgorithmRefinement.v
 theories/SchedulingAlgorithmLemmas.v
@@ -39,4 +41,5 @@ theories/ScheduleLemmas/ScheduleFacts.v
 theories/ScheduleLemmas/SchedulePrefix.v
 theories/ScheduleLemmas/ScheduleRestriction.v
 theories/ScheduleLemmas/ScheduleTransform.v
+theories/ScheduleLemmas/ScheduleTruncation.v
 theories/PeriodicTasks.v
