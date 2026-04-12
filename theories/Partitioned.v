@@ -641,3 +641,27 @@ Proof.
   - exact Hvalid.
   - exact Hfeas.
 Qed.
+
+Lemma partitioned_schedulable_by_on_from_local_ctx :
+    forall (ctx : PartitionedAlgorithmContext)
+           (jobs : JobId -> Job)
+           (sched : Schedule),
+      valid_partitioned_schedule
+        ctx.(part_assign) ctx.(part_m) ctx.(part_spec) ctx.(part_candidates)
+        jobs sched ->
+      (forall c, c < ctx.(part_m) ->
+        feasible_schedule_on
+          (local_jobset ctx.(part_assign) ctx.(part_J) c)
+          jobs 1 (cpu_schedule sched c)) ->
+      schedulable_by_on
+        ctx.(part_J) (partitioned_scheduler_of ctx) jobs ctx.(part_m).
+Proof.
+  intros ctx jobs sched Hvps Hlocal.
+  unfold partitioned_scheduler_of.
+  eapply (partitioned_schedulable_by_on_from_local
+            ctx.(part_assign) ctx.(part_m) ctx.(part_valid_assign)
+            ctx.(part_spec) ctx.(part_J) ctx.(part_candidates)
+            ctx.(part_cand_spec) jobs sched).
+  - exact Hvps.
+  - exact Hlocal.
+Qed.

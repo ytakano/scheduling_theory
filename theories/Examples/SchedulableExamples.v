@@ -1,4 +1,4 @@
-From Stdlib Require Import Arith Arith.PeanoNat Lia List.
+From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 Require Import Base.
 Require Import ScheduleModel.
 Require Import ScheduleLemmas.ScheduleFacts.
@@ -244,6 +244,24 @@ Definition pair_jobs (j : JobId) : Job :=
   end.
 
 Definition J_pair (j : JobId) : Prop := j = 0 \/ j = 1.
+
+Definition J_pair_bool (j : JobId) : bool :=
+  Nat.eqb j 0 || Nat.eqb j 1.
+
+Lemma J_pair_bool_spec :
+    forall j,
+      J_pair_bool j = true <-> J_pair j.
+Proof.
+  intro j.
+  unfold J_pair_bool, J_pair.
+  split.
+  - intro Hj.
+    apply orb_prop in Hj.
+    destruct Hj as [Hj | Hj];
+      apply Nat.eqb_eq in Hj;
+      tauto.
+  - intros [-> | ->]; reflexivity.
+Qed.
 
 Definition assign_pair (j : JobId) : CPU :=
   if Nat.eqb j 0 then 0 else 1.
@@ -655,6 +673,28 @@ Proof.
     lia.
 Qed.
 
+Lemma pair_local0_edf_feasible :
+    feasible_on (local_jobset assign_pair J_pair 0) pair_jobs 1.
+Proof.
+  exists (pair_locals 0).
+  split.
+  - exact (single_cpu_algorithm_valid
+             edf_generic_spec (pair_cands 0) pair_jobs (pair_locals 0)
+             pair_local0_edf_rel).
+  - exact pair_local0_edf_feasible_on.
+Qed.
+
+Lemma pair_local1_edf_feasible :
+    feasible_on (local_jobset assign_pair J_pair 1) pair_jobs 1.
+Proof.
+  exists (pair_locals 1).
+  split.
+  - exact (single_cpu_algorithm_valid
+             edf_generic_spec (pair_cands 1) pair_jobs (pair_locals 1)
+             pair_local1_edf_rel).
+  - exact pair_local1_edf_feasible_on.
+Qed.
+
 Lemma pair_local0_edf_schedulable_by_on :
     schedulable_by_on
       (local_jobset assign_pair J_pair 0)
@@ -725,4 +765,22 @@ Proof.
   destruct Hc as [-> | ->].
   - exact pair_local0_edf_schedulable_by_on.
   - exact pair_local1_edf_schedulable_by_on.
+Qed.
+
+Theorem pair_partitioned_edf_schedulable_by_on_via_local_feasible :
+    schedulable_by_on
+      J_pair
+      (partitioned_edf_scheduler 2 pair_cands)
+      pair_jobs 2.
+Proof.
+  apply (partitioned_edf_schedulable_by_on_of_local_feasible
+           assign_pair 2 assign_pair_valid J_pair J_pair_bool [0; 1] pair_jobs).
+  - exact J_pair_bool_spec.
+  - exact enum_pair_complete.
+  - exact enum_pair_sound.
+  - intros c Hlt.
+    assert (Hc : c = 0 \/ c = 1) by lia.
+    destruct Hc as [-> | ->].
+    + exact pair_local0_edf_feasible.
+    + exact pair_local1_edf_feasible.
 Qed.
