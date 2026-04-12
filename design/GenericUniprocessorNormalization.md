@@ -32,7 +32,7 @@ The normalization design is split across four layers.
    witness, normalize it on the relevant horizon, truncate the tail, and
    convert the result into a scheduler witness.
 
-4. Policy files such as `UniPolicies/EDF*.v` and `UniPolicies/LLF*.v`
+4. Policy files such as `UniProcessor/Policies/EDF*.v` and `UniProcessor/Policies/LLF*.v`
    Supply the policy-specific canonical predicates, local repair proof, and the
    prefix-agreement fact needed by the normalization core.
 
