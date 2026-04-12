@@ -2502,48 +2502,13 @@
 
 ---
 
-### `repair_pushes_first_violation_forward`
-- **Type**: Lemma
-- **Statement**:
-  ```coq
-  Lemma repair_pushes_first_violation_forward :
-    forall J (candidates_of : CandidateSource)
-           (cand_spec : CandidateSourceSpec J candidates_of)
-           jobs sched sched' t0,
-      agrees_before sched sched' t0 ->
-      matches_choose_edf_at_with jobs candidates_of sched' t0 ->
-      (forall t, t < t0 -> ~ edf_violation_at_with J candidates_of jobs sched t) ->
-      forall t, t <= t0 -> ~ edf_violation_at_with J candidates_of jobs sched' t.
-  ```
-- **Proof Strategy**: Split on t < t0 vs t = t0. For t < t0: weaken agrees_before to time t, symmetrize, and transfer violation components (running slot, candidates, eligibility) from sched' back to sched; contradiction. For t = t0: matches_choose_edf_at_with_no_finite_violation.
-- **Key Tactics**: `assert (Hcases : t < t0 \/ t = t0) by lia`, `agrees_before_weaken`, `agrees_before_sym`, `rewrite (Hagree t 0 Hlt)` (forward direction), `candidates_of_agrees_before` with `<-`, `proj1 (agrees_before_eligible ...)`
-- **Dependencies**: `agrees_before_weaken`, `agrees_before_sym`, `candidates_of_agrees_before`, `agrees_before_eligible`, `matches_choose_edf_at_with_no_finite_violation`
-- **Notes**: ⚠️ When goal is `sched t 0 = Some j` and `Hagree : sched t 0 = sched' t 0`, use `rewrite (Hagree t 0 Hlt)` (NOT `rewrite <-`) to replace `sched t 0` with `sched' t 0`. Using `<-` causes "Found no subterm matching 'sched' t 0'" because the goal has `sched t 0`, not `sched' t 0`. ⚠️ Use `proj1 (agrees_before_eligible s1 s2 j t Hsym)` to go from `eligible s1 j t` → `eligible s2 j t` (proj1 = first direction of iff). `proj2` goes the other way.
-- **Date**: 2026-04-10
-
----
-
-### `edf_normalize_up_to`
-- **Type**: Lemma
-- **Statement**:
-  ```coq
-  Lemma edf_normalize_up_to :
-    forall J (J_bool : JobId -> bool) (candidates_of : CandidateSource)
-           (cand_spec : CandidateSourceSpec J candidates_of)
-           jobs sched H,
-      (forall x, J_bool x = true <-> J x) ->
-      valid_schedule jobs 1 sched ->
-      feasible_schedule_on J jobs 1 sched ->
-      exists sched',
-        valid_schedule jobs 1 sched' /\
-        feasible_schedule_on J jobs 1 sched' /\
-        (forall t, t < H -> ~ edf_violation_at_with J candidates_of jobs sched' t).
-  ```
-- **Proof Strategy**: Induction on H. Base H=0: trivial (sched itself, condition vacuous). Step H=S H': IH gives sched_ih with no violations before H'. Decide violation at H' using `edf_violationb_at_with` (bool, fully constructive). If false: sched_ih suffices, handle t=H' by converting bool false to Prop negation. If true: extract j from violation, apply `repair_first_violation` (t0=H', H=S H', `Nat.lt_succ_diag_r H'`), get sched_r; then `repair_pushes_first_violation_forward` gives no violation at t ≤ H'.
-- **Key Tactics**: `induction H as [| H' IH]`, `edf_violationb_at_with ... eqn:Hviol_b`, `edf_violationb_at_with_true_iff`, `Nat.lt_succ_diag_r`, `repair_first_violation`, `repair_pushes_first_violation_forward`, `assert (Hle : t <= H') by lia`
-- **Dependencies**: `edf_violationb_at_with_true_iff`, `repair_first_violation`, `repair_pushes_first_violation_forward`, `Nat.lt_succ_diag_r`
-- **Notes**: Conclusion is "no EDF violations before H" (not `matches_choose_edf_before`). The stronger `matches_choose_edf_before` would require handling equal-deadline tie-breaking which the current repair infrastructure (requiring strict deadline inequality) cannot handle. The "no violations" form is sufficient for the optimality argument in Phase 9/10. Fully constructive — violation check via bool decision avoids Classical.
-- **Date**: 2026-04-10
+### EDF canonicalization pipeline after generic refactor
+- **Current Status**: EDF no longer maintains a policy-specific finite-horizon normalization loop in `EDFTransform.v`.
+- **Local Repair Layer**: `repair_first_violation` and `repair_non_canonical_at` remain in `theories/UniPolicies/EDFTransform.v`.
+- **Generic Normalization Layer**: `DispatchAgreesBefore`, `repair_pushes_forward_generic`, and `normalize_to_canonical_generic` live in `theories/SchedulingAlgorithmNormalization.v`.
+- **EDF Instantiation Layer**: `EDFCanonicalRepairSpec`, `edf_normalize_to_canonical`, and `edf_optimality_on_finite_jobs` live in `theories/UniPolicies/EDFOptimality.v`.
+- **Notes**: The older EDF-only lemmas `repair_pushes_first_violation_forward` and `edf_normalize_up_to` were removed once the generic canonicalization skeleton became the supported path.
+- **Date**: 2026-04-12
 
 ---
 
