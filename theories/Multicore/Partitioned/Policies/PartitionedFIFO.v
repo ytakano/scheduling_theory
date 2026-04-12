@@ -7,6 +7,7 @@ From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
 From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From SchedulingTheory Require Import Multicore.Partitioned.Partitioned.
 From SchedulingTheory Require Import Multicore.Partitioned.PartitionedCompose.
+From SchedulingTheory Require Import Multicore.Partitioned.Policies.PartitionedPolicyLift.
 From SchedulingTheory Require Import Uniprocessor.Policies.FIFO.
 
 (** * Partitioned FIFO: thin wrapper over PartitionedCompose
@@ -47,15 +48,11 @@ Theorem local_fifo_witnesses_imply_partitioned_fifo_schedulable_by_on :
 Proof.
   intros assign m valid_assignment J cands cands_spec jobs locals Hlocals.
   unfold partitioned_fifo_scheduler.
-  apply (local_witnesses_imply_partitioned_schedulable_by_on
-           assign m valid_assignment fifo_generic_spec J cands cands_spec
-           jobs locals).
-  intros c Hlt.
-  destruct (Hlocals c Hlt) as [Hrel Hfeas].
-  split.
-  - unfold fifo_scheduler in Hrel.
-    exact Hrel.
-  - exact Hfeas.
+  eapply (local_policy_witnesses_imply_partitioned_schedulable_by_on
+            fifo_scheduler fifo_generic_spec
+            (fun cands0 => eq_refl)
+            assign m valid_assignment J cands cands_spec jobs locals).
+  exact Hlocals.
 Qed.
 
 Theorem local_fifo_schedulable_by_on_implies_partitioned_fifo_schedulable_by_on :
@@ -75,9 +72,9 @@ Theorem local_fifo_schedulable_by_on_implies_partitioned_fifo_schedulable_by_on 
 Proof.
   intros assign m valid_assignment J cands cands_spec jobs Hlocal.
   unfold partitioned_fifo_scheduler.
-  eapply (local_schedulable_by_on_implies_partitioned_schedulable_by_on
-            assign m valid_assignment fifo_generic_spec J cands cands_spec jobs).
-  intros c Hlt.
-  unfold fifo_scheduler.
-  exact (Hlocal c Hlt).
+  eapply (local_policy_schedulable_by_on_implies_partitioned_schedulable_by_on
+            fifo_scheduler fifo_generic_spec
+            (fun cands0 => eq_refl)
+            assign m valid_assignment J cands cands_spec jobs).
+  exact Hlocal.
 Qed.

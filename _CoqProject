@@ -13,6 +13,7 @@ theories/Foundation/Base.v
 theories/Multicore/Common/MultiCoreBase.v
 theories/Multicore/Partitioned/Partitioned.v
 theories/Multicore/Partitioned/PartitionedCompose.v
+theories/Multicore/Partitioned/Policies/PartitionedPolicyLift.v
 theories/Multicore/Partitioned/Policies/PartitionedEDF.v
 theories/Multicore/Partitioned/Policies/PartitionedFIFO.v
 theories/Multicore/Partitioned/Policies/PartitionedLLF.v

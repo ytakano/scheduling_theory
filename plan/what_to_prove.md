@@ -373,11 +373,24 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 
 証明済みとして扱うもの:
 
-- glued schedule の基本補題
+- `glue_cpu_schedule_eq_local`
+- `glue_other_cpus_idle_local_view`
+- `glue_respects_assignment`
+- `glue_valid_if_local_valid`
 - local witness schedules から global partitioned schedule を作る定理
 - local `schedulable_by_on` から partitioned `schedulable_by_on` への lifting
 
-## 5-2. partitioned policy wrappers
+## 5-2. partitioned service localization
+**Status: Done**
+
+証明済みとして扱うもの:
+
+- `service_partitioned_eq_local_service`
+- `completed_partitioned_iff_local_completed`
+- `eligible_local_implies_eligible_global_on_assigned_cpu`
+- `global_running_implies_running_on_assigned_cpu`
+
+## 5-3. partitioned policy wrappers
 **Status: Done at the wrapper level**
 
 証明済みとして扱うもの:
@@ -386,8 +399,9 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - partitioned FIFO
 - partitioned RR
 - partitioned LLF
+- `PartitionedPolicyLift.v` による wrapper theorem の共通化
 
-## 5-3. partitioned EDF from local feasibility
+## 5-4. partitioned EDF from local feasibility
 **Status: Done**
 
 証明済みとして扱うもの:
@@ -395,17 +409,11 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - local finite-job EDF feasibility から
   partitioned EDF `schedulable_by_on` を導く定理
 
-## 5-4. remaining work for partitioned
+## 5-5. remaining work for partitioned
 **Status: In progress**
 
 残作業:
 
-- theorem inventory を
-  - assignment respect
-  - local scheduler validity
-  - global valid partitioned schedule
-  - schedulability lifting
-  に分ける
 - EDF 以外の policy についても
   「local feasible から partitioned schedulable_by_on」
   までをどこまで揃えるか決める

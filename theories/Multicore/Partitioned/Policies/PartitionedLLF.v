@@ -6,6 +6,7 @@ From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
 From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From SchedulingTheory Require Import Multicore.Partitioned.Partitioned.
 From SchedulingTheory Require Import Multicore.Partitioned.PartitionedCompose.
+From SchedulingTheory Require Import Multicore.Partitioned.Policies.PartitionedPolicyLift.
 From SchedulingTheory Require Import Uniprocessor.Policies.LLF.
 From SchedulingTheory Require Import Uniprocessor.Policies.LLFOptimality.
 
@@ -49,15 +50,11 @@ Theorem local_llf_witnesses_imply_partitioned_llf_schedulable_by_on :
 Proof.
   intros assign m valid_assignment J cands cands_spec jobs locals Hlocals.
   unfold partitioned_llf_scheduler.
-  apply (local_witnesses_imply_partitioned_schedulable_by_on
-           assign m valid_assignment llf_generic_spec J cands cands_spec
-           jobs locals).
-  intros c Hlt.
-  destruct (Hlocals c Hlt) as [Hrel Hfeas].
-  split.
-  - unfold llf_scheduler in Hrel.
-    exact Hrel.
-  - exact Hfeas.
+  eapply (local_policy_witnesses_imply_partitioned_schedulable_by_on
+            llf_scheduler llf_generic_spec
+            (fun cands0 => eq_refl)
+            assign m valid_assignment J cands cands_spec jobs locals).
+  exact Hlocals.
 Qed.
 
 Theorem local_llf_schedulable_by_on_implies_partitioned_llf_schedulable_by_on :
@@ -77,11 +74,11 @@ Theorem local_llf_schedulable_by_on_implies_partitioned_llf_schedulable_by_on :
 Proof.
   intros assign m valid_assignment J cands cands_spec jobs Hlocal.
   unfold partitioned_llf_scheduler.
-  eapply (local_schedulable_by_on_implies_partitioned_schedulable_by_on
-            assign m valid_assignment llf_generic_spec J cands cands_spec jobs).
-  intros c Hlt.
-  unfold llf_scheduler.
-  exact (Hlocal c Hlt).
+  eapply (local_policy_schedulable_by_on_implies_partitioned_schedulable_by_on
+            llf_scheduler llf_generic_spec
+            (fun cands0 => eq_refl)
+            assign m valid_assignment J cands cands_spec jobs).
+  exact Hlocal.
 Qed.
 
 Definition local_jobset_bool

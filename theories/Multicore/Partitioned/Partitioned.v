@@ -119,6 +119,11 @@ Section PartitionedSection.
     raw_partitioned_schedule_on jobs sched /\
     respects_assignment sched.
 
+  Definition feasible_partitioned_schedule_on
+      (jobs : JobId -> Job) (sched : Schedule) : Prop :=
+    valid_partitioned_schedule jobs sched /\
+    feasible_schedule_on J jobs m sched.
+
   (* Introduction rule for [valid_partitioned_schedule]:
      requires both the raw choose equation and assignment respect. *)
   Lemma valid_partitioned_schedule_intro :
@@ -285,7 +290,7 @@ Section PartitionedSection.
   Qed.
 
   (* Theorem: service on any m CPUs = service on assigned CPU only. *)
-  Theorem service_decomposition :
+  Theorem service_partitioned_eq_local_service :
     forall sched,
       respects_assignment sched ->
       forall j t,
@@ -301,8 +306,18 @@ Section PartitionedSection.
       apply service_decomposition_step. exact Hresp.
   Qed.
 
+  Corollary service_decomposition :
+    forall sched,
+      respects_assignment sched ->
+      forall j t,
+        service_job m sched j t =
+          service_job 1 (cpu_schedule sched (assign j)) j t.
+  Proof.
+    exact service_partitioned_eq_local_service.
+  Qed.
+
   (* Corollary: completion on m CPUs iff completion on assigned CPU only. *)
-  Corollary completed_iff_on_assigned_cpu :
+  Corollary completed_partitioned_iff_local_completed :
     forall jobs sched,
       respects_assignment sched ->
       forall j t,
@@ -311,8 +326,54 @@ Section PartitionedSection.
   Proof.
     intros jobs sched Hresp j t.
     unfold completed.
-    rewrite service_decomposition by exact Hresp.
+    rewrite service_partitioned_eq_local_service by exact Hresp.
     tauto.
+  Qed.
+
+  Corollary completed_iff_on_assigned_cpu :
+    forall jobs sched,
+      respects_assignment sched ->
+      forall j t,
+        completed jobs m sched j t <->
+          completed jobs 1 (cpu_schedule sched (assign j)) j t.
+  Proof.
+    exact completed_partitioned_iff_local_completed.
+  Qed.
+
+  Lemma eligible_local_implies_eligible_global_on_assigned_cpu :
+    forall jobs sched j t,
+      respects_assignment sched ->
+      eligible jobs 1 (cpu_schedule sched (assign j)) j t ->
+      eligible jobs m sched j t.
+  Proof.
+    intros jobs sched j t Hresp [Hrel Hncomp_local].
+    unfold eligible.
+    split.
+    - exact Hrel.
+    - intro Hcomp.
+      pose proof (completed_partitioned_iff_local_completed jobs sched Hresp j t)
+        as Hiff.
+      apply Hncomp_local.
+      apply Hiff.
+      exact Hcomp.
+  Qed.
+
+  Lemma global_running_implies_running_on_assigned_cpu :
+    forall sched j t c,
+      respects_assignment sched ->
+      c < m ->
+      sched t c = Some j ->
+      c = assign j /\
+      cpu_schedule sched (assign j) t 0 = Some j.
+  Proof.
+    intros sched j t c Hresp Hlt Hrun.
+    pose proof (Hresp j t c Hlt Hrun) as Hassign.
+    split.
+    - symmetry. exact Hassign.
+    - unfold cpu_schedule.
+      rewrite Nat.eqb_refl.
+      rewrite Hassign.
+      exact Hrun.
   Qed.
 
   (* Theorem: any running job runs on its assigned CPU. *)
@@ -337,15 +398,12 @@ Section PartitionedSection.
     pose proof (valid_partitioned_schedule_respects_assignment jobs sched Hpart) as Hresp.
     pose proof (Hraw t c Hlt) as Heq.
     rewrite Hrun in Heq. symmetry in Heq.
-    pose proof (spec.(choose_eligible) jobs 1 (cpu_schedule sched c) t
-                  (local_candidates_of c jobs 1 (cpu_schedule sched c) t) j Heq) as Heloc.
-    unfold eligible in *.
-    destruct Heloc as [Hrel Hncomp_local].
-    split.
-    - exact Hrel.
-    - rewrite completed_iff_on_assigned_cpu by exact Hresp.
-      pose proof (Hresp j t c Hlt Hrun) as Hassign.
-      rewrite Hassign. exact Hncomp_local.
+    pose proof (Hresp j t c Hlt Hrun) as Hassign.
+    subst c.
+    pose proof (spec.(choose_eligible) jobs 1 (cpu_schedule sched (assign j)) t
+                  (local_candidates_of (assign j) jobs 1
+                     (cpu_schedule sched (assign j)) t) j Heq) as Heloc.
+    exact (eligible_local_implies_eligible_global_on_assigned_cpu jobs sched j t Hresp Heloc).
   Qed.
 
   (* ===== Deadline / Feasibility Lifting ===== *)
@@ -360,7 +418,7 @@ Section PartitionedSection.
   Proof.
     intros jobs sched j Hresp.
     unfold missed_deadline.
-    pose proof (completed_iff_on_assigned_cpu jobs sched Hresp j
+    pose proof (completed_partitioned_iff_local_completed jobs sched Hresp j
                   (job_abs_deadline (jobs j))) as Hiff.
     tauto.
   Qed.
@@ -409,6 +467,16 @@ Section PartitionedSection.
     - reflexivity.
   Qed.
 
+  Theorem glue_feasible_on_if_local_feasible_on :
+    forall jobs sched,
+      respects_assignment sched ->
+      (forall c, c < m ->
+        feasible_schedule_on (local_jobset c) jobs 1 (cpu_schedule sched c)) ->
+      feasible_schedule_on J jobs m sched.
+  Proof.
+    exact local_feasible_on_implies_global_feasible_on.
+  Qed.
+
   (* Combined (deprecated): use local_valid_feasible_on_implies_global instead. *)
   Corollary local_valid_feasible_implies_global :
     forall jobs sched,
@@ -439,9 +507,27 @@ Section PartitionedSection.
     pose proof (valid_partitioned_schedule_respects_assignment jobs sched Hpart) as Hresp.
     split.
     - apply partitioned_schedule_implies_valid_schedule. exact Hpart.
-    - apply local_feasible_on_implies_global_feasible_on.
+    - apply glue_feasible_on_if_local_feasible_on.
       + exact Hresp.
       + exact Hlocal.
+  Qed.
+
+  Corollary glue_valid_if_local_valid :
+    forall jobs sched,
+      valid_partitioned_schedule jobs sched ->
+      valid_schedule jobs m sched.
+  Proof.
+    exact partitioned_schedule_implies_valid_schedule.
+  Qed.
+
+  Corollary feasible_partitioned_schedule_on_intro :
+    forall jobs sched,
+      valid_partitioned_schedule jobs sched ->
+      feasible_schedule_on J jobs m sched ->
+      feasible_partitioned_schedule_on jobs sched.
+  Proof.
+    intros jobs sched Hvalid Hfeas.
+    split; assumption.
   Qed.
 
 End PartitionedSection.

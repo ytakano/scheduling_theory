@@ -2,11 +2,61 @@
 
 ## Status Overview
 - Overall: Complete
-- Complete Steps: 8/8
+- Complete Steps: 11/11
 - Unproven (`Admitted`): none
 - Failed/Abandoned Items: none
 
 ## Completed Steps
+
+### Step I — Stabilize theorem-layer naming
+
+Added public-facing theorem names that separate the partitioned layers more explicitly:
+
+```coq
+Definition feasible_partitioned_schedule_on :
+  ...
+
+Theorem service_partitioned_eq_local_service :
+  ...
+
+Corollary completed_partitioned_iff_local_completed :
+  ...
+
+Lemma eligible_local_implies_eligible_global_on_assigned_cpu :
+  ...
+
+Lemma global_running_implies_running_on_assigned_cpu :
+  ...
+```
+
+Kept compatibility names such as `service_decomposition` and
+`completed_iff_on_assigned_cpu` as thin aliases.
+
+### Step J — Promote glue-layer public lemmas
+
+`PartitionedCompose.v` now exposes the glue/composition API explicitly:
+
+- `glue_cpu_schedule_eq_local`
+- `glue_other_cpus_idle_local_view`
+- `glue_respects_assignment`
+- `glue_valid_if_local_valid`
+- `glue_feasible_on_if_local_feasible_on`
+
+This makes the local-witness -> global-witness proof pattern reusable without
+re-deriving helper equalities from internal names.
+
+### Step K — Factor policy wrapper lifting
+
+Added `theories/Multicore/Partitioned/Policies/PartitionedPolicyLift.v` with:
+
+```coq
+Theorem local_policy_witnesses_imply_partitioned_schedulable_by_on : ...
+Theorem local_policy_schedulable_by_on_implies_partitioned_schedulable_by_on : ...
+```
+
+Updated `PartitionedEDF.v`, `PartitionedFIFO.v`, `PartitionedRR.v`, and
+`PartitionedLLF.v` to instantiate these generic theorems instead of repeating
+the same lifting proof script in each file.
 
 ### Step A — Strengthen `valid_partitioned_schedule`
 

@@ -64,6 +64,15 @@ Proof.
     lia.
 Qed.
 
+Corollary glue_cpu_schedule_eq_local :
+    forall m (locals : CPU -> Schedule) c,
+      c < m ->
+      (forall t cpu', 0 < cpu' -> locals c t cpu' = None) ->
+      cpu_schedule (glue_local_schedules m locals) c = locals c.
+Proof.
+  exact cpu_schedule_glue_eq.
+Qed.
+
 (* ===== Helper: extract idle condition from scheduler_rel ===== *)
 
 (** Extract the "locals c is idle on virtual CPUs > 0" condition from a
@@ -76,6 +85,15 @@ Lemma scheduler_rel_single_cpu_idle :
 Proof.
   intros spec cands jobs sched t cpu' [_ Hsteps] Hlt.
   exact (proj2 (Hsteps t) cpu' Hlt).
+Qed.
+
+Corollary glue_other_cpus_idle_local_view :
+    forall spec cands jobs (sched : Schedule) t cpu',
+      scheduler_rel (single_cpu_algorithm_schedule spec cands) jobs 1 sched ->
+      0 < cpu' ->
+      sched t cpu' = None.
+Proof.
+  exact scheduler_rel_single_cpu_idle.
 Qed.
 
 (* ===== Helper: finite choice over CPUs < m ===== *)
@@ -126,6 +144,56 @@ Proof.
   - intros t cpu' Hcpu'.
     exact (scheduler_rel_single_cpu_idle spec (cands c) jobs (locals c) t cpu'
              Hrel Hcpu').
+Qed.
+
+Theorem glue_respects_assignment :
+    forall (assign : JobId -> CPU) (m : nat)
+           (valid_assignment : forall j, assign j < m)
+           (spec : GenericSchedulingAlgorithm)
+           (J : JobId -> Prop)
+           (cands : CPU -> CandidateSource)
+           (cands_spec : forall c, c < m ->
+             CandidateSourceSpec (local_jobset assign J c) (cands c))
+           jobs (locals : CPU -> Schedule),
+      (forall c, c < m ->
+        scheduler_rel
+          (single_cpu_algorithm_schedule spec (cands c))
+          jobs 1 (locals c)) ->
+      respects_assignment assign m
+        (glue_local_schedules m locals).
+Proof.
+  intros assign m valid_assignment spec J cands cands_spec jobs locals Hlocals.
+  eapply (partitioned_schedule_implies_respects_assignment
+            assign m spec J cands cands_spec jobs).
+  exact (glue_local_rels_imply_partitioned_schedule_on
+           m spec cands jobs locals Hlocals).
+Qed.
+
+Theorem glue_valid_if_local_valid :
+    forall (assign : JobId -> CPU) (m : nat)
+           (valid_assignment : forall j, assign j < m)
+           (spec : GenericSchedulingAlgorithm)
+           (J : JobId -> Prop)
+           (cands : CPU -> CandidateSource)
+           (cands_spec : forall c, c < m ->
+             CandidateSourceSpec (local_jobset assign J c) (cands c))
+           (jobs : JobId -> Job)
+           (locals : CPU -> Schedule),
+      (forall c, c < m ->
+        scheduler_rel
+          (single_cpu_algorithm_schedule spec (cands c))
+          jobs 1 (locals c)) ->
+      valid_partitioned_schedule assign m spec cands jobs
+        (glue_local_schedules m locals).
+Proof.
+  intros assign m valid_assignment spec J cands cands_spec jobs locals Hlocals.
+  apply (valid_partitioned_schedule_intro assign m spec cands jobs
+           (glue_local_schedules m locals)).
+  - exact (glue_local_rels_imply_partitioned_schedule_on
+             m spec cands jobs locals Hlocals).
+  - eapply (glue_respects_assignment
+              assign m valid_assignment spec J cands cands_spec jobs locals).
+    exact Hlocals.
 Qed.
 
 (* ===== Lemma: extract local witnesses from local schedulability ===== *)
@@ -214,6 +282,45 @@ Proof.
     + intros t cpu' Hcpu'.
       exact (scheduler_rel_single_cpu_idle spec (cands c) jobs (locals c) t cpu'
                Hrel Hcpu').
+Qed.
+
+Theorem glue_feasible_on_if_local_feasible_on :
+    forall (assign : JobId -> CPU) (m : nat)
+           (valid_assignment : forall j, assign j < m)
+           (spec : GenericSchedulingAlgorithm)
+           (J : JobId -> Prop)
+           (cands : CPU -> CandidateSource)
+           (cands_spec : forall c, c < m ->
+             CandidateSourceSpec (local_jobset assign J c) (cands c))
+           (jobs : JobId -> Job)
+           (locals : CPU -> Schedule),
+      (forall c, c < m ->
+        scheduler_rel
+          (single_cpu_algorithm_schedule spec (cands c))
+          jobs 1 (locals c) /\
+        feasible_schedule_on (local_jobset assign J c) jobs 1 (locals c)) ->
+      feasible_partitioned_schedule_on assign m spec J cands
+        jobs (glue_local_schedules m locals).
+Proof.
+  intros assign m valid_assignment spec J cands cands_spec jobs locals Hlocals.
+  split.
+  - eapply (glue_valid_if_local_valid
+              assign m valid_assignment spec J cands cands_spec jobs locals).
+    intros c Hlt.
+    exact (proj1 (Hlocals c Hlt)).
+  - eapply (Partitioned.glue_feasible_on_if_local_feasible_on
+              assign m valid_assignment J jobs (glue_local_schedules m locals)).
+    + eapply (glue_respects_assignment
+                assign m valid_assignment spec J cands cands_spec jobs locals).
+      intros c Hlt.
+      exact (proj1 (Hlocals c Hlt)).
+    + intros c Hlt.
+      pose proof (Hlocals c Hlt) as [Hrel Hfeas].
+      rewrite (glue_cpu_schedule_eq_local m locals c Hlt).
+      * exact Hfeas.
+      * intros t cpu' Hcpu'.
+        exact (glue_other_cpus_idle_local_view spec (cands c) jobs (locals c) t cpu'
+                 Hrel Hcpu').
 Qed.
 
 (* ===== Theorem: local schedulability implies partitioned schedulability ===== *)
