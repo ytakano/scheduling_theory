@@ -8,6 +8,7 @@ Require Import SchedulerInterface.
 Require Import SchedulingAlgorithmInterface.
 Require Import SchedulingAlgorithmSchedulerBridge.
 Require Import SchedulingAlgorithmCanonicalBridge.
+Require Import SchedulingAlgorithmNormalization.
 Import ListNotations.
 
 Lemma finite_J_restricted_schedule :
@@ -33,7 +34,7 @@ Proof.
 Qed.
 
 Lemma finite_normalized_schedule :
-  forall alg J (J_bool : JobId -> bool) candidates_of jobs sched1 H,
+  forall alg J candidates_of jobs sched1 H,
     (forall sched0 H0,
         valid_schedule jobs 1 sched0 ->
         feasible_schedule_on J jobs 1 sched0 ->
@@ -56,7 +57,7 @@ Lemma finite_normalized_schedule :
       single_cpu_only sched2 /\
       matches_dispatch_before alg jobs candidates_of sched2 H.
 Proof.
-  intros alg J J_bool candidates_of jobs sched1 H Hnorm Hvalid1 Hfeas1 HJonly1 Hcpu1.
+  intros alg J candidates_of jobs sched1 H Hnorm Hvalid1 Hfeas1 HJonly1 Hcpu1.
   exact (Hnorm sched1 H Hvalid1 Hfeas1 HJonly1 Hcpu1).
 Qed.
 
@@ -64,10 +65,7 @@ Lemma finite_truncated_schedule :
   forall alg J enumJ candidates_of
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs sched2,
-    (forall s1 s2 t,
-        agrees_before s1 s2 t ->
-        dispatch alg jobs 1 s1 t (candidates_of jobs 1 s1 t) =
-        dispatch alg jobs 1 s2 t (candidates_of jobs 1 s2 t)) ->
+    DispatchAgreesBefore alg jobs candidates_of ->
     (forall j, J j -> In j enumJ) ->
     valid_schedule jobs 1 sched2 ->
     feasible_schedule_on J jobs 1 sched2 ->
@@ -111,6 +109,13 @@ Proof.
   eapply canonical_and_idle_implies_scheduler_rel_generic; eauto.
 Qed.
 
+(* The finite optimality skeleton depends on four reusable ingredients:
+   - a feasible witness restricted to the designated job set
+   - a normalization routine that produces a canonical prefix
+   - DispatchAgreesBefore, combining candidate prefix extensionality with the
+     policy-specific chooser invariance
+   - truncation to the finite deadline horizon followed by the generic bridge
+     from canonical schedules to scheduler_rel *)
 Theorem finite_optimality_via_normalization :
   forall alg J (J_bool : JobId -> bool) enumJ
          (candidates_of : CandidateSource)
@@ -129,10 +134,7 @@ Theorem finite_optimality_via_normalization :
           (forall t j, sched' t 0 = Some j -> J j) /\
           single_cpu_only sched' /\
           matches_dispatch_before alg jobs candidates_of sched' H) ->
-    (forall s1 s2 t,
-        agrees_before s1 s2 t ->
-        dispatch alg jobs 1 s1 t (candidates_of jobs 1 s1 t) =
-        dispatch alg jobs 1 s2 t (candidates_of jobs 1 s2 t)) ->
+    DispatchAgreesBefore alg jobs candidates_of ->
     feasible_on J jobs 1 ->
     schedulable_by_on
       J
@@ -143,7 +145,7 @@ Proof.
          HJbool HJ_in Hnorm Hdispatch Hfeas_on.
   destruct (finite_J_restricted_schedule J J_bool jobs HJbool Hfeas_on)
     as [sched1 [Hvalid1 [Hfeas1 [HJonly1 Hcpu1]]]].
-  destruct (finite_normalized_schedule alg J J_bool candidates_of jobs sched1
+  destruct (finite_normalized_schedule alg J candidates_of jobs sched1
               (deadline_horizon jobs enumJ) Hnorm Hvalid1 Hfeas1 HJonly1 Hcpu1)
     as [sched2 [Hvalid2 [Hfeas2 [HJonly2 [Hcpu2 Hcanon2]]]]].
   destruct (finite_truncated_schedule alg J enumJ candidates_of cand_spec jobs sched2

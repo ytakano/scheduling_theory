@@ -1,5 +1,25 @@
 # Proof Knowledge Base
 
+## Adding a Canonicalized Single-CPU Policy
+
+- Required policy obligations:
+  - `x_generic_spec : GenericSchedulingAlgorithm`
+  - a canonical-at predicate or alias such as `matches_choose_x_at_with`
+  - a constructive canonical decider
+  - a local repair lemma that fixes one non-canonical step while preserving validity, feasibility, J-only execution, and prefix agreement
+  - a `DispatchAgreesBefore` proof for the policy
+  - an `XCanonicalRepairSpec` instance
+  - a final instantiation of `finite_optimality_via_normalization`
+- Shared infrastructure now supplies:
+  - the normalization induction
+  - the generic push-forward lemma
+  - finite-horizon truncation
+  - `canonical + tail idle -> scheduler_rel`
+- New policies do not need:
+  - a custom push-forward lemma
+  - a custom scheduler-rel bridge wrapper
+  - a custom normalization skeleton
+
 ## Lemmas and Theorems
 
 ### `glue_local_schedules`
