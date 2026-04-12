@@ -132,13 +132,14 @@ Proof.
   eapply canonical_and_idle_implies_scheduler_rel_generic; eauto.
 Qed.
 
-(* The finite optimality skeleton depends on four reusable ingredients:
-   - a feasible witness restricted to the designated job set
-   - a normalization routine that produces a canonical prefix
-   - DispatchAgreesBefore, combining candidate prefix extensionality with the
-     policy-specific chooser invariance
-   - truncation to the finite deadline horizon followed by the generic bridge
-     from canonical schedules to scheduler_rel *)
+(* Generic finite optimality theorem.
+
+   The theorem itself is policy-agnostic. All policy-specific reasoning is
+   pushed into:
+   - a normalization theorem up to an arbitrary finite horizon, and
+   - a proof that the dispatcher depends only on the schedule prefix.
+
+   This is the final wrapper consumed by concrete policies such as EDF and LLF. *)
 Theorem finite_optimality_via_normalization :
   forall alg J (J_bool : JobId -> bool) enumJ
          (candidates_of : CandidateSource)

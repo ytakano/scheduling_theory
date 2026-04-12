@@ -90,6 +90,15 @@ EDF/LLF のために作った仕組みを「個別定理の集合」ではなく
 - 残作業が「設計探索」ではなく
   「新 policy への適用」「コメント保守」「追加補題の整備」として整理されている
 
+Current status:
+
+- The generic canonicalization core already exists.
+- EDF and LLF both instantiate that core successfully.
+- The remaining work is not to invent a new abstraction, but to stabilize the
+  boundary between generic and policy-specific obligations.
+- In particular, `CanonicalRepairSpec` and `DispatchAgreesBefore` should become
+  the documented template for adding future uniprocessor policies.
+
 ### A-2. metric-based chooser 理論の整理
 
 対象:
@@ -111,6 +120,12 @@ EDF/LLF のために作った仕組みを「個別定理の集合」ではなく
 
 - EDF と LLF を「metric-based policy の 2 例」として説明できる
 - 今後 LST や別の dynamic metric policy を追加しやすい
+
+Current status:
+
+- Much of the practical groundwork is already present through EDF and LLF.
+- The remaining task is mainly conceptual cleanup and interface-level
+  documentation, rather than a missing implementation core.
 
 ### A-3. 単一CPUの定理一覧を整理する
 
@@ -158,6 +173,12 @@ Design Principles の方針とも整合的である。
 完了条件:
 
 - 各 CPU 上の uniprocessor reasoning を global partitioned schedule に持ち上げる標準補題群がある
+
+Current status:
+
+- The basic partitioned construction and policy wrappers already exist.
+- The remaining work is to turn the current construction into a stable theorem
+  layer for lifting uniprocessor reasoning to the partitioned multicore level.
 
 ### B-2. partitioned policy lifting を共通化する
 

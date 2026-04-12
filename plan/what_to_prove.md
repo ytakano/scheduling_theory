@@ -190,6 +190,14 @@ generic normalization や finite optimality はここではなく、
 * deadline 最小の ready job を選ぶ
 * tie-break 一貫性
 
+For EDF, it is also useful to track the canonicalization pipeline explicitly:
+
+* a canonical-at predicate tied to dispatcher agreement
+* a constructive decider for canonicality
+* a one-step local repair lemma
+* a finite-horizon normalization theorem
+* a finite optimality theorem obtained from the shared skeleton
+
 ## 3-5. LLF / LST
 
 * laxity 最小の ready job を選ぶ
@@ -197,10 +205,33 @@ generic normalization や finite optimality はここではなく、
 * 0-laxity job があるときの選択性質
 * 実行状態に依存する key を使っても chooser が健全
 
+For LLF/LST, the same layered structure is important, but slightly more subtle
+because the metric depends on the current schedule state:
+
+* a schedule-dependent canonical-at predicate
+* a constructive canonicality decider
+* a local repair lemma for one non-canonical time point
+* a finite-horizon normalization theorem
+* a finite optimality theorem via the shared normalization skeleton
+
 ### 難易度
 
 **中**です。
 EDF よりも LLF/LST の方が、metric が state-dependent な分だけ少し重いです。
+
+---
+
+A useful way to organize uniprocessor policy results is the following
+five-layer structure:
+
+1. policy definition / chooser
+2. local chooser properties
+3. local repair
+4. finite-horizon normalization
+5. finite optimality
+
+This structure matches the current EDF and LLF development and should be used
+as the standard template for future uniprocessor policies.
 
 ---
 

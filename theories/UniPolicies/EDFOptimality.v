@@ -194,6 +194,10 @@ Proof.
       unfold matches_choose_edf_at_with, matches_dispatch_at_with. congruence.
 Qed.
 
+(* === Canonicality decider === *)
+
+(* Policy-specific decidability of canonicality at one time point.
+   This is the EDF instance of the generic [canonical_at_dec] obligation. *)
 Lemma edf_canonical_at_dec :
   forall candidates_of jobs sched t,
     {matches_choose_edf_at_with jobs candidates_of sched t} +
@@ -205,6 +209,18 @@ Proof.
   - right. apply (is_canonical_at_b_false_iff candidates_of jobs sched t). exact Hb.
 Qed.
 
+(* === Packaging EDF into the generic repair interface === *)
+
+(* EDF adapter into the generic canonical-repair interface.
+
+   The actual EDF-specific reasoning lives elsewhere:
+   - the canonical predicate is the EDF dispatcher-match predicate,
+   - the decider is [edf_canonical_at_dec],
+   - the local repair lemma is [repair_non_canonical_at],
+   - prefix extensionality of the dispatcher is proved separately.
+
+   This record merely packages those ingredients for the generic
+   normalization framework. *)
 Definition EDFCanonicalRepairSpec
     (J : JobId -> Prop)
     (candidates_of : CandidateSource)
@@ -223,6 +239,11 @@ Definition EDFCanonicalRepairSpec
   |}).
 Defined.
 
+(* === Normalization wrapper === *)
+
+(* EDF-specific wrapper around the generic normalization theorem.
+   No new normalization logic is introduced here; we simply instantiate the
+   generic framework with EDF's repair spec and prefix-agreement lemma. *)
 Lemma edf_normalize_to_canonical :
   forall J (J_bool : JobId -> bool) (candidates_of : CandidateSource)
          (cand_spec : CandidateSourceSpec J candidates_of)
@@ -254,6 +275,11 @@ Proof.
   - exact Hcpu.
 Qed.
 
+(* === Finite optimality wrapper === *)
+
+(* EDF-specific wrapper around the generic finite optimality theorem.
+   Once EDF provides finite-horizon normalization and dispatcher prefix
+   extensionality, the optimality result follows from the shared skeleton. *)
 Theorem edf_optimality_on_finite_jobs :
   forall J (J_bool : JobId -> bool) enumJ
          (candidates_of : CandidateSource)

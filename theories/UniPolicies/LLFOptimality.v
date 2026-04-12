@@ -17,6 +17,10 @@ Require Import UniPolicies.LLFLemmas.
 Require Import UniPolicies.LLFTransform.
 Import ListNotations.
 
+(* === Canonicality decider === *)
+
+(* Policy-specific decidability of canonicality at one time point.
+   This is the LLF instance of the generic [canonical_at_dec] obligation. *)
 Lemma llf_canonical_at_dec :
   forall candidates_of jobs sched t,
     {matches_choose_llf_at_with jobs candidates_of sched t} +
@@ -28,6 +32,18 @@ Proof.
   - right. apply (is_llf_canonical_at_b_false_iff candidates_of jobs sched t). exact Hb.
 Qed.
 
+(* === Packaging LLF into the generic repair interface === *)
+
+(* LLF adapter into the generic canonical-repair interface.
+
+   The actual LLF-specific ingredients are provided separately:
+   - the LLF canonical predicate,
+   - its constructive decider,
+   - the local one-step repair lemma,
+   - and the dispatcher prefix-agreement proof.
+
+   This definition only packages those ingredients for reuse by the generic
+   normalization theorem. *)
 Definition LLFCanonicalRepairSpec
     (J : JobId -> Prop)
     (candidates_of : CandidateSource)
@@ -46,6 +62,11 @@ Definition LLFCanonicalRepairSpec
   |}).
 Defined.
 
+(* === Normalization wrapper === *)
+
+(* LLF-specific wrapper around the generic normalization theorem.
+   The normalization procedure itself is shared with EDF and other policies;
+   only the packaged LLF obligations differ. *)
 Lemma llf_normalize_to_canonical :
   forall J (J_bool : JobId -> bool) (candidates_of : CandidateSource)
          (cand_spec : CandidateSourceSpec J candidates_of)
@@ -77,6 +98,12 @@ Proof.
   - exact Hcpu.
 Qed.
 
+(* === Finite optimality wrapper === *)
+
+(* LLF-specific wrapper around the generic finite optimality theorem.
+   After instantiating the common normalization-and-truncation pipeline with
+   LLF's local obligations, the finite optimality statement is inherited from
+   the generic skeleton. *)
 Theorem llf_optimality_on_finite_jobs :
   forall J (J_bool : JobId -> bool) enumJ
          (candidates_of : CandidateSource)
