@@ -25,7 +25,6 @@ theories/Semantics/ScheduleLemmas/SchedulePrefix.v
 theories/Semantics/ScheduleLemmas/ScheduleRestriction.v
 theories/Semantics/ScheduleLemmas/ScheduleTransform.v
 theories/Semantics/ScheduleLemmas/ScheduleTruncation.v
-theories/Semantics/SchedulingConcepts.v
 theories/TaskModels/Periodic/PeriodicTasks.v
 theories/Uniprocessor/Core/UniSchedulerInterface.v
 theories/Uniprocessor/Core/UniSchedulerLemmas.v
