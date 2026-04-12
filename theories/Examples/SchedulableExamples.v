@@ -655,6 +655,42 @@ Proof.
     lia.
 Qed.
 
+Lemma pair_local0_edf_schedulable_by_on :
+    schedulable_by_on
+      (local_jobset assign_pair J_pair 0)
+      (edf_scheduler (pair_cands 0))
+      pair_jobs 1.
+Proof.
+  eapply (single_cpu_algorithm_schedulable_by_on_intro
+            (local_jobset assign_pair J_pair 0)
+            edf_generic_spec
+            (pair_cands 0)
+            (pair_cands_spec 0 (Nat.lt_0_succ 1))
+            pair_jobs
+            (pair_locals 0)).
+  - unfold edf_scheduler.
+    exact pair_local0_edf_rel.
+  - exact pair_local0_edf_feasible_on.
+Qed.
+
+Lemma pair_local1_edf_schedulable_by_on :
+    schedulable_by_on
+      (local_jobset assign_pair J_pair 1)
+      (edf_scheduler (pair_cands 1))
+      pair_jobs 1.
+Proof.
+  eapply (single_cpu_algorithm_schedulable_by_on_intro
+            (local_jobset assign_pair J_pair 1)
+            edf_generic_spec
+            (pair_cands 1)
+            (pair_cands_spec 1 (Nat.lt_succ_diag_r 1))
+            pair_jobs
+            (pair_locals 1)).
+  - unfold edf_scheduler.
+    exact pair_local1_edf_rel.
+  - exact pair_local1_edf_feasible_on.
+Qed.
+
 Theorem pair_partitioned_edf_schedulable_by_on :
     schedulable_by_on
       J_pair
@@ -673,4 +709,20 @@ Proof.
   - split.
     + exact pair_local1_edf_rel.
     + exact pair_local1_edf_feasible_on.
+Qed.
+
+Theorem pair_partitioned_edf_schedulable_by_on_via_local_schedulable :
+    schedulable_by_on
+      J_pair
+      (partitioned_edf_scheduler 2 pair_cands)
+      pair_jobs 2.
+Proof.
+  apply (local_edf_schedulable_by_on_implies_partitioned_edf_schedulable_by_on
+           assign_pair 2 assign_pair_valid J_pair pair_cands pair_cands_spec
+           pair_jobs).
+  intros c Hlt.
+  assert (Hc : c = 0 \/ c = 1) by lia.
+  destruct Hc as [-> | ->].
+  - exact pair_local0_edf_schedulable_by_on.
+  - exact pair_local1_edf_schedulable_by_on.
 Qed.
