@@ -1,4 +1,4 @@
--R theories SchedulingTheory
+-R theories RocqSched
 theories/Abstractions/Scheduler/Interface.v
 theories/Abstractions/Scheduler/Validity.v
 theories/Abstractions/SchedulingAlgorithm/ClassicalLemmas.v

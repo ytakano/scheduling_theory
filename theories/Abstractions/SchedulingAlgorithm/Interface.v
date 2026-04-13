@@ -1,6 +1,6 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
 Import ListNotations.
 
 (* Generic scheduling algorithm interface for a single-CPU scheduler.

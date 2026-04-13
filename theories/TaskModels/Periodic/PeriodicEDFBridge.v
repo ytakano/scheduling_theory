@@ -1,15 +1,15 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
-From SchedulingTheory Require Import Uniprocessor.Policies.EDF.
-From SchedulingTheory Require Import Uniprocessor.Policies.EDFOptimality.
-From SchedulingTheory Require Import TaskModels.Periodic.PeriodicTasks.
-From SchedulingTheory Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
-From SchedulingTheory Require Import TaskModels.Periodic.PeriodicEnumeration.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
+From RocqSched Require Import Uniprocessor.Policies.EDF.
+From RocqSched Require Import Uniprocessor.Policies.EDFOptimality.
+From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
 Import ListNotations.
 
 Theorem periodic_edf_optimality_on_finite_horizon :

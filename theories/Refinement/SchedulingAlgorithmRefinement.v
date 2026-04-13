@@ -1,11 +1,11 @@
 (* Fully constructive: no Classical import. *)
 From Stdlib Require Import List Arith Arith.PeanoNat.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
-From SchedulingTheory Require Import Abstractions.Scheduler.Validity.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Abstractions.Scheduler.Validity.
 Import ListNotations.
 
 (* ===== 1. Scheduling Algorithm Refinement ===== *)

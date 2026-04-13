@@ -1,6 +1,6 @@
 From Stdlib Require Import Arith Arith.PeanoNat List Bool.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Multicore.Partitioned.Partitioned.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Multicore.Partitioned.Partitioned.
 
 (* Fully constructive: no Classical import. *)
 

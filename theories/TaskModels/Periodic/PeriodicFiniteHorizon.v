@@ -1,6 +1,6 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 
 Definition periodic_jobset_upto
     (T : TaskId -> Prop)

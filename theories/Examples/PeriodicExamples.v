@@ -1,13 +1,13 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
-From SchedulingTheory Require Import Uniprocessor.Policies.EDF.
-From SchedulingTheory Require Import TaskModels.Periodic.PeriodicTasks.
-From SchedulingTheory Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
-From SchedulingTheory Require Import TaskModels.Periodic.PeriodicEDFBridge.
-From SchedulingTheory Require Import TaskModels.Periodic.PeriodicEnumeration.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
+From RocqSched Require Import Uniprocessor.Policies.EDF.
+From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFBridge.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
 Import ListNotations.
 
 Definition task0_ex : Task := mkTask 1 2 2.

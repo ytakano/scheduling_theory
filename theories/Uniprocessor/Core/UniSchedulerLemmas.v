@@ -1,13 +1,13 @@
 (* Fully constructive: no Classical import. *)
 From Stdlib Require Import List Arith Arith.PeanoNat.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
-From SchedulingTheory Require Import Abstractions.Scheduler.Validity.
-From SchedulingTheory Require Import Refinement.SchedulingAlgorithmRefinement.
-From SchedulingTheory Require Import Uniprocessor.Core.UniSchedulerInterface.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Abstractions.Scheduler.Validity.
+From RocqSched Require Import Refinement.SchedulingAlgorithmRefinement.
+From RocqSched Require Import Uniprocessor.Core.UniSchedulerInterface.
 Import ListNotations.
 
 (* ===== 1. Derive schedulers from a UniSchedulerBundle ===== *)

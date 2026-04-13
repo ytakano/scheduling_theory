@@ -1,6 +1,6 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
 
 (* Abstract scheduler: a relation between a job set, CPU count, and schedule.
    scheduler_rel alg jobs m sched holds when sched is a valid execution of alg. *)

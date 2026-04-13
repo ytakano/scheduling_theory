@@ -1,5 +1,5 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia Bool ZArith.
-From SchedulingTheory Require Import Foundation.Base.
+From RocqSched Require Import Foundation.Base.
 (* Note: Base.pre_release (t < release_time, schedule-independent) is now in scope.
    Schedule.eligible (released AND NOT completed) is the choose condition for
    valid_schedule; running jobs satisfy eligible but NOT ready.

@@ -21,16 +21,16 @@ make clean
 Representative single-file compilation order:
 
 ```bash
-rocq compile -R theories SchedulingTheory theories/Foundation/Base.v
-rocq compile -R theories SchedulingTheory theories/Semantics/Schedule.v
-rocq compile -R theories SchedulingTheory theories/Abstractions/Scheduler/Interface.v
-rocq compile -R theories SchedulingTheory theories/Abstractions/SchedulingAlgorithm/Interface.v
-rocq compile -R theories SchedulingTheory theories/Abstractions/SchedulingAlgorithm/SchedulerBridge.v
-rocq compile -R theories SchedulingTheory theories/Uniprocessor/Policies/EDF.v
-rocq compile -R theories SchedulingTheory theories/Uniprocessor/Policies/FIFO.v
-rocq compile -R theories SchedulingTheory theories/Multicore/Partitioned/Partitioned.v
-rocq compile -R theories SchedulingTheory theories/Examples/SchedulableExamples.v
-rocq compile -R theories SchedulingTheory theories/Examples/FeasibleExamples.v
+rocq compile -R theories RocqSched theories/Foundation/Base.v
+rocq compile -R theories RocqSched theories/Semantics/Schedule.v
+rocq compile -R theories RocqSched theories/Abstractions/Scheduler/Interface.v
+rocq compile -R theories RocqSched theories/Abstractions/SchedulingAlgorithm/Interface.v
+rocq compile -R theories RocqSched theories/Abstractions/SchedulingAlgorithm/SchedulerBridge.v
+rocq compile -R theories RocqSched theories/Uniprocessor/Policies/EDF.v
+rocq compile -R theories RocqSched theories/Uniprocessor/Policies/FIFO.v
+rocq compile -R theories RocqSched theories/Multicore/Partitioned/Partitioned.v
+rocq compile -R theories RocqSched theories/Examples/SchedulableExamples.v
+rocq compile -R theories RocqSched theories/Examples/FeasibleExamples.v
 ```
 
 ## Module Architecture

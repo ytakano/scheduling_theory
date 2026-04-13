@@ -1,6 +1,6 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
 Import ListNotations.
 
 

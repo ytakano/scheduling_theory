@@ -1,10 +1,10 @@
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
-From SchedulingTheory Require Import Multicore.Partitioned.Partitioned.
-From SchedulingTheory Require Import Multicore.Partitioned.PartitionedCompose.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Multicore.Partitioned.Partitioned.
+From RocqSched Require Import Multicore.Partitioned.PartitionedCompose.
 
 (* Fully constructive: no Classical import. *)
 

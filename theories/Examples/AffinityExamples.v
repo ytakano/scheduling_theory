@@ -17,10 +17,10 @@
 *)
 
 From Stdlib Require Import Arith Arith.PeanoNat.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
-From SchedulingTheory Require Import Multicore.Common.Admissibility.
-From SchedulingTheory Require Import Multicore.Common.AffinityFacts.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Multicore.Common.Admissibility.
+From RocqSched Require Import Multicore.Common.AffinityFacts.
 
 (* ===== H-1. 2-CPU affinity example ===== *)
 

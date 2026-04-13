@@ -1,17 +1,17 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleFacts.
-From SchedulingTheory Require Import Semantics.ScheduleLemmas.SchedulePrefix.
-From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleTransform.
-From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleRestriction.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
-From SchedulingTheory Require Import Uniprocessor.Generic.SchedulingAlgorithmCanonicalBridge.
-From SchedulingTheory Require Import Uniprocessor.Policies.Common.MetricChooserLemmas.
-From SchedulingTheory Require Import Uniprocessor.Policies.LLF.
-From SchedulingTheory Require Import Uniprocessor.Policies.LLFLemmas.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Semantics.ScheduleLemmas.SchedulePrefix.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleTransform.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleRestriction.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Uniprocessor.Generic.SchedulingAlgorithmCanonicalBridge.
+From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooserLemmas.
+From RocqSched Require Import Uniprocessor.Policies.LLF.
+From RocqSched Require Import Uniprocessor.Policies.LLFLemmas.
 Import ListNotations.
 
 Lemma sequential_jobs_single_cpu :

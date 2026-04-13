@@ -14,8 +14,8 @@
 *)
 
 From Stdlib Require Import List Arith Lia.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
 Import ListNotations.
 
 Record GenericTopMSchedulingAlgorithm : Type :=

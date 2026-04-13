@@ -38,7 +38,12 @@
       "Bash(echo \"EXIT: $?\")",
       "Bash(make)",
       "Bash(make clean:*)",
-      "Bash(echo \"exit:$?\")"
+      "Bash(echo \"exit:$?\")",
+      "Bash(cat)",
+      "Bash(chmod +x /tmp/extract_lemmas.sh)",
+      "Bash(/tmp/extract_lemmas.sh)",
+      "Bash(grep \"\\\\.v$\")",
+      "Bash(make -j4)"
     ]
   },
   "deny": [

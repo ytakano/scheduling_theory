@@ -16,9 +16,9 @@
 *)
 
 From Stdlib Require Import Arith.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
-From SchedulingTheory Require Import Multicore.Common.Admissibility.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Multicore.Common.Admissibility.
 
 (* ===== B-1. affinity_admissibility pointwise spec ===== *)
 

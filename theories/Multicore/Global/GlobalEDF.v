@@ -20,16 +20,16 @@
 *)
 
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
-From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
-From SchedulingTheory Require Import Multicore.Common.Admissibility.
-From SchedulingTheory Require Import Multicore.Common.TopMMetricChooser.
-From SchedulingTheory Require Import Multicore.Common.TopMAdmissibilityBridge.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
+From RocqSched Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Multicore.Common.Admissibility.
+From RocqSched Require Import Multicore.Common.TopMMetricChooser.
+From RocqSched Require Import Multicore.Common.TopMAdmissibilityBridge.
 Import ListNotations.
 
 (* ===== EDF metric ===== *)

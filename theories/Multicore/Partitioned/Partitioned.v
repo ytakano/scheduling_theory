@@ -1,12 +1,12 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleFacts.
-From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
-From SchedulingTheory Require Import Multicore.Common.Admissibility.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Multicore.Common.Admissibility.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 Import ListNotations.
 
 (* ===== Partitioned Scheduling: Definitions and Core Theorems (Lv.5) =====

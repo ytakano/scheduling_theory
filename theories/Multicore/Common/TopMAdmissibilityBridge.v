@@ -19,14 +19,14 @@
 *)
 
 From Stdlib Require Import List Arith Arith.PeanoNat Lia.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
-From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
-From SchedulingTheory Require Import Multicore.Common.Admissibility.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
+From RocqSched Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Multicore.Common.Admissibility.
 
 (** D-1. If every J-job lacks admissibility somewhere (under all_cpus_admissible),
     then all CPUs are idle.

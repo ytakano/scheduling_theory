@@ -1,13 +1,13 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleFacts.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
-From SchedulingTheory Require Import Abstractions.Scheduler.Validity.
-From SchedulingTheory Require Import Refinement.SchedulingAlgorithmRefinement.
-From SchedulingTheory Require Import Uniprocessor.Policies.Common.MetricChooser.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Abstractions.Scheduler.Validity.
+From RocqSched Require Import Refinement.SchedulingAlgorithmRefinement.
+From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooser.
 Import ListNotations.
 
 (* ===== Phase 1: EDF Metric and Choose Function ===== *)
@@ -270,8 +270,8 @@ Qed.
 
 (* ===== Phase 8: UniSchedulerBundle instance for EDF ===== *)
 
-From SchedulingTheory Require Import Uniprocessor.Core.UniSchedulerInterface.
-From SchedulingTheory Require Import Uniprocessor.Core.UniSchedulerLemmas.
+From RocqSched Require Import Uniprocessor.Core.UniSchedulerInterface.
+From RocqSched Require Import Uniprocessor.Core.UniSchedulerLemmas.
 
 (* EDFSchedulerSpec maps to GenericSchedulingAlgorithm via the edf_generic field. *)
 #[global]

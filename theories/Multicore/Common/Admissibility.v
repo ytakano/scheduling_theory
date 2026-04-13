@@ -22,9 +22,9 @@
 *)
 
 From Stdlib Require Import Arith Arith.PeanoNat Lia.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Multicore.Common.MultiCoreBase.
 
 (* ===== Concrete admissibility instances ===== *)
 

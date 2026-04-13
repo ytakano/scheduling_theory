@@ -1,17 +1,17 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleFacts.
-From SchedulingTheory Require Import Semantics.ScheduleLemmas.SchedulePrefix.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
-From SchedulingTheory Require Import Uniprocessor.Generic.SchedulingAlgorithmCanonicalBridge.
-From SchedulingTheory Require Import Abstractions.Scheduler.Validity.
-From SchedulingTheory Require Import Refinement.SchedulingAlgorithmRefinement.
-From SchedulingTheory Require Import Uniprocessor.Policies.Common.MetricChooser.
-From SchedulingTheory Require Import Uniprocessor.Policies.Common.MetricChooserLemmas.
-From SchedulingTheory Require Import Uniprocessor.Policies.EDF.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Semantics.ScheduleLemmas.SchedulePrefix.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Uniprocessor.Generic.SchedulingAlgorithmCanonicalBridge.
+From RocqSched Require Import Abstractions.Scheduler.Validity.
+From RocqSched Require Import Refinement.SchedulingAlgorithmRefinement.
+From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooser.
+From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooserLemmas.
+From RocqSched Require Import Uniprocessor.Policies.EDF.
 Import ListNotations.
 
 (* ===== Section 3: Bridge / EDF の prefix 安定性 ===== *)

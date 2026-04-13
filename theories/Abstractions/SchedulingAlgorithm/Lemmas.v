@@ -1,7 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
 Import ListNotations.
 
 (* Policy-independent lemmas derived from GenericSchedulingAlgorithm.

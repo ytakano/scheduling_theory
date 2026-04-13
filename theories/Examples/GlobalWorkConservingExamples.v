@@ -1,15 +1,15 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool ZArith.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import Semantics.Schedule.
-From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleFacts.
-From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
-From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
-From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
-From SchedulingTheory Require Import Multicore.Common.Admissibility.
-From SchedulingTheory Require Import Multicore.Common.TopMMetricChooser.
-From SchedulingTheory Require Import Uniprocessor.Policies.Common.MetricChooser.
-From SchedulingTheory Require Import Multicore.Global.GlobalEDF.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
+From RocqSched Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Multicore.Common.Admissibility.
+From RocqSched Require Import Multicore.Common.TopMMetricChooser.
+From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooser.
+From RocqSched Require Import Multicore.Global.GlobalEDF.
 Import ListNotations.
 
 Section GlobalEDFWorkConservingExample.

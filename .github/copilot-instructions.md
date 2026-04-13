@@ -33,12 +33,12 @@ make clean
 Compile a single file with the project mapping:
 
 ```bash
-rocq compile -R theories SchedulingTheory theories/Foundation/Base.v
-rocq compile -R theories SchedulingTheory theories/Semantics/Schedule.v
-rocq compile -R theories SchedulingTheory theories/Abstractions/SchedulingAlgorithm/SchedulerBridge.v
-rocq compile -R theories SchedulingTheory theories/Abstractions/SchedulingAlgorithm/TopMSchedulerBridge.v
-rocq compile -R theories SchedulingTheory theories/Multicore/Global/GlobalEDF.v
-rocq compile -R theories SchedulingTheory theories/Multicore/Partitioned/Partitioned.v
+rocq compile -R theories RocqSched theories/Foundation/Base.v
+rocq compile -R theories RocqSched theories/Semantics/Schedule.v
+rocq compile -R theories RocqSched theories/Abstractions/SchedulingAlgorithm/SchedulerBridge.v
+rocq compile -R theories RocqSched theories/Abstractions/SchedulingAlgorithm/TopMSchedulerBridge.v
+rocq compile -R theories RocqSched theories/Multicore/Global/GlobalEDF.v
+rocq compile -R theories RocqSched theories/Multicore/Partitioned/Partitioned.v
 ```
 
 Compilation is the test mechanism in this repository.

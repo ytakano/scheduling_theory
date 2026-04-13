@@ -1,7 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
-From SchedulingTheory Require Import Foundation.Base.
-From SchedulingTheory Require Import TaskModels.Periodic.PeriodicTasks.
-From SchedulingTheory Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 Import ListNotations.
 
 (* ===== Boolean task-list membership ===== *)

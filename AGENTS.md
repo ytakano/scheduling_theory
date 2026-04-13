@@ -11,9 +11,9 @@ Use `make` to compile the main targets listed in `Makefile`. Use `make clean` to
 Compile a single file with Rocq when iterating locally:
 
 ```bash
-rocq compile -R theories SchedulingTheory theories/Foundation/Base.v
-rocq compile -R theories SchedulingTheory theories/Semantics/Schedule.v
-rocq compile -R theories SchedulingTheory theories/Multicore/Partitioned/Partitioned.v
+rocq compile -R theories RocqSched theories/Foundation/Base.v
+rocq compile -R theories RocqSched theories/Semantics/Schedule.v
+rocq compile -R theories RocqSched theories/Multicore/Partitioned/Partitioned.v
 ```
 
 Rocq compilation is the test mechanism here: a file passes when it compiles with all dependencies satisfied. For containerized work, use `sh docker/build.sh`, `sh docker/up_docker.sh`, and `sh docker/exec_zsh.sh`.
