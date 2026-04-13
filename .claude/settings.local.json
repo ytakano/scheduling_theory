@@ -43,7 +43,9 @@
       "Bash(chmod +x /tmp/extract_lemmas.sh)",
       "Bash(/tmp/extract_lemmas.sh)",
       "Bash(grep \"\\\\.v$\")",
-      "Bash(make -j4)"
+      "Bash(make -j4)",
+      "Bash(echo \"EDF Exit: $?\")",
+      "Bash(echo \"LLF Exit: $?\")"
     ]
   },
   "deny": [

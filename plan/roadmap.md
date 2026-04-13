@@ -9,6 +9,7 @@ Its core is a Rocq formalization centered on:
 - scheduling-algorithm refinement
 - reusable uniprocessor theory
 - extension toward multicore and OS-level semantics
+- analysis layered on top of those semantics
 
 ### Already implemented
 
@@ -22,7 +23,7 @@ Its core is a Rocq formalization centered on:
   - Round Robin
   - EDF
   - LLF
-- EDF optimality
+- EDF finite optimality
 - LLF finite optimality pipeline
 - partitioned scheduling core
 - partitioned EDF / FIFO / RR / LLF wrappers
@@ -30,6 +31,7 @@ Its core is a Rocq formalization centered on:
 - initial periodic-task layer
 - initial multicore-common layer
 - initial global EDF layer
+- initial global LLF layer
 
 ### Interpretation of the current state
 
@@ -41,7 +43,21 @@ The next work is mainly:
 1. stabilize and document the reusable uniprocessor core
 2. turn partitioned multicore into a mature theorem layer
 3. grow multicore-common semantics beyond the current base layer
-4. strengthen the initial global EDF layer and then move to clustered / OS-operational semantics
+4. strengthen the initial global theorem layers
+5. introduce delay-aware operational and analysis layers without polluting the core schedule semantics
+
+### Design principle for delay modeling
+
+Delay should not be baked into the core `Schedule` semantics.
+
+Instead:
+
+- the abstract schedule remains the clean semantic core
+- task-generation layers model release-side variability such as jitter
+- OS-operational layers model timer / wakeup / dispatch / migration delays
+- refinement theorems connect operational behavior to abstract schedules
+- analysis theorems consume explicit delay bounds as parameters
+- the idealized zero-delay model remains available as a special case
 
 ---
 
@@ -72,7 +88,7 @@ What remains:
 - make the generic/policy-specific boundary more explicit
 - document `CanonicalRepairSpec`
 - document `ChooseAgreesBefore`
-- keep `Design.md` synchronized with the code
+- keep design documents synchronized with the code
 
 ### A-2. Metric-based chooser layer
 **Status: Partially done**
@@ -148,7 +164,21 @@ Planned:
 - sporadic job-generation layer
 - relation to periodic as a special case or simpler instance
 
-### B-3. Why this phase is early
+### B-3. Release jitter / arrival offsets
+**Status: Not started**
+
+Planned:
+
+- release-jitter bounds on top of periodic/sporadic generation
+- arrival offset models for phased releases
+- clean separation between:
+  - expected release
+  - actual release
+  - bounded deviation assumptions
+
+This belongs to the task-generation layer rather than the OS-operational layer.
+
+### B-4. Why this phase is early
 **Status: Design decision**
 
 Task-generation models that preserve the job-level semantic core should be added
@@ -213,6 +243,7 @@ What remains:
 
 - strengthen and organize the theorem layer
 - make the intended reusable theorem inventory explicit in the roadmap and docs
+- prepare the interface for later delay-aware partitioned analysis
 
 ---
 
@@ -223,9 +254,9 @@ Implemented core:
 
 - `MultiCoreBase.v`
 - `Admissibility.v`
-- `AffinityFacts.v` (new)
-- `AdmissibleCandidateSource.v` (new)
-- `TopMAdmissibilityBridge.v` (new)
+- `AffinityFacts.v`
+- `AdmissibleCandidateSource.v`
+- `TopMAdmissibilityBridge.v`
 
 What is already done:
 
@@ -238,15 +269,8 @@ What is already done:
 - general `cpu_affinity` / `affinity_admissibility` / `job_has_admissible_cpu` layer
 - equational embedding: both concrete instances are special cases of `affinity_admissibility`
 - `AdmissibleCandidateSourceSpec`: admissibility-aware completeness spec
-- `StrongAdmissibleCandidateSourceSpec`: stronger variant requiring every candidate to be
-  admissible somewhere; needed for the generic idle-if-none theorem
-- `TopMAdmissibilityBridge`: policy-generic admissibility theorem layer with two tiers:
-  - Tier 1 (`all_cpus_admissible`): three `all_cpus_admissible`-specific lemmas
-    (extracted from EDF/LLF duplication; EDF/LLF now delegate to these)
-  - Tier 2 (generic `adm`, `_gen` suffix): three lemmas for arbitrary admissibility:
-    - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen`
-    - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen`
-    - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen`
+- `StrongAdmissibleCandidateSourceSpec`: stronger variant requiring every candidate to be admissible somewhere
+- `TopMAdmissibilityBridge`: policy-generic admissibility theorem layer
 
 What remains:
 
@@ -262,37 +286,33 @@ What remains:
 **Status: Initial global layer started**
 
 ### E-1. Global scheduling
-**Status: Initial global EDF theorem layer done; admissibility lemmas extracted to common bridge**
+**Status: Initial global EDF/LLF theorem layers done**
 
 What is already done:
 
 - `TopMSchedulerBridge.v` provides the generic top-`m` scheduler bridge
-- `TopMAdmissibilityBridge.v` provides policy-generic admissibility lemmas (two tiers):
-  - Tier 1 (`all_cpus_admissible`):
-    - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere`
-    - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere`
-    - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere`
-  - Tier 2 (generic `adm`, `_gen` suffix):
-    - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen`
-    - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen`
-    - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen`
+- `TopMAdmissibilityBridge.v` provides policy-generic admissibility lemmas
 - `GlobalEDF.v` provides:
   - `global_edf_scheduler`
   - `global_edf_valid`
   - `global_edf_idle_outside_range`
   - `global_edf_no_duplication`
-  - subset-aware theorem entry points on top of the bridge
-  - admissibility-aware wrappers for both Tier 1 and Tier 2 (delegating to `TopMAdmissibilityBridge`)
+  - subset-aware theorem entry points
+  - admissibility-aware wrappers
+- `GlobalLLF.v` provides:
+  - `global_llf_scheduler`
+  - `global_llf_valid`
+  - `global_llf_idle_outside_range`
+  - `global_llf_no_duplication`
+  - subset-aware theorem entry points
+  - admissibility-aware wrappers
 
 What remains:
 
 - connect the global theorem layer to later analysis results
 - tighten theorem inventory documentation for downstream analysis use
-- richer candidate-source instantiation examples connecting affinity predicates to spec
-
-Note:
-
-- the current bridge from `running` to `admissible_somewhere` is available with a `valid_schedule` premise, not as an unconditional theorem
+- identify which global EDF / LLF facts should be lifted to policy-generic layers
+- richer candidate-source instantiation examples
 
 ### E-2. Clustered scheduling
 **Status: Not started**
@@ -302,23 +322,13 @@ Planned:
 - cluster-local global semantics
 - bridge between partitioned and fully global scheduling
 
-### E-3. Global LLF
-**Status: Initial theorem layer done; admissibility lemmas extracted to common bridge**
+### E-3. Global dynamic-metric policies
+**Status: Initial layer exists**
 
-What is already done:
+Planned:
 
-- `GlobalLLF.v` provides (structure mirrors GlobalEDF.v):
-  - `global_llf_scheduler`
-  - `global_llf_valid`
-  - `global_llf_idle_outside_range`
-  - `global_llf_no_duplication`
-  - subset-aware theorem entry points on top of the bridge
-  - admissibility-aware wrappers for both Tier 1 and Tier 2 (delegating to `TopMAdmissibilityBridge`)
-
-What remains:
-
-- connect LLF-specific theorem inventory to later dynamic-metric analysis
-- identify which global EDF / LLF facts should be lifted to policy-generic layers
+- strengthen global LLF theorem inventory
+- prepare migration-aware dynamic-metric reasoning
 
 ---
 
@@ -354,6 +364,29 @@ Planned:
 - trace semantics
 - schedule projection
 
+### G-1. Explicit delay sources
+**Status: Not started**
+
+Planned:
+
+- dispatch / context-switch overhead
+- timer latency
+- wakeup latency
+- migration latency
+- remote reschedule / IPI latency
+- bounded non-preemptive windows if needed
+
+These delays should live in the operational layer, not in the core abstract schedule.
+
+### G-2. Projection discipline
+**Status: Not started**
+
+Planned:
+
+- define how an operational trace projects to an abstract schedule
+- define what it means for the projection to lag behind ideal decisions
+- isolate machine/OS delay from policy semantics
+
 ---
 
 ## 8. Phase H: Refinement strengthening
@@ -373,6 +406,7 @@ What remains:
 - executable algorithm -> operational scheduler refinement
 - operational scheduler -> OS-level model refinement
 - multicore refinement path
+- bounded-delay refinement theorems connecting operational delay to abstract schedules
 
 ---
 
@@ -387,7 +421,35 @@ Planned:
 - dynamic-metric analysis
 - speedup bounds / policy comparison
 
-This remains intentionally late.
+### I-1. Idealized analysis
+**Status: Not started**
+
+Planned:
+
+- zero-overhead, zero-jitter, zero-blocking baseline theorems
+- clean reuse of the existing abstract semantic core
+
+### I-2. Delay-aware analysis
+**Status: Not started**
+
+Planned:
+
+- response-time analysis with explicit parameters for:
+  - release jitter
+  - blocking
+  - scheduler overhead
+  - timer / wakeup / migration latency
+- separation of:
+  - execution demand
+  - interference
+  - delay budget
+- zero-delay specialization as a corollary of the general theorem
+
+### I-3. Placement principle
+**Status: Design decision**
+
+Response-time analysis should be built on top of explicit delay assumptions.
+The project should avoid hard-wiring delay into the core schedule semantics.
 
 ---
 
@@ -400,19 +462,22 @@ Stabilize and document the reusable uniprocessor core.
 Finish the partitioned theorem layer and clean up policy lifting.
 
 ### Priority 3
-Promote periodic/sporadic task-generation models earlier in the roadmap.
+Promote periodic/sporadic task-generation models earlier in the roadmap, including release jitter / offsets.
 
 ### Priority 4
 Strengthen multicore-common semantics.
 
 ### Priority 5
-Strengthen the existing global EDF theorem layer and use it as the entry point for global LLF.
+Strengthen the existing global EDF/LLF theorem layers.
 
 ### Priority 6
-Add DAG semantics as a distinct structured-parallel phase.
+Introduce OS-level delay sources and projection discipline.
 
 ### Priority 7
-Move to OS operational semantics and stronger refinement.
+Strengthen refinement with bounded-delay statements.
 
 ### Priority 8
-Build schedulability/response-time analysis on top.
+Build idealized and delay-aware schedulability/response-time analysis on top.
+
+### Priority 9
+Add DAG semantics as a distinct structured-parallel phase.
