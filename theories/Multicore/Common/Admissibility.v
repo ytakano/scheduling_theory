@@ -86,6 +86,49 @@ Proof.
   exact (eligible_on_cpu_implies_eligible adm jobs m sched j t c H).
 Qed.
 
+Lemma all_cpus_admissible_eligible_on_cpu_iff :
+  forall jobs m sched j t c,
+    c < m ->
+    (eligible_on_cpu all_cpus_admissible jobs m sched j t c <->
+     eligible jobs m sched j t).
+Proof.
+  intros jobs m sched j t c Hlt.
+  unfold eligible_on_cpu, runnable_on_cpu, all_cpus_admissible.
+  split.
+  - intros [_ [_ Helig]]. exact Helig.
+  - intros Helig. split; [exact Hlt |]. split; [exact I | exact Helig].
+Qed.
+
+Lemma admissible_somewhere_of_all_cpus_admissible :
+  forall jobs m sched j t,
+    0 < m ->
+    eligible jobs m sched j t ->
+    admissible_somewhere all_cpus_admissible jobs m sched j t.
+Proof.
+  intros jobs m sched j t Hm Helig.
+  exists 0.
+  apply (proj2 (all_cpus_admissible_eligible_on_cpu_iff jobs m sched j t 0 Hm)).
+  exact Helig.
+Qed.
+
+Lemma ready_on_cpu_implies_not_running :
+  forall adm jobs m sched j t c,
+    ready_on_cpu adm jobs m sched j t c ->
+    ~ running m sched j t.
+Proof.
+  intros adm jobs m sched j t c Hready.
+  exact (proj2 Hready).
+Qed.
+
+Lemma admissible_somewhere_implies_eligible :
+  forall adm jobs m sched j t,
+    admissible_somewhere adm jobs m sched j t ->
+    eligible jobs m sched j t.
+Proof.
+  intros adm jobs m sched j t [c Helig].
+  exact (eligible_on_cpu_implies_eligible adm jobs m sched j t c Helig).
+Qed.
+
 Lemma singleton_admissibility_cpu :
   forall (assign : JobId -> CPU) j c,
     singleton_admissibility assign j c <-> assign j = c.

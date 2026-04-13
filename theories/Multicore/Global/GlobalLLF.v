@@ -1,0 +1,177 @@
+(* GlobalLLF.v
+   Global Least-Laxity-First multiprocessor scheduler.
+
+   The scheduler selects the m eligible jobs with least laxity and assigns
+   them to CPUs 0 .. m-1 via nth_error (see TopMSchedulerBridge).
+*)
+
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
+From SchedulingTheory Require Import Foundation.Base.
+From SchedulingTheory Require Import Semantics.Schedule.
+From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
+From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
+From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
+From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
+From SchedulingTheory Require Import Multicore.Common.TopMMetricChooser.
+Import ListNotations.
+
+(* ===== LLF metric ===== *)
+
+(** Smaller laxity = higher priority (least laxity first). *)
+Definition global_llf_metric_of_jobs
+    (jobs : JobId -> Job) (m : nat) (sched : Schedule) (t : Time)
+    (j : JobId) : Z :=
+  laxity jobs m sched j t.
+
+(* ===== Top-m algorithm instance ===== *)
+
+Definition global_llf_top_m_spec : GenericTopMSchedulingAlgorithm :=
+  mkGenericTopMSchedulingAlgorithm
+    (fun jobs m sched t cands =>
+       choose_top_m_by_metric m (global_llf_metric_of_jobs jobs m sched t)
+         jobs m sched t cands)
+    (fun jobs m sched t cands =>
+       choose_top_m_by_metric_nodup m (global_llf_metric_of_jobs jobs m sched t)
+         jobs m sched t cands)
+    (fun jobs m sched t cands j H =>
+       choose_top_m_by_metric_in_candidates
+         m (global_llf_metric_of_jobs jobs m sched t) jobs m sched t cands j H)
+    (fun jobs m sched t cands j H =>
+       choose_top_m_by_metric_eligible
+         m (global_llf_metric_of_jobs jobs m sched t) jobs m sched t cands j H)
+    (fun jobs m sched t cands =>
+       choose_top_m_by_metric_length_le
+         m (global_llf_metric_of_jobs jobs m sched t) jobs m sched t cands)
+    (fun jobs m sched t cands j Hin Helig Hnotin =>
+       choose_top_m_by_metric_complete_if_room
+         m (global_llf_metric_of_jobs jobs m sched t) jobs m sched t cands j Hin Helig Hnotin).
+
+(* ===== Scheduler ===== *)
+
+Definition global_llf_scheduler
+    (candidates_of : CandidateSource) : Scheduler :=
+  top_m_algorithm_schedule global_llf_top_m_spec candidates_of.
+
+Definition global_llf_scheduler_on
+    (J : JobId -> Prop)
+    (candidates_of : CandidateSource)
+    (_ : CandidateSourceSpec J candidates_of)
+    : Scheduler :=
+  global_llf_scheduler candidates_of.
+
+Lemma global_llf_eq_cpu :
+  forall candidates_of jobs m sched t c,
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    sched t c =
+      if c <? m then
+        nth_error (choose_top_m global_llf_top_m_spec jobs m sched t
+                     (candidates_of jobs m sched t)) c
+      else None.
+Proof.
+  intros candidates_of jobs m sched t c Hrel.
+  exact (top_m_algorithm_eq_cpu global_llf_top_m_spec candidates_of jobs m sched t c Hrel).
+Qed.
+
+Lemma global_llf_valid :
+  forall candidates_of jobs m sched,
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    valid_schedule jobs m sched.
+Proof.
+  intros candidates_of jobs m sched H.
+  exact (top_m_algorithm_valid global_llf_top_m_spec candidates_of jobs m sched H).
+Qed.
+
+Lemma global_llf_idle_outside_range :
+  forall candidates_of jobs m sched t c,
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    m <= c ->
+    sched t c = None.
+Proof.
+  intros candidates_of jobs m sched t c H Hge.
+  exact (top_m_algorithm_idle_outside_range
+           global_llf_top_m_spec candidates_of jobs m sched t c H Hge).
+Qed.
+
+Lemma global_llf_no_duplication :
+  forall candidates_of jobs m sched,
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    no_duplication m sched.
+Proof.
+  intros candidates_of jobs m sched H.
+  exact (top_m_algorithm_no_duplication
+           global_llf_top_m_spec candidates_of jobs m sched H).
+Qed.
+
+Lemma global_llf_in_subset :
+  forall J candidates_of jobs m sched t c j,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    c < m ->
+    sched t c = Some j ->
+    J j.
+Proof.
+  intros J candidates_of jobs m sched t c j Hcand Hrel Hlt Hrun.
+  exact (top_m_algorithm_in_subset
+           J global_llf_top_m_spec candidates_of jobs m sched t c j
+           Hcand Hrel Hlt Hrun).
+Qed.
+
+Lemma global_llf_all_cpus_idle_if_no_subset_eligible :
+  forall J candidates_of jobs m sched t,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    (forall j, J j -> ~ eligible jobs m sched j t) ->
+    all_cpus_idle m sched t.
+Proof.
+  intros J candidates_of jobs m sched t Hcand Hrel Hnone.
+  exact (top_m_algorithm_all_cpus_idle_if_no_subset_eligible
+           J global_llf_top_m_spec candidates_of jobs m sched t
+           Hcand Hrel Hnone).
+Qed.
+
+Lemma global_llf_some_cpu_busy_if_subset_eligible :
+  forall J candidates_of jobs m sched t,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    0 < m ->
+    (exists j, J j /\ eligible jobs m sched j t) ->
+    exists c, c < m /\ cpu_busy sched t c.
+Proof.
+  intros J candidates_of jobs m sched t Hcand Hrel Hm Hex.
+  exact (top_m_algorithm_some_cpu_busy_if_subset_eligible
+           J global_llf_top_m_spec candidates_of jobs m sched t
+           Hcand Hrel Hm Hex).
+Qed.
+
+Lemma global_llf_running_if_some_cpu_idle_and_subset_eligible :
+  forall J candidates_of jobs m sched t j,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    some_cpu_idle m sched t ->
+    J j ->
+    eligible jobs m sched j t ->
+    running m sched j t.
+Proof.
+  intros J candidates_of jobs m sched t j Hcand Hrel Hidle HJ Helig.
+  exact (top_m_algorithm_running_if_some_cpu_idle_and_subset_eligible
+           J global_llf_top_m_spec candidates_of jobs m sched t j
+           Hcand Hrel Hidle HJ Helig).
+Qed.
+
+Lemma global_llf_schedulable_by_on_intro :
+  forall J candidates_of cand_spec jobs m sched,
+    scheduler_rel
+      (global_llf_scheduler_on J candidates_of cand_spec)
+      jobs m sched ->
+    feasible_schedule_on J jobs m sched ->
+    schedulable_by_on
+      J
+      (global_llf_scheduler_on J candidates_of cand_spec)
+      jobs m.
+Proof.
+  intros J candidates_of cand_spec jobs m sched Hrel Hfeas.
+  exact (top_m_algorithm_schedulable_by_on_intro
+           J global_llf_top_m_spec candidates_of cand_spec jobs m sched
+           Hrel Hfeas).
+Qed.

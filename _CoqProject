@@ -16,6 +16,7 @@ theories/Multicore/Common/MultiCoreBase.v
 theories/Multicore/Common/Admissibility.v
 theories/Multicore/Common/TopMMetricChooser.v
 theories/Multicore/Global/GlobalEDF.v
+theories/Multicore/Global/GlobalLLF.v
 theories/Multicore/Partitioned/Partitioned.v
 theories/Multicore/Partitioned/PartitionedCompose.v
 theories/Multicore/Partitioned/Policies/PartitionedPolicyLift.v
