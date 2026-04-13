@@ -13,6 +13,7 @@ From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerB
 From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
 From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
 From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
+From SchedulingTheory Require Import Multicore.Common.Admissibility.
 From SchedulingTheory Require Import Multicore.Common.TopMMetricChooser.
 Import ListNotations.
 
@@ -157,6 +158,57 @@ Proof.
   exact (top_m_algorithm_running_if_some_cpu_idle_and_subset_eligible
            J global_llf_top_m_spec candidates_of jobs m sched t j
            Hcand Hrel Hidle HJ Helig).
+Qed.
+
+Lemma global_llf_all_cpus_idle_if_no_subset_admissible_somewhere :
+  forall J candidates_of jobs m sched t,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    0 < m ->
+    (forall j, J j ->
+       ~ admissible_somewhere all_cpus_admissible jobs m sched j t) ->
+    all_cpus_idle m sched t.
+Proof.
+  intros J candidates_of jobs m sched t Hcand Hrel Hm Hnone.
+  apply (global_llf_all_cpus_idle_if_no_subset_eligible
+           J candidates_of jobs m sched t Hcand Hrel).
+  intros j Hj Helig.
+  apply (Hnone j Hj).
+  exact (admissible_somewhere_of_all_cpus_admissible jobs m sched j t Hm Helig).
+Qed.
+
+Lemma global_llf_some_cpu_busy_if_subset_admissible_somewhere :
+  forall J candidates_of jobs m sched t,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    0 < m ->
+    (exists j, J j /\
+       admissible_somewhere all_cpus_admissible jobs m sched j t) ->
+    exists c, c < m /\ cpu_busy sched t c.
+Proof.
+  intros J candidates_of jobs m sched t Hcand Hrel Hm [j [HJ Hadm]].
+  apply (global_llf_some_cpu_busy_if_subset_eligible
+           J candidates_of jobs m sched t Hcand Hrel Hm).
+  exists j. split; [exact HJ |].
+  destruct Hadm as [c Helig].
+  exact (eligible_on_cpu_implies_eligible all_cpus_admissible jobs m sched j t c Helig).
+Qed.
+
+Lemma global_llf_running_if_some_cpu_idle_and_subset_admissible_somewhere :
+  forall J candidates_of jobs m sched t j,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    0 < m ->
+    some_cpu_idle m sched t ->
+    J j ->
+    admissible_somewhere all_cpus_admissible jobs m sched j t ->
+    running m sched j t.
+Proof.
+  intros J candidates_of jobs m sched t j Hcand Hrel Hm Hidle HJ Hadm.
+  apply (global_llf_running_if_some_cpu_idle_and_subset_eligible
+           J candidates_of jobs m sched t j Hcand Hrel Hidle HJ).
+  destruct Hadm as [c Helig].
+  exact (eligible_on_cpu_implies_eligible all_cpus_admissible jobs m sched j t c Helig).
 Qed.
 
 Lemma global_llf_schedulable_by_on_intro :

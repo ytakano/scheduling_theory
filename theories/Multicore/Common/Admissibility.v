@@ -111,6 +111,53 @@ Proof.
   exact Helig.
 Qed.
 
+Lemma eligible_iff_admissible_somewhere_all_cpus :
+  forall jobs m sched j t,
+    0 < m ->
+    (eligible jobs m sched j t <->
+     admissible_somewhere all_cpus_admissible jobs m sched j t).
+Proof.
+  intros jobs m sched j t Hm.
+  split.
+  - intros Helig.
+    exact (admissible_somewhere_of_all_cpus_admissible jobs m sched j t Hm Helig).
+  - intros [c Hadm].
+    exact (eligible_on_cpu_implies_eligible all_cpus_admissible jobs m sched j t c Hadm).
+Qed.
+
+Lemma admissible_somewhere_all_cpus_implies_eligible :
+  forall jobs m sched j t,
+    0 < m ->
+    admissible_somewhere all_cpus_admissible jobs m sched j t ->
+    eligible jobs m sched j t.
+Proof.
+  intros jobs m sched j t Hm [c Hadm].
+  exact (eligible_on_cpu_implies_eligible all_cpus_admissible jobs m sched j t c Hadm).
+Qed.
+
+Lemma not_admissible_somewhere_all_cpus_implies_not_eligible :
+  forall jobs m sched j t,
+    0 < m ->
+    ~ admissible_somewhere all_cpus_admissible jobs m sched j t ->
+    ~ eligible jobs m sched j t.
+Proof.
+  intros jobs m sched j t Hm Hnot Hadm.
+  apply Hnot.
+  exact (admissible_somewhere_of_all_cpus_admissible jobs m sched j t Hm Hadm).
+Qed.
+
+Lemma valid_running_implies_admissible_somewhere_all_cpus :
+  forall jobs m sched j t,
+    valid_schedule jobs m sched ->
+    running m sched j t ->
+    admissible_somewhere all_cpus_admissible jobs m sched j t.
+Proof.
+  intros jobs m sched j t Hvalid [c [Hlt Hrun]].
+  exists c.
+  apply (proj2 (all_cpus_admissible_eligible_on_cpu_iff jobs m sched j t c Hlt)).
+  exact (Hvalid j t c Hlt Hrun).
+Qed.
+
 Lemma ready_on_cpu_implies_not_running :
   forall adm jobs m sched j t c,
     ready_on_cpu adm jobs m sched j t c ->
