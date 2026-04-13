@@ -485,16 +485,22 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - globally-runnable 関連補題
 
 ## 7-2. affinity / admissible CPU
-**Status: Skeleton only**
+**Status: Initial all-cpus-admissible layer exists**
 
 現状:
 
 - forward-compatible hook はある
+- `all_cpus_admissible` / `singleton_admissibility` / `eligible_on_cpu` / `admissible_somewhere` はある
+- all-cpus-admissible に限れば、次の変換補題は揃っている:
+  - `eligible <-> admissible_somewhere`
+  - `admissible_somewhere -> eligible`
+  - `~ admissible_somewhere -> ~ eligible`
+  - `valid_schedule -> running -> admissible_somewhere`
 
 残作業:
 
 - allowed-CPU / affinity invariants
-- admissibility-aware work-conserving 定義
+- 一般 admissibility 条件での work-conserving 定理
 - migration 制約と接続する補題
 
 ## 7-3. multicore service / completion under migration
@@ -508,7 +514,7 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 ---
 
 # Lv.8: Global / clustered scheduling
-**Status: Initial global EDF layer exists**
+**Status: Initial global EDF/LLF layers exist**
 
 ## 8-1. global scheduling
 **Status: In progress at the initial theorem-layer stage**
@@ -527,13 +533,25 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
   - `global_edf_no_duplication`
   - subset soundness / idle-if-no-eligible / busy-if-eligible
   - idle CPU exists -> eligible subset job is already running
+  - admissibility-aware wrappers under `all_cpus_admissible`
   - `schedulable_by_on` intro lemma
+- `GlobalLLF.v`:
+  - `global_llf_scheduler`
+  - `global_llf_valid`
+  - `global_llf_idle_outside_range`
+  - `global_llf_no_duplication`
+  - EDF と同型の subset-aware theorem layer
+  - EDF と同型の admissibility-aware wrappers under `all_cpus_admissible`
 
 残作業:
 
-- candidate completeness と admissibility-aware work-conserving 層を整理する
+- 一般 admissibility / affinity モデルへ拡張する
 - global policy resultsを EDF 以外へ一般化できるところまで切り出す
 - analysis theorem の前段となる theorem inventory を明示する
+
+注:
+
+- `running -> admissible_somewhere` は現実装では無条件ではなく、`valid_schedule` 前提つきで使う
 
 ## 8-2. clustered scheduling
 **Status: Not started**
@@ -545,11 +563,11 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - partitioned と global の中間モデル
 
 ## 8-3. global dynamic-metric policies
-**Status: Not started**
+**Status: Initial layer exists**
 
 候補:
 
-- global LLF
+- global LLF の解析定理層
 - migration-aware dynamic metric
 
 ---

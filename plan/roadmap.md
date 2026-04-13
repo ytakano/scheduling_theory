@@ -244,7 +244,7 @@ What remains:
 **Status: Initial global layer started**
 
 ### E-1. Global scheduling
-**Status: Initial global EDF layer done**
+**Status: Initial global EDF theorem layer done**
 
 What is already done:
 
@@ -255,12 +255,17 @@ What is already done:
   - `global_edf_idle_outside_range`
   - `global_edf_no_duplication`
   - subset-aware theorem entry points on top of the bridge
+  - admissibility-aware work-conserving wrappers under `all_cpus_admissible`
 
 What remains:
 
-- enrich the theorem layer toward work-conserving / admissibility-aware results
-- add follow-on policies such as global LLF
+- extend the current results from `all_cpus_admissible` to richer admissibility / affinity models
 - connect the global theorem layer to later analysis results
+- tighten theorem inventory documentation for downstream analysis use
+
+Note:
+
+- the current bridge from `running` to `admissible_somewhere` is available with a `valid_schedule` premise, not as an unconditional theorem
 
 ### E-2. Clustered scheduling
 **Status: Not started**
@@ -271,9 +276,22 @@ Planned:
 - bridge between partitioned and fully global scheduling
 
 ### E-3. Global LLF
-**Status: Not started**
+**Status: Initial theorem layer done**
 
-This should remain after the generic top-`m` bridge and initial global EDF layer.
+What is already done:
+
+- `GlobalLLF.v` provides:
+  - `global_llf_scheduler`
+  - `global_llf_valid`
+  - `global_llf_idle_outside_range`
+  - `global_llf_no_duplication`
+  - subset-aware theorem entry points on top of the bridge
+  - admissibility-aware work-conserving wrappers under `all_cpus_admissible`
+
+What remains:
+
+- connect LLF-specific theorem inventory to later dynamic-metric analysis
+- identify which global EDF / LLF facts should be lifted to policy-generic layers
 
 ---
 
