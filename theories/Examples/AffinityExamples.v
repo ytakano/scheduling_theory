@@ -18,9 +18,12 @@
 
 From Stdlib Require Import Arith Arith.PeanoNat.
 From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.AffinityFacts.
+From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
 
 (* ===== H-1. 2-CPU affinity example ===== *)
 
@@ -174,3 +177,26 @@ Section SingletonVsAllCPUExample.
   Qed.
 
 End SingletonVsAllCPUExample.
+
+(* ===== H-3. Connection to AdmissibleCandidateSourceSpec ===== *)
+
+(** H-3.  Any CandidateSourceSpec lifts to AdmissibleCandidateSourceSpec for any adm.
+
+    This is the bridge between the concrete admissibility predicates above and the
+    theorem layer in TopMAdmissibilityBridge.v.  For a candidate source satisfying
+    the standard CandidateSourceSpec, the weaker AdmissibleCandidateSourceSpec holds
+    for any adm — including cpu0_only, cpu0_or_cpu1, all_cpus_admissible, etc.
+
+    StrongAdmissibleCandidateSourceSpec requires the additional obligation that every
+    candidate is admissible somewhere.  This is needed for the generic idle-if-none
+    theorem (top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen) but
+    is not required for the busy or running variants. *)
+
+Example candidate_source_spec_lifts_to_admissible :
+  forall adm J candidates_of,
+    CandidateSourceSpec J candidates_of ->
+    AdmissibleCandidateSourceSpec adm J candidates_of.
+Proof.
+  intros adm J candidates_of Hcand.
+  exact (candidate_source_spec_to_admissible adm J candidates_of Hcand).
+Qed.

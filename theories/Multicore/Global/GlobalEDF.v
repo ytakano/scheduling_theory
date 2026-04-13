@@ -1,8 +1,22 @@
 (* GlobalEDF.v
    Global Earliest-Deadline-First multiprocessor scheduler.
+   Policy-specific wrapper layer over TopMAdmissibilityBridge.
 
    The scheduler selects the m eligible jobs with earliest absolute deadlines
    and assigns them to CPUs 0 .. m-1 via nth_error (see TopMSchedulerBridge).
+
+   This file is the EDF policy-specific wrapper layer.  Its structure is:
+     1. EDF metric and top-m spec (EDF-specific)
+     2. Scheduler definition (EDF-specific)
+     3. Validity / structural lemmas (thin wrappers over TopMSchedulerBridge)
+     4. Admissibility wrappers: all_cpus_admissible (thin wrappers over
+          TopMAdmissibilityBridge Tier 1)
+     5. Admissibility wrappers: generic adm (thin wrappers over
+          TopMAdmissibilityBridge Tier 2)
+     6. Schedulability introduction (thin wrapper over TopMSchedulerBridge)
+
+   The admissibility reasoning itself lives in TopMAdmissibilityBridge.v;
+   the lemmas here merely instantiate it with global_edf_top_m_spec.
 
    Contents
    --------
@@ -16,7 +30,17 @@
      Lift to a Scheduler via top_m_algorithm_schedule.
 
    global_edf_valid : scheduler_rel global_edf_scheduler -> valid_schedule
-     First main theorem: the scheduler only runs eligible jobs.
+     The scheduler only runs eligible jobs.
+
+   Admissibility wrappers — all_cpus_admissible (Tier 1):
+     global_edf_all_cpus_idle_if_no_subset_admissible_somewhere
+     global_edf_some_cpu_busy_if_subset_admissible_somewhere
+     global_edf_running_if_some_cpu_idle_and_subset_admissible_somewhere
+
+   Admissibility wrappers — generic adm (Tier 2, _gen suffix):
+     global_edf_some_cpu_busy_if_subset_admissible_somewhere_gen
+     global_edf_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen
+     global_edf_all_cpus_idle_if_no_subset_admissible_somewhere_gen
 *)
 
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
@@ -123,6 +147,8 @@ Proof.
            Hcand Hrel Hlt Hrun).
 Qed.
 
+(* ===== Work-conserving lemmas: eligible (EDF wrappers over TopMSchedulerBridge) ===== *)
+
 Lemma global_edf_all_cpus_idle_if_no_subset_eligible :
   forall J candidates_of jobs m sched t,
     CandidateSourceSpec J candidates_of ->
@@ -164,6 +190,10 @@ Proof.
            J global_edf_top_m_spec candidates_of jobs m sched t j
            Hcand Hrel Hidle HJ Helig).
 Qed.
+
+(* ===== Admissibility wrappers: all_cpus_admissible
+   (EDF thin wrappers over TopMAdmissibilityBridge Tier 1)
+   EDF-specific: instantiates the bridge with global_edf_top_m_spec. ===== *)
 
 Lemma global_edf_all_cpus_idle_if_no_subset_admissible_somewhere :
   forall J candidates_of jobs m sched t,
@@ -211,6 +241,13 @@ Proof.
            Hcand Hrel Hm Hidle HJ Hadm).
 Qed.
 
+(* ===== Admissibility wrappers: generic adm
+   (EDF thin wrappers over TopMAdmissibilityBridge Tier 2)
+   These lemmas work for any adm; the idle variant requires
+   StrongAdmissibleCandidateSourceSpec. ===== *)
+
+(** EDF wrapper for the generic busy-if-exists lemma.
+    Delegates to top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen. *)
 Lemma global_edf_some_cpu_busy_if_subset_admissible_somewhere_gen :
   forall adm J candidates_of jobs m sched t,
     AdmissibleCandidateSourceSpec adm J candidates_of ->
@@ -226,6 +263,8 @@ Proof.
        Hcand Hrel Hm Hex).
 Qed.
 
+(** EDF wrapper for the generic running-if-idle-and-admissible lemma.
+    Delegates to top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen. *)
 Lemma global_edf_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen :
   forall adm J candidates_of jobs m sched t j,
     AdmissibleCandidateSourceSpec adm J candidates_of ->
@@ -242,6 +281,9 @@ Proof.
        Hcand Hrel Hidle HJ Hadm).
 Qed.
 
+(** EDF wrapper for the generic idle-if-none lemma.
+    Requires StrongAdmissibleCandidateSourceSpec (candidates must be admissible somewhere).
+    Delegates to top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen. *)
 Lemma global_edf_all_cpus_idle_if_no_subset_admissible_somewhere_gen :
   forall adm J candidates_of jobs m sched t,
     StrongAdmissibleCandidateSourceSpec adm J candidates_of ->
@@ -255,6 +297,8 @@ Proof.
        adm J global_edf_top_m_spec candidates_of jobs m sched t
        Hcand Hrel Hnone).
 Qed.
+
+(* ===== Schedulability introduction ===== *)
 
 Lemma global_edf_schedulable_by_on_intro :
   forall J candidates_of cand_spec jobs m sched,

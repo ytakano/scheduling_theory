@@ -1,21 +1,46 @@
 (* TopMAdmissibilityBridge.v
-   Policy-independent multicore busy/idle/running lemmas for
-   all_cpus_admissible.
+   Policy-independent multicore admissibility theorem layer.
 
-   The three "admissible_somewhere" variants of the work-conserving
-   lemmas were previously duplicated verbatim in GlobalEDF.v and
-   GlobalLLF.v.  This file extracts them once, parameterised by
-   spec : GenericTopMSchedulingAlgorithm, following the same naming
-   convention as TopMSchedulerBridge.v.
+   This file provides the generic busy/idle/running lemmas for top-m
+   schedulers, parameterised by an admissibility predicate adm and a
+   CandidateSourceSpec variant.  It has two tiers:
 
-   GlobalEDF and GlobalLLF now delegate to these lemmas and provide
-   thin EDF-/LLF-specific wrappers that preserve the old public names.
+   Tier 1 — all_cpus_admissible specialisations
+     For the standard case where every CPU is admissible for every job.
+     These lemmas use the plain CandidateSourceSpec and require 0 < m.
+     They are essentially special cases of the Tier 2 lemmas (see Note).
+
+   Tier 2 — generic adm lemmas (_gen suffix)
+     For arbitrary adm.  These lemmas use AdmissibleCandidateSourceSpec
+     (for busy/running) or StrongAdmissibleCandidateSourceSpec (for idle).
+     They do not require 0 < m.
+
+   Note: all_cpus_admissible is a special case of generic adm.
+   For all_cpus_admissible, every eligible job is already admissible
+   somewhere (given 0 < m), so AdmissibleCandidateSourceSpec collapses
+   to the standard CandidateSourceSpec.  The Tier 1 lemmas exist as
+   backward-compatible entry points that accept CandidateSourceSpec
+   directly and carry an explicit 0 < m premise.
+
+   GlobalEDF and GlobalLLF delegate to these lemmas and provide thin
+   policy-specific wrappers that preserve their public names.
 
    Contents
    --------
-   top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere
-   top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere
-   top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere
+   Helper lemmas:
+     top_m_algorithm_scheduled_job_in_candidates
+     top_m_algorithm_in_admissible_subset
+
+   Tier 1 — all_cpus_admissible (CandidateSourceSpec, requires 0 < m):
+     top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere
+     top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere
+     top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere
+
+   Tier 2 — generic adm (AdmissibleCandidateSourceSpec /
+             StrongAdmissibleCandidateSourceSpec; does not require 0 < m):
+     top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen
+     top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen
+     top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen
 *)
 
 From Stdlib Require Import List Arith Arith.PeanoNat Lia.
@@ -68,6 +93,12 @@ Proof.
   eapply Hsound.
   eapply top_m_algorithm_scheduled_job_in_candidates; eauto.
 Qed.
+
+(* ===== Tier 1: all_cpus_admissible specialisations =====
+   The three lemmas below are the all_cpus_admissible-specific entry points.
+   They accept the plain CandidateSourceSpec and carry an explicit 0 < m
+   premise.  Use the _gen variants (Tier 2, below) when working with a
+   restricted affinity or any adm other than all_cpus_admissible. *)
 
 (** D-1. If every J-job lacks admissibility somewhere (under all_cpus_admissible),
     then all CPUs are idle.
@@ -131,7 +162,13 @@ Proof.
   exact (eligible_on_cpu_implies_eligible all_cpus_admissible jobs m sched j t c Helig).
 Qed.
 
-(* ===== General _gen lemmas (arbitrary adm) ===== *)
+(* ===== Tier 2: generic adm (_gen lemmas) =====
+   These lemmas work for any admissibility predicate adm.
+   - busy/running lemmas use AdmissibleCandidateSourceSpec (weaker spec).
+   - idle lemma uses StrongAdmissibleCandidateSourceSpec, which additionally
+     requires every candidate to be admissible somewhere — this is the
+     extra obligation that makes the idle proof go through without 0 < m.
+   None of these lemmas require 0 < m. *)
 
 (** D-4. General version of D-2: if some J-job is admissible somewhere under
     an arbitrary adm, then at least one CPU is busy.

@@ -57,6 +57,38 @@ This extension is not treated as a completely separate formalization. Instead, i
 
 Structuring the development in this way makes the relationship between these models explicit. Partitioned scheduling can be understood as the first multicore extension, while global and clustered models are introduced only after the common multicore semantic obligations are clarified.
 
+### Multicore admissibility theorem layer
+
+Within the Multicore hierarchy, two sub-layers handle admissibility reasoning:
+
+- **`Multicore/Common/TopMAdmissibilityBridge.v`** is the *policy-independent* theorem layer.
+  It proves busy/idle/running lemmas parameterised by an arbitrary admissibility
+  predicate `adm` and either `AdmissibleCandidateSourceSpec` or
+  `StrongAdmissibleCandidateSourceSpec`.
+  It also provides `all_cpus_admissible`-specific lemmas as a special case (Tier 1).
+
+- **`Multicore/Global/GlobalEDF.v`** and **`GlobalLLF.v`** are *policy-specific wrapper layers*.
+  Their admissibility lemmas are thin wrappers that instantiate the bridge with the
+  EDF or LLF top-m spec and re-export the results under policy-prefixed names.
+  The only EDF/LLF-specific elements are the priority metric and the spec construction.
+
+The `AdmissibleCandidateSourceSpec` record captures:
+
+- *soundness*: every candidate belongs to the job subset J;
+- *completeness*: every eligible and admissible-somewhere job in J is a candidate;
+- *prefix extensionality*: the candidate list depends only on the schedule prefix.
+
+`StrongAdmissibleCandidateSourceSpec` additionally requires every candidate to be
+admissible somewhere.  This stronger obligation is needed to prove the general
+idle-if-none theorem (`top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen`)
+without assuming `0 < m`.
+
+`all_cpus_admissible` is a special case of generic `adm`: for this predicate every
+eligible job is already admissible somewhere (given `0 < m`), so
+`AdmissibleCandidateSourceSpec` collapses to the standard `CandidateSourceSpec`.
+The Tier 1 lemmas in `TopMAdmissibilityBridge.v` are the corresponding entry points
+that accept `CandidateSourceSpec` directly.
+
 ## 6. `Operational/`: OS-level scheduler semantics
 
 The operational layer is intended to capture scheduler behavior as an evolving machine or system state rather than as a schedule viewed purely extensionally.

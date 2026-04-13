@@ -485,23 +485,28 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - globally-runnable 関連補題
 
 ## 7-2. affinity / admissible CPU
-**Status: Initial all-cpus-admissible layer exists**
+**Status: Generic admissibility layer done**
 
-現状:
+証明済みとして扱うもの:
 
-- forward-compatible hook はある
-- `all_cpus_admissible` / `singleton_admissibility` / `eligible_on_cpu` / `admissible_somewhere` はある
-- all-cpus-admissible に限れば、次の変換補題は揃っている:
+- `all_cpus_admissible` / `singleton_admissibility` / `eligible_on_cpu` / `admissible_somewhere`
+- all-cpus-admissible の変換補題:
   - `eligible <-> admissible_somewhere`
   - `admissible_somewhere -> eligible`
   - `~ admissible_somewhere -> ~ eligible`
   - `valid_schedule -> running -> admissible_somewhere`
+- `AdmissibleCandidateSourceSpec` (soundness / completeness / prefix extensionality)
+- `StrongAdmissibleCandidateSourceSpec` (base + every candidate is admissible somewhere)
+- generic `adm` work-conserving lemmas in `TopMAdmissibilityBridge.v`:
+  - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen` (Done)
+  - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen` (Done)
+  - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen` (Done, under Strong spec)
 
 残作業:
 
 - allowed-CPU / affinity invariants
-- 一般 admissibility 条件での work-conserving 定理
 - migration 制約と接続する補題
+- richer candidate-source instantiation examples connecting affinity predicates to spec
 
 ## 7-3. multicore service / completion under migration
 **Status: Initial layer only**
@@ -526,6 +531,10 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
   - `top_m_algorithm_idle_outside_range`
   - `top_m_algorithm_no_duplication`
   - subset-aware theorem layer
+- `TopMAdmissibilityBridge.v` generic `adm` bridge (Tier 2):
+  - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen` (Done)
+  - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen` (Done)
+  - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen` (Done, Strong spec)
 - `GlobalEDF.v`:
   - `global_edf_scheduler`
   - `global_edf_valid`
@@ -533,21 +542,24 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
   - `global_edf_no_duplication`
   - subset soundness / idle-if-no-eligible / busy-if-eligible
   - idle CPU exists -> eligible subset job is already running
-  - admissibility-aware wrappers under `all_cpus_admissible`
+  - admissibility-aware wrappers under `all_cpus_admissible` (Tier 1)
+  - admissibility-aware wrappers for generic `adm` (Tier 2, `_gen` suffix)
   - `schedulable_by_on` intro lemma
-- `GlobalLLF.v`:
+- `GlobalLLF.v` (structure mirrors GlobalEDF.v):
   - `global_llf_scheduler`
   - `global_llf_valid`
   - `global_llf_idle_outside_range`
   - `global_llf_no_duplication`
   - EDF と同型の subset-aware theorem layer
-  - EDF と同型の admissibility-aware wrappers under `all_cpus_admissible`
+  - admissibility-aware wrappers under `all_cpus_admissible` (Tier 1)
+  - admissibility-aware wrappers for generic `adm` (Tier 2, `_gen` suffix)
 
 残作業:
 
-- 一般 admissibility / affinity モデルへ拡張する
-- global policy resultsを EDF 以外へ一般化できるところまで切り出す
+- wrapper layer documentation and API stabilization
+- global policy results を EDF 以外へ一般化できるところまで切り出す
 - analysis theorem の前段となる theorem inventory を明示する
+- richer affinity instantiation examples
 
 注:
 

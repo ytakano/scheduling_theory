@@ -1,8 +1,43 @@
 (* GlobalLLF.v
    Global Least-Laxity-First multiprocessor scheduler.
+   Policy-specific wrapper layer over TopMAdmissibilityBridge.
 
    The scheduler selects the m eligible jobs with least laxity and assigns
    them to CPUs 0 .. m-1 via nth_error (see TopMSchedulerBridge).
+
+   This file is the LLF policy-specific wrapper layer.  Its structure mirrors
+   GlobalEDF.v exactly; the only EDF/LLF differences are:
+     - the priority metric (laxity vs absolute deadline), and
+     - the top-m spec construction: LLF uses a dynamic metric (laxity depends
+       on the current schedule), so the spec is built directly with
+       mkGenericTopMSchedulingAlgorithm rather than make_metric_top_m_algorithm.
+
+   The admissibility reasoning lives in TopMAdmissibilityBridge.v; the lemmas
+   here merely instantiate it with global_llf_top_m_spec.
+
+   Contents
+   --------
+   global_llf_metric_of_jobs : (JobId -> Job) -> nat -> Schedule -> Time -> JobId -> Z
+     LLF priority: laxity as Z (smaller = higher priority).
+
+   global_llf_top_m_spec : GenericTopMSchedulingAlgorithm
+     Instance via mkGenericTopMSchedulingAlgorithm (dynamic metric).
+
+   global_llf_scheduler : CandidateSource -> Scheduler
+     Lift to a Scheduler via top_m_algorithm_schedule.
+
+   global_llf_valid : scheduler_rel global_llf_scheduler -> valid_schedule
+     The scheduler only runs eligible jobs.
+
+   Admissibility wrappers — all_cpus_admissible (Tier 1):
+     global_llf_all_cpus_idle_if_no_subset_admissible_somewhere
+     global_llf_some_cpu_busy_if_subset_admissible_somewhere
+     global_llf_running_if_some_cpu_idle_and_subset_admissible_somewhere
+
+   Admissibility wrappers — generic adm (Tier 2, _gen suffix):
+     global_llf_some_cpu_busy_if_subset_admissible_somewhere_gen
+     global_llf_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen
+     global_llf_all_cpus_idle_if_no_subset_admissible_somewhere_gen
 *)
 
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
@@ -76,6 +111,9 @@ Proof.
   exact (top_m_algorithm_eq_cpu global_llf_top_m_spec candidates_of jobs m sched t c Hrel).
 Qed.
 
+(* ===== Main theorem: validity ===== *)
+
+(** Any schedule produced by the global LLF scheduler only runs eligible jobs. *)
 Lemma global_llf_valid :
   forall candidates_of jobs m sched,
     scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
@@ -85,6 +123,7 @@ Proof.
   exact (top_m_algorithm_valid global_llf_top_m_spec candidates_of jobs m sched H).
 Qed.
 
+(** CPUs beyond the CPU count are always idle. *)
 Lemma global_llf_idle_outside_range :
   forall candidates_of jobs m sched t c,
     scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
@@ -96,6 +135,7 @@ Proof.
            global_llf_top_m_spec candidates_of jobs m sched t c H Hge).
 Qed.
 
+(** The scheduler never assigns the same job to two distinct CPUs. *)
 Lemma global_llf_no_duplication :
   forall candidates_of jobs m sched,
     scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
@@ -119,6 +159,8 @@ Proof.
            J global_llf_top_m_spec candidates_of jobs m sched t c j
            Hcand Hrel Hlt Hrun).
 Qed.
+
+(* ===== Work-conserving lemmas: eligible (LLF wrappers over TopMSchedulerBridge) ===== *)
 
 Lemma global_llf_all_cpus_idle_if_no_subset_eligible :
   forall J candidates_of jobs m sched t,
@@ -161,6 +203,10 @@ Proof.
            J global_llf_top_m_spec candidates_of jobs m sched t j
            Hcand Hrel Hidle HJ Helig).
 Qed.
+
+(* ===== Admissibility wrappers: all_cpus_admissible
+   (LLF thin wrappers over TopMAdmissibilityBridge Tier 1)
+   LLF-specific: instantiates the bridge with global_llf_top_m_spec. ===== *)
 
 Lemma global_llf_all_cpus_idle_if_no_subset_admissible_somewhere :
   forall J candidates_of jobs m sched t,
@@ -208,6 +254,13 @@ Proof.
            Hcand Hrel Hm Hidle HJ Hadm).
 Qed.
 
+(* ===== Admissibility wrappers: generic adm
+   (LLF thin wrappers over TopMAdmissibilityBridge Tier 2)
+   These lemmas work for any adm; the idle variant requires
+   StrongAdmissibleCandidateSourceSpec. ===== *)
+
+(** LLF wrapper for the generic busy-if-exists lemma.
+    Delegates to top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen. *)
 Lemma global_llf_some_cpu_busy_if_subset_admissible_somewhere_gen :
   forall adm J candidates_of jobs m sched t,
     AdmissibleCandidateSourceSpec adm J candidates_of ->
@@ -223,6 +276,8 @@ Proof.
        Hcand Hrel Hm Hex).
 Qed.
 
+(** LLF wrapper for the generic running-if-idle-and-admissible lemma.
+    Delegates to top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen. *)
 Lemma global_llf_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen :
   forall adm J candidates_of jobs m sched t j,
     AdmissibleCandidateSourceSpec adm J candidates_of ->
@@ -239,6 +294,9 @@ Proof.
        Hcand Hrel Hidle HJ Hadm).
 Qed.
 
+(** LLF wrapper for the generic idle-if-none lemma.
+    Requires StrongAdmissibleCandidateSourceSpec (candidates must be admissible somewhere).
+    Delegates to top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen. *)
 Lemma global_llf_all_cpus_idle_if_no_subset_admissible_somewhere_gen :
   forall adm J candidates_of jobs m sched t,
     StrongAdmissibleCandidateSourceSpec adm J candidates_of ->
@@ -252,6 +310,8 @@ Proof.
        adm J global_llf_top_m_spec candidates_of jobs m sched t
        Hcand Hrel Hnone).
 Qed.
+
+(* ===== Schedulability introduction ===== *)
 
 Lemma global_llf_schedulable_by_on_intro :
   forall J candidates_of cand_spec jobs m sched,

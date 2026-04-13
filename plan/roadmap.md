@@ -237,16 +237,24 @@ What is already done:
 - `all_cpus_admissible` and `singleton_admissibility` concrete instances
 - general `cpu_affinity` / `affinity_admissibility` / `job_has_admissible_cpu` layer
 - equational embedding: both concrete instances are special cases of `affinity_admissibility`
-- `AdmissibleCandidateSourceSpec`: admissibility-aware completeness spec (framework for future generalization)
-- `TopMAdmissibilityBridge`: policy-generic busy/idle/running lemmas for `all_cpus_admissible`
-  (extracted from EDF/LLF duplication; EDF/LLF now delegate to these)
+- `AdmissibleCandidateSourceSpec`: admissibility-aware completeness spec
+- `StrongAdmissibleCandidateSourceSpec`: stronger variant requiring every candidate to be
+  admissible somewhere; needed for the generic idle-if-none theorem
+- `TopMAdmissibilityBridge`: policy-generic admissibility theorem layer with two tiers:
+  - Tier 1 (`all_cpus_admissible`): three `all_cpus_admissible`-specific lemmas
+    (extracted from EDF/LLF duplication; EDF/LLF now delegate to these)
+  - Tier 2 (generic `adm`, `_gen` suffix): three lemmas for arbitrary admissibility:
+    - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen`
+    - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen`
+    - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen`
 
 What remains:
 
 - multicore validity beyond the current minimal base
 - stronger service / completion lemmas under migration
 - abstractions for top-m and non-partitioned selection
-- generalize `TopMAdmissibilityBridge` lemmas beyond `all_cpus_admissible` using `AdmissibleCandidateSourceSpec`
+- API stabilization: clarify public API vs helper lemma boundary in the bridge
+- richer affinity/candidate-source instantiation examples
 
 ---
 
@@ -259,23 +267,28 @@ What remains:
 What is already done:
 
 - `TopMSchedulerBridge.v` provides the generic top-`m` scheduler bridge
-- `TopMAdmissibilityBridge.v` (new) provides policy-generic admissibility lemmas:
-  - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere`
-  - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere`
-  - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere`
+- `TopMAdmissibilityBridge.v` provides policy-generic admissibility lemmas (two tiers):
+  - Tier 1 (`all_cpus_admissible`):
+    - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere`
+    - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere`
+    - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere`
+  - Tier 2 (generic `adm`, `_gen` suffix):
+    - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen`
+    - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen`
+    - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen`
 - `GlobalEDF.v` provides:
   - `global_edf_scheduler`
   - `global_edf_valid`
   - `global_edf_idle_outside_range`
   - `global_edf_no_duplication`
   - subset-aware theorem entry points on top of the bridge
-  - admissibility-aware wrappers (now delegating to `TopMAdmissibilityBridge`)
+  - admissibility-aware wrappers for both Tier 1 and Tier 2 (delegating to `TopMAdmissibilityBridge`)
 
 What remains:
 
-- extend the current results from `all_cpus_admissible` to richer admissibility / affinity models
 - connect the global theorem layer to later analysis results
 - tighten theorem inventory documentation for downstream analysis use
+- richer candidate-source instantiation examples connecting affinity predicates to spec
 
 Note:
 
@@ -294,13 +307,13 @@ Planned:
 
 What is already done:
 
-- `GlobalLLF.v` provides:
+- `GlobalLLF.v` provides (structure mirrors GlobalEDF.v):
   - `global_llf_scheduler`
   - `global_llf_valid`
   - `global_llf_idle_outside_range`
   - `global_llf_no_duplication`
   - subset-aware theorem entry points on top of the bridge
-  - admissibility-aware wrappers (now delegating to `TopMAdmissibilityBridge`)
+  - admissibility-aware wrappers for both Tier 1 and Tier 2 (delegating to `TopMAdmissibilityBridge`)
 
 What remains:
 
