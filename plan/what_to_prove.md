@@ -435,7 +435,7 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - `valid_job_of_task`
 
 ## 6-2. periodic task generation
-**Status: Initial layer done**
+**Status: Finite-horizon bridge and partitioned lift done**
 
 証明済みとして扱うもの:
 
@@ -446,6 +446,17 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - periodic job model on `J`
 - implicit-deadline task predicate
 - generated job -> `valid_job_of_task`
+- `periodic_jobset_upto` + bool reflection (`PeriodicFiniteHorizon.v`)
+- `PeriodicFiniteHorizonCodec` + `enum_periodic_jobs_upto` (sound/complete)
+  (`PeriodicEnumeration.v`)
+- `periodic_finite_optimality_lift` / `periodic_finite_optimality_lift_auto`:
+  generic uniprocessor periodic finite-optimality lift (`PeriodicFiniteOptimalityLift.v`)
+- `periodic_edf_optimality_on_finite_horizon` / `_auto`: EDF thin wrapper
+  (`PeriodicEDFBridge.v`)
+- `periodic_llf_optimality_on_finite_horizon` / `_auto`: LLF thin wrapper
+  (`PeriodicLLFBridge.v`)
+- `partitioned_periodic_finite_optimality_lift`: periodic → partitioned
+  schedulability lift (`PeriodicPartitionedFiniteOptimalityLift.v`)
 
 ## 6-3. sporadic task generation
 **Status: Not started**

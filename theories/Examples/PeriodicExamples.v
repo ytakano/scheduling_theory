@@ -2,12 +2,19 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
+From RocqSched Require Import Uniprocessor.Policies.LLF.
+From RocqSched Require Import Uniprocessor.Policies.EDFOptimality.
+From RocqSched Require Import Multicore.Partitioned.Partitioned.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFBridge.
+From RocqSched Require Import TaskModels.Periodic.PeriodicLLFBridge.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
+From RocqSched Require Import TaskModels.Periodic.PeriodicPartitionedFiniteOptimalityLift.
 Import ListNotations.
 
 Definition task0_ex : Task := mkTask 1 2 2.
@@ -284,4 +291,203 @@ Proof.
     + left. reflexivity.
     + right. reflexivity.
   - exact periodic_feasible_on_ex.
+Qed.
+
+(* ===== LLF examples ===== *)
+
+(* The same periodic task set is LLF-schedulable on 1 CPU. *)
+Theorem periodic_example_llf_schedulable_by_on :
+  schedulable_by_on
+    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+    (llf_scheduler (enum_candidates_of enumJ_ex))
+    jobs_ex 1.
+Proof.
+  eapply periodic_llf_optimality_on_finite_horizon.
+  - exact T_ex_bool_spec.
+  - exact enumJ_ex_complete.
+  - exact enumJ_ex_sound.
+  - exact periodic_feasible_on_ex.
+Qed.
+
+Theorem periodic_example_llf_schedulable_by_on_auto :
+  schedulable_by_on
+    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+    (llf_scheduler
+       (enum_candidates_of
+          (enum_periodic_jobs_upto T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+    jobs_ex 1.
+Proof.
+  apply periodic_llf_optimality_on_finite_horizon_auto with (enumT := enumT_ex).
+  - intros τ Hτ.
+    destruct Hτ as [Hτ | Hτ]; subst τ; simpl; lia.
+  - intros τ Hτ.
+    destruct Hτ as [Hτ | Hτ]; subst τ; simpl; tauto.
+  - intros τ Hτ.
+    simpl in Hτ.
+    destruct Hτ as [Hτ | [Hτ | []]]; subst τ.
+    + left. reflexivity.
+    + right. reflexivity.
+  - exact periodic_feasible_on_ex.
+Qed.
+
+(* ===== Partitioned periodic EDF example ===== *)
+
+(* Static assignment: task1 jobs (j=1, j=3) go to CPU 1; others to CPU 0.
+   CPU 0: {job0 (task0,k=0), job2 (task0,k=1)}
+   CPU 1: {job1 (task1,k=0), job3 (task1,k=1)} *)
+Definition assign_ex (j : JobId) : CPU :=
+  if Nat.eqb j 1 || Nat.eqb j 3 then 1 else 0.
+
+Lemma assign_ex_valid : forall j, assign_ex j < 2.
+Proof.
+  intro j. unfold assign_ex.
+  destruct (Nat.eqb j 1 || Nat.eqb j 3); simpl; lia.
+Qed.
+
+(* CPU 0 local schedule: job0 at t=0, job2 at t=2. *)
+Definition sched_c0_ex (t : Time) (cpu : CPU) : option JobId :=
+  if Nat.eqb cpu 0 then
+    match t with
+    | 0 => Some 0
+    | 2 => Some 2
+    | _ => None
+    end
+  else None.
+
+(* CPU 1 local schedule: job1 at t=0, job3 at t=3. *)
+Definition sched_c1_ex (t : Time) (cpu : CPU) : option JobId :=
+  if Nat.eqb cpu 0 then
+    match t with
+    | 0 => Some 1
+    | 3 => Some 3
+    | _ => None
+    end
+  else None.
+
+Lemma sched_c0_ex_valid : valid_schedule jobs_ex 1 sched_c0_ex.
+Proof.
+  unfold valid_schedule.
+  intros j t c Hc Hrun.
+  assert (c = 0) by lia. subst c.
+  unfold sched_c0_ex in Hrun.
+  rewrite Nat.eqb_refl in Hrun.
+  destruct t as [| [| [| t']]]; simpl in Hrun; inversion Hrun; subst j;
+    unfold eligible, released, completed, jobs_ex, job0_ex, job2_ex; simpl; lia.
+Qed.
+
+Lemma sched_c1_ex_valid : valid_schedule jobs_ex 1 sched_c1_ex.
+Proof.
+  unfold valid_schedule.
+  intros j t c Hc Hrun.
+  assert (c = 0) by lia. subst c.
+  unfold sched_c1_ex in Hrun.
+  rewrite Nat.eqb_refl in Hrun.
+  destruct t as [| [| [| [| t']]]]; simpl in Hrun; inversion Hrun; subst j;
+    unfold eligible, released, completed, jobs_ex, job1_ex, job3_ex; simpl; lia.
+Qed.
+
+(* local_jobset assign_ex (periodic_jobset_upto T_ex ...) 0 = {0, 2} *)
+Lemma local_jobset_c0_ex :
+  forall j, local_jobset assign_ex (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex) 0 j <->
+            j = 0 \/ j = 2.
+Proof.
+  intro j.
+  unfold local_jobset, assign_ex, periodic_jobset_upto, T_ex, H_ex, jobs_ex.
+  split.
+  - intros [[HT [Hgen _]] Hassign].
+    (* After destruct, assign_ex j = 0 fails (discrim) for j=1,3;
+       remaining: j=0, j=2, j>=4. *)
+    destruct j as [| [| [| [| j']]]]; simpl in Hassign; try discriminate.
+    + left. reflexivity.     (* j = 0 *)
+    + right. reflexivity.    (* j = 2 *)
+    + simpl in HT. destruct HT as [HT | HT]; discriminate.  (* j >= 4: T_ex 2 = ⊥ *)
+  - intros [Hj | Hj]; subst j; simpl.
+    + split.
+      * split. { left. reflexivity. }
+        split. { exact generated_job0_ex. } { lia. }
+      * reflexivity.
+    + split.
+      * split. { left. reflexivity. }
+        split. { exact generated_job2_ex. } { lia. }
+      * reflexivity.
+Qed.
+
+(* local_jobset assign_ex (periodic_jobset_upto T_ex ...) 1 = {1, 3} *)
+Lemma local_jobset_c1_ex :
+  forall j, local_jobset assign_ex (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex) 1 j <->
+            j = 1 \/ j = 3.
+Proof.
+  intro j.
+  unfold local_jobset, assign_ex, periodic_jobset_upto, T_ex, H_ex, jobs_ex.
+  split.
+  - intros [[HT [Hgen _]] Hassign].
+    (* assign_ex j = 1 only for j=1,3; all others get 0=1 discrim. *)
+    destruct j as [| [| [| [| j']]]]; simpl in Hassign; try discriminate.
+    + left. reflexivity.     (* j = 1 *)
+    + right. reflexivity.    (* j = 3 *)
+  - intros [Hj | Hj]; subst j; simpl.
+    + split.
+      * split. { right. reflexivity. }
+        split. { exact generated_job1_ex. } { lia. }
+      * reflexivity.
+    + split.
+      * split. { right. reflexivity. }
+        split. { exact generated_job3_ex. } { lia. }
+      * reflexivity.
+Qed.
+
+Lemma local_feasible_cpu0_ex :
+  feasible_on
+    (local_jobset assign_ex (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex) 0)
+    jobs_ex 1.
+Proof.
+  exists sched_c0_ex.
+  split.
+  - exact sched_c0_ex_valid.
+  - unfold feasible_schedule_on.
+    intros j Hj.
+    apply local_jobset_c0_ex in Hj.
+    destruct Hj as [Hj | Hj]; subst j;
+      unfold missed_deadline, completed, jobs_ex, job0_ex, job2_ex, sched_c0_ex;
+      simpl; lia.
+Qed.
+
+Lemma local_feasible_cpu1_ex :
+  feasible_on
+    (local_jobset assign_ex (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex) 1)
+    jobs_ex 1.
+Proof.
+  exists sched_c1_ex.
+  split.
+  - exact sched_c1_ex_valid.
+  - unfold feasible_schedule_on.
+    intros j Hj.
+    apply local_jobset_c1_ex in Hj.
+    destruct Hj as [Hj | Hj]; subst j;
+      unfold missed_deadline, completed, jobs_ex, job1_ex, job3_ex, sched_c1_ex;
+      simpl; lia.
+Qed.
+
+(* The periodic job set is schedulable by a 2-CPU partitioned EDF scheduler. *)
+Theorem periodic_example_partitioned_edf_schedulable_by_on :
+  schedulable_by_on
+    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+    (partitioned_scheduler 2 edf_generic_spec
+       (enum_local_candidates_of assign_ex enumJ_ex))
+    jobs_ex 2.
+Proof.
+  apply (partitioned_periodic_finite_optimality_lift
+           edf_scheduler edf_generic_spec
+           (fun _ => eq_refl)
+           (fun J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf =>
+              edf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf)
+           assign_ex 2 assign_ex_valid
+           T_ex T_ex_bool tasks_ex offset_ex H_ex enumJ_ex jobs_ex).
+  - exact T_ex_bool_spec.
+  - exact enumJ_ex_complete.
+  - exact enumJ_ex_sound.
+  - intros c Hc.
+    destruct c as [| [| c]]; try lia.
+    + exact local_feasible_cpu0_ex.
+    + exact local_feasible_cpu1_ex.
 Qed.

@@ -10,6 +10,7 @@ From RocqSched Require Import Uniprocessor.Policies.LLFOptimality.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
+From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteOptimalityLift.
 Import ListNotations.
 
 Theorem periodic_llf_optimality_on_finite_horizon :
@@ -24,22 +25,10 @@ Theorem periodic_llf_optimality_on_finite_horizon :
       jobs 1.
 Proof.
   intros T T_bool tasks offset H enumJ jobs HTbool Henum_complete Henum_sound Hfeas.
-  eapply (llf_optimality_on_finite_jobs
-            (periodic_jobset_upto T tasks offset jobs H)
-            (periodic_jobset_upto_bool T_bool tasks offset jobs H)
-            enumJ
-            (enum_candidates_of enumJ)
-            (enum_candidates_spec
-               (periodic_jobset_upto T tasks offset jobs H)
-               enumJ
-               Henum_complete
-               Henum_sound)
-            jobs).
-  - intros j.
-    exact (periodic_jobset_upto_bool_spec T T_bool tasks offset jobs H HTbool j).
-  - exact Henum_complete.
-  - exact Henum_sound.
-  - exact Hfeas.
+  exact (periodic_finite_optimality_lift llf_scheduler
+    (fun J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf =>
+      llf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf)
+    T T_bool tasks offset H enumJ jobs HTbool Henum_complete Henum_sound Hfeas).
 Qed.
 
 (* Auto version: derive the job enumeration from a task list and a codec. *)
@@ -58,12 +47,8 @@ Theorem periodic_llf_optimality_on_finite_horizon_auto :
       jobs 1.
 Proof.
   intros T tasks offset H enumT jobs codec Hwf HenumT_complete HenumT_sound Hfeas.
-  eapply periodic_llf_optimality_on_finite_horizon
-    with (T_bool := task_in_list_b enumT)
-         (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec).
-  - intros τ. rewrite task_in_list_b_spec.
-    split; [apply HenumT_sound | apply HenumT_complete].
-  - apply enum_periodic_jobs_upto_complete; assumption.
-  - apply enum_periodic_jobs_upto_sound; assumption.
-  - exact Hfeas.
+  exact (periodic_finite_optimality_lift_auto llf_scheduler
+    (fun J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf =>
+      llf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf)
+    T tasks offset H enumT jobs codec Hwf HenumT_complete HenumT_sound Hfeas).
 Qed.

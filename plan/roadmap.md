@@ -120,24 +120,30 @@ This phase should come earlier than in the old roadmap, because the current code
 already contains task/job structure and an initial periodic layer.
 
 ### B-1. Periodic tasks
-**Status: Initial layer done**
+**Status: Finite-horizon bridge and partitioned lift done**
 
 Implemented core:
 
 - `Base.v` already contains task-related fields
-- `PeriodicTasks.v` already contains:
-  - expected release
-  - expected deadline
-  - generated-by-periodic-task predicate
-  - periodic-job-model predicates
-  - implicit-deadline task predicate
-  - basic consistency lemmas
+- `PeriodicTasks.v`: expected release, expected deadline,
+  generated-by-periodic-task predicate, periodic-job-model predicates,
+  implicit-deadline task predicate, basic consistency lemmas
+- `PeriodicFiniteHorizon.v`: `periodic_jobset_upto` with bool reflection
+- `PeriodicEnumeration.v`: `PeriodicFiniteHorizonCodec`, `enum_periodic_jobs_upto`
+  — sound and complete codec-based job enumeration for finite horizons
+- `PeriodicFiniteOptimalityLift.v` (new): generic uniprocessor periodic
+  finite-optimality theorem; abstracts over any policy satisfying the
+  standard `finite-optimality` contract
+- `PeriodicEDFBridge.v`: thin EDF wrapper over `PeriodicFiniteOptimalityLift`
+- `PeriodicLLFBridge.v`: thin LLF wrapper over `PeriodicFiniteOptimalityLift`
+- `PeriodicPartitionedFiniteOptimalityLift.v` (new): connects periodic
+  task generation to `partitioned_scheduler` via `partitioned_finite_optimality_lift`
 
 What remains:
 
-- connect the periodic model more systematically to feasibility/schedulability
-- add stronger release-pattern lemmas
-- add horizon / finite-job extraction lemmas where needed
+- add stronger release-pattern lemmas (e.g., no two jobs with same release)
+- sporadic task-generation layer
+- utilization / Liu & Layland style theorems
 
 ### B-2. Sporadic tasks
 **Status: Not started**

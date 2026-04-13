@@ -43,8 +43,10 @@ theories/Semantics/ScheduleLemmas/ScheduleTruncation.v
 theories/TaskModels/Periodic/PeriodicTasks.v
 theories/TaskModels/Periodic/PeriodicFiniteHorizon.v
 theories/TaskModels/Periodic/PeriodicEnumeration.v
+theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v
+theories/TaskModels/Periodic/PeriodicPartitionedFiniteOptimalityLift.v
 theories/Uniprocessor/Core/UniSchedulerInterface.v
 theories/Uniprocessor/Core/UniSchedulerLemmas.v
 theories/Uniprocessor/Generic/SchedulingAlgorithmCanonicalBridge.v
