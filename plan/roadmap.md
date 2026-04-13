@@ -45,6 +45,7 @@ The next work is mainly:
 3. grow multicore-common semantics beyond the current base layer
 4. strengthen the initial global theorem layers
 5. introduce delay-aware operational and analysis layers without polluting the core schedule semantics
+6. add standard real-time analysis foundations such as busy windows, demand/supply abstractions, and policy comparison metrics
 
 ### Design principle for delay modeling
 
@@ -58,6 +59,17 @@ Instead:
 - refinement theorems connect operational behavior to abstract schedules
 - analysis theorems consume explicit delay bounds as parameters
 - the idealized zero-delay model remains available as a special case
+
+### Design principle for analysis growth
+
+Analysis should be introduced in layers.
+
+- first, define semantic invariants and reusable counting/service lemmas
+- next, define analysis foundations such as busy intervals and demand/supply functions
+- then, prove idealized schedulability and response-time theorems
+- finally, add blocking, suspension, limited preemption, and operational overheads
+
+This keeps the semantic core reusable while still allowing standard scheduling-theory results to be mechanized.
 
 ---
 
@@ -356,7 +368,54 @@ global-scheduling layer, not alongside periodic tasks.
 
 ---
 
-## 7. Phase G: OS-level operational semantics
+## 7. Phase G: Analysis foundations
+**Status: Not started**
+
+This phase collects standard abstractions from scheduling theory that should be reusable
+across idealized, delay-aware, uniprocessor, and multicore analyses.
+
+### G-1. Busy-window / busy-interval theory
+**Status: Not started**
+
+Planned:
+
+- busy interval definitions
+- maximal busy interval lemmas
+- response-time search-space reduction lemmas
+- policy-specific and policy-generic busy-window interfaces
+
+### G-2. Demand-bound / request-bound theory
+**Status: Not started**
+
+Planned:
+
+- demand bound function (dbf)
+- request bound function (rbf)
+- cumulative demand lemmas for periodic/sporadic workloads
+- processor-demand style feasibility hooks
+
+### G-3. Supply-bound / interface theory
+**Status: Not started**
+
+Planned:
+
+- supply bound function (sbf)
+- service curves / lower supply abstractions
+- interface-based analysis hooks
+- future compatibility with hierarchical scheduling
+
+### G-4. Analysis-ready workload abstractions
+**Status: Not started**
+
+Planned:
+
+- workload bounds on intervals
+- interference templates
+- reusable counting lemmas for idealized and delay-aware response-time analyses
+
+---
+
+## 8. Phase H: OS-level operational semantics
 **Status: Not started**
 
 Planned:
@@ -370,7 +429,7 @@ Planned:
 - trace semantics
 - schedule projection
 
-### G-1. Explicit delay sources
+### H-1. Explicit delay sources
 **Status: Not started**
 
 Planned:
@@ -384,7 +443,7 @@ Planned:
 
 These delays should live in the operational layer, not in the core abstract schedule.
 
-### G-2. Projection discipline
+### H-2. Projection discipline
 **Status: Not started**
 
 Planned:
@@ -395,7 +454,45 @@ Planned:
 
 ---
 
-## 8. Phase H: Refinement strengthening
+## 9. Phase I: Shared resources, suspension, and preemption models
+**Status: Not started**
+
+This phase adds standard real-time complications that strongly affect response-time analysis.
+
+### I-1. Blocking and shared-resource models
+**Status: Not started**
+
+Planned:
+
+- abstract blocking terms
+- critical-section model
+- lock/resource ownership model
+- interfaces suitable for PCP / SRP style protocols
+- later extension hooks for multiprocessor locking protocols
+
+### I-2. Self-suspension and segmented execution
+**Status: Not started**
+
+Planned:
+
+- self-suspending jobs/tasks
+- segmented execution models
+- separation between execution demand and suspension delay
+- sufficient conditions for safe upper bounds
+
+### I-3. Limited preemption / non-preemptive regions
+**Status: Not started**
+
+Planned:
+
+- bounded non-preemptive chunks
+- preemption-point model
+- relation to blocking and dispatch overhead
+- zero-non-preemptive special case
+
+---
+
+## 10. Phase J: Refinement strengthening
 **Status: Partially done at the abstract uniprocessor level**
 
 Implemented core:
@@ -416,7 +513,7 @@ What remains:
 
 ---
 
-## 9. Phase I: Analysis on top of semantics
+## 11. Phase K: Analysis on top of semantics
 **Status: Not started**
 
 Planned:
@@ -427,7 +524,7 @@ Planned:
 - dynamic-metric analysis
 - speedup bounds / policy comparison
 
-### I-1. Idealized analysis
+### K-1. Idealized analysis
 **Status: Not started**
 
 Planned:
@@ -435,7 +532,7 @@ Planned:
 - zero-overhead, zero-jitter, zero-blocking baseline theorems
 - clean reuse of the existing abstract semantic core
 
-### I-2. Delay-aware analysis
+### K-2. Delay-aware analysis
 **Status: Not started**
 
 Planned:
@@ -451,15 +548,76 @@ Planned:
   - delay budget
 - zero-delay specialization as a corollary of the general theorem
 
-### I-3. Placement principle
+### K-3. Sustainability / monotonicity results
+**Status: Not started**
+
+Planned:
+
+- “things get no worse when parameters improve” theorems
+- monotonicity with respect to lower execution costs
+- monotonicity with respect to smaller delays/blocking/jitter
+- reusable theorem shapes for later policy-specific analyses
+
+### K-4. Speedup / resource augmentation
+**Status: Not started**
+
+Planned:
+
+- speedup-factor statements
+- capacity augmentation style comparisons
+- policy comparison under bounded extra speed/resources
+- global vs partitioned comparison hooks
+
+### K-5. Placement principle
 **Status: Design decision**
 
-Response-time analysis should be built on top of explicit delay assumptions.
-The project should avoid hard-wiring delay into the core schedule semantics.
+Response-time analysis should be built on top of explicit delay and blocking assumptions.
+The project should avoid hard-wiring these effects into the core schedule semantics.
 
 ---
 
-## 10. Practical priority order from the current implementation
+## 12. Phase L: Hierarchical scheduling and compositional interfaces
+**Status: Not started**
+
+This phase is a natural extension once demand/supply abstractions exist.
+
+Planned:
+
+- server/reservation abstractions
+- compositional interfaces
+- component-level schedulability contracts
+- relation to supply-bound functions
+- hooks for virtualized or partitioned subsystems
+
+---
+
+## 13. Phase M: Future advanced extensions
+**Status: Not started**
+
+These are worthwhile, but should remain clearly downstream of the core semantic and analysis pipeline.
+
+### M-1. Mixed-criticality scheduling
+**Status: Not started**
+
+Planned:
+
+- multi-budget or multi-assumption task models
+- mode-change semantics
+- degraded-service guarantees
+- integration with delay-aware analysis
+
+### M-2. Parallel real-time scheduling beyond static DAG structure
+**Status: Not started**
+
+Planned:
+
+- stronger parallel workload models
+- work/span style abstractions if useful
+- scheduling guarantees for parallel real-time computations
+
+---
+
+## 14. Practical priority order from the current implementation
 
 ### Priority 1
 Stabilize and document the reusable uniprocessor core.
@@ -477,13 +635,29 @@ Strengthen multicore-common semantics.
 Strengthen the existing global EDF/LLF theorem layers.
 
 ### Priority 6
-Introduce OS-level delay sources and projection discipline.
+Introduce analysis foundations: busy intervals, dbf/rbf, and sbf/interface abstractions.
 
 ### Priority 7
-Strengthen refinement with bounded-delay statements.
+Introduce OS-level delay sources and projection discipline.
 
 ### Priority 8
-Build idealized and delay-aware schedulability/response-time analysis on top.
+Add shared-resource, suspension, and limited-preemption models.
 
 ### Priority 9
-Add DAG semantics as a distinct structured-parallel phase.
+Strengthen refinement with bounded-delay statements.
+
+### Priority 10
+Build idealized and delay-aware schedulability/response-time analysis on top.
+
+### Priority 11
+Add hierarchical scheduling / compositional interfaces.
+
+### Priority 12
+Add DAG/parallel and mixed-criticality extensions.
+
+---
+
+## 15. One-line summary
+
+The reusable uniprocessor core is already in place.
+The next major steps are to complete partitioned/global theorem layers, add workload and delay foundations for analysis, connect OS-level behavior through refinement, and then build idealized and delay-aware scheduling theory on top.
