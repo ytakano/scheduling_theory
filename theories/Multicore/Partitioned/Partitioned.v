@@ -3,6 +3,7 @@ From SchedulingTheory Require Import Foundation.Base.
 From SchedulingTheory Require Import Semantics.Schedule.
 From SchedulingTheory Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
+From SchedulingTheory Require Import Multicore.Common.Admissibility.
 From SchedulingTheory Require Import Abstractions.Scheduler.Interface.
 From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.Interface.
 From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
@@ -528,6 +529,36 @@ Section PartitionedSection.
   Proof.
     intros jobs sched Hvalid Hfeas.
     split; assumption.
+  Qed.
+
+  (* ===== Affinity bridge lemmas ===== *)
+
+  (** G-1. Membership in local_jobset implies singleton_admissibility.
+      This makes explicit that the static assignment used in partitioned
+      scheduling is a special case of singleton_admissibility. *)
+  Lemma partitioned_assignment_as_singleton_admissibility :
+    forall c j,
+      local_jobset c j ->
+      singleton_admissibility assign j c.
+  Proof.
+    intros c j [_ Hassign].
+    unfold singleton_admissibility.
+    exact Hassign.
+  Qed.
+
+  (** G-2. A valid partitioned schedule respects singleton_admissibility:
+      every running job is admissible (under singleton_admissibility assign)
+      on the CPU it is running on. *)
+  Lemma valid_partitioned_schedule_respects_affinity :
+    forall jobs sched,
+      valid_partitioned_schedule jobs sched ->
+      forall j t c,
+        c < m -> sched t c = Some j ->
+        singleton_admissibility assign j c.
+  Proof.
+    intros jobs sched Hvps j t c Hlt Hrun.
+    unfold singleton_admissibility.
+    exact (assignment_respect jobs sched Hvps j t c Hlt Hrun).
   Qed.
 
 End PartitionedSection.

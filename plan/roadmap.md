@@ -217,11 +217,15 @@ What remains:
 ---
 
 ## 4. Phase D: Multicore-common semantics
-**Status: Initial layer done**
+**Status: Affinity layer added**
 
 Implemented core:
 
 - `MultiCoreBase.v`
+- `Admissibility.v`
+- `AffinityFacts.v` (new)
+- `AdmissibleCandidateSource.v` (new)
+- `TopMAdmissibilityBridge.v` (new)
 
 What is already done:
 
@@ -230,13 +234,19 @@ What is already done:
 - idle / busy predicates
 - globally-runnable notions
 - bridge lemmas connecting multicore notions to the existing schedule model
+- `all_cpus_admissible` and `singleton_admissibility` concrete instances
+- general `cpu_affinity` / `affinity_admissibility` / `job_has_admissible_cpu` layer
+- equational embedding: both concrete instances are special cases of `affinity_admissibility`
+- `AdmissibleCandidateSourceSpec`: admissibility-aware completeness spec (framework for future generalization)
+- `TopMAdmissibilityBridge`: policy-generic busy/idle/running lemmas for `all_cpus_admissible`
+  (extracted from EDF/LLF duplication; EDF/LLF now delegate to these)
 
 What remains:
 
-- affinity / allowed-CPU layer
 - multicore validity beyond the current minimal base
 - stronger service / completion lemmas under migration
 - abstractions for top-m and non-partitioned selection
+- generalize `TopMAdmissibilityBridge` lemmas beyond `all_cpus_admissible` using `AdmissibleCandidateSourceSpec`
 
 ---
 
@@ -244,18 +254,22 @@ What remains:
 **Status: Initial global layer started**
 
 ### E-1. Global scheduling
-**Status: Initial global EDF theorem layer done**
+**Status: Initial global EDF theorem layer done; admissibility lemmas extracted to common bridge**
 
 What is already done:
 
 - `TopMSchedulerBridge.v` provides the generic top-`m` scheduler bridge
+- `TopMAdmissibilityBridge.v` (new) provides policy-generic admissibility lemmas:
+  - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere`
+  - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere`
+  - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere`
 - `GlobalEDF.v` provides:
   - `global_edf_scheduler`
   - `global_edf_valid`
   - `global_edf_idle_outside_range`
   - `global_edf_no_duplication`
   - subset-aware theorem entry points on top of the bridge
-  - admissibility-aware work-conserving wrappers under `all_cpus_admissible`
+  - admissibility-aware wrappers (now delegating to `TopMAdmissibilityBridge`)
 
 What remains:
 
@@ -276,7 +290,7 @@ Planned:
 - bridge between partitioned and fully global scheduling
 
 ### E-3. Global LLF
-**Status: Initial theorem layer done**
+**Status: Initial theorem layer done; admissibility lemmas extracted to common bridge**
 
 What is already done:
 
@@ -286,7 +300,7 @@ What is already done:
   - `global_llf_idle_outside_range`
   - `global_llf_no_duplication`
   - subset-aware theorem entry points on top of the bridge
-  - admissibility-aware work-conserving wrappers under `all_cpus_admissible`
+  - admissibility-aware wrappers (now delegating to `TopMAdmissibilityBridge`)
 
 What remains:
 

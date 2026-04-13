@@ -8,6 +8,7 @@ theories/Abstractions/SchedulingAlgorithm/SchedulerBridge.v
 theories/Abstractions/SchedulingAlgorithm/EnumCandidates.v
 theories/Abstractions/SchedulingAlgorithm/TopMInterface.v
 theories/Abstractions/SchedulingAlgorithm/TopMSchedulerBridge.v
+theories/Examples/AffinityExamples.v
 theories/Examples/FeasibleExamples.v
 theories/Examples/FIFOExamples.v
 theories/Examples/GlobalWorkConservingExamples.v
@@ -17,7 +18,10 @@ theories/Examples/SchedulableExamples.v
 theories/Foundation/Base.v
 theories/Multicore/Common/MultiCoreBase.v
 theories/Multicore/Common/Admissibility.v
+theories/Multicore/Common/AffinityFacts.v
+theories/Multicore/Common/AdmissibleCandidateSource.v
 theories/Multicore/Common/TopMMetricChooser.v
+theories/Multicore/Common/TopMAdmissibilityBridge.v
 theories/Multicore/Global/GlobalEDF.v
 theories/Multicore/Global/GlobalLLF.v
 theories/Multicore/Partitioned/Partitioned.v

@@ -29,6 +29,7 @@ From SchedulingTheory Require Import Abstractions.SchedulingAlgorithm.TopMSchedu
 From SchedulingTheory Require Import Multicore.Common.MultiCoreBase.
 From SchedulingTheory Require Import Multicore.Common.Admissibility.
 From SchedulingTheory Require Import Multicore.Common.TopMMetricChooser.
+From SchedulingTheory Require Import Multicore.Common.TopMAdmissibilityBridge.
 Import ListNotations.
 
 (* ===== EDF metric ===== *)
@@ -173,11 +174,9 @@ Lemma global_edf_all_cpus_idle_if_no_subset_admissible_somewhere :
     all_cpus_idle m sched t.
 Proof.
   intros J candidates_of jobs m sched t Hcand Hrel Hm Hnone.
-  apply (global_edf_all_cpus_idle_if_no_subset_eligible
-           J candidates_of jobs m sched t Hcand Hrel).
-  intros j Hj Helig.
-  apply (Hnone j Hj).
-  exact (admissible_somewhere_of_all_cpus_admissible jobs m sched j t Hm Helig).
+  exact (top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere
+           J global_edf_top_m_spec candidates_of jobs m sched t
+           Hcand Hrel Hm Hnone).
 Qed.
 
 Lemma global_edf_some_cpu_busy_if_subset_admissible_somewhere :
@@ -189,12 +188,10 @@ Lemma global_edf_some_cpu_busy_if_subset_admissible_somewhere :
        admissible_somewhere all_cpus_admissible jobs m sched j t) ->
     exists c, c < m /\ cpu_busy sched t c.
 Proof.
-  intros J candidates_of jobs m sched t Hcand Hrel Hm [j [HJ Hadm]].
-  apply (global_edf_some_cpu_busy_if_subset_eligible
-           J candidates_of jobs m sched t Hcand Hrel Hm).
-  exists j. split; [exact HJ |].
-  destruct Hadm as [c Helig].
-  exact (eligible_on_cpu_implies_eligible all_cpus_admissible jobs m sched j t c Helig).
+  intros J candidates_of jobs m sched t Hcand Hrel Hm Hex.
+  exact (top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere
+           J global_edf_top_m_spec candidates_of jobs m sched t
+           Hcand Hrel Hm Hex).
 Qed.
 
 Lemma global_edf_running_if_some_cpu_idle_and_subset_admissible_somewhere :
@@ -208,10 +205,9 @@ Lemma global_edf_running_if_some_cpu_idle_and_subset_admissible_somewhere :
     running m sched j t.
 Proof.
   intros J candidates_of jobs m sched t j Hcand Hrel Hm Hidle HJ Hadm.
-  apply (global_edf_running_if_some_cpu_idle_and_subset_eligible
-           J candidates_of jobs m sched t j Hcand Hrel Hidle HJ).
-  destruct Hadm as [c Helig].
-  exact (eligible_on_cpu_implies_eligible all_cpus_admissible jobs m sched j t c Helig).
+  exact (top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere
+           J global_edf_top_m_spec candidates_of jobs m sched t j
+           Hcand Hrel Hm Hidle HJ Hadm).
 Qed.
 
 Lemma global_edf_schedulable_by_on_intro :

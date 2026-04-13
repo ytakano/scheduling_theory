@@ -37,6 +37,24 @@ Definition singleton_admissibility
     (assign : JobId -> CPU) : admissible_cpu :=
   fun j c => assign j = c.
 
+(* ===== General affinity layer ===== *)
+
+(** cpu_affinity is the same type as admissible_cpu, made explicit to
+    document that all_cpus_admissible and singleton_admissibility are
+    both special cases of a general affinity predicate. *)
+Definition cpu_affinity := JobId -> CPU -> Prop.
+
+(** Convert an affinity predicate to an admissible_cpu value.
+    This is the identity at the type level; the name makes the
+    embedding into the general affinity vocabulary visible. *)
+Definition affinity_admissibility (aff : cpu_affinity) : admissible_cpu :=
+  fun j cpu => aff j cpu.
+
+(** A job has an admissible CPU if there exists at least one CPU
+    that the predicate admits it on. *)
+Definition job_has_admissible_cpu (adm : admissible_cpu) (j : JobId) : Prop :=
+  exists cpu, adm j cpu.
+
 (* ===== eligible_on_cpu (alias for runnable_on_cpu) ===== *)
 
 (** Transparent alias. `runnable_on_cpu` already captures exactly this
@@ -205,4 +223,49 @@ Proof.
   intros assign J c j.
   unfold singleton_admissibility.
   tauto.
+Qed.
+
+(* ===== General affinity: embedding lemmas ===== *)
+
+(** all_cpus_admissible is the affinity_admissibility of the constant True
+    predicate. *)
+Lemma all_cpus_admissible_eq_affinity :
+  forall j cpu,
+    all_cpus_admissible j cpu <-> affinity_admissibility (fun _ _ => True) j cpu.
+Proof.
+  intros j cpu.
+  unfold all_cpus_admissible, affinity_admissibility.
+  tauto.
+Qed.
+
+(** singleton_admissibility assign is the affinity_admissibility of the
+    predicate that admits exactly the assigned CPU for each job. *)
+Lemma singleton_admissibility_eq_affinity :
+  forall (assign : JobId -> CPU) j cpu,
+    singleton_admissibility assign j cpu <->
+    affinity_admissibility (fun j' cpu' => cpu' = assign j') j cpu.
+Proof.
+  intros assign j cpu.
+  unfold singleton_admissibility, affinity_admissibility.
+  split; intros H; symmetry; exact H.
+Qed.
+
+(** Every job has at least one admissible CPU under all_cpus_admissible. *)
+Lemma all_cpus_admissible_nonempty :
+  forall j, job_has_admissible_cpu all_cpus_admissible j.
+Proof.
+  intros j.
+  exists 0. exact I.
+Qed.
+
+(** Every job has at least one admissible CPU under singleton_admissibility
+    (namely, its assigned CPU). *)
+Lemma singleton_admissibility_nonempty :
+  forall (assign : JobId -> CPU) j,
+    job_has_admissible_cpu (singleton_admissibility assign) j.
+Proof.
+  intros assign j.
+  exists (assign j).
+  unfold singleton_admissibility.
+  reflexivity.
 Qed.
