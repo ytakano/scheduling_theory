@@ -51,6 +51,26 @@ Definition global_edf_scheduler
     (candidates_of : CandidateSource) : Scheduler :=
   top_m_algorithm_schedule global_edf_top_m_spec candidates_of.
 
+Definition global_edf_scheduler_on
+    (J : JobId -> Prop)
+    (candidates_of : CandidateSource)
+    (_ : CandidateSourceSpec J candidates_of)
+    : Scheduler :=
+  global_edf_scheduler candidates_of.
+
+Lemma global_edf_eq_cpu :
+  forall candidates_of jobs m sched t c,
+    scheduler_rel (global_edf_scheduler candidates_of) jobs m sched ->
+    sched t c =
+      if c <? m then
+        nth_error (choose_top_m global_edf_top_m_spec jobs m sched t
+                     (candidates_of jobs m sched t)) c
+      else None.
+Proof.
+  intros candidates_of jobs m sched t c Hrel.
+  exact (top_m_algorithm_eq_cpu global_edf_top_m_spec candidates_of jobs m sched t c Hrel).
+Qed.
+
 (* ===== Main theorem: validity ===== *)
 
 (** Any schedule produced by the global EDF scheduler only runs eligible jobs. *)
@@ -84,4 +104,77 @@ Proof.
   intros candidates_of jobs m sched H.
   exact (top_m_algorithm_no_duplication
            global_edf_top_m_spec candidates_of jobs m sched H).
+Qed.
+
+Lemma global_edf_in_subset :
+  forall J candidates_of jobs m sched t c j,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_edf_scheduler candidates_of) jobs m sched ->
+    c < m ->
+    sched t c = Some j ->
+    J j.
+Proof.
+  intros J candidates_of jobs m sched t c j Hcand Hrel Hlt Hrun.
+  exact (top_m_algorithm_in_subset
+           J global_edf_top_m_spec candidates_of jobs m sched t c j
+           Hcand Hrel Hlt Hrun).
+Qed.
+
+Lemma global_edf_all_cpus_idle_if_no_subset_eligible :
+  forall J candidates_of jobs m sched t,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_edf_scheduler candidates_of) jobs m sched ->
+    (forall j, J j -> ~ eligible jobs m sched j t) ->
+    all_cpus_idle m sched t.
+Proof.
+  intros J candidates_of jobs m sched t Hcand Hrel Hnone.
+  exact (top_m_algorithm_all_cpus_idle_if_no_subset_eligible
+           J global_edf_top_m_spec candidates_of jobs m sched t
+           Hcand Hrel Hnone).
+Qed.
+
+Lemma global_edf_some_cpu_busy_if_subset_eligible :
+  forall J candidates_of jobs m sched t,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_edf_scheduler candidates_of) jobs m sched ->
+    0 < m ->
+    (exists j, J j /\ eligible jobs m sched j t) ->
+    exists c, c < m /\ cpu_busy sched t c.
+Proof.
+  intros J candidates_of jobs m sched t Hcand Hrel Hm Hex.
+  exact (top_m_algorithm_some_cpu_busy_if_subset_eligible
+           J global_edf_top_m_spec candidates_of jobs m sched t
+           Hcand Hrel Hm Hex).
+Qed.
+
+Lemma global_edf_running_if_some_cpu_idle_and_subset_eligible :
+  forall J candidates_of jobs m sched t j,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_edf_scheduler candidates_of) jobs m sched ->
+    some_cpu_idle m sched t ->
+    J j ->
+    eligible jobs m sched j t ->
+    running m sched j t.
+Proof.
+  intros J candidates_of jobs m sched t j Hcand Hrel Hidle HJ Helig.
+  exact (top_m_algorithm_running_if_some_cpu_idle_and_subset_eligible
+           J global_edf_top_m_spec candidates_of jobs m sched t j
+           Hcand Hrel Hidle HJ Helig).
+Qed.
+
+Lemma global_edf_schedulable_by_on_intro :
+  forall J candidates_of cand_spec jobs m sched,
+    scheduler_rel
+      (global_edf_scheduler_on J candidates_of cand_spec)
+      jobs m sched ->
+    feasible_schedule_on J jobs m sched ->
+    schedulable_by_on
+      J
+      (global_edf_scheduler_on J candidates_of cand_spec)
+      jobs m.
+Proof.
+  intros J candidates_of cand_spec jobs m sched Hrel Hfeas.
+  exact (top_m_algorithm_schedulable_by_on_intro
+           J global_edf_top_m_spec candidates_of cand_spec jobs m sched
+           Hrel Hfeas).
 Qed.

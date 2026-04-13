@@ -26,8 +26,10 @@ Its core is a Rocq formalization centered on:
 - LLF finite optimality pipeline
 - partitioned scheduling core
 - partitioned EDF / FIFO / RR / LLF wrappers
+- partitioned finite-job optimality lift
 - initial periodic-task layer
 - initial multicore-common layer
+- initial global EDF layer
 
 ### Interpretation of the current state
 
@@ -39,7 +41,7 @@ The next work is mainly:
 1. stabilize and document the reusable uniprocessor core
 2. turn partitioned multicore into a mature theorem layer
 3. grow multicore-common semantics beyond the current base layer
-4. then move to global / clustered / OS-operational semantics
+4. strengthen the initial global EDF layer and then move to clustered / OS-operational semantics
 
 ---
 
@@ -205,6 +207,7 @@ What remains:
 What is already done:
 
 - the main entry points for lifting local schedulability already exist
+- `PartitionedFiniteOptimalityLift.v` provides a reusable finite-job lift for partitioned EDF
 
 What remains:
 
@@ -238,14 +241,26 @@ What remains:
 ---
 
 ## 5. Phase E: Global / clustered scheduling
-**Status: Not started**
+**Status: Initial global layer started**
 
 ### E-1. Global scheduling
-**Status: Not started**
+**Status: Initial global EDF layer done**
 
-Planned first target:
+What is already done:
 
-- global EDF
+- `TopMSchedulerBridge.v` provides the generic top-`m` scheduler bridge
+- `GlobalEDF.v` provides:
+  - `global_edf_scheduler`
+  - `global_edf_valid`
+  - `global_edf_idle_outside_range`
+  - `global_edf_no_duplication`
+  - subset-aware theorem entry points on top of the bridge
+
+What remains:
+
+- enrich the theorem layer toward work-conserving / admissibility-aware results
+- add follow-on policies such as global LLF
+- connect the global theorem layer to later analysis results
 
 ### E-2. Clustered scheduling
 **Status: Not started**
@@ -258,7 +273,7 @@ Planned:
 ### E-3. Global LLF
 **Status: Not started**
 
-This should remain after global EDF.
+This should remain after the generic top-`m` bridge and initial global EDF layer.
 
 ---
 
@@ -346,7 +361,7 @@ Promote periodic/sporadic task-generation models earlier in the roadmap.
 Strengthen multicore-common semantics.
 
 ### Priority 5
-Introduce global EDF.
+Strengthen the existing global EDF theorem layer and use it as the entry point for global LLF.
 
 ### Priority 6
 Add DAG semantics as a distinct structured-parallel phase.

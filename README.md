@@ -13,6 +13,22 @@ Desing principles are detailed in [DesignPrinciples.md](DesignPrinciples.md).
 - Roadmap: [plan/roadmap.md](plan/roadmap.md)
 - What to Prove: [plan/what_to_prove.md](plan/what_to_prove.md)
 
+# Current Status
+
+The reusable single-CPU core is largely in place, including the generic
+canonicalization / normalization / finite-optimality pipeline and EDF / LLF
+instantiations.
+
+Multicore development has also started in earnest:
+
+- partitioned scheduling already has a substantial generic layer, not just
+  thin policy wrappers
+- `PartitionedFiniteOptimalityLift.v` provides a reusable finite-job lifting
+  path for partitioned EDF
+- global scheduling is no longer untouched: `GlobalEDF.v` now provides the
+  initial scheduler/theorem layer, including validity, no-duplication,
+  subset-aware soundness, and idle/busy bridge results
+
 # Adding a New File
 
 To add a new file to the project, follow these steps:

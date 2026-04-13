@@ -408,6 +408,7 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 
 - local finite-job EDF feasibility から
   partitioned EDF `schedulable_by_on` を導く定理
+- `PartitionedFiniteOptimalityLift.v` による finite-job lifting の generic entry point
 
 ## 5-5. remaining work for partitioned
 **Status: In progress**
@@ -507,17 +508,32 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 ---
 
 # Lv.8: Global / clustered scheduling
-**Status: Not started**
+**Status: Initial global EDF layer exists**
 
 ## 8-1. global scheduling
-**Status: Not started**
+**Status: In progress at the initial theorem-layer stage**
 
-候補:
+証明済みとして扱うもの:
 
-- global EDF
-- top-`m` choose
-- multicore candidate completeness
-- work-conserving under admissibility
+- `TopMSchedulerBridge.v` の generic bridge:
+  - `top_m_algorithm_valid`
+  - `top_m_algorithm_idle_outside_range`
+  - `top_m_algorithm_no_duplication`
+  - subset-aware theorem layer
+- `GlobalEDF.v`:
+  - `global_edf_scheduler`
+  - `global_edf_valid`
+  - `global_edf_idle_outside_range`
+  - `global_edf_no_duplication`
+  - subset soundness / idle-if-no-eligible / busy-if-eligible
+  - idle CPU exists -> eligible subset job is already running
+  - `schedulable_by_on` intro lemma
+
+残作業:
+
+- candidate completeness と admissibility-aware work-conserving 層を整理する
+- global policy resultsを EDF 以外へ一般化できるところまで切り出す
+- analysis theorem の前段となる theorem inventory を明示する
 
 ## 8-2. clustered scheduling
 **Status: Not started**
