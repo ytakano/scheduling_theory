@@ -38,6 +38,7 @@ theories/Semantics/ScheduleLemmas/ScheduleTransform.v
 theories/Semantics/ScheduleLemmas/ScheduleTruncation.v
 theories/TaskModels/Periodic/PeriodicTasks.v
 theories/TaskModels/Periodic/PeriodicFiniteHorizon.v
+theories/TaskModels/Periodic/PeriodicEnumeration.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v
 theories/Uniprocessor/Core/UniSchedulerInterface.v

@@ -80,3 +80,32 @@ Proof.
        tasks offset jobs j
        (periodic_jobset_upto_implies_generated T tasks offset jobs H j Hjobset)).
 Qed.
+
+(* The expected release of a job in the jobset is strictly below the horizon.
+   Combines generated_job_release with periodic_jobset_upto_implies_release_lt. *)
+Lemma periodic_jobset_upto_expected_release_lt :
+  forall T tasks offset jobs H j,
+    periodic_jobset_upto T tasks offset jobs H j ->
+    expected_release tasks offset (job_task (jobs j)) (job_index (jobs j)) < H.
+Proof.
+  intros T tasks offset jobs H j Hjobset.
+  rewrite <- generated_job_release.
+  - exact (periodic_jobset_upto_implies_release_lt T tasks offset jobs H j Hjobset).
+  - exact (periodic_jobset_upto_implies_generated T tasks offset jobs H j Hjobset).
+Qed.
+
+(* The job index of any in-scope job is strictly below the horizon.
+   Requires that all in-scope tasks have positive period. *)
+Lemma periodic_jobset_upto_implies_index_lt :
+  forall T tasks offset jobs H j,
+    well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_upto T tasks offset jobs H j ->
+    job_index (jobs j) < H.
+Proof.
+  intros T tasks offset jobs H j Hwf Hjobset.
+  pose proof (periodic_jobset_upto_implies_task_in_scope T tasks offset jobs H j Hjobset) as HT.
+  pose proof (Hwf _ HT) as Hp.
+  pose proof (periodic_jobset_upto_expected_release_lt T tasks offset jobs H j Hjobset) as Hrel_lt.
+  unfold expected_release in Hrel_lt.
+  nia.
+Qed.

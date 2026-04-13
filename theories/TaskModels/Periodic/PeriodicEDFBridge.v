@@ -9,6 +9,7 @@ From SchedulingTheory Require Import Uniprocessor.Policies.EDF.
 From SchedulingTheory Require Import Uniprocessor.Policies.EDFOptimality.
 From SchedulingTheory Require Import TaskModels.Periodic.PeriodicTasks.
 From SchedulingTheory Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
+From SchedulingTheory Require Import TaskModels.Periodic.PeriodicEnumeration.
 Import ListNotations.
 
 Theorem periodic_edf_optimality_on_finite_horizon :
@@ -38,5 +39,32 @@ Proof.
     exact (periodic_jobset_upto_bool_spec T T_bool tasks offset jobs H HTbool j).
   - exact Henum_complete.
   - exact Henum_sound.
+  - exact Hfeas.
+Qed.
+
+(* Auto version: derive the job enumeration from a task list and a codec,
+   eliminating the need to hand-write enumJ and its soundness/completeness proofs. *)
+Theorem periodic_edf_optimality_on_finite_horizon_auto :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1 ->
+    schedulable_by_on
+      (periodic_jobset_upto T tasks offset jobs H)
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1.
+Proof.
+  intros T tasks offset H enumT jobs codec Hwf HenumT_complete HenumT_sound Hfeas.
+  eapply periodic_edf_optimality_on_finite_horizon
+    with (T_bool := task_in_list_b enumT)
+         (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec).
+  - intros τ. rewrite task_in_list_b_spec.
+    split; [apply HenumT_sound | apply HenumT_complete].
+  - apply enum_periodic_jobs_upto_complete; assumption.
+  - apply enum_periodic_jobs_upto_sound; assumption.
   - exact Hfeas.
 Qed.

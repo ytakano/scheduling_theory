@@ -68,6 +68,13 @@ Definition periodic_job_model_on
 Definition implicit_deadline_tasks (tasks : TaskId -> Task) : Prop :=
   forall τ, task_relative_deadline (tasks τ) = task_period (tasks τ).
 
+(* Well-formedness restricted to an in-scope task predicate T:
+   every task τ ∈ T has a strictly positive period. *)
+Definition well_formed_periodic_tasks_on
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task) : Prop :=
+  forall τ, T τ -> 0 < task_period (tasks τ).
+
 (* ===== Basic Lemmas ===== *)
 
 (* The release time of a periodically generated job equals expected_release. *)
