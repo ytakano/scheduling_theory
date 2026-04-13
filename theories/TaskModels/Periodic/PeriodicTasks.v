@@ -1,4 +1,4 @@
-From Stdlib Require Import Arith Arith.PeanoNat Lia.
+From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
 From SchedulingTheory Require Import Foundation.Base.
 
 (* ===== Periodic Task Generation Model ===== *)
@@ -29,6 +29,23 @@ Definition generated_by_periodic_task
   job_release (jobs j) = expected_release tasks offset τ k /\
   job_abs_deadline (jobs j) = expected_abs_deadline tasks offset τ k /\
   job_cost (jobs j) <= task_cost (tasks τ).
+
+Definition generated_by_periodic_task_b
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (j : JobId) : bool :=
+  Nat.eqb
+    (job_release (jobs j))
+    (expected_release tasks offset (job_task (jobs j)) (job_index (jobs j)))
+  &&
+  Nat.eqb
+    (job_abs_deadline (jobs j))
+    (expected_abs_deadline tasks offset (job_task (jobs j)) (job_index (jobs j)))
+  &&
+  Nat.leb
+    (job_cost (jobs j))
+    (task_cost (tasks (job_task (jobs j)))).
 
 (* All jobs satisfy the periodic generation rule (total-function version). *)
 Definition periodic_job_model
@@ -87,6 +104,72 @@ Lemma generated_job_cost_bounded :
 Proof.
   intros tasks offset jobs j Hgen.
   exact (proj2 (proj2 Hgen)).
+Qed.
+
+Lemma generated_by_periodic_task_b_spec :
+  forall tasks offset jobs j,
+    generated_by_periodic_task_b tasks offset jobs j = true <->
+    generated_by_periodic_task tasks offset jobs j.
+Proof.
+  intros tasks offset jobs j.
+  unfold generated_by_periodic_task_b, generated_by_periodic_task.
+  rewrite !andb_true_iff.
+  rewrite !Nat.eqb_eq.
+  rewrite Nat.leb_le.
+  tauto.
+Qed.
+
+Lemma expected_release_monotone :
+  forall tasks offset τ k1 k2,
+    k1 <= k2 ->
+    expected_release tasks offset τ k1 <=
+    expected_release tasks offset τ k2.
+Proof.
+  intros tasks offset τ k1 k2 Hle.
+  unfold expected_release.
+  apply Nat.add_le_mono_l.
+  pose proof (task_period (tasks τ)) as p.
+  apply Nat.mul_le_mono_nonneg_r.
+  - lia.
+  - exact Hle.
+Qed.
+
+Lemma expected_release_step :
+  forall tasks offset τ k,
+    expected_release tasks offset τ (S k) =
+    expected_release tasks offset τ k + task_period (tasks τ).
+Proof.
+  intros tasks offset τ k.
+  unfold expected_release.
+  lia.
+Qed.
+
+Lemma expected_abs_deadline_step :
+  forall tasks offset τ k,
+    expected_abs_deadline tasks offset τ (S k) =
+    expected_release tasks offset τ k
+    + task_period (tasks τ)
+    + task_relative_deadline (tasks τ).
+Proof.
+  intros tasks offset τ k.
+  unfold expected_abs_deadline.
+  rewrite expected_release_step.
+  lia.
+Qed.
+
+Lemma generated_job_deadline_implicit :
+  forall tasks offset jobs j,
+    implicit_deadline_tasks tasks ->
+    generated_by_periodic_task tasks offset jobs j ->
+    job_abs_deadline (jobs j) =
+    expected_release tasks offset (job_task (jobs j)) (S (job_index (jobs j))).
+Proof.
+  intros tasks offset jobs j Himplicit Hgen.
+  destruct Hgen as [Hrel [Hdl Hcost]].
+  unfold expected_abs_deadline in Hdl.
+  rewrite Himplicit in Hdl.
+  rewrite expected_release_step.
+  exact Hdl.
 Qed.
 
 (* A periodically generated job satisfies the local consistency predicate
