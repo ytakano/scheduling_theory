@@ -17,6 +17,7 @@
 - partitioned scheduling の generic compose 層
 - partitioned EDF / FIFO / RR / LLF wrapper
 - multicore-common の初期層
+- global EDF / LLF の初期層
 - periodic task generation の初期層
 
 したがって、このファイルでは
@@ -40,14 +41,28 @@
 
 ## Main tracks
 
-今後の証明対象は、次の 6 系統に分けて考える。
+今後の証明対象は、次の 7 系統に分けて考える。
 
 1. 共通基盤
 2. 単一CPU policy
 3. repair / normalization / finite optimality
-4. partitioned multicore
+4. partitioned / multicore / global semantics
 5. task-generation model
-6. multicore / DAG / OS / refinement
+6. OS / delay / refinement
+7. analysis and advanced guarantees
+
+## Design principle for delay-aware proofs
+
+遅延を扱うときでも、`Schedule` 自体はできるだけ純粋に保つ。
+
+したがって、遅延は次のどこかに置く。
+
+- task-generation 側の release jitter / arrival offset
+- OS-like operational semantics 側の timer / wakeup / dispatch / migration latency
+- refinement 側の bounded lag / bounded overhead
+- analysis theorem 側の明示パラメータ
+
+この整理により、zero-delay idealization を特殊化として回収しやすくする。
 
 ---
 
@@ -184,7 +199,7 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 
 残作業:
 
-- 単一CPU abstraction の説明を `Design.md` / `DesignPrinciples.md` / roadmap と揃える
+- 単一CPU abstraction の説明を design documents と揃える
 - 新 policy 追加時の最小 obligation をテンプレート化する
 
 ---
@@ -419,6 +434,7 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
   「local feasible から partitioned schedulable_by_on」
   までをどこまで揃えるか決める
 - partitioned を roadmap 上で「最初の multicore major result」として明示する
+- 後段の delay-aware partitioned analysis に必要な theorem inventory を整理する
 
 ---
 
@@ -467,14 +483,29 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - sporadic job-generation predicate
 - periodic との関係整理
 
-## 6-4. periodic schedulability / utilization theorems
+## 6-4. release jitter / arrival offset
 **Status: Not started**
 
 予定:
 
-- utilization lemmas
-- Liu & Layland 型の定理
-- periodic EDF / RM 系の定理
+- bounded release jitter
+- phase / offset model
+- expected release と actual release の関係
+- periodic / sporadic generation への拡張
+
+重要点:
+
+- release jitter は analysis 層に直接押し込まず、
+  まず task-generation semantics として定義する
+
+## 6-5. periodic / sporadic schedulability analysis hooks
+**Status: Not started**
+
+予定:
+
+- finite-horizon extraction lemmas
+- utilization-related helper lemmas
+- Liu & Layland 型の定理に接続する前段補題
 
 注意:
 
@@ -506,18 +537,15 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
   - `admissible_somewhere -> eligible`
   - `~ admissible_somewhere -> ~ eligible`
   - `valid_schedule -> running -> admissible_somewhere`
-- `AdmissibleCandidateSourceSpec` (soundness / completeness / prefix extensionality)
-- `StrongAdmissibleCandidateSourceSpec` (base + every candidate is admissible somewhere)
-- generic `adm` work-conserving lemmas in `TopMAdmissibilityBridge.v`:
-  - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen` (Done)
-  - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen` (Done)
-  - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen` (Done, under Strong spec)
+- `AdmissibleCandidateSourceSpec`
+- `StrongAdmissibleCandidateSourceSpec`
+- generic `adm` work-conserving lemmas in `TopMAdmissibilityBridge.v`
 
 残作業:
 
 - allowed-CPU / affinity invariants
 - migration 制約と接続する補題
-- richer candidate-source instantiation examples connecting affinity predicates to spec
+- richer candidate-source instantiation examples
 
 ## 7-3. multicore service / completion under migration
 **Status: Initial layer only**
@@ -542,10 +570,7 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
   - `top_m_algorithm_idle_outside_range`
   - `top_m_algorithm_no_duplication`
   - subset-aware theorem layer
-- `TopMAdmissibilityBridge.v` generic `adm` bridge (Tier 2):
-  - `top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen` (Done)
-  - `top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen` (Done)
-  - `top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen` (Done, Strong spec)
+- `TopMAdmissibilityBridge.v` generic bridge
 - `GlobalEDF.v`:
   - `global_edf_scheduler`
   - `global_edf_valid`
@@ -553,17 +578,15 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
   - `global_edf_no_duplication`
   - subset soundness / idle-if-no-eligible / busy-if-eligible
   - idle CPU exists -> eligible subset job is already running
-  - admissibility-aware wrappers under `all_cpus_admissible` (Tier 1)
-  - admissibility-aware wrappers for generic `adm` (Tier 2, `_gen` suffix)
+  - admissibility-aware wrappers
   - `schedulable_by_on` intro lemma
-- `GlobalLLF.v` (structure mirrors GlobalEDF.v):
+- `GlobalLLF.v`:
   - `global_llf_scheduler`
   - `global_llf_valid`
   - `global_llf_idle_outside_range`
   - `global_llf_no_duplication`
   - EDF と同型の subset-aware theorem layer
-  - admissibility-aware wrappers under `all_cpus_admissible` (Tier 1)
-  - admissibility-aware wrappers for generic `adm` (Tier 2, `_gen` suffix)
+  - admissibility-aware wrappers
 
 残作業:
 
@@ -635,77 +658,176 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 # Lv.10: OS-like operational semantics
 **Status: Not started**
 
+## 10-1. machine / scheduler state
+**Status: Not started**
+
 予定:
 
 - per-CPU current
 - per-CPU runqueue / global runqueue
+- wakeup / block / completion
 - migration
-- remote wakeup
-- timer / quantum / preemption
 - reschedule IPI
-- machine trace から abstract schedule への projection
+- timer / quantum / preemption
+
+## 10-2. trace semantics
+**Status: Not started**
+
+予定:
+
+- machine trace
+- step relation
+- trace-level event labels
+- abstract schedule への projection
+
+## 10-3. explicit operational delay sources
+**Status: Not started**
+
+予定:
+
+- dispatch / context-switch overhead
+- timer latency
+- wakeup latency
+- migration latency
+- remote reschedule / IPI latency
+- bounded non-preemptive windows if needed
+
+重要点:
+
+- これらは core `Schedule` の定義に埋め込まず、
+  operational semantics 上の明示的パラメータまたは relation として置く
 
 ---
 
-# Lv.11: Refinement
+# Lv.11: Delay / overhead model
+**Status: Not started**
+
+この層は analysis のための補助概念であり、
+core schedule semantics と OS operational semantics の中間に置く。
+
+## 11-1. delay taxonomy
+**Status: Not started**
+
+定義候補:
+
+- release jitter bound
+- blocking bound
+- dispatch overhead bound
+- timer latency bound
+- wakeup latency bound
+- migration latency bound
+
+## 11-2. delay accounting lemmas
+**Status: Not started**
+
+予定:
+
+- delay budget の単調性
+- より大きい bound への monotonicity
+- zero-delay simplification
+- independent delay sources の加法的合成条件
+
+## 11-3. abstract/operational consistency lemmas
+**Status: Not started**
+
+予定:
+
+- operational trace から得た遅延が abstract 側の bound に収まること
+- projection lag が bounded であること
+- ideal schedule と actual schedule の差分を定量化する補題
+
+---
+
+# Lv.12: Refinement
 **Status: Partially done only at the abstract single-CPU bridge level**
 
-## 11-1. abstract policy -> executable single-CPU scheduler
+## 12-1. abstract policy -> executable single-CPU scheduler
 **Status: Done**
 
 これは現在の single-CPU algorithm/scheduler bridge でほぼ達成済みとみなす。
 
-## 11-2. partitioned refinement
+## 12-2. executable scheduler -> operational scheduler
+**Status: Planned**
+
+予定:
+
+- chooser/algorithm の決定が operational state machine に実装されること
+- runqueue / current / event handling が抽象選択を実現すること
+
+## 12-3. bounded-delay refinement
+**Status: Planned**
+
+予定:
+
+- operational scheduler が ideal abstract schedule から高々 δ だけ遅れる
+- dispatch / wakeup / timer / migration delay を合成した lag bound
+- zero-delay case では exact refinement に落ちること
+
+## 12-4. partitioned refinement
 **Status: Planned**
 
 予定:
 
 - per-CPU concrete scheduler が abstract partitioned scheduler を実現する
 
-## 11-3. global refinement
+## 12-5. global refinement
 **Status: Planned**
 
 予定:
 
 - global queue / heap / balancing 実装が abstract global scheduling を実現する
 
-## 11-4. service refinement
+## 12-6. service refinement
 **Status: Planned**
 
 予定:
 
 - operational trace の execution count = abstract service
+- bounded-delay projection 下での service gap bound
 
-## 11-5. schedule refinement
+## 12-7. schedule refinement
 **Status: Planned**
 
 予定:
 
 - machine trace から得た schedule が abstract policy schedule を満たす
+- あるいは bounded-lag version を満たす
 
 ---
 
-# Lv.12: Analysis and advanced guarantees
+# Lv.13: Analysis and advanced guarantees
 **Status: Mostly planned**
 
-## 12-1. partitioned schedulability analysis
+## 13-1. idealized uniprocessor / partitioned analysis
 **Status: Planned**
 
 候補:
 
-- partitioned EDF / fixed-priority response time
-- partitioned completion guarantees
+- idealized partitioned EDF / fixed-priority response-time analysis
+- idealized completion guarantees
+- zero-overhead / zero-jitter baseline theorems
 
-## 12-2. global schedulability analysis
+## 13-2. delay-aware response-time analysis
 **Status: Planned**
 
 候補:
 
-- global EDF sufficient tests
-- bounded tardiness
-- speedup bounds
+- `R = C + interference + blocking + overhead (+ jitter)` 型の上界
+- partitioned response-time bound with local delay parameters
+- global interference reasoning with explicit delay budgets
+- bounded tardiness / speedup 系への接続
 
-## 12-3. policy comparison
+## 13-3. periodic / sporadic analysis theorems
+**Status: Planned**
+
+候補:
+
+- utilization lemmas
+- Liu & Layland 型の定理
+- periodic EDF / RM 系の定理
+- release jitter を含む拡張版
+
+## 13-4. policy comparison
 **Status: Planned**
 
 候補:
@@ -713,6 +835,15 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - EDF vs LLF
 - FIFO vs RR
 - partitioned vs global
+- idealized vs delay-aware guarantees
+
+## 13-5. zero-delay specialization theorems
+**Status: Planned**
+
+候補:
+
+- 一般の delay-aware theorem から zero-delay corollary を導く
+- idealized theorem と delay-aware theorem の対応を明文化する
 
 ---
 
@@ -722,16 +853,16 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 `Lv.5 Partitioned` を theorem inventory として整理し直す。
 
 ## Priority 2
-`Lv.6 Periodic` を「generation semantics」として前倒しで強化する。
+`Lv.6 Task-generation` を periodic / sporadic / release jitter まで前倒しで強化する。
 
 ## Priority 3
-`Lv.7 Multicore-common` で affinity / admissibility / migration-aware service を入れる。
+`Lv.10 OS-like operational semantics` と `Lv.11 Delay / overhead model` の骨格を入れる。
 
 ## Priority 4
-その後に `Lv.8 Global EDF` へ進む。
+`Lv.12 Refinement` で bounded-delay refinement を設計する。
 
 ## Priority 5
-`Lv.9 DAG` は独立フェーズとして導入する。
+その上で `Lv.13 Analysis` として idealized / delay-aware response-time analysis に進む。
 
 ---
 
@@ -741,8 +872,9 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 今後の主戦場は、
 
 - partitioned の theorem-layer completion
-- periodic/sporadic task-generation strengthening
+- periodic/sporadic/release-jitter generation strengthening
 - multicore-common semantics
-- global / DAG / operational refinement
+- OS / delay / refinement
+- idealized / delay-aware analysis
 
 である。
