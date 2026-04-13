@@ -5,6 +5,8 @@ theories/Abstractions/SchedulingAlgorithm/ClassicalLemmas.v
 theories/Abstractions/SchedulingAlgorithm/Interface.v
 theories/Abstractions/SchedulingAlgorithm/Lemmas.v
 theories/Abstractions/SchedulingAlgorithm/SchedulerBridge.v
+theories/Abstractions/SchedulingAlgorithm/TopMInterface.v
+theories/Abstractions/SchedulingAlgorithm/TopMSchedulerBridge.v
 theories/Examples/FeasibleExamples.v
 theories/Examples/FIFOExamples.v
 theories/Examples/RRExamples.v
