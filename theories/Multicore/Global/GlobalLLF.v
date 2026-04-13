@@ -16,6 +16,7 @@ From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.TopMMetricChooser.
 From RocqSched Require Import Multicore.Common.TopMAdmissibilityBridge.
+From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
 Import ListNotations.
 
 (* ===== LLF metric ===== *)
@@ -205,6 +206,51 @@ Proof.
   exact (top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere
            J global_llf_top_m_spec candidates_of jobs m sched t j
            Hcand Hrel Hm Hidle HJ Hadm).
+Qed.
+
+Lemma global_llf_some_cpu_busy_if_subset_admissible_somewhere_gen :
+  forall adm J candidates_of jobs m sched t,
+    AdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    0 < m ->
+    (exists j, J j /\ admissible_somewhere adm jobs m sched j t) ->
+    exists c, c < m /\ cpu_busy sched t c.
+Proof.
+  intros adm J candidates_of jobs m sched t Hcand Hrel Hm Hex.
+  exact
+    (top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen
+       adm J global_llf_top_m_spec candidates_of jobs m sched t
+       Hcand Hrel Hm Hex).
+Qed.
+
+Lemma global_llf_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen :
+  forall adm J candidates_of jobs m sched t j,
+    AdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    some_cpu_idle m sched t ->
+    J j ->
+    admissible_somewhere adm jobs m sched j t ->
+    running m sched j t.
+Proof.
+  intros adm J candidates_of jobs m sched t j Hcand Hrel Hidle HJ Hadm.
+  exact
+    (top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen
+       adm J global_llf_top_m_spec candidates_of jobs m sched t j
+       Hcand Hrel Hidle HJ Hadm).
+Qed.
+
+Lemma global_llf_all_cpus_idle_if_no_subset_admissible_somewhere_gen :
+  forall adm J candidates_of jobs m sched t,
+    StrongAdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    (forall j, J j -> ~ admissible_somewhere adm jobs m sched j t) ->
+    all_cpus_idle m sched t.
+Proof.
+  intros adm J candidates_of jobs m sched t Hcand Hrel Hnone.
+  exact
+    (top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen
+       adm J global_llf_top_m_spec candidates_of jobs m sched t
+       Hcand Hrel Hnone).
 Qed.
 
 Lemma global_llf_schedulable_by_on_intro :

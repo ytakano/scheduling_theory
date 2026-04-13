@@ -93,3 +93,31 @@ Proof.
   intros assign J candidates_of Hcand.
   exact (candidate_source_spec_to_admissible (singleton_admissibility assign) J candidates_of Hcand).
 Qed.
+
+(* ===== StrongAdmissibleCandidateSourceSpec ===== *)
+
+(** A stronger variant of AdmissibleCandidateSourceSpec that additionally
+    requires every candidate to be admissible somewhere.  This extra field
+    makes it possible to prove the general version of
+    all_cpus_idle_if_no_subset_admissible_somewhere for arbitrary adm. *)
+Record StrongAdmissibleCandidateSourceSpec
+    (adm : admissible_cpu)
+    (J : JobId -> Prop)
+    (candidates_of : CandidateSource) : Prop :=
+  mkStrongAdmissibleCandidateSourceSpec {
+    strong_admissible_base :
+      AdmissibleCandidateSourceSpec adm J candidates_of;
+    strong_admissible_candidates_somewhere :
+      forall jobs m sched t j,
+        In j (candidates_of jobs m sched t) ->
+        admissible_somewhere adm jobs m sched j t
+  }.
+
+Lemma strong_admissible_base_proj :
+  forall adm J candidates_of,
+    StrongAdmissibleCandidateSourceSpec adm J candidates_of ->
+    AdmissibleCandidateSourceSpec adm J candidates_of.
+Proof.
+  intros adm J candidates_of H.
+  exact (strong_admissible_base _ _ _ H).
+Qed.
