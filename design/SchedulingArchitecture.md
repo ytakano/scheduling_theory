@@ -7,7 +7,7 @@ This document explains the intended architectural separation between **Schedule*
 A **schedule** is the execution timeline produced by a scheduler.
 For each time step `t` and CPU `c`, it returns the job running there, if any.
 
-In `ScheduleModel.v`, it is defined as:
+In `Semantics/Schedule.v`, it is defined as:
 
 ```coq
 Definition Schedule := Time -> CPU -> option JobId.
@@ -20,7 +20,7 @@ It does not describe how scheduling decisions are made. Instead, it records the 
 
 ### Key predicates on schedules
 
-The following predicates are defined in `ScheduleModel.v`:
+The following predicates are defined in `Semantics/Schedule.v`:
 
 * `eligible j t`
   Job `j` has been released and has not yet completed at time `t`.
@@ -80,9 +80,9 @@ Concrete algorithms such as the following are instances of this interface:
 
 These are defined, for example, in:
 
-* `UniProcessor/Policies/EDF.v`
-* `UniProcessor/Policies/FIFO.v`
-* `UniProcessor/Policies/RoundRobin.v`
+* `Uniprocessor/Policies/EDF.v`
+* `Uniprocessor/Policies/FIFO.v`
+* `Uniprocessor/Policies/RoundRobin.v`
 
 ---
 

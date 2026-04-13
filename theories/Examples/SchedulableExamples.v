@@ -14,6 +14,7 @@ From SchedulingTheory Require Import Uniprocessor.Core.UniSchedulerInterface.
 From SchedulingTheory Require Import Uniprocessor.Core.UniSchedulerLemmas.
 From SchedulingTheory Require Import Multicore.Partitioned.PartitionedCompose.
 From SchedulingTheory Require Import Multicore.Partitioned.Policies.PartitionedEDF.
+From SchedulingTheory Require Import Multicore.Partitioned.Policies.PartitionedLLF.
 Import ListNotations.
 
 (**
@@ -774,6 +775,27 @@ Theorem pair_partitioned_edf_schedulable_by_on_via_local_feasible :
       pair_jobs 2.
 Proof.
   apply (partitioned_edf_schedulable_by_on_of_local_feasible
+           assign_pair 2 assign_pair_valid J_pair J_pair_bool [0; 1] pair_jobs).
+  - exact J_pair_bool_spec.
+  - exact enum_pair_complete.
+  - exact enum_pair_sound.
+  - intros c Hlt.
+    assert (Hc : c = 0 \/ c = 1) by lia.
+    destruct Hc as [-> | ->].
+    + exact pair_local0_edf_feasible.
+    + exact pair_local1_edf_feasible.
+Qed.
+
+(** LLF variant: same two-job setup, lifted via the generic finite-optimality
+    theorem.  Reuses the EDF feasibility witnesses because [feasible_on] is
+    policy-independent. *)
+Theorem pair_partitioned_llf_schedulable_by_on_via_local_feasible :
+    schedulable_by_on
+      J_pair
+      (partitioned_llf_scheduler 2 (enum_local_candidates_of assign_pair [0; 1]))
+      pair_jobs 2.
+Proof.
+  apply (partitioned_llf_schedulable_by_on_of_local_feasible
            assign_pair 2 assign_pair_valid J_pair J_pair_bool [0; 1] pair_jobs).
   - exact J_pair_bool_spec.
   - exact enum_pair_complete.

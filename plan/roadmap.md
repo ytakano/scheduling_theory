@@ -77,8 +77,8 @@ What remains:
 
 Implemented core:
 
-- `UniPolicies/MetricChooser.v`
-- `UniPolicies/MetricChooserLemmas.v`
+- `Uniprocessor/Policies/Common/MetricChooser.v`
+- `Uniprocessor/Policies/Common/MetricChooserLemmas.v`
 - EDF / LLF chooser-related files
 
 What is already done:

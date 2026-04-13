@@ -21,48 +21,49 @@ make clean
 Representative single-file compilation order:
 
 ```bash
-rocq compile Base.v
-rocq compile ScheduleModel.v
-rocq compile SchedulerInterface.v
-rocq compile SchedulingAlgorithmInterface.v
-rocq compile SchedulingAlgorithmSchedulerBridge.v
-rocq compile UniPolicies/EDF.v
-rocq compile UniPolicies/FIFO.v
-rocq compile Partitioned.v
-rocq compile SchedulableExamples.v
-rocq compile FeasibleExamples.v
+rocq compile -R theories SchedulingTheory theories/Foundation/Base.v
+rocq compile -R theories SchedulingTheory theories/Semantics/Schedule.v
+rocq compile -R theories SchedulingTheory theories/Abstractions/Scheduler/Interface.v
+rocq compile -R theories SchedulingTheory theories/Abstractions/SchedulingAlgorithm/Interface.v
+rocq compile -R theories SchedulingTheory theories/Abstractions/SchedulingAlgorithm/SchedulerBridge.v
+rocq compile -R theories SchedulingTheory theories/Uniprocessor/Policies/EDF.v
+rocq compile -R theories SchedulingTheory theories/Uniprocessor/Policies/FIFO.v
+rocq compile -R theories SchedulingTheory theories/Multicore/Partitioned/Partitioned.v
+rocq compile -R theories SchedulingTheory theories/Examples/SchedulableExamples.v
+rocq compile -R theories SchedulingTheory theories/Examples/FeasibleExamples.v
 ```
 
 ## Module Architecture
 
 ```text
-Base.v
-  -> ScheduleModel.v
-  -> SchedulerInterface.v
-  -> SchedulingAlgorithmInterface.v
-  -> SchedulingAlgorithmSchedulerBridge.v
-  -> EDF.v / FIFO.v / Partitioned.v  (EDF.v, FIFO.v live in UniPolicies/)
+Foundation/Base.v
+  -> Semantics/Schedule.v
+  -> Abstractions/Scheduler/Interface.v
+  -> Abstractions/SchedulingAlgorithm/Interface.v
+  -> Abstractions/SchedulingAlgorithm/SchedulerBridge.v
+  -> Uniprocessor/Policies/EDF.v / FIFO.v
+  -> Multicore/Partitioned/Partitioned.v
 ```
 
 | File | Contents |
 |------|----------|
-| `Base.v` | Core types and job/task records |
-| `ScheduleModel.v` | `eligible`, `ready`, `valid_schedule`, `feasible_schedule`, `feasible_schedule_on` and schedule lemmas |
-| `SchedulerInterface.v` | `Scheduler` record with `scheduler_rel`; `schedulable_by`, `schedulable_by_on` |
-| `SchedulingAlgorithmInterface.v` | `GenericSchedulingAlgorithm` with `dispatch_eligible`, `dispatch_some_if_eligible_candidate`, `dispatch_none_if_no_eligible_candidate`, `dispatch_in_candidates` |
-| `SchedulingAlgorithmSchedulerBridge.v` | single-CPU algorithm-to-scheduler bridge, `CandidateSourceSpec`, subset schedulability helpers |
-| `UniPolicies/EDF.v` | EDF algorithm, `edf_generic_spec`, `edf_scheduler` |
-| `UniPolicies/FIFO.v` | FIFO algorithm, `fifo_generic_spec`, `fifo_scheduler` |
-| `Partitioned.v` | partitioned multiprocessor scheduler, `partitioned_scheduler`, validity/feasibility lifting theorems |
-| `SchedulableExamples.v` | concrete `edf_scheduler`, `fifo_scheduler`, `partitioned_scheduler` usage examples |
-| `FeasibleExamples.v` | direct feasibility examples over explicit schedules |
+| `Foundation/Base.v` | Core types and job/task records |
+| `Semantics/Schedule.v` | `eligible`, `ready`, `valid_schedule`, `feasible_schedule`, `feasible_schedule_on` and schedule lemmas |
+| `Abstractions/Scheduler/Interface.v` | `Scheduler` record with `scheduler_rel`; `schedulable_by`, `schedulable_by_on` |
+| `Abstractions/SchedulingAlgorithm/Interface.v` | `GenericSchedulingAlgorithm` with `choose_eligible`, `choose_some_if_eligible_candidate`, `choose_none_if_no_eligible_candidate`, `choose_in_candidates` |
+| `Abstractions/SchedulingAlgorithm/SchedulerBridge.v` | single-CPU algorithm-to-scheduler bridge, `CandidateSourceSpec`, subset schedulability helpers |
+| `Uniprocessor/Policies/EDF.v` | EDF algorithm, `edf_generic_spec`, `edf_scheduler` |
+| `Uniprocessor/Policies/FIFO.v` | FIFO algorithm, `fifo_generic_spec`, `fifo_scheduler` |
+| `Multicore/Partitioned/Partitioned.v` | partitioned multiprocessor scheduler, `partitioned_scheduler`, validity/feasibility lifting theorems |
+| `Examples/SchedulableExamples.v` | concrete `edf_scheduler`, `fifo_scheduler`, `partitioned_scheduler` usage examples |
+| `Examples/FeasibleExamples.v` | direct feasibility examples over explicit schedules |
 
 ## Proof Workflow
 
-- Keep schedule semantics in `ScheduleModel.v`
-- Keep abstract scheduler reasoning in `SchedulerInterface.v`
-- Keep policy-independent algorithm reasoning in `SchedulingAlgorithmInterface.v` or `SchedulingAlgorithmSchedulerBridge.v`
-- Keep policy-specific lemmas in `UniPolicies/EDF.v`, `UniPolicies/FIFO.v`, and multiprocessor lifting in `Partitioned.v`
+- Keep schedule semantics in `Semantics/Schedule.v`
+- Keep abstract scheduler reasoning in `Abstractions/Scheduler/Interface.v`
+- Keep policy-independent algorithm reasoning in `Abstractions/SchedulingAlgorithm/Interface.v` or `Abstractions/SchedulingAlgorithm/SchedulerBridge.v`
+- Keep policy-specific lemmas in `Uniprocessor/Policies/EDF.v`, `Uniprocessor/Policies/FIFO.v`, and multiprocessor lifting in `Multicore/Partitioned/`
 - Validate changes by compiling the edited file and affected dependents
 
 ## Notes on Historical Documents
