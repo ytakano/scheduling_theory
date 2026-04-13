@@ -2,32 +2,18 @@
 
 This project is focused on the formalization of scheduling theory using the Rocq proof assistant.
 
-# Design Principles
+# Design Principles and Design
 
 This project aims to provide a shared foundation for **executable scheduler semantics** and **scheduling-algorithm refinement**. Its central concern is not only whether scheduling theory can be stated abstractly, but also whether it can be connected to concrete scheduling choices, executable decision procedures, and implementation-oriented semantics. From this foundation, the project is intended to scale from **single-CPU scheduling**, to **multicore scheduling**, and eventually to **OS-level operational semantics**.
 
-Desing principles are detailed in [DesignPrinciples.md](DesignPrinciples.md).
+- Design principles are detailed in [DesignPrinciples.md](DesignPrinciples.md).
+- Design documents are in [Design.md](Design.md).
 
 # Plan
 
 - Roadmap: [plan/roadmap.md](plan/roadmap.md)
 - What to Prove: [plan/what_to_prove.md](plan/what_to_prove.md)
 
-# Current Status
-
-The reusable single-CPU core is largely in place, including the generic
-canonicalization / normalization / finite-optimality pipeline and EDF / LLF
-instantiations.
-
-Multicore development has also started in earnest:
-
-- partitioned scheduling already has a substantial generic layer, not just
-  thin policy wrappers
-- `PartitionedFiniteOptimalityLift.v` provides a reusable finite-job lifting
-  path for partitioned EDF
-- global scheduling is no longer untouched: `GlobalEDF.v` now provides the
-  initial scheduler/theorem layer, including validity, no-duplication,
-  subset-aware soundness, and idle/busy bridge results
 
 # Adding a New File
 
