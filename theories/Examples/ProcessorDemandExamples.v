@@ -2,6 +2,7 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 From RocqSched Require Import Analysis.Uniprocessor.BusyInterval.
+From RocqSched Require Import Analysis.Uniprocessor.BusyWindowSearch.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
@@ -78,6 +79,27 @@ Proof.
   eapply demand_exceeds_busy_interval_length_contradiction.
   - exact pd_busy_interval_ex.
   - lia.
+Qed.
+
+Example busy_window_pd_ex :
+  busy_window_candidate pd_busy_sched 0 4.
+Proof.
+  apply busy_interval_with_boundaries_is_busy_window_candidate.
+  - exact pd_busy_interval_ex.
+  - left. reflexivity.
+  - unfold cpu_busy_at, pd_busy_sched.
+    rewrite Nat.eqb_refl.
+    intro Hbusy.
+    destruct Hbusy as [j Hj].
+    discriminate.
+Qed.
+
+Example periodic_processor_demand_witness_ex :
+  periodic_processor_demand_witness pd_tasks [0; 0; 1] pd_busy_sched 0 4.
+Proof.
+  apply taskset_periodic_dbf_exceeds_busy_window_supply.
+  - exact busy_window_pd_ex.
+  - cbn. lia.
 Qed.
 
 Definition pd_sp_job : Job := mkJob 0 0 1 2 5.

@@ -474,8 +474,8 @@ Implemented:
 
 Remaining:
 
-- search-space reduction lemmas
-- response-time search-space reduction lemmas
+- busy-window search-space reduction layer
+- response-time search-space reduction layer
 - policy-specific and policy-generic busy-window interfaces
 
 ### G-2. Demand-bound / request-bound theory
@@ -517,7 +517,7 @@ Implemented:
 Remaining:
 
 - full EDF processor-demand feasibility theorem on top of the new aggregate hook
-- response-time analysis hooks consuming RBF / DBF
+- deeper schedulability / response-time theorems consuming the new busy-window search hook
 
 ### G-3. Supply-bound / interface theory
 **Status: Not started**

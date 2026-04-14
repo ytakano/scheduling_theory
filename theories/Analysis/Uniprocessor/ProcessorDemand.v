@@ -3,6 +3,7 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 From RocqSched Require Import Analysis.Uniprocessor.BusyInterval.
 From RocqSched Require Import Analysis.Uniprocessor.BusyIntervalLemmas.
+From RocqSched Require Import Analysis.Uniprocessor.BusyWindowSearch.
 From RocqSched Require Import Analysis.Uniprocessor.DemandBound.
 
 Import ListNotations.
@@ -168,4 +169,70 @@ Proof.
   intros sched t1 t2 demand Hbusy Hlt.
   rewrite busy_interval_cpu_supply_eq_length by exact Hbusy.
   exact Hlt.
+Qed.
+
+Definition periodic_processor_demand_witness
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (sched : Schedule)
+    (t1 t2 : Time) : Prop :=
+  busy_window_candidate sched t1 t2 /\
+  cpu_service_between sched t1 t2 <
+  taskset_periodic_dbf tasks enumT (t2 - t1).
+
+Definition sporadic_processor_demand_witness
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (sched : Schedule)
+    (t1 t2 : Time) : Prop :=
+  busy_window_candidate sched t1 t2 /\
+  cpu_service_between sched t1 t2 <
+  taskset_sporadic_dbf_bound tasks enumT (t2 - t1).
+
+Definition jittered_periodic_processor_demand_witness
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (sched : Schedule)
+    (t1 t2 : Time) : Prop :=
+  busy_window_candidate sched t1 t2 /\
+  cpu_service_between sched t1 t2 <
+  taskset_jittered_periodic_dbf_bound tasks enumT (t2 - t1).
+
+Lemma taskset_periodic_dbf_exceeds_busy_window_supply :
+  forall tasks enumT sched t1 t2,
+    busy_window_candidate sched t1 t2 ->
+    t2 - t1 < taskset_periodic_dbf tasks enumT (t2 - t1) ->
+    periodic_processor_demand_witness tasks enumT sched t1 t2.
+Proof.
+  intros tasks enumT sched t1 t2 Hbusy Hover.
+  split; [exact Hbusy |].
+  rewrite busy_window_candidate_cpu_supply_eq_length by exact Hbusy.
+  exact Hover.
+Qed.
+
+Lemma taskset_sporadic_dbf_exceeds_busy_window_supply :
+  forall tasks enumT sched t1 t2,
+    busy_window_candidate sched t1 t2 ->
+    t2 - t1 < taskset_sporadic_dbf_bound tasks enumT (t2 - t1) ->
+    sporadic_processor_demand_witness tasks enumT sched t1 t2.
+Proof.
+  intros tasks enumT sched t1 t2 Hbusy Hover.
+  split; [exact Hbusy |].
+  rewrite taskset_sporadic_dbf_bound_eq_periodic in Hover.
+  rewrite busy_window_candidate_cpu_supply_eq_length by exact Hbusy.
+  exact Hover.
+Qed.
+
+Lemma taskset_jittered_periodic_dbf_exceeds_busy_window_supply :
+  forall tasks enumT sched t1 t2,
+    busy_window_candidate sched t1 t2 ->
+    t2 - t1 < taskset_jittered_periodic_dbf_bound tasks enumT (t2 - t1) ->
+    jittered_periodic_processor_demand_witness tasks enumT sched t1 t2.
+Proof.
+  intros tasks enumT sched t1 t2 Hbusy Hover.
+  split; [exact Hbusy |].
+  rewrite taskset_jittered_periodic_dbf_bound_eq_sporadic in Hover.
+  rewrite taskset_sporadic_dbf_bound_eq_periodic in Hover.
+  rewrite busy_window_candidate_cpu_supply_eq_length by exact Hbusy.
+  exact Hover.
 Qed.

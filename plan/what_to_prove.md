@@ -904,7 +904,8 @@ Done:
 
 Remaining:
 
-- search-space reduction hooks
+- busy-window search-space reduction hooks
+- response-time search-space reduction hooks
 - full EDF processor-demand feasibility theorem
 - utilization / dbf hooks above the aggregate layer
 - rbf / sbf style interfaces

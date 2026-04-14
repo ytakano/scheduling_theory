@@ -4,6 +4,7 @@ From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Analysis.Uniprocessor.BusyInterval.
 From RocqSched Require Import Analysis.Uniprocessor.BusyIntervalLemmas.
+From RocqSched Require Import Analysis.Uniprocessor.BusyWindowSearch.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 
 Definition always_busy_sched (t : Time) (cpu : CPU) : option JobId :=
@@ -47,6 +48,21 @@ Proof.
   rewrite cpu_service_between_busy_interval_eq_length.
   - reflexivity.
   - exact always_busy_sched_forms_busy_interval.
+Qed.
+
+Example always_busy_sched_is_busy_window_candidate :
+  busy_window_candidate always_busy_sched 0 3.
+Proof.
+  exact always_busy_sched_maximal_on_prefix.
+Qed.
+
+Example always_busy_sched_deadline_witness :
+  busy_window_witness always_busy_sched 2 0 3.
+Proof.
+  apply busy_window_witness_from_candidate.
+  - exact always_busy_sched_is_busy_window_candidate.
+  - lia.
+  - lia.
 Qed.
 
 Definition idle_gap_sched (t : Time) (cpu : CPU) : option JobId :=
@@ -135,6 +151,19 @@ Proof.
   rewrite cpu_service_between_busy_interval_eq_length.
   - reflexivity.
   - exact periodic_front_interval_is_busy.
+Qed.
+
+Example periodic_front_interval_is_busy_window_candidate :
+  busy_window_candidate periodic_busy_sched 0 4.
+Proof.
+  apply busy_interval_with_boundaries_is_busy_window_candidate.
+  - exact periodic_front_interval_is_busy.
+  - left. reflexivity.
+  - unfold cpu_busy_at, periodic_busy_sched.
+    rewrite Nat.eqb_refl.
+    intro Hbusy.
+    destruct Hbusy as [j Hj].
+    discriminate.
 Qed.
 
 Example periodic_front_interval_job0_service_bound :
