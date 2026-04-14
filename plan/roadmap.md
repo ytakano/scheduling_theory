@@ -445,12 +445,21 @@ This phase collects standard abstractions from scheduling theory that should be 
 across idealized, delay-aware, uniprocessor, and multicore analyses.
 
 ### G-1. Busy-window / busy-interval theory
-**Status: Not started**
+**Status: Initial uniprocessor foundation implemented**
 
-Planned:
+Implemented:
 
-- busy interval definitions
-- maximal busy interval lemmas
+- `Analysis/Uniprocessor/BusyInterval.v`
+- `Analysis/Uniprocessor/BusyIntervalLemmas.v`
+- `Examples/BusyIntervalExamples.v`
+- policy-independent busy interval definitions on top of `Schedule`
+- prefix / suffix / no-idle-slot lemmas
+- maximal interval boundary decomposition lemmas
+- interval processor-supply aggregation for the single-CPU case
+
+Remaining:
+
+- search-space reduction lemmas
 - response-time search-space reduction lemmas
 - policy-specific and policy-generic busy-window interfaces
 

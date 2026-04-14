@@ -844,6 +844,24 @@ core schedule semantics と OS operational semantics の中間に置く。
 # Lv.13: Analysis and advanced guarantees
 **Status: Mostly planned**
 
+## 13-0. analysis foundations
+**Status: In progress**
+
+Done:
+
+- policy-independent busy interval definitions
+- uniprocessor busy interval prefix / suffix lemmas
+- no-idle-slot characterization for busy intervals
+- maximal busy interval boundary decomposition
+- interval processor-supply aggregation on top of schedule semantics
+
+Remaining:
+
+- search-space reduction hooks
+- utilization / dbf hooks
+- rbf / sbf style interfaces
+- policy-specific analysis wrappers
+
 ## 13-1. idealized uniprocessor / partitioned analysis
 **Status: Planned**
 
