@@ -12,7 +12,6 @@
       "Bash(coqc -where)",
       "Bash(opam list:*)",
       "Bash(rocq --version)",
-      "WebFetch(domain:rocq-prover.org)",
       "Bash(rocq query:*)",
       "Bash(grep -v \"^/scheduling_theory/\\\\.$\\\\|^/scheduling_theory/\\\\.\\\\.$ \\\\|\\\\.git\")",
       "Bash(git:*)",
@@ -49,7 +48,8 @@
       "Bash(echo \"EXIT EDF: $?\")",
       "Bash(echo \"EXIT LLF: $?\")",
       "Bash(echo \"EXIT Partitioned: $?\")",
-      "Bash(make -C /scheduling_theory)"
+      "Bash(make -C /scheduling_theory)",
+      "Bash(rocq -where)"
     ]
   },
   "deny": [
