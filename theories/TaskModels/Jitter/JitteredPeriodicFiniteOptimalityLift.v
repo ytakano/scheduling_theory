@@ -5,6 +5,9 @@ From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
+From RocqSched Require Import TaskModels.Common.FiniteHorizonWitness.
+From RocqSched Require Import TaskModels.Common.WitnessCandidates.
+From RocqSched Require Import TaskModels.Common.WitnessFiniteOptimalityLift.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEnumeration.
 Import ListNotations.
@@ -61,21 +64,27 @@ Theorem jittered_periodic_finite_optimality_lift_with_witness :
                        feasible_on J jobs 1 ->
                        schedulable_by_on J (local_scheduler cands) jobs 1)
          T T_bool tasks offset jitter H jobs
-         (w : JitteredPeriodicFiniteHorizonWitness T tasks offset jitter jobs H),
+         (w : FiniteHorizonWitness
+                (jittered_periodic_jobset_upto T tasks offset jitter jobs H)),
     (forall τ, T_bool τ = true <-> T τ) ->
     feasible_on (jittered_periodic_jobset_upto T tasks offset jitter jobs H) jobs 1 ->
     schedulable_by_on
       (jittered_periodic_jobset_upto T tasks offset jitter jobs H)
-      (local_scheduler (enum_candidates_of
-         (jittered_enumJ T tasks offset jitter jobs H w)))
+      (local_scheduler
+         (witness_candidates_of
+            (jittered_periodic_jobset_upto T tasks offset jitter jobs H) w))
       jobs 1.
 Proof.
   intros local_scheduler Hoptimal T T_bool tasks offset jitter H jobs w HTbool Hfeas.
-  exact (jittered_periodic_finite_optimality_lift local_scheduler Hoptimal
-    T T_bool tasks offset jitter H
-    (jittered_enumJ T tasks offset jitter jobs H w) jobs HTbool
-    (jittered_enum_complete T tasks offset jitter jobs H w)
-    (jittered_enum_sound T tasks offset jitter jobs H w)
+  exact (witness_finite_optimality_lift
+    local_scheduler
+    Hoptimal
+    (jittered_periodic_jobset_upto T tasks offset jitter jobs H)
+    (jittered_periodic_jobset_upto_bool T_bool tasks offset jitter jobs H)
+    jobs
+    w
+    (fun j =>
+       jittered_periodic_jobset_upto_bool_spec
+         T T_bool tasks offset jitter jobs H HTbool j)
     Hfeas).
 Qed.
-

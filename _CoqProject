@@ -50,6 +50,9 @@ theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v
 theories/TaskModels/Periodic/PeriodicPartitionedFiniteOptimalityLift.v
+theories/TaskModels/Common/FiniteHorizonWitness.v
+theories/TaskModels/Common/WitnessCandidates.v
+theories/TaskModels/Common/WitnessFiniteOptimalityLift.v
 theories/TaskModels/Jitter/ReleaseJitter.v
 theories/TaskModels/Jitter/JitteredPeriodicTasks.v
 theories/TaskModels/Jitter/JitteredPeriodicSporadicBridge.v
@@ -62,7 +65,6 @@ theories/TaskModels/Jitter/JitteredPeriodicPartitionedFiniteOptimalityLift.v
 theories/TaskModels/Sporadic/SporadicTasks.v
 theories/TaskModels/Sporadic/SporadicFiniteHorizon.v
 theories/TaskModels/Sporadic/SporadicEnumeration.v
-theories/TaskModels/Sporadic/SporadicWitnessCandidates.v
 theories/TaskModels/Sporadic/SporadicPeriodicBridge.v
 theories/TaskModels/Sporadic/SporadicFiniteOptimalityLift.v
 theories/TaskModels/Sporadic/SporadicEDFBridge.v

@@ -207,11 +207,15 @@ Implemented:
 - `SporadicTasks.v`: `unique_task_index_on`, `sporadic_separation_on`,
   `sporadic_job_model_on`, `earliest_sporadic_release`,
   `generated_by_sporadic_task`, `generated_by_sporadic_task_b`
+- `TaskModels/Common/FiniteHorizonWitness.v`,
+  `TaskModels/Common/WitnessCandidates.v`,
+  `TaskModels/Common/WitnessFiniteOptimalityLift.v`: shared witness API for
+  manual finite-horizon enumeration and scheduler lifting
 - `SporadicFiniteHorizon.v`: `sporadic_jobset_upto` updated to use
   `generated_by_sporadic_task`; boolean reflection updated;
   finite-horizon release/index bound lemmas added
-- `SporadicEnumeration.v`: thin witness abstraction for manual finite-horizon
-  job enumeration; intentionally not an automatic codec
+- `SporadicEnumeration.v`: specialization of the shared witness API to
+  `sporadic_jobset_upto`; intentionally not an automatic codec
 - `SporadicPeriodicBridge.v`: `generated_by_periodic_implies_sporadic`,
   `periodic_model_satisfies_separation`, `periodic_model_implies_sporadic_model`
 - EDF / LLF / partitioned lift bridges: witness-based entry points for the
@@ -241,8 +245,10 @@ Implemented:
 - `JitteredPeriodicSporadicBridge.v`: per-job bridge to sporadic generation,
   model-level bridge when task scope, uniqueness, and separation are supplied
 - `JitteredPeriodicFiniteHorizon.v` and `JitteredPeriodicEnumeration.v`:
-  witness-based finite-horizon jobset API, mirroring the sporadic layer
-- `JitteredPeriodicFiniteOptimalityLift.v`: generic finite-horizon lift
+  witness-based finite-horizon jobset API specialized from the shared witness
+  abstraction
+- `JitteredPeriodicFiniteOptimalityLift.v`: wrapper over the shared
+  finite-horizon witness lift
 - `JitteredPeriodicEDFBridge.v`, `JitteredPeriodicLLFBridge.v`,
   `JitteredPeriodicPartitionedFiniteOptimalityLift.v`: EDF / LLF /
   partitioned theorem wrappers

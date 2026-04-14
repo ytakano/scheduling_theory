@@ -7,6 +7,8 @@ From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Multicore.Partitioned.Partitioned.
 From RocqSched Require Import Multicore.Partitioned.Policies.PartitionedFiniteOptimalityLift.
+From RocqSched Require Import TaskModels.Common.FiniteHorizonWitness.
+From RocqSched Require Import TaskModels.Common.WitnessFiniteOptimalityLift.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEnumeration.
 Import ListNotations.
@@ -72,7 +74,8 @@ Theorem partitioned_jittered_periodic_finite_optimality_lift_with_witness :
     forall (assign : JobId -> CPU) (m : nat)
            (valid_assignment : forall j, assign j < m)
            T T_bool tasks offset jitter H jobs
-           (w : JitteredPeriodicFiniteHorizonWitness T tasks offset jitter jobs H),
+           (w : FiniteHorizonWitness
+                  (jittered_periodic_jobset_upto T tasks offset jitter jobs H)),
       (forall τ, T_bool τ = true <-> T τ) ->
       (forall c, c < m ->
          feasible_on
@@ -83,16 +86,23 @@ Theorem partitioned_jittered_periodic_finite_optimality_lift_with_witness :
         (jittered_periodic_jobset_upto T tasks offset jitter jobs H)
         (partitioned_scheduler m spec
            (enum_local_candidates_of assign
-              (jittered_enumJ T tasks offset jitter jobs H w)))
+              (witness_enumJ
+                 (jittered_periodic_jobset_upto T tasks offset jitter jobs H) w)))
         jobs m.
 Proof.
   intros local_scheduler spec Hscheduler Hoptimal
          assign m valid_assignment T T_bool tasks offset jitter H jobs w
          HTbool Hlocal_feasible.
-  exact (partitioned_jittered_periodic_finite_optimality_lift local_scheduler spec
-    Hscheduler Hoptimal assign m valid_assignment T T_bool tasks offset jitter H
-    (jittered_enumJ T tasks offset jitter jobs H w) jobs HTbool
-    (jittered_enum_complete T tasks offset jitter jobs H w)
-    (jittered_enum_sound T tasks offset jitter jobs H w)
+  exact (partitioned_witness_finite_optimality_lift
+    local_scheduler spec
+    Hscheduler Hoptimal
+    assign m valid_assignment
+    (jittered_periodic_jobset_upto T tasks offset jitter jobs H)
+    (jittered_periodic_jobset_upto_bool T_bool tasks offset jitter jobs H)
+    jobs
+    w
+    (fun j =>
+       jittered_periodic_jobset_upto_bool_spec
+         T T_bool tasks offset jitter jobs H HTbool j)
     Hlocal_feasible).
 Qed.

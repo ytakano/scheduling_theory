@@ -5,6 +5,8 @@ From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
+From RocqSched Require Import TaskModels.Common.FiniteHorizonWitness.
+From RocqSched Require Import TaskModels.Common.WitnessCandidates.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import Uniprocessor.Policies.EDFOptimality.
 From RocqSched Require Import Uniprocessor.Policies.LLF.
@@ -149,10 +151,12 @@ Proof.
 Qed.
 
 Definition jittered_witness_jp_ex
-  : JitteredPeriodicFiniteHorizonWitness
-      T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex :=
-  mkJitteredPeriodicFiniteHorizonWitness
-    T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex
+  : FiniteHorizonWitness
+      (jittered_periodic_jobset_upto
+         T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex) :=
+  mkFiniteHorizonWitness
+    (jittered_periodic_jobset_upto
+       T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex)
     enumJ_jp_ex
     enumJ_jp_ex_complete
     enumJ_jp_ex_sound.
@@ -215,10 +219,10 @@ Theorem jittered_periodic_example_edf_schedulable_by_on :
     (jittered_periodic_jobset_upto
        T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex)
     (edf_scheduler
-       (enum_candidates_of
-          (jittered_enumJ
-             T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex
-             jittered_witness_jp_ex)))
+       (witness_candidates_of
+          (jittered_periodic_jobset_upto
+             T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex)
+          jittered_witness_jp_ex))
     jobs_jp_ex 1.
 Proof.
   eapply jittered_periodic_edf_optimality_on_finite_horizon.
@@ -231,10 +235,10 @@ Theorem jittered_periodic_example_llf_schedulable_by_on :
     (jittered_periodic_jobset_upto
        T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex)
     (llf_scheduler
-       (enum_candidates_of
-          (jittered_enumJ
-             T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex
-             jittered_witness_jp_ex)))
+       (witness_candidates_of
+          (jittered_periodic_jobset_upto
+             T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex)
+          jittered_witness_jp_ex))
     jobs_jp_ex 1.
 Proof.
   eapply jittered_periodic_llf_optimality_on_finite_horizon.

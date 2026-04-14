@@ -505,7 +505,8 @@ Done:
 - `sporadic_jobset_upto` updated to use generation predicate
 - finite-horizon release lower-bound / expected-release-below-horizon /
   index-below-horizon lemmas
-- thin finite-horizon witness abstraction for manual sporadic enumeration
+- shared finite-horizon witness abstraction plus a sporadic specialization for
+  manual enumeration
 - periodic → sporadic bridge: `generated_by_periodic_implies_sporadic`,
   `periodic_model_satisfies_separation`, `periodic_model_implies_sporadic_model`
 
@@ -529,7 +530,8 @@ Design note:
 - `within_jitter` と bool reflection
 - jittered periodic generation predicate
 - witness-based finite-horizon jobset / enumeration
-- EDF / LLF / partitioned finite-optimality bridge
+- shared witness-based finite-optimality lift plus EDF / LLF / partitioned
+  wrappers
 - delayed actual release を含む example
 
 重要点:

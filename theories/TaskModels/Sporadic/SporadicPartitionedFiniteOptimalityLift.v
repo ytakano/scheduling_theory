@@ -7,6 +7,8 @@ From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Multicore.Partitioned.Partitioned.
 From RocqSched Require Import Multicore.Partitioned.Policies.PartitionedFiniteOptimalityLift.
+From RocqSched Require Import TaskModels.Common.FiniteHorizonWitness.
+From RocqSched Require Import TaskModels.Common.WitnessFiniteOptimalityLift.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteHorizon.
 From RocqSched Require Import TaskModels.Sporadic.SporadicEnumeration.
@@ -99,7 +101,7 @@ Theorem partitioned_sporadic_finite_optimality_lift_with_witness :
     forall (assign : JobId -> CPU) (m : nat)
            (valid_assignment : forall j, assign j < m)
            T T_bool tasks H jobs
-           (w : SporadicFiniteHorizonWitness T tasks jobs H),
+           (w : FiniteHorizonWitness (sporadic_jobset_upto T tasks jobs H)),
       (forall τ, T_bool τ = true <-> T τ) ->
       (forall c, c < m ->
          feasible_on
@@ -108,16 +110,21 @@ Theorem partitioned_sporadic_finite_optimality_lift_with_witness :
       schedulable_by_on
         (sporadic_jobset_upto T tasks jobs H)
         (partitioned_scheduler m spec
-           (enum_local_candidates_of assign (sporadic_enumJ T tasks jobs H w)))
+           (enum_local_candidates_of assign
+              (witness_enumJ (sporadic_jobset_upto T tasks jobs H) w)))
         jobs m.
 Proof.
   intros local_scheduler spec Hscheduler Hoptimal
          assign m valid_assignment T T_bool tasks H jobs w
          HTbool Hlocal_feasible.
-  exact (partitioned_sporadic_finite_optimality_lift local_scheduler spec
-    Hscheduler Hoptimal assign m valid_assignment T T_bool tasks H
-    (sporadic_enumJ T tasks jobs H w) jobs HTbool
-    (sporadic_enum_complete T tasks jobs H w)
-    (sporadic_enum_sound T tasks jobs H w)
+  exact (partitioned_witness_finite_optimality_lift
+    local_scheduler spec
+    Hscheduler Hoptimal
+    assign m valid_assignment
+    (sporadic_jobset_upto T tasks jobs H)
+    (sporadic_jobset_upto_bool T_bool tasks jobs H)
+    jobs
+    w
+    (fun j => sporadic_jobset_upto_bool_spec T T_bool tasks jobs H HTbool j)
     Hlocal_feasible).
 Qed.
