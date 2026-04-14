@@ -13,6 +13,7 @@ theories/Examples/FeasibleExamples.v
 theories/Examples/FIFOExamples.v
 theories/Examples/GlobalWorkConservingExamples.v
 theories/Examples/PeriodicExamples.v
+theories/Examples/SporadicExamples.v
 theories/Examples/RRExamples.v
 theories/Examples/SchedulableExamples.v
 theories/Foundation/Base.v
@@ -47,6 +48,12 @@ theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v
 theories/TaskModels/Periodic/PeriodicPartitionedFiniteOptimalityLift.v
+theories/TaskModels/Sporadic/SporadicTasks.v
+theories/TaskModels/Sporadic/SporadicFiniteHorizon.v
+theories/TaskModels/Sporadic/SporadicFiniteOptimalityLift.v
+theories/TaskModels/Sporadic/SporadicEDFBridge.v
+theories/TaskModels/Sporadic/SporadicLLFBridge.v
+theories/TaskModels/Sporadic/SporadicPartitionedFiniteOptimalityLift.v
 theories/Uniprocessor/Core/UniSchedulerInterface.v
 theories/Uniprocessor/Core/UniSchedulerLemmas.v
 theories/Uniprocessor/Generic/SchedulingAlgorithmCanonicalBridge.v
