@@ -475,13 +475,23 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
   schedulability lift (`PeriodicPartitionedFiniteOptimalityLift.v`)
 
 ## 6-3. sporadic task generation
-**Status: Not started**
+**Status: In progress**
 
-予定:
+Done:
 
-- minimum inter-arrival constraint
-- sporadic job-generation predicate
-- periodic との関係整理
+- `earliest_sporadic_release`
+- `generated_by_sporadic_task` + bool reflection + `generated_by_sporadic_task_b_spec`
+- `sporadic_job_model_on` restructured to use generation predicate
+- `sporadic_jobset_upto` updated to use generation predicate
+- periodic → sporadic bridge: `generated_by_periodic_implies_sporadic`,
+  `periodic_model_satisfies_separation`, `periodic_model_implies_sporadic_model`
+
+Remaining:
+
+- finite-horizon index-bound lemma
+  (sporadic lacks a codec; releases are not determined by (task, index) alone)
+- utilization / dbf hooks
+- release jitter extensions (see 6-4)
 
 ## 6-4. release jitter / arrival offset
 **Status: Not started**

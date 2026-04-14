@@ -7,10 +7,10 @@ From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 (* The sporadic finite-horizon jobset up to horizon H:
    all jobs j such that
    - their task is in scope (T)
-   - they satisfy the local task consistency predicate (valid_job_of_task)
+   - they satisfy the sporadic generation predicate (generated_by_sporadic_task)
    - their release time is strictly before H
 
-   Note: unlike periodic_jobset_upto, no generation formula constrains releases.
+   Unlike periodic_jobset_upto, releases are constrained by a lower bound only.
    The minimum inter-arrival constraint is tracked separately in sporadic_job_model_on. *)
 Definition sporadic_jobset_upto
     (T : TaskId -> Prop)
@@ -19,7 +19,7 @@ Definition sporadic_jobset_upto
     (H : Time) : JobId -> Prop :=
   fun j =>
     T (job_task (jobs j)) /\
-    valid_job_of_task tasks jobs j /\
+    generated_by_sporadic_task tasks jobs j /\
     job_release (jobs j) < H.
 
 (* Boolean version for use with CandidateSourceSpec / enum_candidates_spec. *)
@@ -30,12 +30,7 @@ Definition sporadic_jobset_upto_bool
     (H : Time) : JobId -> bool :=
   fun j =>
     T_bool (job_task (jobs j))
-    && Nat.eqb
-         (job_abs_deadline (jobs j))
-         (job_release (jobs j) + task_relative_deadline (tasks (job_task (jobs j))))
-    && Nat.leb
-         (job_cost (jobs j))
-         (task_cost (tasks (job_task (jobs j))))
+    && generated_by_sporadic_task_b tasks jobs j
     && Nat.ltb (job_release (jobs j)) H.
 
 Lemma sporadic_jobset_upto_bool_spec :
@@ -46,12 +41,8 @@ Lemma sporadic_jobset_upto_bool_spec :
       sporadic_jobset_upto T tasks jobs H j.
 Proof.
   intros T T_bool tasks jobs H HT j.
-  unfold sporadic_jobset_upto_bool, sporadic_jobset_upto, valid_job_of_task.
-  rewrite !andb_true_iff.
-  rewrite Nat.eqb_eq.
-  rewrite Nat.leb_le.
-  rewrite Nat.ltb_lt.
-  rewrite HT.
+  unfold sporadic_jobset_upto_bool, sporadic_jobset_upto.
+  rewrite !andb_true_iff, generated_by_sporadic_task_b_spec, Nat.ltb_lt, HT.
   tauto.
 Qed.
 
@@ -64,13 +55,22 @@ Proof.
   exact HT.
 Qed.
 
+Lemma sporadic_jobset_upto_implies_generated :
+  forall T tasks jobs H j,
+    sporadic_jobset_upto T tasks jobs H j ->
+    generated_by_sporadic_task tasks jobs j.
+Proof.
+  intros T tasks jobs H j [_ [Hgen _]]. exact Hgen.
+Qed.
+
 Lemma sporadic_jobset_upto_implies_valid_job_of_task :
   forall T tasks jobs H j,
     sporadic_jobset_upto T tasks jobs H j ->
     valid_job_of_task tasks jobs j.
 Proof.
-  intros T tasks jobs H j [_ [Hvalid _]].
-  exact Hvalid.
+  intros T tasks jobs H j Hjobset.
+  exact (generated_sporadic_implies_valid_job_of_task tasks jobs j
+    (sporadic_jobset_upto_implies_generated T tasks jobs H j Hjobset)).
 Qed.
 
 Lemma sporadic_jobset_upto_implies_release_lt :

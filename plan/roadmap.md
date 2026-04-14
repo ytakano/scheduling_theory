@@ -199,13 +199,24 @@ What remains:
 - utilization / Liu & Layland style theorems
 
 ### B-2. Sporadic tasks
-**Status: Not started**
+**Status: In progress**
 
-Planned:
+Implemented:
 
-- minimum inter-arrival constraint
-- sporadic job-generation layer
-- relation to periodic as a special case or simpler instance
+- `SporadicTasks.v`: `unique_task_index_on`, `sporadic_separation_on`,
+  `sporadic_job_model_on`, `earliest_sporadic_release`,
+  `generated_by_sporadic_task`, `generated_by_sporadic_task_b`
+- `SporadicFiniteHorizon.v`: `sporadic_jobset_upto` updated to use
+  `generated_by_sporadic_task`; boolean reflection updated
+- `SporadicPeriodicBridge.v`: `generated_by_periodic_implies_sporadic`,
+  `periodic_model_satisfies_separation`, `periodic_model_implies_sporadic_model`
+- EDF / LLF / partitioned lift bridges: compatible without text changes
+
+What remains:
+
+- sporadic job-index bound lemma (no codec since release is not determined by (task, index) alone)
+- utilization / Liu & Layland style theorems
+- release jitter / arrival offset extensions
 
 ### B-3. Release jitter / arrival offsets
 **Status: Not started**

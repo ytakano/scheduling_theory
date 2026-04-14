@@ -50,6 +50,7 @@ theories/TaskModels/Periodic/PeriodicLLFBridge.v
 theories/TaskModels/Periodic/PeriodicPartitionedFiniteOptimalityLift.v
 theories/TaskModels/Sporadic/SporadicTasks.v
 theories/TaskModels/Sporadic/SporadicFiniteHorizon.v
+theories/TaskModels/Sporadic/SporadicPeriodicBridge.v
 theories/TaskModels/Sporadic/SporadicFiniteOptimalityLift.v
 theories/TaskModels/Sporadic/SporadicEDFBridge.v
 theories/TaskModels/Sporadic/SporadicLLFBridge.v

@@ -11,6 +11,7 @@ From RocqSched Require Import Uniprocessor.Policies.LLF.
 From RocqSched Require Import Multicore.Partitioned.Partitioned.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteHorizon.
+From RocqSched Require Import TaskModels.Sporadic.SporadicPeriodicBridge.
 From RocqSched Require Import TaskModels.Sporadic.SporadicEDFBridge.
 From RocqSched Require Import TaskModels.Sporadic.SporadicLLFBridge.
 From RocqSched Require Import TaskModels.Sporadic.SporadicPartitionedFiniteOptimalityLift.
@@ -87,13 +88,16 @@ Proof.
            tasks_sp_ex, task_sp0_ex, task_sp1_ex;
     simpl.
   - split. { left. reflexivity. }
-    split. { unfold valid_job_of_task. simpl. lia. }
+    split. { unfold generated_by_sporadic_task, earliest_sporadic_release,
+                     valid_job_of_task. simpl. lia. }
     lia.
   - split. { right. reflexivity. }
-    split. { unfold valid_job_of_task. simpl. lia. }
+    split. { unfold generated_by_sporadic_task, earliest_sporadic_release,
+                     valid_job_of_task. simpl. lia. }
     lia.
   - split. { left. reflexivity. }
-    split. { unfold valid_job_of_task. simpl. lia. }
+    split. { unfold generated_by_sporadic_task, earliest_sporadic_release,
+                     valid_job_of_task. simpl. lia. }
     lia.
 Qed.
 
@@ -152,6 +156,29 @@ Proof.
   destruct Hj as [Hj | [Hj | [Hj | []]]]; subst j;
     unfold completed, jobs_sp_ex, job_sp0_ex, job_sp1_ex, job_sp2_ex, sched_sp_ex;
     simpl; lia.
+Qed.
+
+(* ===== Generation Predicate Demonstrations ===== *)
+
+Lemma generated_sporadic_job0_ex :
+  generated_by_sporadic_task tasks_sp_ex jobs_sp_ex 0.
+Proof.
+  unfold generated_by_sporadic_task, earliest_sporadic_release, valid_job_of_task,
+         tasks_sp_ex, task_sp0_ex, jobs_sp_ex, job_sp0_ex. simpl. lia.
+Qed.
+
+Lemma generated_sporadic_job1_ex :
+  generated_by_sporadic_task tasks_sp_ex jobs_sp_ex 1.
+Proof.
+  unfold generated_by_sporadic_task, earliest_sporadic_release, valid_job_of_task,
+         tasks_sp_ex, task_sp1_ex, jobs_sp_ex, job_sp1_ex. simpl. lia.
+Qed.
+
+Lemma generated_sporadic_job2_ex :
+  generated_by_sporadic_task tasks_sp_ex jobs_sp_ex 2.
+Proof.
+  unfold generated_by_sporadic_task, earliest_sporadic_release, valid_job_of_task,
+         tasks_sp_ex, task_sp0_ex, jobs_sp_ex, job_sp2_ex. simpl. lia.
 Qed.
 
 Lemma sporadic_feasible_on_sp_ex :
@@ -260,7 +287,7 @@ Proof.
   intro j.
   unfold local_jobset, assign_sp_ex, sporadic_jobset_upto, T_sp_ex, H_sp_ex, jobs_sp_ex.
   split.
-  - intros [[HT [Hvalid Hrel]] Hassign].
+  - intros [[HT [Hgen Hrel]] Hassign].
     destruct j as [| [| [| j']]]; simpl in Hassign; try discriminate.
     + left. reflexivity.
     + right. reflexivity.
@@ -268,12 +295,14 @@ Proof.
   - intros [Hj | Hj]; subst j; simpl.
     + split.
       * split. { left. reflexivity. }
-        split. { unfold valid_job_of_task, task_sp0_ex, job_sp0_ex. simpl. lia. }
+        split. { unfold generated_by_sporadic_task, earliest_sporadic_release,
+                         valid_job_of_task, task_sp0_ex, job_sp0_ex. simpl. lia. }
         lia.
       * reflexivity.
     + split.
       * split. { left. reflexivity. }
-        split. { unfold valid_job_of_task, task_sp0_ex, job_sp2_ex. simpl. lia. }
+        split. { unfold generated_by_sporadic_task, earliest_sporadic_release,
+                         valid_job_of_task, task_sp0_ex, job_sp2_ex. simpl. lia. }
         lia.
       * reflexivity.
 Qed.
@@ -287,13 +316,14 @@ Proof.
   intro j.
   unfold local_jobset, assign_sp_ex, sporadic_jobset_upto, T_sp_ex, H_sp_ex, jobs_sp_ex.
   split.
-  - intros [[HT [Hvalid Hrel]] Hassign].
+  - intros [[HT [Hgen Hrel]] Hassign].
     destruct j as [| [| [| j']]]; simpl in Hassign; try discriminate.
     reflexivity.
   - intros Hj; subst j; simpl.
     split.
     + split. { right. reflexivity. }
-      split. { unfold valid_job_of_task, task_sp1_ex, job_sp1_ex. simpl. lia. }
+      split. { unfold generated_by_sporadic_task, earliest_sporadic_release,
+                       valid_job_of_task, task_sp1_ex, job_sp1_ex. simpl. lia. }
       lia.
     + reflexivity.
 Qed.
