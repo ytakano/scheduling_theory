@@ -911,19 +911,18 @@ Done:
 - EDF-specific processor-demand theorem interfaces
   `periodic_window_dbf_implies_no_deadline_miss_under_edf` and
   `periodic_window_dbf_implies_edf_feasible_on_finite_horizon`
-  in `EDFProcessorDemand.v` (currently axiomatized; see Remaining below
-  for the missing proof infrastructure)
+  in `EDFProcessorDemand.v`
+  (`periodic_window_dbf_implies_no_deadline_miss_under_edf` is now proven at a
+  stronger interface requiring a busy-window witness and a no-carry-in bridge;
+  the finite-horizon feasibility theorem remains axiomatized)
 - `PeriodicEDFBridge.v` window-DBF bridge theorems close without `feasible_on` hypothesis
 
 Remaining:
 
-- EDF work-conserving lemma: EDF scheduler never idles when eligible jobs exist
-  (needed to replace the EDF processor-demand axioms in `EDFProcessorDemand.v`)
 - busy-interval existence lemma: constructive extraction of maximal busy interval
   from any busy time point in a discrete schedule
-- close `periodic_window_dbf_implies_no_deadline_miss_under_edf` and
-  `periodic_window_dbf_implies_edf_feasible_on_finite_horizon` once
-  the above infrastructure is in place
+- construct a witness schedule to replace
+  `periodic_window_dbf_implies_edf_feasible_on_finite_horizon`
 - utilization / dbf hooks above the aggregate layer
 - rbf / sbf style interfaces
 - policy-specific analysis wrappers

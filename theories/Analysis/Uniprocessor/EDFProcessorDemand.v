@@ -1070,22 +1070,47 @@ Qed.
 
 (* ===== EDF feasibility from window-DBF ===== *)
 
-(* The processor-demand argument is EDF-specific: the schedule must come from
-   the EDF scheduler instantiated with a finite horizon enumeration that is
-   sound and complete for the periodic jobset. *)
-Axiom periodic_window_dbf_implies_no_deadline_miss_under_edf :
-  forall T tasks offset H enumT enumJ jobs sched j,
+(* The exported processor-demand theorem lives at the stronger interface that
+   the existing proof pipeline can justify: an explicit busy-window witness and
+   the schedule-local no-carry-in bridge are required. *)
+Theorem periodic_window_dbf_implies_no_deadline_miss_under_edf :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched j t1 t2,
     well_formed_periodic_tasks_on T tasks ->
     NoDup enumT ->
-    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
-    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
-    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    scheduler_rel
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1 sched ->
     periodic_jobset_upto T tasks offset jobs H j ->
-    (forall t1 t2,
-      t1 <= t2 ->
-      t2 <= H ->
-      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
+    busy_window_witness sched (job_abs_deadline (jobs j)) t1 t2 ->
+    t1 <= job_release (jobs j) ->
+    job_abs_deadline (jobs j) <= H ->
+    (forall t j_run,
+      job_release (jobs j) <= t < job_abs_deadline (jobs j) ->
+      sched t 0 = Some j_run ->
+      periodic_jobset_deadline_between T tasks offset jobs
+        t1 (job_abs_deadline (jobs j)) j_run ->
+      job_release (jobs j) <= job_release (jobs j_run)) ->
+    (forall t1' t2',
+      t1' <= t2' ->
+      t2' <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1' t2' <= t2' - t1') ->
     ~ missed_deadline jobs 1 sched j.
+Proof.
+  intros T tasks offset H enumT jobs codec sched j t1 t2
+         Hwf HnodupT HenumT_complete HenumT_sound
+         Hsched Hj Hwit Ht1rel Hj_H Hcarry_free Hdbf.
+  eapply
+    periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_window_and_no_carry_in
+    with (codec := codec)
+         (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec);
+    eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
+Qed.
 
 (* The finite-horizon theorem packages the EDF witness schedule and the
    schedule-local no-miss property above. *)

@@ -478,10 +478,6 @@ Implemented:
 
 Remaining:
 
-- EDF work-conserving lemma: EDF scheduler is never idle when eligible jobs exist
-  (needed to derive the local no-miss theorem
-  `periodic_window_dbf_implies_no_deadline_miss_under_edf`
-  in `EDFProcessorDemand.v`)
 - Busy-interval existence at a busy time point: constructive extraction of maximal
   busy interval from any busy slot (discrete-time last-idle-slot argument)
 - policy-generic busy-window interfaces
@@ -529,7 +525,9 @@ Implemented:
   EDF-specific theorem interfaces
   `periodic_window_dbf_implies_no_deadline_miss_under_edf` and
   `periodic_window_dbf_implies_edf_feasible_on_finite_horizon`
-  (currently axiomatized; see G-1 Remaining for the proof infrastructure still missing)
+  (`periodic_window_dbf_implies_no_deadline_miss_under_edf` now proven at the
+  stronger busy-window/no-carry-in interface; the finite-horizon feasibility
+  theorem remains axiomatized pending witness-schedule construction)
 - `TaskModels/Periodic/PeriodicEDFBridge.v`: window-DBF bridge theorems
   `periodic_edf_schedulable_by_window_dbf_on_finite_horizon` and
   `periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto` now close
@@ -539,8 +537,8 @@ Implemented:
 
 Remaining:
 
-- replace the current EDF processor-demand axioms in `EDFProcessorDemand.v`
-  with proofs once the G-1 infrastructure is in place
+- replace the remaining EDF finite-horizon feasibility axiom in
+  `EDFProcessorDemand.v` with a proof by constructing a witness schedule
 - deeper schedulability / response-time theorems consuming the new busy-window search hook
 
 ### G-3. Supply-bound / interface theory
