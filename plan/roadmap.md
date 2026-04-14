@@ -370,10 +370,18 @@ What is already done:
 What remains:
 
 - multicore validity beyond the current minimal base
-- stronger service / completion lemmas under migration
+- stronger service / completion lemmas under migration beyond the initial
+  common bridge layer
 - abstractions for top-m and non-partitioned selection
 - API stabilization: clarify public API vs helper lemma boundary in the bridge
 - richer affinity/candidate-source instantiation examples
+
+Newly implemented in the initial common bridge layer:
+
+- `Multicore/Common/ServiceFacts.v`: migration-aware decomposition of
+  `service_job` into the sum of per-CPU projected services
+- `Multicore/Common/CompletionFacts.v`: completion and eligibility bridges
+  stated in terms of the decomposed multicore service
 
 ---
 

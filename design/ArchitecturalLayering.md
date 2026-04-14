@@ -231,6 +231,18 @@ Typical contents include:
 - multicore feasibility and optimality theorems
 - multicore witness constructions
 
+Within `Multicore/`, keep the reusable common theorem layer separate from
+policy wrappers:
+
+- `Multicore/Common/MultiCoreBase.v` provides the basic projections and
+  multicore notions such as `cpu_schedule` and `no_duplication`
+- `Multicore/Common/ServiceFacts.v` provides migration-aware service
+  decomposition across per-CPU projections
+- `Multicore/Common/CompletionFacts.v` provides completion-facing bridge lemmas
+  on top of the decomposed multicore service
+- `Multicore/Partitioned/*` and `Multicore/Global/*` should be clients of this
+  common layer rather than re-encoding it
+
 As in the uniprocessor case, this layer should depend on shared lower layers rather than cloning them.
 
 Whenever a proof concept is common to both uniprocessor and multicore reasoning, it should be pushed downward into `Abstractions` or `Analysis` instead of being duplicated.

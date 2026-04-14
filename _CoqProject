@@ -19,6 +19,7 @@ theories/Examples/RequestBoundExamples.v
 theories/Examples/DemandBoundExamples.v
 theories/Examples/FeasibleExamples.v
 theories/Examples/FIFOExamples.v
+theories/Examples/GlobalServiceExamples.v
 theories/Examples/GlobalWorkConservingExamples.v
 theories/Examples/JitteredPeriodicExamples.v
 theories/Examples/PeriodicExamples.v
@@ -27,6 +28,8 @@ theories/Examples/RRExamples.v
 theories/Examples/SchedulableExamples.v
 theories/Foundation/Base.v
 theories/Multicore/Common/MultiCoreBase.v
+theories/Multicore/Common/ServiceFacts.v
+theories/Multicore/Common/CompletionFacts.v
 theories/Multicore/Common/Admissibility.v
 theories/Multicore/Common/AffinityFacts.v
 theories/Multicore/Common/AdmissibleCandidateSource.v

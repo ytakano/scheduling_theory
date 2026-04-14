@@ -636,12 +636,12 @@ Done:
 - richer candidate-source instantiation examples
 
 ## 7-3. multicore service / completion under migration
-**Status: Initial layer only**
+**Status: Initial service/completion bridge implemented**
 
 残作業:
 
-- migration を許したときの service / completion / remaining-cost 一貫性
-- global / clustered で再利用できる補題層の整備
+- remaining-cost / laxity まで含めた migration-aware 一貫性
+- global / clustered analysis 向けのより強い再利用補題層
 
 ---
 

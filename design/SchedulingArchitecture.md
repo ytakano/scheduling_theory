@@ -36,6 +36,11 @@ The following predicates are defined in `Semantics/Schedule.v`:
 
 These predicates capture the basic semantic correctness conditions of a schedule.
 
+For multicore reasoning, `theories/Multicore/Common/MultiCoreBase.v` adds the
+projection `cpu_schedule`, which turns one CPU view of a multicore schedule
+into a 1-CPU schedule. This keeps per-CPU service and completion reasoning in
+the common multicore layer instead of policy-specific files.
+
 ---
 
 ## 2. SchedulingAlgorithm
@@ -52,7 +57,8 @@ Given the current scheduling context:
 
 the algorithm selects the next job to run, if any.
 
-This abstraction is defined by `GenericSchedulingAlgorithm` in `SchedulingAlgorithmInterface.v`.
+This abstraction is defined by `GenericSchedulingAlgorithm` in
+`theories/Abstractions/SchedulingAlgorithm/Interface.v`.
 
 ### Role
 
@@ -98,7 +104,7 @@ Rather than being only a local decision rule, it characterizes which schedules a
 * refinement obligations,
 * and machine or CPU structure.
 
-In `SchedulerInterface.v`, it is defined as:
+In `theories/Abstractions/Scheduler/Interface.v`, it is defined as:
 
 ```coq
 Record Scheduler := mkScheduler { scheduler_rel : ... }.

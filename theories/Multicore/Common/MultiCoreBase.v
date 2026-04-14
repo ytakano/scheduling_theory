@@ -4,7 +4,11 @@
    Scope:
    - per-CPU view of a global schedule
    - no-duplication / idle / busy / runnable-like notions
-   - light bridge lemmas to ScheduleModel / ScheduleFacts
+   - light bridge lemmas to Schedule / ScheduleFacts
+
+   Follow-on theorem layers:
+   - ServiceFacts.v      (migration-aware service decomposition)
+   - CompletionFacts.v   (completion/service bridge on multicore schedules)
 
    Non-goals of this file:
    - assignment-specific partitioned reasoning
