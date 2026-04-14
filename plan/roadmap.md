@@ -200,7 +200,7 @@ What remains:
   and should be reused by sporadic/jitter extensions
 
 ### B-2. Sporadic tasks
-**Status: In progress**
+**Status: Implemented as finite-horizon witness-based layer**
 
 Implemented:
 
@@ -220,7 +220,7 @@ Implemented:
 What remains:
 
 - utilization / Liu & Layland style theorems
-- release jitter / arrival offset extensions
+- stronger analysis results beyond the finite-horizon witness pipeline
 
 Design note:
 
@@ -230,18 +230,33 @@ Design note:
   `enumJ` plus soundness/completeness proofs
 
 ### B-3. Release jitter / arrival offsets
-**Status: Not started**
+**Status: Initial jittered-periodic layer implemented**
 
-Planned:
+Implemented:
 
-- release-jitter bounds on top of periodic/sporadic generation
-- arrival offset models for phased releases
-- clean separation between:
-  - expected release
-  - actual release
-  - bounded deviation assumptions
+- `TaskModels/Jitter/ReleaseJitter.v`: reusable `within_jitter` predicate,
+  boolean reflection, lower/upper-bound lemmas
+- `JitteredPeriodicTasks.v`: bounded-release periodic generation predicate,
+  boolean reflection, local deadline/cost lemmas, periodic-to-jitter inclusion
+- `JitteredPeriodicSporadicBridge.v`: per-job bridge to sporadic generation,
+  model-level bridge when task scope, uniqueness, and separation are supplied
+- `JitteredPeriodicFiniteHorizon.v` and `JitteredPeriodicEnumeration.v`:
+  witness-based finite-horizon jobset API, mirroring the sporadic layer
+- `JitteredPeriodicFiniteOptimalityLift.v`: generic finite-horizon lift
+- `JitteredPeriodicEDFBridge.v`, `JitteredPeriodicLLFBridge.v`,
+  `JitteredPeriodicPartitionedFiniteOptimalityLift.v`: EDF / LLF /
+  partitioned theorem wrappers
+- `Examples/JitteredPeriodicExamples.v`: manual witness example with delayed
+  releases and schedulability proofs
 
-This belongs to the task-generation layer rather than the OS-operational layer.
+Design note:
+
+- jitter is kept in the task-generation layer and does not modify `Schedule`
+- no automatic codec is introduced, because actual releases are not recovered
+  from `(task, index)` alone
+- promotion to the full sporadic model still requires an explicit
+  `sporadic_separation_on` assumption; bounded delay jitter alone does not
+  imply actual-release separation
 
 ### B-4. Why this phase is early
 **Status: Design decision**

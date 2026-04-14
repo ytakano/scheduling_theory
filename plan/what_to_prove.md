@@ -504,19 +504,25 @@ Design note:
   inferred enumeration
 
 ## 6-4. release jitter / arrival offset
-**Status: Not started**
+**Status: In progress**
 
-予定:
+実装済みの核:
 
-- bounded release jitter
-- phase / offset model
-- expected release と actual release の関係
-- periodic / sporadic generation への拡張
+- `within_jitter` と bool reflection
+- jittered periodic generation predicate
+- witness-based finite-horizon jobset / enumeration
+- EDF / LLF / partitioned finite-optimality bridge
+- delayed actual release を含む example
 
 重要点:
 
 - release jitter は analysis 層に直接押し込まず、
   まず task-generation semantics として定義する
+- arrival offset と jitter は分離する
+- `generated_by_jittered_periodic_task -> generated_by_sporadic_task` は成り立つ
+- ただし `sporadic_job_model_on` に必要な
+  `sporadic_separation_on` は jitter bound だけでは一般には導けない
+- そのため model-level bridge では separation を追加仮定として扱う
 
 ## 6-5. periodic / sporadic schedulability analysis hooks
 **Status: Not started**

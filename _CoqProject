@@ -12,6 +12,7 @@ theories/Examples/AffinityExamples.v
 theories/Examples/FeasibleExamples.v
 theories/Examples/FIFOExamples.v
 theories/Examples/GlobalWorkConservingExamples.v
+theories/Examples/JitteredPeriodicExamples.v
 theories/Examples/PeriodicExamples.v
 theories/Examples/SporadicExamples.v
 theories/Examples/RRExamples.v
@@ -49,6 +50,15 @@ theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v
 theories/TaskModels/Periodic/PeriodicPartitionedFiniteOptimalityLift.v
+theories/TaskModels/Jitter/ReleaseJitter.v
+theories/TaskModels/Jitter/JitteredPeriodicTasks.v
+theories/TaskModels/Jitter/JitteredPeriodicSporadicBridge.v
+theories/TaskModels/Jitter/JitteredPeriodicFiniteHorizon.v
+theories/TaskModels/Jitter/JitteredPeriodicEnumeration.v
+theories/TaskModels/Jitter/JitteredPeriodicFiniteOptimalityLift.v
+theories/TaskModels/Jitter/JitteredPeriodicEDFBridge.v
+theories/TaskModels/Jitter/JitteredPeriodicLLFBridge.v
+theories/TaskModels/Jitter/JitteredPeriodicPartitionedFiniteOptimalityLift.v
 theories/TaskModels/Sporadic/SporadicTasks.v
 theories/TaskModels/Sporadic/SporadicFiniteHorizon.v
 theories/TaskModels/Sporadic/SporadicPeriodicBridge.v
