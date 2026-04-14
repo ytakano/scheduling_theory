@@ -403,6 +403,60 @@ Proof.
                Hsched Hbusy Ht1t Htt2 HtH Hrel_miss_t Hbefore_miss Hrun Hjmiss Hmiss).
 Qed.
 
+Lemma edf_release_deadline_slots_are_relevant_if_no_carry_in :
+  forall T tasks offset jobs H enumJ enumT sched t1 t2 j_miss,
+    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
+    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
+    (forall τ, T τ -> In τ enumT) ->
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
+    busy_window_candidate sched t1 t2 ->
+    periodic_jobset_upto T tasks offset jobs H j_miss ->
+    missed_deadline jobs 1 sched j_miss ->
+    t1 <= job_release (jobs j_miss) ->
+    job_abs_deadline (jobs j_miss) <= t2 ->
+    job_abs_deadline (jobs j_miss) <= H ->
+    (forall t j_run,
+      job_release (jobs j_miss) <= t < job_abs_deadline (jobs j_miss) ->
+      sched t 0 = Some j_run ->
+      periodic_jobset_deadline_between T tasks offset jobs
+        t1 (job_abs_deadline (jobs j_miss)) j_run ->
+      job_release (jobs j_miss) <= job_release (jobs j_run)) ->
+    forall t,
+      job_release (jobs j_miss) <= t < job_abs_deadline (jobs j_miss) ->
+      exists j_run,
+        sched t 0 = Some j_run /\
+        periodic_jobset_deadline_between T tasks offset jobs
+          (job_release (jobs j_miss)) (job_abs_deadline (jobs j_miss)) j_run /\
+        In (job_task (jobs j_run)) enumT.
+Proof.
+  intros T tasks offset jobs H enumJ enumT sched t1 t2 j_miss
+         HenumJ_complete HenumJ_sound HenumT_complete
+         Hsched Hbusy Hjmiss Hmiss Ht1rel Hdl_le_t2 Hdl_le_H Hcarry_free
+         t Hrange.
+  destruct (edf_busy_window_runs_relevant_job_before_missed_deadline
+              T tasks offset jobs H enumJ enumT sched t1 t2 t j_miss
+              HenumJ_complete HenumJ_sound HenumT_complete
+              Hsched Hbusy) as [j_run [Hrun [Hrel_t1 Htask]]].
+  - lia.
+  - lia.
+  - lia.
+  - exact (proj1 Hrange).
+  - exact (proj2 Hrange).
+  - exact Hjmiss.
+  - exact Hmiss.
+  - exists j_run.
+    split; [exact Hrun|].
+    split.
+    + destruct Hrel_t1 as [HT [Hgen [Hrel_t1' Hdl]]].
+      split; [exact HT|].
+      split; [exact Hgen|].
+      split.
+      * exact (Hcarry_free t j_run Hrange Hrun
+                 (conj HT (conj Hgen (conj Hrel_t1' Hdl)))).
+      * exact Hdl.
+    + exact Htask.
+Qed.
+
 Lemma busy_window_subinterval_cpu_supply_eq_length :
   forall sched t1 t2 a b,
     busy_window_candidate sched t1 t2 ->
@@ -462,6 +516,25 @@ Proof.
   - lia.
 Qed.
 
+Lemma missed_deadline_service_between_window_start_deadline_lt_cost :
+  forall T tasks offset jobs H sched t1 j_miss,
+    periodic_jobset_upto T tasks offset jobs H j_miss ->
+    valid_schedule jobs 1 sched ->
+    missed_deadline jobs 1 sched j_miss ->
+    t1 <= job_release (jobs j_miss) ->
+    service_between 1 sched j_miss t1 (job_abs_deadline (jobs j_miss)) <
+    job_cost (jobs j_miss).
+Proof.
+  intros T tasks offset jobs H sched t1 j_miss Hjmiss Hvalid Hmiss Ht1rel.
+  unfold service_between.
+  rewrite (service_before_release_zero jobs 1 sched j_miss t1).
+  - rewrite Nat.sub_0_r.
+    apply (proj1 (missed_deadline_iff_service_lt_cost_at_deadline jobs 1 sched j_miss)).
+    exact Hmiss.
+  - exact Hvalid.
+  - exact Ht1rel.
+Qed.
+
 Fixpoint total_service_between_list
     (sched : Schedule) (l : list JobId) (t1 t2 : Time) : nat :=
   match l with
@@ -495,6 +568,18 @@ Proof.
   - rewrite (service_between_split 1 sched j t1 t2 t3) by lia.
     rewrite IH by lia.
     lia.
+Qed.
+
+Lemma total_service_between_list_app :
+  forall sched l1 l2 t1 t2,
+    total_service_between_list sched (l1 ++ l2) t1 t2 =
+    total_service_between_list sched l1 t1 t2 +
+    total_service_between_list sched l2 t1 t2.
+Proof.
+  intros sched l1 l2 t1 t2.
+  induction l1 as [|j l1 IH]; simpl.
+  - reflexivity.
+  - rewrite IH. lia.
 Qed.
 
 Lemma service_between_single_slot_running :
@@ -635,6 +720,352 @@ Proof.
   - rewrite (service_between_eq 1 sched j t1 t2) by lia.
     pose proof (valid_schedule_1_service_le_cost jobs sched j t2 Hvalid) as Hcost.
     lia.
+Qed.
+
+Lemma codec_window_relevant_job_in_filtered_list :
+  forall T tasks offset jobs H enumT
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         t1 t2 j,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    periodic_jobset_deadline_between T tasks offset jobs t1 t2 j ->
+    job_release (jobs j) < H ->
+    In j
+      (filter (periodic_window_job_filter jobs t1 t2)
+              (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)).
+Proof.
+  intros T tasks offset jobs H enumT codec t1 t2 j Hwf HenumT Hwin Hrel_lt.
+  apply filter_In.
+  split.
+  - eapply enum_periodic_jobs_upto_complete; eauto.
+    + split.
+      * exact (periodic_jobset_deadline_between_implies_task_in_scope
+                 T tasks offset jobs t1 t2 j Hwin).
+      * split.
+        -- exact (periodic_jobset_deadline_between_implies_generated
+                    T tasks offset jobs t1 t2 j Hwin).
+        -- exact Hrel_lt.
+  - apply periodic_window_job_filter_spec.
+    split.
+    + exact (periodic_jobset_deadline_between_implies_release_ge
+               T tasks offset jobs t1 t2 j Hwin).
+    + exact (periodic_jobset_deadline_between_implies_deadline_le
+               T tasks offset jobs t1 t2 j Hwin).
+Qed.
+
+Lemma total_service_between_list_lt_total_job_cost_if_one_job_misses :
+  forall jobs sched l1 l2 j t1 t2,
+    valid_schedule jobs 1 sched ->
+    t1 <= t2 ->
+    service_between 1 sched j t1 t2 < job_cost (jobs j) ->
+    total_service_between_list sched l1 t1 t2 <= total_job_cost jobs l1 ->
+    total_service_between_list sched l2 t1 t2 <= total_job_cost jobs l2 ->
+    total_service_between_list sched (l1 ++ j :: l2) t1 t2 <
+    total_job_cost jobs (l1 ++ j :: l2).
+Proof.
+  intros jobs sched l1 l2 j t1 t2 _ Hle Hmiss Hle1 Hle2.
+  rewrite !total_service_between_list_app.
+  simpl.
+  rewrite !total_job_cost_app.
+  simpl.
+  lia.
+Qed.
+
+Lemma edf_missed_job_implies_relevant_prefix_overload :
+  forall T tasks offset jobs H enumJ enumT
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched t1 t2 j_miss,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
+    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
+    (forall τ, T τ -> In τ enumT) ->
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
+    busy_window_candidate sched t1 t2 ->
+    periodic_jobset_upto T tasks offset jobs H j_miss ->
+    missed_deadline jobs 1 sched j_miss ->
+    t1 <= job_release (jobs j_miss) ->
+    job_abs_deadline (jobs j_miss) <= t2 ->
+    job_abs_deadline (jobs j_miss) <= H ->
+    (forall t,
+      job_release (jobs j_miss) <= t < job_abs_deadline (jobs j_miss) ->
+      exists j_run,
+        sched t 0 = Some j_run /\
+        periodic_jobset_deadline_between T tasks offset jobs
+          (job_release (jobs j_miss)) (job_abs_deadline (jobs j_miss)) j_run /\
+        In (job_task (jobs j_run)) enumT) ->
+    exists l,
+      NoDup (map (fun j => (job_task (jobs j), job_index (jobs j))) l) /\
+      (forall x, In x l ->
+         periodic_jobset_deadline_between T tasks offset jobs
+           (job_release (jobs j_miss)) (job_abs_deadline (jobs j_miss)) x /\
+         In (job_task (jobs x)) enumT) /\
+      cpu_service_between sched
+        (job_release (jobs j_miss)) (job_abs_deadline (jobs j_miss)) <
+      total_job_cost jobs l.
+Proof.
+  intros T tasks offset jobs H enumJ enumT codec sched t1 t2 j_miss
+         Hwf HnodupT HenumT_sound HenumJ_complete HenumJ_sound HenumT_complete
+         Hsched Hbusy Hjmiss Hmiss Ht1rel Hdl_le_t2 Hdl_le_H Hrelevant_run.
+  pose proof (single_cpu_algorithm_valid edf_generic_spec (enum_candidates_of enumJ)
+                jobs sched Hsched) as Hvalid.
+  set (a := job_release (jobs j_miss)).
+  set (b := job_abs_deadline (jobs j_miss)).
+  set (l := filter (periodic_window_job_filter jobs a b)
+                   (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)).
+  exists l.
+  assert (Hnd_pairs :
+    NoDup (map (fun j => (job_task (jobs j), job_index (jobs j))) l)).
+  { subst l a b.
+    apply periodic_filtered_pairs_nodup_window.
+    apply enum_periodic_jobs_upto_task_index_nodup.
+    - exact HnodupT.
+    - exact HenumT_sound.
+  }
+  assert (Hnd_l :
+    NoDup l).
+  { subst l a b.
+    apply NoDup_filter.
+    apply enum_periodic_jobs_upto_nodup.
+    - exact HnodupT.
+    - exact HenumT_sound.
+  }
+  assert (Hlprop :
+    forall x, In x l ->
+      periodic_jobset_deadline_between T tasks offset jobs
+        (job_release (jobs j_miss)) (job_abs_deadline (jobs j_miss)) x /\
+      In (job_task (jobs x)) enumT).
+  { subst l a b.
+    intros x Hinx.
+    apply filter_In in Hinx.
+    destruct Hinx as [HinEnum Hfilt].
+    pose proof (enum_periodic_jobs_upto_sound T tasks offset jobs H enumT codec
+                  HenumT_sound x HinEnum) as Hjobset.
+    apply periodic_window_job_filter_spec in Hfilt.
+    destruct Hjobset as [HT [Hgen _]].
+    destruct Hfilt as [Hrel Hdl].
+    split.
+    - split; [exact HT|].
+      split; [exact Hgen|].
+      split; assumption.
+    - apply HenumT_complete.
+      exact HT.
+  }
+  split; [exact Hnd_pairs|].
+  split; [exact Hlprop|].
+  assert (Hcover :
+    forall t, a <= t < b ->
+      exists j_run, sched t 0 = Some j_run /\ In j_run l).
+  { intros t Hrange.
+    subst a b.
+    destruct (Hrelevant_run t Hrange) as [j_run [Hrun [Hrel_run Htask_run]]].
+    - exists j_run. split; [exact Hrun|].
+      assert (Hrel_lt_H : job_release (jobs j_run) < H).
+      { pose proof (valid_no_run_before_release jobs 1 sched j_run t 0 Hvalid) as Hrel_le.
+        specialize (Hrel_le (Nat.lt_succ_diag_r 0) Hrun).
+        lia.
+      }
+      eapply codec_window_relevant_job_in_filtered_list.
+      + exact Hwf.
+      + exact HenumT_complete.
+      + exact Hrel_run.
+      + exact Hrel_lt_H.
+  }
+  assert (Hcpu_eq :
+    cpu_service_between sched a b =
+    total_service_between_list sched l a b).
+  { apply total_service_between_list_covers_cpu_supply.
+    - exact Hnd_l.
+    - subst a b.
+      pose proof (periodic_jobset_upto_implies_generated
+                    T tasks offset jobs H j_miss Hjmiss) as Hgen_miss.
+      pose proof (generated_job_deadline tasks offset jobs j_miss Hgen_miss) as Hdl_eq.
+      lia.
+    - exact Hcover.
+  }
+  assert (Hin_miss : In j_miss l).
+  { subst l a b.
+    eapply codec_window_relevant_job_in_filtered_list.
+    - exact Hwf.
+    - exact HenumT_complete.
+    - split.
+      * exact (periodic_jobset_upto_implies_task_in_scope T tasks offset jobs H j_miss Hjmiss).
+      * split.
+        -- exact (periodic_jobset_upto_implies_generated T tasks offset jobs H j_miss Hjmiss).
+        -- split.
+           ++ lia.
+           ++ lia.
+    - exact (periodic_jobset_upto_implies_release_lt T tasks offset jobs H j_miss Hjmiss).
+  }
+  apply in_split in Hin_miss.
+  destruct Hin_miss as [l1 [l2 Hl_split]].
+  subst l.
+  rewrite Hcpu_eq.
+  rewrite Hl_split.
+  eapply total_service_between_list_lt_total_job_cost_if_one_job_misses.
+  - exact Hvalid.
+  - subst a b.
+    pose proof (periodic_jobset_upto_implies_generated
+                  T tasks offset jobs H j_miss Hjmiss) as Hgen_miss.
+    pose proof (generated_job_deadline tasks offset jobs j_miss Hgen_miss) as Hdl_eq.
+    lia.
+  - exact (missed_deadline_service_between_release_deadline_lt_cost
+             T tasks offset jobs H sched j_miss Hjmiss Hvalid Hmiss).
+  - apply total_service_between_list_le_total_job_cost.
+    + exact Hvalid.
+    + subst a b.
+      pose proof (periodic_jobset_upto_implies_generated
+                    T tasks offset jobs H j_miss Hjmiss) as Hgen_miss.
+      pose proof (generated_job_deadline tasks offset jobs j_miss Hgen_miss) as Hdl_eq.
+      lia.
+  - apply total_service_between_list_le_total_job_cost.
+    + exact Hvalid.
+    + subst a b.
+      pose proof (periodic_jobset_upto_implies_generated
+                    T tasks offset jobs H j_miss Hjmiss) as Hgen_miss.
+      pose proof (generated_job_deadline tasks offset jobs j_miss Hgen_miss) as Hdl_eq.
+      lia.
+Qed.
+
+Lemma edf_missed_job_implies_relevant_prefix_overload_if_no_carry_in :
+  forall T tasks offset jobs H enumJ enumT
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched t1 t2 j_miss,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
+    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
+    (forall τ, T τ -> In τ enumT) ->
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
+    busy_window_candidate sched t1 t2 ->
+    periodic_jobset_upto T tasks offset jobs H j_miss ->
+    missed_deadline jobs 1 sched j_miss ->
+    t1 <= job_release (jobs j_miss) ->
+    job_abs_deadline (jobs j_miss) <= t2 ->
+    job_abs_deadline (jobs j_miss) <= H ->
+    (forall t j_run,
+      job_release (jobs j_miss) <= t < job_abs_deadline (jobs j_miss) ->
+      sched t 0 = Some j_run ->
+      periodic_jobset_deadline_between T tasks offset jobs
+        t1 (job_abs_deadline (jobs j_miss)) j_run ->
+      job_release (jobs j_miss) <= job_release (jobs j_run)) ->
+    exists l,
+      NoDup (map (fun j => (job_task (jobs j), job_index (jobs j))) l) /\
+      (forall x, In x l ->
+         periodic_jobset_deadline_between T tasks offset jobs
+           (job_release (jobs j_miss)) (job_abs_deadline (jobs j_miss)) x /\
+         In (job_task (jobs x)) enumT) /\
+      cpu_service_between sched
+        (job_release (jobs j_miss)) (job_abs_deadline (jobs j_miss)) <
+      total_job_cost jobs l.
+Proof.
+  intros T tasks offset jobs H enumJ enumT codec sched t1 t2 j_miss
+         Hwf HnodupT HenumT_sound HenumJ_complete HenumJ_sound HenumT_complete
+         Hsched Hbusy Hjmiss Hmiss Ht1rel Hdl_le_t2 Hdl_le_H Hcarry_free.
+  eapply edf_missed_job_implies_relevant_prefix_overload; eauto.
+  eapply edf_release_deadline_slots_are_relevant_if_no_carry_in; eauto.
+Qed.
+
+Lemma periodic_window_dbf_implies_no_deadline_miss_under_edf_if_no_carry_in :
+  forall T tasks offset H enumT enumJ jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched j t1 t2,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
+    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
+    (forall τ, T τ -> In τ enumT) ->
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
+    periodic_jobset_upto T tasks offset jobs H j ->
+    busy_window_candidate sched t1 t2 ->
+    t1 <= job_release (jobs j) ->
+    job_abs_deadline (jobs j) <= t2 ->
+    job_abs_deadline (jobs j) <= H ->
+    (forall t j_run,
+      job_release (jobs j) <= t < job_abs_deadline (jobs j) ->
+      sched t 0 = Some j_run ->
+      periodic_jobset_deadline_between T tasks offset jobs
+        t1 (job_abs_deadline (jobs j)) j_run ->
+      job_release (jobs j) <= job_release (jobs j_run)) ->
+    (forall t1' t2',
+      t1' <= t2' ->
+      t2' <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1' t2' <= t2' - t1') ->
+    ~ missed_deadline jobs 1 sched j.
+Proof.
+  intros T tasks offset H enumT enumJ jobs codec sched j t1 t2
+         Hwf HnodupT HenumT_sound HenumJ_complete HenumJ_sound HenumT_complete
+         Hsched Hj Hbusy Ht1 Hj_t2 Hj_H Hcarry_free Hdbf Hmiss.
+  destruct (edf_missed_job_implies_relevant_prefix_overload_if_no_carry_in
+              T tasks offset jobs H enumJ enumT codec sched t1 t2 j
+              Hwf HnodupT HenumT_sound HenumJ_complete HenumJ_sound HenumT_complete
+              Hsched Hbusy Hj Hmiss Ht1 Hj_t2 Hj_H Hcarry_free)
+    as [l [Hnd_l [Hlprop Hover]]].
+  pose proof (periodic_total_window_demand_le_taskset_dbf_window
+                T tasks offset jobs
+                (job_release (jobs j)) (job_abs_deadline (jobs j))
+                enumT l Hwf HnodupT Hnd_l Hlprop) as Hdemand.
+  pose proof (missed_deadline_busy_prefix_supply_eq_length
+                T tasks offset jobs H enumJ sched t1 t2 j
+                HenumJ_sound Hsched Hbusy Hj Ht1 Hj_t2) as Hsupply.
+  pose proof (periodic_jobset_upto_implies_generated
+                T tasks offset jobs H j Hj) as Hgen.
+  pose proof (generated_job_deadline tasks offset jobs j Hgen) as Hdl_eq.
+  pose proof (Hdbf (job_release (jobs j)) (job_abs_deadline (jobs j))) as Hdbf_j.
+  assert (Hdbf_j' :
+    taskset_periodic_dbf_window tasks offset enumT
+      (job_release (jobs j)) (job_abs_deadline (jobs j)) <=
+    job_abs_deadline (jobs j) - job_release (jobs j)).
+  { apply Hdbf_j; lia. }
+  destruct (Nat.lt_ge_cases (job_release (jobs j)) (job_abs_deadline (jobs j)))
+    as [Hspan | Hnspan].
+  - specialize (Hsupply Hspan).
+    rewrite Hsupply in Hover.
+    lia.
+  - assert (Heq :
+        job_release (jobs j) = job_abs_deadline (jobs j)) by lia.
+    rewrite Heq in Hover.
+    rewrite cpu_service_between_refl in Hover.
+    rewrite Heq in Hdbf_j'.
+    simpl in Hdbf_j'.
+    lia.
+Qed.
+
+Lemma periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_window_and_no_carry_in :
+  forall T tasks offset H enumT enumJ jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched j t1 t2,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
+    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
+    (forall τ, T τ -> In τ enumT) ->
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
+    periodic_jobset_upto T tasks offset jobs H j ->
+    busy_window_witness sched (job_abs_deadline (jobs j)) t1 t2 ->
+    t1 <= job_release (jobs j) ->
+    job_abs_deadline (jobs j) <= H ->
+    (forall t j_run,
+      job_release (jobs j) <= t < job_abs_deadline (jobs j) ->
+      sched t 0 = Some j_run ->
+      periodic_jobset_deadline_between T tasks offset jobs
+        t1 (job_abs_deadline (jobs j)) j_run ->
+      job_release (jobs j) <= job_release (jobs j_run)) ->
+    (forall t1' t2',
+      t1' <= t2' ->
+      t2' <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1' t2' <= t2' - t1') ->
+    ~ missed_deadline jobs 1 sched j.
+Proof.
+  intros T tasks offset H enumT enumJ jobs codec sched j t1 t2
+         Hwf HnodupT HenumT_sound HenumJ_complete HenumJ_sound HenumT_complete
+         Hsched Hj Hwit Ht1rel Hj_H Hcarry_free Hdbf.
+  destruct Hwit as [Hbusy [Hdl_ge Hdl_le]].
+  eapply periodic_window_dbf_implies_no_deadline_miss_under_edf_if_no_carry_in; eauto.
 Qed.
 
 (* ===== EDF feasibility from window-DBF ===== *)
