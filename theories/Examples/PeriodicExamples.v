@@ -10,6 +10,7 @@ From RocqSched Require Import Uniprocessor.Policies.LLF.
 From RocqSched Require Import Uniprocessor.Policies.EDFOptimality.
 From RocqSched Require Import Multicore.Partitioned.Partitioned.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import TaskModels.Periodic.PeriodicReleaseLemmas.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFBridge.
 From RocqSched Require Import TaskModels.Periodic.PeriodicLLFBridge.
@@ -107,6 +108,38 @@ Proof.
   unfold generated_by_periodic_task, jobs_ex, job3_ex, tasks_ex, task1_ex, offset_ex.
   simpl.
   repeat split; lia.
+Qed.
+
+Lemma tasks_ex_well_formed :
+  well_formed_periodic_tasks_on T_ex tasks_ex.
+Proof.
+  intros τ Hτ.
+  destruct Hτ as [Hτ | Hτ]; subst τ; simpl; lia.
+Qed.
+
+Lemma periodic_example_same_task_same_release_implies_same_index :
+  job_index (jobs_ex 0) = job_index (jobs_ex 0).
+Proof.
+  eapply generated_by_periodic_same_task_same_release_implies_same_index.
+  - exact tasks_ex_well_formed.
+  - left. reflexivity.
+  - exact generated_job0_ex.
+  - exact generated_job0_ex.
+  - reflexivity.
+  - reflexivity.
+Qed.
+
+Lemma periodic_example_release_lt_horizon_implies_index_lt :
+  forall τ k,
+    T_ex τ ->
+    expected_release tasks_ex offset_ex τ k < H_ex ->
+    k < H_ex.
+Proof.
+  intros τ k Hτ Hrel.
+  exact
+    (expected_release_lt_horizon_implies_index_lt
+       T_ex tasks_ex offset_ex τ k H_ex
+       tasks_ex_well_formed Hτ Hrel).
 Qed.
 
 Lemma enumJ_ex_sound :

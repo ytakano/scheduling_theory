@@ -1,6 +1,7 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import TaskModels.Periodic.PeriodicReleaseLemmas.
 
 Definition periodic_jobset_upto
     (T : TaskId -> Prop)
@@ -94,6 +95,19 @@ Proof.
   - exact (periodic_jobset_upto_implies_generated T tasks offset jobs H j Hjobset).
 Qed.
 
+Lemma expected_release_lt_horizon_implies_index_lt :
+  forall T tasks offset τ k H,
+    well_formed_periodic_tasks_on T tasks ->
+    T τ ->
+    expected_release tasks offset τ k < H ->
+    k < H.
+Proof.
+  intros T tasks offset τ k H Hwf Hτ Hrel_lt.
+  unfold expected_release in Hrel_lt.
+  pose proof (Hwf _ Hτ) as Hp.
+  nia.
+Qed.
+
 (* The job index of any in-scope job is strictly below the horizon.
    Requires that all in-scope tasks have positive period. *)
 Lemma periodic_jobset_upto_implies_index_lt :
@@ -103,9 +117,7 @@ Lemma periodic_jobset_upto_implies_index_lt :
     job_index (jobs j) < H.
 Proof.
   intros T tasks offset jobs H j Hwf Hjobset.
-  pose proof (periodic_jobset_upto_implies_task_in_scope T tasks offset jobs H j Hjobset) as HT.
-  pose proof (Hwf _ HT) as Hp.
   pose proof (periodic_jobset_upto_expected_release_lt T tasks offset jobs H j Hjobset) as Hrel_lt.
-  unfold expected_release in Hrel_lt.
-  nia.
+  pose proof (periodic_jobset_upto_implies_task_in_scope T tasks offset jobs H j Hjobset) as HT.
+  eapply expected_release_lt_horizon_implies_index_lt; eauto.
 Qed.

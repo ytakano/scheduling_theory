@@ -194,9 +194,10 @@ Implemented core:
 
 What remains:
 
-- add stronger release-pattern lemmas (e.g., no two jobs with same release)
 - sporadic task-generation layer
 - utilization / Liu & Layland style theorems
+- release-pattern foundation now lives in `PeriodicReleaseLemmas.v`
+  and should be reused by sporadic/jitter extensions
 
 ### B-2. Sporadic tasks
 **Status: In progress**

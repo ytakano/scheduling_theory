@@ -1,6 +1,7 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import TaskModels.Periodic.PeriodicReleaseLemmas.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 
 (* ===== Periodic-to-Sporadic Bridge ===== *)
@@ -39,6 +40,21 @@ Proof.
   rewrite Htask in Hrel1 |- *.
   rewrite Hrel1, Hrel2.
   nia.
+Qed.
+
+Lemma periodic_model_same_task_same_release_implies_same_index :
+  forall J T tasks offset jobs j1 j2,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall j, J j -> T (job_task (jobs j))) ->
+    periodic_job_model_on J tasks offset jobs ->
+    J j1 ->
+    J j2 ->
+    job_task (jobs j1) = job_task (jobs j2) ->
+    job_release (jobs j1) = job_release (jobs j2) ->
+    job_index (jobs j1) = job_index (jobs j2).
+Proof.
+  intros J T tasks offset jobs j1 j2 Hwf Hscope Hperiodic Hj1 Hj2 Htask Hrel.
+  eapply generated_by_periodic_same_task_same_release_implies_same_index; eauto.
 Qed.
 
 (* Complete bridge: periodic_job_model_on + task scope + uniqueness => sporadic_job_model_on.

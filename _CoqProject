@@ -42,6 +42,7 @@ theories/Semantics/ScheduleLemmas/ScheduleRestriction.v
 theories/Semantics/ScheduleLemmas/ScheduleTransform.v
 theories/Semantics/ScheduleLemmas/ScheduleTruncation.v
 theories/TaskModels/Periodic/PeriodicTasks.v
+theories/TaskModels/Periodic/PeriodicReleaseLemmas.v
 theories/TaskModels/Periodic/PeriodicFiniteHorizon.v
 theories/TaskModels/Periodic/PeriodicEnumeration.v
 theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v

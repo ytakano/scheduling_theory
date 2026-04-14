@@ -465,6 +465,8 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - `periodic_jobset_upto` + bool reflection (`PeriodicFiniteHorizon.v`)
 - `PeriodicFiniteHorizonCodec` + `enum_periodic_jobs_upto` (sound/complete)
   (`PeriodicEnumeration.v`)
+- release/index uniqueness lemmas for periodic generation
+  (`PeriodicReleaseLemmas.v`)
 - `periodic_finite_optimality_lift` / `periodic_finite_optimality_lift_auto`:
   generic uniprocessor periodic finite-optimality lift (`PeriodicFiniteOptimalityLift.v`)
 - `periodic_edf_optimality_on_finite_horizon` / `_auto`: EDF thin wrapper
