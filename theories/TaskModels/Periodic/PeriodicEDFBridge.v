@@ -59,6 +59,7 @@ Qed.
 Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon :
   forall T T_bool tasks offset H enumT enumJ jobs,
     well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
     (forall τ, T_bool τ = true <-> T τ) ->
     (forall j, periodic_jobset_upto T tasks offset jobs H j -> In j enumJ) ->
     (forall j, In j enumJ -> periodic_jobset_upto T tasks offset jobs H j) ->
@@ -72,20 +73,22 @@ Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon :
       jobs 1.
 Proof.
   intros T T_bool tasks offset H enumT enumJ jobs
-         Hwf HTbool Henum_complete Henum_sound Hdbf.
+         Hwf HnodupT HTbool Henum_complete Henum_sound Hdbf.
   apply periodic_edf_optimality_on_finite_horizon
     with (T_bool := T_bool) (enumJ := enumJ).
   - exact HTbool.
   - exact Henum_complete.
   - exact Henum_sound.
   - exact (periodic_window_dbf_implies_edf_feasible_on_finite_horizon
-             T tasks offset H enumT jobs Hwf Hdbf).
+             T tasks offset H enumT enumJ jobs
+             Hwf HnodupT Henum_complete Henum_sound Hdbf).
 Qed.
 
 Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto :
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),
     well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
     (forall t1 t2,
@@ -100,11 +103,18 @@ Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto :
       jobs 1.
 Proof.
   intros T tasks offset H enumT jobs codec
-         Hwf HenumT_complete HenumT_sound Hdbf.
+         Hwf HnodupT HenumT_complete HenumT_sound Hdbf.
   apply periodic_edf_optimality_on_finite_horizon_auto.
   - exact Hwf.
   - exact HenumT_complete.
   - exact HenumT_sound.
   - exact (periodic_window_dbf_implies_edf_feasible_on_finite_horizon
-             T tasks offset H enumT jobs Hwf Hdbf).
+             T tasks offset H enumT
+             (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+             jobs
+             Hwf
+             HnodupT
+             (enum_periodic_jobs_upto_complete T tasks offset jobs H enumT codec Hwf HenumT_complete)
+             (enum_periodic_jobs_upto_sound T tasks offset jobs H enumT codec HenumT_sound)
+             Hdbf).
 Qed.

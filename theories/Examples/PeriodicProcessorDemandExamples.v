@@ -37,6 +37,17 @@ Proof.
     cbn in *; lia.
 Qed.
 
+Lemma enumT_ex_nodup :
+  NoDup enumT_ex.
+Proof.
+  unfold enumT_ex.
+  constructor.
+  - simpl. intros [H | []]. discriminate.
+  - constructor.
+    + simpl. tauto.
+    + constructor.
+Qed.
+
 Theorem periodic_example_edf_schedulable_by_window_dbf_auto :
   schedulable_by_on
     (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
@@ -48,6 +59,7 @@ Proof.
   apply periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto
     with (enumT := enumT_ex).
   - exact tasks_ex_well_formed.
+  - exact enumT_ex_nodup.
   - intros τ Hτ.
     destruct Hτ as [Hτ | Hτ]; subst τ; simpl; tauto.
   - intros τ Hτ.

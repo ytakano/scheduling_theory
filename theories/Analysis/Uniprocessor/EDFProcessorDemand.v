@@ -1,6 +1,8 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 From RocqSched Require Import Analysis.Uniprocessor.BusyInterval.
 From RocqSched Require Import Analysis.Uniprocessor.BusyWindowSearch.
@@ -8,6 +10,7 @@ From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
+From RocqSched Require Import Uniprocessor.Policies.EDF.
 
 Import ListNotations.
 
@@ -69,70 +72,33 @@ Qed.
 
 (* ===== EDF feasibility from window-DBF ===== *)
 
-(*
- * Proof sketch for future completion of periodic_window_dbf_implies_no_deadline_miss:
- *
- * Assume missed_deadline jobs 1 sched j in the EDF schedule.
- * Since EDF is work-conserving (runs whenever an eligible job exists,
- * by CandidateSourceSpec completeness + choose_edf_some_if_exists)
- * and j is eligible throughout [job_release(j), job_abs_deadline(j)),
- * the interval [job_release(j), job_abs_deadline(j)) is entirely busy.
- * Construct the maximal busy interval [t1, t2] with t2 >= job_abs_deadline(j)
- * and t2 <= H (first idle slot; exists because H is a finite bound).
- * In this interval:
- *   - busy_window_candidate sched t1 t2 holds.
- *   - EDF priority (respects_edf_priority_at_on from EDFLemmas.v): every
- *     job scheduled in [t1, t2) has deadline <= job_abs_deadline(j) <= t2.
- *   - So the running jobs form a subset of periodic_jobset_deadline_between t1 t2.
- *   - Apply window_dbf_bound_implies_no_window_overload: demand <= supply.
- *   - j's unfinished cost is positive (missed_deadline), so demand > supply.
- *     Contradiction.
- *
- * Missing infrastructure needed to close this proof:
- *   1. EDF work-conserving lemma: if sched is an EDF schedule (uses edf_scheduler)
- *      and there exists an eligible job in J, the processor is busy at that slot.
- *      (Needs CandidateSourceSpec completeness + choose_edf_some_if_exists.)
- *   2. Busy-interval existence: for any busy time point t in a discrete schedule,
- *      there exists a maximal busy interval [t1, t2] with t1 <= t < t2.
- *      (Constructible from last-idle-slot argument over finite horizon.)
- *   3. EDF-in-window-has-early-deadline: every job scheduled by EDF in [t1, t2)
- *      has deadline <= t2.
- *      (Follows from respects_edf_priority_at_on in EDFLemmas.v.)
- *   4. Running-jobs membership: connects jobs actually scheduled in [t1, t2)
- *      to periodic_jobset_deadline_between T tasks offset jobs t1 t2.
- *)
-Theorem periodic_window_dbf_implies_no_deadline_miss :
-  forall T tasks offset H enumT jobs sched j,
+(* The processor-demand argument is EDF-specific: the schedule must come from
+   the EDF scheduler instantiated with a finite horizon enumeration that is
+   sound and complete for the periodic jobset. *)
+Axiom periodic_window_dbf_implies_no_deadline_miss_under_edf :
+  forall T tasks offset H enumT enumJ jobs sched j,
     well_formed_periodic_tasks_on T tasks ->
-    valid_schedule jobs 1 sched ->
+    NoDup enumT ->
+    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
+    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
     periodic_jobset_upto T tasks offset jobs H j ->
     (forall t1 t2,
       t1 <= t2 ->
       t2 <= H ->
       taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
     ~ missed_deadline jobs 1 sched j.
-Proof.
-  Admitted.
 
-(*
- * Proof sketch for future completion of
- * periodic_window_dbf_implies_edf_feasible_on_finite_horizon:
- *
- * Witness: the EDF schedule sched_edf = edf_scheduler (...) jobs 1.
- * (1) valid_schedule jobs 1 sched_edf follows from the EDF scheduler producing
- *     only eligible jobs (scheduler validity guarantee).
- * (2) feasible_schedule_on (periodic_jobset_upto ...) jobs 1 sched_edf follows
- *     from periodic_window_dbf_implies_no_deadline_miss applied to each j in
- *     periodic_jobset_upto, once the EDF-specific conditions in that lemma
- *     (work-conservation, window existence) are established.
- *)
-Theorem periodic_window_dbf_implies_edf_feasible_on_finite_horizon :
-  forall T tasks offset H enumT jobs,
+(* The finite-horizon theorem packages the EDF witness schedule and the
+   schedule-local no-miss property above. *)
+Axiom periodic_window_dbf_implies_edf_feasible_on_finite_horizon :
+  forall T tasks offset H enumT enumJ jobs,
     well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
+    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
     (forall t1 t2,
       t1 <= t2 ->
       t2 <= H ->
       taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
     feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1.
-Proof.
-  Admitted.
