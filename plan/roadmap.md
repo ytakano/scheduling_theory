@@ -71,6 +71,32 @@ Analysis should be introduced in layers.
 
 This keeps the semantic core reusable while still allowing standard scheduling-theory results to be mechanized.
 
+### Practical validation strategy
+
+The project should separate two goals clearly:
+
+- **refinement completion on a designable OS**
+- **external applicability demonstration on existing OSes**
+
+The first concrete target should be **Awkernel**.
+Awkernel is designable together with the formal model, so it is the right place to complete
+the end-to-end refinement story:
+
+- scheduling algorithm
+- scheduler semantics
+- OS-operational semantics
+- refinement from implementation-oriented behavior to abstract schedule semantics
+
+For **Linux**, the near-term goal should be different.
+Rather than attempting full refinement first, the project should use **trace-based validation**
+to show that the abstract theory and delay-aware models can be applied externally to a real,
+existing OS whose full internal design is not controlled by this project.
+
+This yields a two-track validation strategy:
+
+1. **Awkernel** as the primary target for completed refinement verification
+2. **Linux** as the primary target for trace-based external validation
+
 ---
 
 ## 1. Phase A: Stabilize the reusable uniprocessor core
@@ -511,6 +537,42 @@ What remains:
 - multicore refinement path
 - bounded-delay refinement theorems connecting operational delay to abstract schedules
 
+### J-1. Awkernel-first refinement completion
+**Status: Not started**
+
+Planned:
+
+- define the Awkernel-facing operational scheduler model
+- identify the concrete Awkernel state needed for projection:
+  - current task / thread
+  - runnable state
+  - wakeup / block / completion events
+  - timer / reschedule / migration events
+- define projection from Awkernel operational traces to abstract schedules
+- prove refinement from Awkernel-oriented scheduler behavior to the abstract scheduling semantics
+- complete the refinement chain end-to-end on Awkernel before attempting the same standard on Linux
+
+Rationale:
+
+- Awkernel is co-designable with the formalization
+- missing interfaces and invariants can be adjusted in the OS and the model together
+- this makes it the right target for completing “refinement verification for a designable OS”
+
+### J-2. Refinement-oriented implementation discipline
+**Status: Not started**
+
+Planned:
+
+- make explicit which scheduler invariants must be preserved by implementation hooks
+- define proof-oriented interfaces for:
+  - enqueue / dequeue
+  - wakeup
+  - block
+  - timer-triggered reschedule
+  - migration / IPI handling
+- isolate proof-relevant scheduler state from engineering details
+- keep the abstract schedule model stable while refining the operational layer underneath
+
 ---
 
 ## 11. Phase K: Analysis on top of semantics
@@ -574,6 +636,37 @@ Planned:
 Response-time analysis should be built on top of explicit delay and blocking assumptions.
 The project should avoid hard-wiring these effects into the core schedule semantics.
 
+### K-6. Trace-based validation on existing OSes
+**Status: Not started**
+
+Planned:
+
+- define a trace schema for externally observed scheduler behavior
+- instantiate the schema for Linux traces
+- relate observed trace events to the abstract schedule / delay-aware model
+- validate whether theoretical invariants and analysis assumptions are reflected in observed executions
+- use Linux as an external applicability case, not as the first full refinement target
+
+Rationale:
+
+- Linux is not fully designable by this project
+- the immediate value is to show external applicability of the formal framework
+- trace-based validation is a realistic bridge between theory and production OS behavior
+
+### K-7. Linux as external applicability benchmark
+**Status: Not started**
+
+Planned:
+
+- select representative Linux scheduling scenarios
+- compare abstract predictions against measured traces
+- identify which discrepancies are explained by:
+  - scheduler overhead
+  - wakeup / timer latency
+  - migration effects
+  - implementation-specific heuristics
+- use the results to justify the framework’s relevance beyond Awkernel
+
 ---
 
 ## 12. Phase L: Hierarchical scheduling and compositional interfaces
@@ -635,29 +728,36 @@ Strengthen multicore-common semantics.
 Strengthen the existing global EDF/LLF theorem layers.
 
 ### Priority 6
-Introduce analysis foundations: busy intervals, dbf/rbf, and sbf/interface abstractions.
+Complete **Awkernel-first refinement verification** for a designable OS.
 
 ### Priority 7
-Introduce OS-level delay sources and projection discipline.
+Introduce analysis foundations: busy intervals, dbf/rbf, and sbf/interface abstractions.
 
 ### Priority 8
-Add shared-resource, suspension, and limited-preemption models.
+Introduce OS-level delay sources and projection discipline.
 
 ### Priority 9
-Strengthen refinement with bounded-delay statements.
+Use **Linux trace-based validation** to demonstrate external applicability.
 
 ### Priority 10
-Build idealized and delay-aware schedulability/response-time analysis on top.
+Add shared-resource, suspension, and limited-preemption models.
 
 ### Priority 11
-Add hierarchical scheduling / compositional interfaces.
+Strengthen refinement with bounded-delay statements.
 
 ### Priority 12
+Build idealized and delay-aware schedulability/response-time analysis on top.
+
+### Priority 13
+Add hierarchical scheduling / compositional interfaces.
+
+### Priority 14
 Add DAG/parallel and mixed-criticality extensions.
 
 ---
 
 ## 15. One-line summary
 
-The reusable uniprocessor core is already in place.
-The next major steps are to complete partitioned/global theorem layers, add workload and delay foundations for analysis, connect OS-level behavior through refinement, and then build idealized and delay-aware scheduling theory on top.
+The project should complete **refinement verification on Awkernel as a designable OS first**,
+and then use **Linux trace-based validation** to demonstrate that the framework also applies
+externally to real existing operating systems.
