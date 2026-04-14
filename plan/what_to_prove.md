@@ -904,12 +904,23 @@ Done:
 - periodic window-DBF definitions and explicit-window-demand bridge lemmas
 - EDF-facing busy-window overload contradiction helpers
 - periodic window-DBF example layer and bridge-theorem examples
+- busy-window search-space reduction hooks (`BusyWindowSearch.v`:
+  `busy_window_candidate`, `busy_window_witness`, overload/deadline lemmas)
+- response-time search-space reduction hooks (`ResponseTimeSearch.v`:
+  `response_time_candidate`, `response_time_search_witness`)
+- `periodic_window_dbf_implies_edf_feasible_on_finite_horizon` theorem statement
+  in `EDFProcessorDemand.v` (Admitted; see Remaining below for required infrastructure)
+- `PeriodicEDFBridge.v` window-DBF bridge theorems close without `feasible_on` hypothesis
 
 Remaining:
 
-- busy-window search-space reduction hooks
-- response-time search-space reduction hooks
-- full EDF processor-demand feasibility theorem from window-DBF bounds alone
+- EDF work-conserving lemma: EDF scheduler never idles when eligible jobs exist
+  (needed to close the Admitted proof in `EDFProcessorDemand.v`)
+- busy-interval existence lemma: constructive extraction of maximal busy interval
+  from any busy time point in a discrete schedule
+- close `periodic_window_dbf_implies_no_deadline_miss` and
+  `periodic_window_dbf_implies_edf_feasible_on_finite_horizon` once
+  the above infrastructure is in place
 - utilization / dbf hooks above the aggregate layer
 - rbf / sbf style interfaces
 - policy-specific analysis wrappers

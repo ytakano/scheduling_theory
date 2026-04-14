@@ -55,6 +55,5 @@ Proof.
     destruct Hτ as [Hτ | [Hτ | []]]; subst τ.
     + left. reflexivity.
     + right. reflexivity.
-  - exact periodic_feasible_on_ex.
   - exact periodic_window_dbf_test.
 Qed.

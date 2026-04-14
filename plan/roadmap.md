@@ -460,7 +460,7 @@ This phase collects standard abstractions from scheduling theory that should be 
 across idealized, delay-aware, uniprocessor, and multicore analyses.
 
 ### G-1. Busy-window / busy-interval theory
-**Status: Initial uniprocessor foundation implemented**
+**Status: Search-space reduction layer implemented**
 
 Implemented:
 
@@ -471,12 +471,18 @@ Implemented:
 - prefix / suffix / no-idle-slot lemmas
 - maximal interval boundary decomposition lemmas
 - interval processor-supply aggregation for the single-CPU case
+- `Analysis/Uniprocessor/BusyWindowSearch.v`: busy-window search-space reduction layer
+  (`busy_window_candidate`, `busy_window_witness`, overload/deadline lemmas)
+- `Analysis/Uniprocessor/ResponseTimeSearch.v`: response-time search-space reduction layer
+  (`response_time_candidate`, `response_time_search_witness`)
 
 Remaining:
 
-- busy-window search-space reduction layer
-- response-time search-space reduction layer
-- policy-specific and policy-generic busy-window interfaces
+- EDF work-conserving lemma: EDF scheduler is never idle when eligible jobs exist
+  (needed to close `periodic_window_dbf_implies_no_deadline_miss` in EDFProcessorDemand.v)
+- Busy-interval existence at a busy time point: constructive extraction of maximal
+  busy interval from any busy slot (discrete-time last-idle-slot argument)
+- policy-generic busy-window interfaces
 
 ### G-2. Demand-bound / request-bound theory
 **Status: Aggregate processor-demand hook layer implemented**
@@ -516,15 +522,20 @@ Implemented:
   bound examples
 - `Examples/ProcessorDemandExamples.v`: aggregate DBF computations and
   processor-demand hook examples
-- `Analysis/Uniprocessor/EDFProcessorDemand.v`: EDF-facing busy-window wrappers
-  and the window-overload contradiction core
+- `Analysis/Uniprocessor/EDFProcessorDemand.v`: EDF-facing busy-window wrappers,
+  window-overload contradiction core, and
+  `periodic_window_dbf_implies_edf_feasible_on_finite_horizon` theorem statement
+  (currently Admitted; see G-1 Remaining for required infrastructure)
+- `TaskModels/Periodic/PeriodicEDFBridge.v`: window-DBF bridge theorems
+  `periodic_edf_schedulable_by_window_dbf_on_finite_horizon` and
+  `periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto` now close
+  without `feasible_on` as a hypothesis
 - `Examples/PeriodicProcessorDemandExamples.v`: periodic window-DBF computations
-  and bridge-theorem usage examples
+  and bridge-theorem usage examples (no longer requires explicit `feasible_on`)
 
 Remaining:
 
-- full EDF processor-demand feasibility theorem that discharges `feasible_on`
-  from the window-DBF hypothesis alone
+- close the Admitted proof in `EDFProcessorDemand.v` (requires G-1 infrastructure)
 - deeper schedulability / response-time theorems consuming the new busy-window search hook
 
 ### G-3. Supply-bound / interface theory
