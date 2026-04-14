@@ -78,7 +78,6 @@ The project should separate two goals clearly:
 - **refinement completion on a designable OS**
 - **external applicability demonstration on existing OSes**
 
-The first concrete target should be **Awkernel**.
 Awkernel is designable together with the formal model, so it is the right place to complete
 the end-to-end refinement story:
 
