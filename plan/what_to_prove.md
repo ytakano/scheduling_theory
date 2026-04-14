@@ -906,8 +906,13 @@ Done:
 - periodic window-DBF example layer and bridge-theorem examples
 - busy-window search-space reduction hooks (`BusyWindowSearch.v`:
   `busy_window_candidate`, `busy_window_witness`, overload/deadline lemmas)
+- finite-horizon busy-prefix witness layer in `BusyWindowSearch.v`
+  (`busy_prefix_candidate`, `busy_prefix_witness`) plus bridge lemmas from the
+  older maximal witness
 - response-time search-space reduction hooks (`ResponseTimeSearch.v`:
   `response_time_candidate`, `response_time_search_witness`)
+- finite-horizon response-time prefix witness in `ResponseTimeSearch.v`
+  (`response_time_search_prefix_witness`)
 - EDF-specific processor-demand theorem interfaces
   `periodic_window_dbf_implies_no_deadline_miss_under_edf` and
   `periodic_window_dbf_implies_edf_feasible_on_finite_horizon`
@@ -915,7 +920,13 @@ Done:
   (both are now proven at stronger interfaces requiring an explicit EDF
   schedule witness; the no-miss theorem additionally requires a busy-window
   witness and a no-carry-in bridge)
+- busy-prefix variants in `EDFProcessorDemand.v`, including
+  `periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in`
+  and `periodic_window_dbf_implies_edf_feasible_on_finite_horizon_with_busy_prefix`
 - `PeriodicEDFBridge.v` window-DBF bridge theorems close without `feasible_on` hypothesis
+- `PeriodicProcessorDemandExamples.v` now includes both
+  `periodic_example_edf_no_deadline_miss_by_window_dbf_auto` and
+  `periodic_example_edf_schedulable_by_window_dbf_auto`
 
 Remaining:
 

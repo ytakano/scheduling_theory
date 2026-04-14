@@ -234,7 +234,7 @@ Lemma edf_busy_window_scheduled_periodic_job_release_ge_start :
     (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
     (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
-    busy_window_candidate sched t1 t2 ->
+    busy_prefix_candidate sched t1 t2 ->
     t1 <= t ->
     t < t2 ->
     sched t 0 = Some j ->
@@ -269,7 +269,7 @@ Proof.
                   T tasks offset jobs H enumJ sched t1'
                   HenumJ_complete HenumJ_sound Hsched
                   (ex_intro _ j (conj Hj Helig_pred))) as [j' Hrun_pred].
-      pose proof (busy_window_candidate_left_boundary sched (S t1') t2 Hbusy) as Hleft.
+      pose proof (busy_prefix_candidate_left_boundary sched (S t1') t2 Hbusy) as Hleft.
       destruct Hleft as [Hzero | Hidle].
       * discriminate.
       * apply Hidle.
@@ -282,7 +282,7 @@ Lemma edf_busy_window_scheduled_job_relevant_before_reference_deadline :
     (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
     (forall τ, T τ -> In τ enumT) ->
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
-    busy_window_candidate sched t1 t2 ->
+    busy_prefix_candidate sched t1 t2 ->
     t1 <= t ->
     t < t2 ->
     t < H ->
@@ -343,7 +343,7 @@ Lemma edf_busy_window_scheduled_job_relevant_before_missed_deadline :
     (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
     (forall τ, T τ -> In τ enumT) ->
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
-    busy_window_candidate sched t1 t2 ->
+    busy_prefix_candidate sched t1 t2 ->
     t1 <= t ->
     t < t2 ->
     t < H ->
@@ -371,7 +371,7 @@ Lemma edf_busy_window_runs_relevant_job_before_missed_deadline :
     (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
     (forall τ, T τ -> In τ enumT) ->
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
-    busy_window_candidate sched t1 t2 ->
+    busy_prefix_candidate sched t1 t2 ->
     t1 <= t ->
     t < t2 ->
     t < H ->
@@ -409,7 +409,7 @@ Lemma edf_release_deadline_slots_are_relevant_if_no_carry_in :
     (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
     (forall τ, T τ -> In τ enumT) ->
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
-    busy_window_candidate sched t1 t2 ->
+    busy_prefix_candidate sched t1 t2 ->
     periodic_jobset_upto T tasks offset jobs H j_miss ->
     missed_deadline jobs 1 sched j_miss ->
     t1 <= job_release (jobs j_miss) ->
@@ -459,7 +459,7 @@ Qed.
 
 Lemma busy_window_subinterval_cpu_supply_eq_length :
   forall sched t1 t2 a b,
-    busy_window_candidate sched t1 t2 ->
+    busy_prefix_candidate sched t1 t2 ->
     t1 <= a ->
     a < b ->
     b <= t2 ->
@@ -469,7 +469,7 @@ Proof.
   apply cpu_service_between_busy_interval_eq_length.
   apply busy_interval_suffix with (t1 := t1).
   - apply busy_interval_prefix with (t2 := t2).
-    + exact (busy_window_candidate_busy_interval sched t1 t2 Hbusy).
+    + exact (busy_prefix_candidate_busy_interval sched t1 t2 Hbusy).
     + lia.
     + exact Hb.
   - exact Ha.
@@ -480,7 +480,7 @@ Lemma missed_deadline_busy_prefix_supply_eq_length :
   forall T tasks offset jobs H enumJ sched t1 t2 j_miss,
     (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
-    busy_window_candidate sched t1 t2 ->
+    busy_prefix_candidate sched t1 t2 ->
     periodic_jobset_upto T tasks offset jobs H j_miss ->
     t1 <= job_release (jobs j_miss) ->
     job_abs_deadline (jobs j_miss) <= t2 ->
@@ -782,7 +782,7 @@ Lemma edf_missed_job_implies_relevant_prefix_overload :
     (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
     (forall τ, T τ -> In τ enumT) ->
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
-    busy_window_candidate sched t1 t2 ->
+    busy_prefix_candidate sched t1 t2 ->
     periodic_jobset_upto T tasks offset jobs H j_miss ->
     missed_deadline jobs 1 sched j_miss ->
     t1 <= job_release (jobs j_miss) ->
@@ -939,7 +939,7 @@ Lemma edf_missed_job_implies_relevant_prefix_overload_if_no_carry_in :
     (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
     (forall τ, T τ -> In τ enumT) ->
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
-    busy_window_candidate sched t1 t2 ->
+    busy_prefix_candidate sched t1 t2 ->
     periodic_jobset_upto T tasks offset jobs H j_miss ->
     missed_deadline jobs 1 sched j_miss ->
     t1 <= job_release (jobs j_miss) ->
@@ -980,7 +980,7 @@ Lemma periodic_window_dbf_implies_no_deadline_miss_under_edf_if_no_carry_in :
     (forall τ, T τ -> In τ enumT) ->
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
     periodic_jobset_upto T tasks offset jobs H j ->
-    busy_window_candidate sched t1 t2 ->
+    busy_prefix_candidate sched t1 t2 ->
     t1 <= job_release (jobs j) ->
     job_abs_deadline (jobs j) <= t2 ->
     job_abs_deadline (jobs j) <= H ->
@@ -1034,6 +1034,40 @@ Proof.
     lia.
 Qed.
 
+Lemma periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in :
+  forall T tasks offset H enumT enumJ jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched j t1 t2,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
+    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
+    (forall τ, T τ -> In τ enumT) ->
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
+    periodic_jobset_upto T tasks offset jobs H j ->
+    busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 ->
+    t1 <= job_release (jobs j) ->
+    job_abs_deadline (jobs j) <= H ->
+    (forall t j_run,
+      job_release (jobs j) <= t < job_abs_deadline (jobs j) ->
+      sched t 0 = Some j_run ->
+      periodic_jobset_deadline_between T tasks offset jobs
+        t1 (job_abs_deadline (jobs j)) j_run ->
+      job_release (jobs j) <= job_release (jobs j_run)) ->
+    (forall t1' t2',
+      t1' <= t2' ->
+      t2' <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1' t2' <= t2' - t1') ->
+    ~ missed_deadline jobs 1 sched j.
+Proof.
+  intros T tasks offset H enumT enumJ jobs codec sched j t1 t2
+         Hwf HnodupT HenumT_sound HenumJ_complete HenumJ_sound HenumT_complete
+         Hsched Hj Hwit Ht1rel Hj_H Hcarry_free Hdbf.
+  destruct Hwit as [Hbusy [Hdl_ge Hdl_le]].
+  eapply periodic_window_dbf_implies_no_deadline_miss_under_edf_if_no_carry_in; eauto.
+Qed.
+
 Lemma periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_window_and_no_carry_in :
   forall T tasks offset H enumT enumJ jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -1064,8 +1098,8 @@ Proof.
   intros T tasks offset H enumT enumJ jobs codec sched j t1 t2
          Hwf HnodupT HenumT_sound HenumJ_complete HenumJ_sound HenumT_complete
          Hsched Hj Hwit Ht1rel Hj_H Hcarry_free Hdbf.
-  destruct Hwit as [Hbusy [Hdl_ge Hdl_le]].
-  eapply periodic_window_dbf_implies_no_deadline_miss_under_edf_if_no_carry_in; eauto.
+  eapply periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in;
+    eauto using busy_window_witness_implies_busy_prefix_witness.
 Qed.
 
 (* ===== EDF feasibility from window-DBF ===== *)
@@ -1158,4 +1192,52 @@ Proof.
         [Hj_H [t1 [t2 [Hwit [Ht1rel Hcarry_free]]]]].
     eapply periodic_window_dbf_implies_no_deadline_miss_under_edf
       with (codec := codec) (t1 := t1) (t2 := t2); eauto.
+Qed.
+
+Theorem periodic_window_dbf_implies_edf_feasible_on_finite_horizon_with_busy_prefix :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    scheduler_rel
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1 sched ->
+    (forall j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      exists t1 t2,
+        busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 /\
+        t1 <= job_release (jobs j) /\
+        (forall t j_run,
+          job_release (jobs j) <= t < job_abs_deadline (jobs j) ->
+          sched t 0 = Some j_run ->
+          periodic_jobset_deadline_between T tasks offset jobs
+            t1 (job_abs_deadline (jobs j)) j_run ->
+          job_release (jobs j) <= job_release (jobs j_run))) ->
+    (forall t1 t2,
+      t1 <= t2 ->
+      t2 <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
+    feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1.
+Proof.
+  intros T tasks offset H enumT jobs codec sched
+         Hwf HnodupT HenumT_complete HenumT_sound
+         Hsched Hjob_bridge Hdbf.
+  exists sched.
+  split.
+  - eapply single_cpu_algorithm_valid.
+    exact Hsched.
+  - unfold feasible_schedule_on.
+    intros j Hj.
+    destruct (Hjob_bridge j Hj) as
+        [Hj_H [t1 [t2 [Hwit [Ht1rel Hcarry_free]]]]].
+    eapply periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in
+      with (codec := codec)
+           (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+           (t1 := t1) (t2 := t2); eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.

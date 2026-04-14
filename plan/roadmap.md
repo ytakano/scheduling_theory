@@ -534,7 +534,18 @@ Implemented:
   `periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto` now close
   without `feasible_on` as a hypothesis
 - `Examples/PeriodicProcessorDemandExamples.v`: periodic window-DBF computations
-  and bridge-theorem usage examples (no longer requires explicit `feasible_on`)
+  and bridge-theorem usage examples
+  `periodic_example_edf_no_deadline_miss_by_window_dbf_auto` /
+  `periodic_example_edf_schedulable_by_window_dbf_auto`
+  (no longer requires explicit `feasible_on`)
+- `Analysis/Uniprocessor/BusyWindowSearch.v`: finite-horizon busy-prefix layer
+  (`busy_prefix_candidate`, `busy_prefix_witness`) added alongside the older
+  maximal-window witness
+- `Analysis/Uniprocessor/ResponseTimeSearch.v`: response-time search now also
+  has prefix-witness forms for finite-horizon reasoning
+- `Analysis/Uniprocessor/EDFProcessorDemand.v`: no-carry-in and finite-horizon
+  feasibility theorems now have busy-prefix variants, reducing dependence on a
+  maximal right boundary
 
 Remaining:
 

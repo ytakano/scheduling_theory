@@ -10,10 +10,23 @@ Definition busy_window_candidate
     (sched : Schedule) (t1 t2 : Time) : Prop :=
   maximal_busy_interval_from sched t1 t2.
 
+(* A finite-horizon search candidate only requires a busy prefix with a
+   left boundary; it need not end in an idle slot. *)
+Definition busy_prefix_candidate
+    (sched : Schedule) (t1 t2 : Time) : Prop :=
+  busy_interval sched t1 t2 /\
+  (t1 = 0 \/ ~ cpu_busy_at sched (pred t1)).
+
 (* A search witness covers the distinguished time point t. *)
 Definition busy_window_witness
     (sched : Schedule) (t : Time) (t1 t2 : Time) : Prop :=
   busy_window_candidate sched t1 t2 /\
+  t1 <= t /\ t <= t2.
+
+(* A finite-horizon witness only requires a covering busy prefix. *)
+Definition busy_prefix_witness
+    (sched : Schedule) (t : Time) (t1 t2 : Time) : Prop :=
+  busy_prefix_candidate sched t1 t2 /\
   t1 <= t /\ t <= t2.
 
 Lemma busy_window_candidate_is_maximal_busy_interval :
@@ -32,6 +45,44 @@ Lemma maximal_busy_interval_is_busy_window_candidate :
 Proof.
   intros sched t1 t2 Hmax.
   exact Hmax.
+Qed.
+
+Lemma busy_window_candidate_is_busy_prefix_candidate :
+  forall sched t1 t2,
+    busy_window_candidate sched t1 t2 ->
+    busy_prefix_candidate sched t1 t2.
+Proof.
+  intros sched t1 t2 Hcand.
+  destruct (maximal_busy_interval_from_decompose sched t1 t2 Hcand) as [Hbusy [Hleft _]].
+  split; assumption.
+Qed.
+
+Lemma busy_prefix_candidate_decompose :
+  forall sched t1 t2,
+    busy_prefix_candidate sched t1 t2 ->
+    busy_interval sched t1 t2 /\
+    (t1 = 0 \/ ~ cpu_busy_at sched (pred t1)).
+Proof.
+  intros sched t1 t2 Hcand.
+  exact Hcand.
+Qed.
+
+Lemma busy_prefix_candidate_busy_interval :
+  forall sched t1 t2,
+    busy_prefix_candidate sched t1 t2 ->
+    busy_interval sched t1 t2.
+Proof.
+  intros sched t1 t2 Hcand.
+  exact (proj1 (busy_prefix_candidate_decompose sched t1 t2 Hcand)).
+Qed.
+
+Lemma busy_prefix_candidate_left_boundary :
+  forall sched t1 t2,
+    busy_prefix_candidate sched t1 t2 ->
+    t1 = 0 \/ ~ cpu_busy_at sched (pred t1).
+Proof.
+  intros sched t1 t2 Hcand.
+  exact (proj2 (busy_prefix_candidate_decompose sched t1 t2 Hcand)).
 Qed.
 
 Lemma busy_window_candidate_decompose :
@@ -86,9 +137,28 @@ Proof.
   split; assumption.
 Qed.
 
+Lemma busy_interval_with_left_boundary_is_busy_prefix_candidate :
+  forall sched t1 t2,
+    busy_interval sched t1 t2 ->
+    (t1 = 0 \/ ~ cpu_busy_at sched (pred t1)) ->
+    busy_prefix_candidate sched t1 t2.
+Proof.
+  intros sched t1 t2 Hbusy Hleft.
+  split; assumption.
+Qed.
+
 Lemma busy_window_candidate_covers_time :
   forall sched t t1 t2,
     busy_window_witness sched t t1 t2 ->
+    t1 <= t /\ t <= t2.
+Proof.
+  intros sched t t1 t2 [_ Hcover].
+  exact Hcover.
+Qed.
+
+Lemma busy_prefix_candidate_covers_time :
+  forall sched t t1 t2,
+    busy_prefix_witness sched t t1 t2 ->
     t1 <= t /\ t <= t2.
 Proof.
   intros sched t t1 t2 [_ Hcover].
@@ -105,6 +175,16 @@ Proof.
   exact (busy_window_candidate_covers_time sched (job_abs_deadline (jobs j)) t1 t2 Hwit).
 Qed.
 
+Lemma busy_prefix_candidate_covers_deadline :
+  forall (jobs : JobId -> Job) sched j t1 t2,
+    busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 ->
+    t1 <= job_abs_deadline (jobs j) /\
+    job_abs_deadline (jobs j) <= t2.
+Proof.
+  intros jobs sched j t1 t2 Hwit.
+  exact (busy_prefix_candidate_covers_time sched (job_abs_deadline (jobs j)) t1 t2 Hwit).
+Qed.
+
 Lemma busy_window_witness_from_candidate :
   forall sched t t1 t2,
     busy_window_candidate sched t1 t2 ->
@@ -114,6 +194,28 @@ Lemma busy_window_witness_from_candidate :
 Proof.
   intros sched t t1 t2 Hcand Hleft Hright.
   split; [exact Hcand | lia].
+Qed.
+
+Lemma busy_prefix_witness_from_candidate :
+  forall sched t t1 t2,
+    busy_prefix_candidate sched t1 t2 ->
+    t1 <= t ->
+    t <= t2 ->
+    busy_prefix_witness sched t t1 t2.
+Proof.
+  intros sched t t1 t2 Hcand Hleft Hright.
+  split; [exact Hcand | lia].
+Qed.
+
+Lemma busy_window_witness_implies_busy_prefix_witness :
+  forall sched t t1 t2,
+    busy_window_witness sched t t1 t2 ->
+    busy_prefix_witness sched t t1 t2.
+Proof.
+  intros sched t t1 t2 [Hcand Hcover].
+  split.
+  - exact (busy_window_candidate_is_busy_prefix_candidate sched t1 t2 Hcand).
+  - exact Hcover.
 Qed.
 
 Lemma busy_window_witness_monotone :
@@ -141,6 +243,18 @@ Proof.
   apply busy_window_witness_from_candidate; assumption.
 Qed.
 
+Lemma deadline_miss_inside_busy_prefix_candidate :
+  forall (jobs : JobId -> Job) sched j t1 t2,
+    missed_deadline jobs 1 sched j ->
+    busy_prefix_candidate sched t1 t2 ->
+    t1 <= job_abs_deadline (jobs j) ->
+    job_abs_deadline (jobs j) <= t2 ->
+    busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2.
+Proof.
+  intros jobs sched j t1 t2 _ Hcand Hleft Hright.
+  apply busy_prefix_witness_from_candidate; assumption.
+Qed.
+
 Lemma busy_window_candidate_cpu_supply_eq_length :
   forall sched t1 t2,
     busy_window_candidate sched t1 t2 ->
@@ -149,5 +263,16 @@ Proof.
   intros sched t1 t2 Hcand.
   apply cpu_service_between_busy_interval_eq_length.
   apply busy_window_candidate_busy_interval.
+  exact Hcand.
+Qed.
+
+Lemma busy_prefix_candidate_cpu_supply_eq_length :
+  forall sched t1 t2,
+    busy_prefix_candidate sched t1 t2 ->
+    cpu_service_between sched t1 t2 = t2 - t1.
+Proof.
+  intros sched t1 t2 Hcand.
+  apply cpu_service_between_busy_interval_eq_length.
+  apply busy_prefix_candidate_busy_interval.
   exact Hcand.
 Qed.
