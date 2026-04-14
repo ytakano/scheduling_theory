@@ -11,7 +11,7 @@ In `Semantics/Schedule.v`, it is defined as:
 
 ```coq
 Definition Schedule := Time -> CPU -> option JobId.
-````
+```
 
 ### Role
 
