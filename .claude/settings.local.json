@@ -45,7 +45,11 @@
       "Bash(grep \"\\\\.v$\")",
       "Bash(make -j4)",
       "Bash(echo \"EDF Exit: $?\")",
-      "Bash(echo \"LLF Exit: $?\")"
+      "Bash(echo \"LLF Exit: $?\")",
+      "Bash(echo \"EXIT EDF: $?\")",
+      "Bash(echo \"EXIT LLF: $?\")",
+      "Bash(echo \"EXIT Partitioned: $?\")",
+      "Bash(make -C /scheduling_theory)"
     ]
   },
   "deny": [
