@@ -525,9 +525,10 @@ Implemented:
   EDF-specific theorem interfaces
   `periodic_window_dbf_implies_no_deadline_miss_under_edf` and
   `periodic_window_dbf_implies_edf_feasible_on_finite_horizon`
-  (`periodic_window_dbf_implies_no_deadline_miss_under_edf` now proven at the
-  stronger busy-window/no-carry-in interface; the finite-horizon feasibility
-  theorem remains axiomatized pending witness-schedule construction)
+  (both now proven at stronger interfaces that require an explicit EDF
+  schedule witness; the no-miss theorem also requires a busy-window/no-carry-in
+  bridge, and the finite-horizon feasibility theorem packages that witness
+  into `feasible_on`)
 - `TaskModels/Periodic/PeriodicEDFBridge.v`: window-DBF bridge theorems
   `periodic_edf_schedulable_by_window_dbf_on_finite_horizon` and
   `periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto` now close
@@ -537,8 +538,8 @@ Implemented:
 
 Remaining:
 
-- replace the remaining EDF finite-horizon feasibility axiom in
-  `EDFProcessorDemand.v` with a proof by constructing a witness schedule
+- construct a generic EDF witness schedule to recover the original weak
+  window-DBF APIs without requiring an explicit schedule witness
 - deeper schedulability / response-time theorems consuming the new busy-window search hook
 
 ### G-3. Supply-bound / interface theory

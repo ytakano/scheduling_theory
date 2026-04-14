@@ -912,17 +912,17 @@ Done:
   `periodic_window_dbf_implies_no_deadline_miss_under_edf` and
   `periodic_window_dbf_implies_edf_feasible_on_finite_horizon`
   in `EDFProcessorDemand.v`
-  (`periodic_window_dbf_implies_no_deadline_miss_under_edf` is now proven at a
-  stronger interface requiring a busy-window witness and a no-carry-in bridge;
-  the finite-horizon feasibility theorem remains axiomatized)
+  (both are now proven at stronger interfaces requiring an explicit EDF
+  schedule witness; the no-miss theorem additionally requires a busy-window
+  witness and a no-carry-in bridge)
 - `PeriodicEDFBridge.v` window-DBF bridge theorems close without `feasible_on` hypothesis
 
 Remaining:
 
 - busy-interval existence lemma: constructive extraction of maximal busy interval
   from any busy time point in a discrete schedule
-- construct a witness schedule to replace
-  `periodic_window_dbf_implies_edf_feasible_on_finite_horizon`
+- construct a generic EDF witness schedule to recover the original weak
+  window-DBF APIs without an explicit schedule witness
 - utilization / dbf hooks above the aggregate layer
 - rbf / sbf style interfaces
 - policy-specific analysis wrappers

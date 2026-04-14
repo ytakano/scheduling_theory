@@ -1114,14 +1114,48 @@ Qed.
 
 (* The finite-horizon theorem packages the EDF witness schedule and the
    schedule-local no-miss property above. *)
-Axiom periodic_window_dbf_implies_edf_feasible_on_finite_horizon :
-  forall T tasks offset H enumT enumJ jobs,
+Theorem periodic_window_dbf_implies_edf_feasible_on_finite_horizon :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched,
     well_formed_periodic_tasks_on T tasks ->
     NoDup enumT ->
-    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
-    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    scheduler_rel
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1 sched ->
+    (forall j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      exists t1 t2,
+        busy_window_witness sched (job_abs_deadline (jobs j)) t1 t2 /\
+        t1 <= job_release (jobs j) /\
+        (forall t j_run,
+          job_release (jobs j) <= t < job_abs_deadline (jobs j) ->
+          sched t 0 = Some j_run ->
+          periodic_jobset_deadline_between T tasks offset jobs
+            t1 (job_abs_deadline (jobs j)) j_run ->
+          job_release (jobs j) <= job_release (jobs j_run))) ->
     (forall t1 t2,
       t1 <= t2 ->
       t2 <= H ->
       taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
     feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1.
+Proof.
+  intros T tasks offset H enumT jobs codec sched
+         Hwf HnodupT HenumT_complete HenumT_sound
+         Hsched Hjob_bridge Hdbf.
+  exists sched.
+  split.
+  - eapply single_cpu_algorithm_valid.
+    exact Hsched.
+  - unfold feasible_schedule_on.
+    intros j Hj.
+    destruct (Hjob_bridge j Hj) as
+        [Hj_H [t1 [t2 [Hwit [Ht1rel Hcarry_free]]]]].
+    eapply periodic_window_dbf_implies_no_deadline_miss_under_edf
+      with (codec := codec) (t1 := t1) (t2 := t2); eauto.
+Qed.
