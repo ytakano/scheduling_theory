@@ -268,19 +268,20 @@ This matches the current implementation better than pushing them to a very late 
 ---
 
 ## 3. Phase C: Partitioned multicore as a mature theorem layer
-**Status: In progress, with substantial implementation already done**
+**Status: Core theorem layer implemented; stabilization and documentation in progress**
 
 Implemented core:
 
 - `Partitioned.v`
 - `PartitionedCompose.v`
-- `PartitionedPolicies/PartitionedEDF.v`
-- `PartitionedPolicies/PartitionedFIFO.v`
-- `PartitionedPolicies/PartitionedRR.v`
-- `PartitionedPolicies/PartitionedLLF.v`
+- `Multicore/Partitioned/Policies/PartitionedEDF.v`
+- `Multicore/Partitioned/Policies/PartitionedFIFO.v`
+- `Multicore/Partitioned/Policies/PartitionedRR.v`
+- `Multicore/Partitioned/Policies/PartitionedLLF.v`
+- `Multicore/Partitioned/Policies/PartitionedFiniteOptimalityLift.v`
 
 ### C-1. Partitioned construction and compose layer
-**Status: Largely done at the definition/entry-point level**
+**Status: Done as a reusable generic entry-point layer**
 
 What is already done:
 
@@ -291,15 +292,14 @@ What is already done:
 
 What remains:
 
-- enrich the theorem layer
-- make the standard lifting lemmas easier to reuse
 - better separate:
   - assignment-respect
   - local scheduler validity
   - global schedule validity
+  in documentation and public-inventory terms
 
 ### C-2. Partitioned policy lifting
-**Status: Mostly done, but still needs cleanup**
+**Status: Done for EDF / FIFO / RR / LLF, with light cleanup remaining**
 
 What is already done:
 
@@ -307,21 +307,23 @@ What is already done:
 
 What remains:
 
-- unify their common pattern
-- reduce duplication in policy-specific wrapper files
-- standardize the “local reasoning -> partitioned reasoning” template
+- keep the wrapper files thin and explicit about their role
+- document that EDF / LLF include finite-optimality-based entry theorems
+- document that FIFO / RR are intentionally wrapper-only for now
 
 ### C-3. Partitioned schedulability lifting
-**Status: Initial core done**
+**Status: Done for EDF / LLF finite-optimality lifting**
 
 What is already done:
 
 - the main entry points for lifting local schedulability already exist
-- `PartitionedFiniteOptimalityLift.v` provides a reusable finite-job lift for partitioned EDF
+- `PartitionedFiniteOptimalityLift.v` provides a reusable finite-job lift
+  instantiated today by partitioned EDF and partitioned LLF
+- existing examples already demonstrate partitioned major results for the
+  generic, periodic, sporadic, and jittered-periodic paths
 
 What remains:
 
-- strengthen and organize the theorem layer
 - make the intended reusable theorem inventory explicit in the roadmap and docs
 - prepare the interface for later delay-aware partitioned analysis
 

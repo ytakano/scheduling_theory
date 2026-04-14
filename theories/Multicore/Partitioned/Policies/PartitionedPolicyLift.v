@@ -13,7 +13,17 @@ From RocqSched Require Import Multicore.Partitioned.PartitionedCompose.
     This file factors out the proof pattern shared by partitioned EDF/FIFO/RR/LLF:
     once a policy-specific local scheduler is definitionally equal to
     [single_cpu_algorithm_schedule spec], local witness schedules and local
-    schedulability theorems lift to the generic partitioned scheduler. *)
+    schedulability theorems lift to the generic partitioned scheduler.
+
+    Wrapper files are intended to stay thin:
+    - define the policy-specific [partitioned_*_scheduler]
+    - re-export the witness-based lift
+    - re-export the local-schedulable lift
+    - optionally add a finite-optimality-based lift if the local policy
+      already has such a theorem (currently EDF and LLF). *)
+
+(** Common wrapper theorem 1:
+    explicit per-CPU witness schedules -> global partitioned schedulability. *)
 
 Theorem local_policy_witnesses_imply_partitioned_schedulable_by_on :
     forall (local_scheduler : CandidateSource -> Scheduler)
@@ -44,6 +54,9 @@ Proof.
     exact Hrel.
   - exact Hfeas.
 Qed.
+
+(** Common wrapper theorem 2:
+    local [schedulable_by_on] results -> global partitioned schedulability. *)
 
 Theorem local_policy_schedulable_by_on_implies_partitioned_schedulable_by_on :
     forall (local_scheduler : CandidateSource -> Scheduler)

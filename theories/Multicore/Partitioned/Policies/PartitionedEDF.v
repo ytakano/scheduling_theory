@@ -18,7 +18,12 @@ From RocqSched Require Import Uniprocessor.Policies.EDFOptimality.
 
     Specialises the generic [partitioned_scheduler] to [edf_generic_spec]
     and provides a convenience intro theorem that accepts per-CPU
-    [edf_scheduler] witness schedules directly. *)
+    [edf_scheduler] witness schedules directly.
+
+    This file intentionally stays thin: it re-exports the generic wrapper
+    theorems from [PartitionedPolicyLift.v] under EDF-specific names and adds
+    the finite-optimality-based entry theorem built on
+    [PartitionedFiniteOptimalityLift.v]. *)
 
 (* ===== Definition: partitioned_edf_scheduler ===== *)
 

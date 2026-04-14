@@ -19,7 +19,11 @@ From RocqSched Require Import Uniprocessor.Policies.RoundRobin.
     The RR queue rotation semantics is encoded in the per-CPU CandidateSources:
     each [cands c] must return candidates in the current RR rotation order for
     CPU [c].  At unit quantum (q = 1) the CandidateSource rotates the front
-    job to the back at every tick. *)
+    job to the back at every tick.
+
+    This file is intentionally wrapper-only at present: RR has the generic
+    witness-based and local-schedulable entry points, but no
+    finite-optimality-based partitioned lift is exposed yet. *)
 
 (* ===== Definition: partitioned_rr_scheduler ===== *)
 

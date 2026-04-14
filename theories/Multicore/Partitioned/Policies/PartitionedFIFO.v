@@ -14,7 +14,11 @@ From RocqSched Require Import Uniprocessor.Policies.FIFO.
 
     Specialises the generic [partitioned_scheduler] to [fifo_generic_spec]
     and provides a convenience intro theorem that accepts per-CPU
-    [fifo_scheduler] witness schedules directly. *)
+    [fifo_scheduler] witness schedules directly.
+
+    This file is intentionally wrapper-only at present: FIFO has the generic
+    witness-based and local-schedulable entry points, but no
+    finite-optimality-based partitioned lift is exposed yet. *)
 
 (* ===== Definition: partitioned_fifo_scheduler ===== *)
 

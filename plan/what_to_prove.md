@@ -379,9 +379,9 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 ---
 
 # Lv.5: Partitioned multicore composition
-**Status: In progress, but already substantial**
+**Status: Generic theorem layer done, inventory/documentation still in progress**
 
-この層は「未着手」ではなく、すでに generic theorem layer が立ち上がっている。
+この層は「未着手」ではなく、すでに reusable theorem layer が立ち上がっている。
 
 ## 5-1. partitioned local-to-global composition
 **Status: Done for the generic witness-lifting core**
@@ -425,15 +425,33 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
   partitioned EDF `schedulable_by_on` を導く定理
 - `PartitionedFiniteOptimalityLift.v` による finite-job lifting の generic entry point
 
-## 5-5. remaining work for partitioned
+## 5-5. partitioned LLF from local feasibility
+**Status: Done**
+
+証明済みとして扱うもの:
+
+- local finite-job LLF feasibility から
+  partitioned LLF `schedulable_by_on` を導く定理
+- EDF と同じ generic finite-optimality lift を再利用する thin wrapper
+
+## 5-6. existing major-result entry points
+**Status: Done**
+
+証明済みとして扱うもの:
+
+- `SchedulableExamples.v` に explicit local witness / local schedulable /
+  local feasible からの partitioned EDF / LLF 入口例がある
+- `PeriodicExamples.v` / `SporadicExamples.v` /
+  `JitteredPeriodicExamples.v` に task-generation layer から
+  partitioned schedulability を得る major-result 例がある
+
+## 5-7. remaining work for partitioned
 **Status: In progress**
 
 残作業:
 
-- EDF 以外の policy についても
-  「local feasible から partitioned schedulable_by_on」
-  までをどこまで揃えるか決める
-- partitioned を roadmap 上で「最初の multicore major result」として明示する
+- FIFO / RR を finite-optimality pipeline に載せるかどうかを判断する
+- wrapper-only policy と finite-optimality-ready policy の境界を文書上で固定する
 - 後段の delay-aware partitioned analysis に必要な theorem inventory を整理する
 
 ---

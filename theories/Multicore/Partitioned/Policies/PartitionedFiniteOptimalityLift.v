@@ -19,12 +19,34 @@ From RocqSched Require Import Multicore.Partitioned.Policies.PartitionedBoolLemm
 
     Both [PartitionedEDF.v] and [PartitionedLLF.v] reduce their main
     [partitioned_*_schedulable_by_on_of_local_feasible] theorems to
-    instantiations of [partitioned_finite_optimality_lift]. *)
+    instantiations of [partitioned_finite_optimality_lift].
+
+    Policy-side obligations for using this file:
+    - the local scheduler is definitionally
+      [single_cpu_algorithm_schedule spec]
+    - a uniprocessor finite-optimality theorem is available for that local
+      scheduler
+    - a finite global enumeration [enumJ] is available with soundness and
+      completeness proofs for [J]
+    - each projected local job set [local_jobset assign J c] is feasible on
+      one CPU
+
+    Today this contract is instantiated by EDF and LLF. FIFO and RR currently
+    expose only the wrapper-level witness/schedulability lifts. *)
 
 (** Generic lifting: given a [local_scheduler] that is definitionally equal to
     [single_cpu_algorithm_schedule spec] and admits a finite-optimality theorem,
     per-CPU feasibility of the local job sets implies global partitioned
-    schedulability under [partitioned_scheduler m spec]. *)
+    schedulability under [partitioned_scheduler m spec].
+
+    In other words, this theorem packages the standard proof shape
+
+      local feasible_on
+        -> local finite-optimality theorem
+        -> local schedulable_by_on
+        -> partitioned schedulable_by_on
+
+    behind a single reusable interface. *)
 Theorem partitioned_finite_optimality_lift :
     forall (local_scheduler : CandidateSource -> Scheduler)
            (spec : GenericSchedulingAlgorithm),
