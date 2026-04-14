@@ -15,6 +15,7 @@ theories/Analysis/Uniprocessor/BusyWindowSearch.v
 theories/Analysis/Uniprocessor/RequestBound.v
 theories/Analysis/Uniprocessor/DemandBound.v
 theories/Analysis/Uniprocessor/ProcessorDemand.v
+theories/Analysis/Uniprocessor/EDFProcessorDemand.v
 theories/Analysis/Uniprocessor/ResponseTimeSearch.v
 theories/Examples/AffinityExamples.v
 theories/Examples/BusyIntervalExamples.v
@@ -28,6 +29,7 @@ theories/Examples/GlobalServiceExamples.v
 theories/Examples/GlobalWorkConservingExamples.v
 theories/Examples/JitteredPeriodicExamples.v
 theories/Examples/PeriodicExamples.v
+theories/Examples/PeriodicProcessorDemandExamples.v
 theories/Examples/SporadicExamples.v
 theories/Examples/RRExamples.v
 theories/Examples/SchedulableExamples.v
@@ -63,6 +65,7 @@ theories/TaskModels/Periodic/PeriodicReleaseLemmas.v
 theories/TaskModels/Periodic/PeriodicFiniteHorizon.v
 theories/TaskModels/Periodic/PeriodicWorkload.v
 theories/TaskModels/Periodic/PeriodicDemandBound.v
+theories/TaskModels/Periodic/PeriodicWindowDemandBound.v
 theories/TaskModels/Periodic/PeriodicEnumeration.v
 theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v

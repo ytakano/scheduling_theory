@@ -901,12 +901,15 @@ Done:
 - aggregate task-set DBF definitions and monotonicity / append / NoDup-stability lemmas
 - explicit-demand to aggregate-DBF bridge lemmas for periodic / sporadic / jittered-periodic job lists
 - busy-interval to processor-demand contradiction hook for uniprocessor supply
+- periodic window-DBF definitions and explicit-window-demand bridge lemmas
+- EDF-facing busy-window overload contradiction helpers
+- periodic window-DBF example layer and bridge-theorem examples
 
 Remaining:
 
 - busy-window search-space reduction hooks
 - response-time search-space reduction hooks
-- full EDF processor-demand feasibility theorem
+- full EDF processor-demand feasibility theorem from window-DBF bounds alone
 - utilization / dbf hooks above the aggregate layer
 - rbf / sbf style interfaces
 - policy-specific analysis wrappers

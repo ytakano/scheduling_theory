@@ -503,6 +503,9 @@ Implemented:
 - `TaskModels/Periodic/PeriodicDemandBound.v`: `periodic_jobset_deadline_upto`,
   index count bound, `periodic_demand_le_dbf`,
   `periodic_total_demand_le_taskset_dbf`
+- `TaskModels/Periodic/PeriodicWindowDemandBound.v`:
+  `periodic_jobset_deadline_between`, finite window-DBF definitions,
+  and explicit-window-demand to aggregate-window-DBF bridge lemmas
 - `TaskModels/Sporadic/SporadicDemandBound.v`: `sporadic_jobset_deadline_upto`,
   count bound, `sporadic_demand_le_dbf`,
   `sporadic_total_demand_le_taskset_dbf`
@@ -513,10 +516,15 @@ Implemented:
   bound examples
 - `Examples/ProcessorDemandExamples.v`: aggregate DBF computations and
   processor-demand hook examples
+- `Analysis/Uniprocessor/EDFProcessorDemand.v`: EDF-facing busy-window wrappers
+  and the window-overload contradiction core
+- `Examples/PeriodicProcessorDemandExamples.v`: periodic window-DBF computations
+  and bridge-theorem usage examples
 
 Remaining:
 
-- full EDF processor-demand feasibility theorem on top of the new aggregate hook
+- full EDF processor-demand feasibility theorem that discharges `feasible_on`
+  from the window-DBF hypothesis alone
 - deeper schedulability / response-time theorems consuming the new busy-window search hook
 
 ### G-3. Supply-bound / interface theory

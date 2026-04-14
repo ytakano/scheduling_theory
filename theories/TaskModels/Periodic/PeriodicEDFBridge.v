@@ -11,6 +11,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteOptimalityLift.
+From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
 Import ListNotations.
 
 Theorem periodic_edf_optimality_on_finite_horizon :
@@ -52,4 +53,56 @@ Proof.
     (fun J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf =>
       edf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf)
     T tasks offset H enumT jobs codec Hwf HenumT_complete HenumT_sound Hfeas).
+Qed.
+
+Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon :
+  forall T T_bool tasks offset H enumT enumJ jobs,
+    (forall τ, T_bool τ = true <-> T τ) ->
+    (forall j, periodic_jobset_upto T tasks offset jobs H j -> In j enumJ) ->
+    (forall j, In j enumJ -> periodic_jobset_upto T tasks offset jobs H j) ->
+    feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1 ->
+    (forall t1 t2,
+      t1 <= t2 ->
+      t2 <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
+    schedulable_by_on
+      (periodic_jobset_upto T tasks offset jobs H)
+      (edf_scheduler (enum_candidates_of enumJ))
+      jobs 1.
+Proof.
+  (* This theorem packages the window-DBF hypothesis at the public bridge
+     boundary while reusing the existing finite-horizon optimality result.
+     The EDF-specific step that discharges [feasible_on] from the DBF bound
+     alone lives below this layer and is still tracked separately. *)
+  intros T T_bool tasks offset H enumT enumJ jobs
+         HTbool Henum_complete Henum_sound Hfeas _Hdbf.
+  exact (periodic_edf_optimality_on_finite_horizon
+           T T_bool tasks offset H enumJ jobs
+           HTbool Henum_complete Henum_sound Hfeas).
+Qed.
+
+Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1 ->
+    (forall t1 t2,
+      t1 <= t2 ->
+      t2 <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
+    schedulable_by_on
+      (periodic_jobset_upto T tasks offset jobs H)
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1.
+Proof.
+  (* Auto-enumeration variant of the public bridge above. *)
+  intros T tasks offset H enumT jobs codec
+         Hwf HenumT_complete HenumT_sound Hfeas _Hdbf.
+  exact (periodic_edf_optimality_on_finite_horizon_auto
+           T tasks offset H enumT jobs codec
+           Hwf HenumT_complete HenumT_sound Hfeas).
 Qed.
