@@ -533,11 +533,17 @@ Implemented:
   `periodic_edf_schedulable_by_window_dbf_on_finite_horizon` and
   `periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto` now close
   without `feasible_on` as a hypothesis
+- `TaskModels/Periodic/PeriodicEDFBridge.v`: busy-prefix public wrappers
+  `..._with_busy_prefix` added for no-miss / feasible-schedule /
+  schedulable-by-on variants
 - `Examples/PeriodicProcessorDemandExamples.v`: periodic window-DBF computations
   and bridge-theorem usage examples
   `periodic_example_edf_no_deadline_miss_by_window_dbf_auto` /
   `periodic_example_edf_schedulable_by_window_dbf_auto`
   (no longer requires explicit `feasible_on`)
+- `Examples/PeriodicProcessorDemandExamples.v`: busy-prefix bridge examples
+  `periodic_example_edf_no_deadline_miss_by_window_dbf_auto_with_busy_prefix` /
+  `periodic_example_edf_schedulable_by_window_dbf_auto_with_busy_prefix`
 - `Analysis/Uniprocessor/BusyWindowSearch.v`: finite-horizon busy-prefix layer
   (`busy_prefix_candidate`, `busy_prefix_witness`) added alongside the older
   maximal-window witness

@@ -924,9 +924,13 @@ Done:
   `periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in`
   and `periodic_window_dbf_implies_edf_feasible_on_finite_horizon_with_busy_prefix`
 - `PeriodicEDFBridge.v` window-DBF bridge theorems close without `feasible_on` hypothesis
+- `PeriodicEDFBridge.v` also exposes public busy-prefix wrappers for
+  no-miss / feasible-schedule / schedulable-by-on
 - `PeriodicProcessorDemandExamples.v` now includes both
   `periodic_example_edf_no_deadline_miss_by_window_dbf_auto` and
   `periodic_example_edf_schedulable_by_window_dbf_auto`
+- `PeriodicProcessorDemandExamples.v` also includes busy-prefix variants of the
+  no-miss / schedulable examples
 
 Remaining:
 
