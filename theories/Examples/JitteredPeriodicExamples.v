@@ -12,9 +12,12 @@ From RocqSched Require Import Uniprocessor.Policies.EDFOptimality.
 From RocqSched Require Import Uniprocessor.Policies.LLF.
 From RocqSched Require Import Multicore.Partitioned.Partitioned.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
+From RocqSched Require Import TaskModels.Sporadic.SporadicWorkload.
 From RocqSched Require Import TaskModels.Jitter.ReleaseJitter.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicTasks.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicFiniteHorizon.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicWorkload.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEnumeration.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFBridge.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicLLFBridge.
@@ -75,6 +78,13 @@ Qed.
 
 Definition H_jp_ex : Time := 5.
 Definition enumJ_jp_ex : list JobId := [0; 1; 2].
+
+Lemma tasks_jp_ex_well_formed :
+  well_formed_periodic_tasks_on T_jp_ex tasks_jp_ex.
+Proof.
+  intros τ Hτ.
+  destruct Hτ as [Hτ | Hτ]; subst τ; simpl; lia.
+Qed.
 
 Lemma generated_jittered_job0_ex :
   generated_by_jittered_periodic_task
@@ -148,6 +158,84 @@ Proof.
   simpl in Hj.
   destruct Hj as [HT _].
   destruct HT as [HT | HT]; discriminate.
+Qed.
+
+Lemma jittered_jobset_unique_index_jp_ex :
+  unique_task_index_on
+    (jittered_periodic_jobset_upto
+       T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex)
+    jobs_jp_ex.
+Proof.
+  intros j1 j2 Hj1 Hj2 Htask Hidx.
+  apply enumJ_jp_ex_complete in Hj1.
+  apply enumJ_jp_ex_complete in Hj2.
+  unfold enumJ_jp_ex in *.
+  simpl in Hj1, Hj2.
+  destruct Hj1 as [Hj1 | [Hj1 | [Hj1 | []]]];
+  destruct Hj2 as [Hj2 | [Hj2 | [Hj2 | []]]];
+    subst; simpl in *; try congruence.
+Qed.
+
+Lemma jittered_jobset_separation_jp_ex :
+  sporadic_separation_on
+    (jittered_periodic_jobset_upto
+       T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex)
+    tasks_jp_ex jobs_jp_ex.
+Proof.
+  intros j1 j2 Hj1 Hj2 Htask Hlt.
+  apply enumJ_jp_ex_complete in Hj1.
+  apply enumJ_jp_ex_complete in Hj2.
+  unfold enumJ_jp_ex in *.
+  simpl in Hj1, Hj2.
+  destruct Hj1 as [Hj1 | [Hj1 | [Hj1 | []]]];
+  destruct Hj2 as [Hj2 | [Hj2 | [Hj2 | []]]];
+    subst; simpl in *; try lia; try congruence.
+Qed.
+
+Lemma jittered_example_task0_job_count_bound :
+  length [0; 2] <= sporadic_jobs_of_task_upto_bound T_jp_ex tasks_jp_ex 0 H_jp_ex.
+Proof.
+  eapply jittered_periodic_job_count_upto_le_sporadic_bound.
+  - exact tasks_jp_ex_well_formed.
+  - simpl. constructor.
+    + intro H. simpl in H. lia.
+    + constructor.
+      * intro H. contradiction.
+      * constructor.
+  - exact jittered_jobset_unique_index_jp_ex.
+  - exact jittered_jobset_separation_jp_ex.
+  - intros j Hj.
+    simpl in Hj.
+    destruct Hj as [Hj | [Hj | []]]; subst j.
+    + split.
+      * exact (enumJ_jp_ex_sound 0 (or_introl eq_refl)).
+      * reflexivity.
+    + split.
+      * exact (enumJ_jp_ex_sound 2 (or_intror (or_intror (or_introl eq_refl)))).
+      * reflexivity.
+Qed.
+
+Lemma jittered_example_task0_workload_bound :
+  total_job_cost jobs_jp_ex [0; 2] <= sporadic_workload_upto_bound tasks_jp_ex 0 H_jp_ex.
+Proof.
+  eapply jittered_periodic_workload_upto_le_sporadic_bound.
+  - exact tasks_jp_ex_well_formed.
+  - simpl. constructor.
+    + intro H. simpl in H. lia.
+    + constructor.
+      * intro H. contradiction.
+      * constructor.
+  - exact jittered_jobset_unique_index_jp_ex.
+  - exact jittered_jobset_separation_jp_ex.
+  - intros j Hj.
+    simpl in Hj.
+    destruct Hj as [Hj | [Hj | []]]; subst j.
+    + split.
+      * exact (enumJ_jp_ex_sound 0 (or_introl eq_refl)).
+      * reflexivity.
+    + split.
+      * exact (enumJ_jp_ex_sound 2 (or_intror (or_intror (or_introl eq_refl)))).
+      * reflexivity.
 Qed.
 
 Definition jittered_witness_jp_ex

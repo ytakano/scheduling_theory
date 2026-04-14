@@ -12,6 +12,7 @@ From RocqSched Require Import Multicore.Partitioned.Partitioned.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicReleaseLemmas.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
+From RocqSched Require Import TaskModels.Periodic.PeriodicWorkload.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFBridge.
 From RocqSched Require Import TaskModels.Periodic.PeriodicLLFBridge.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
@@ -115,6 +116,52 @@ Lemma tasks_ex_well_formed :
 Proof.
   intros τ Hτ.
   destruct Hτ as [Hτ | Hτ]; subst τ; simpl; lia.
+Qed.
+
+Lemma periodic_example_task0_job_count_bound :
+  length [0] <= periodic_jobs_of_task_upto_count T_ex tasks_ex offset_ex 0 H_ex.
+Proof.
+  eapply (periodic_jobs_of_task_upto_count_sound
+            T_ex tasks_ex offset_ex jobs_ex H_ex 0 [0]).
+  - exact tasks_ex_well_formed.
+  - simpl. constructor.
+    + intro H. contradiction.
+    + constructor.
+  - intros j Hj.
+    simpl in Hj.
+    destruct Hj as [Hj | []]; subst j.
+    + split.
+      * unfold periodic_jobset_upto, T_ex, jobs_ex, job0_ex, H_ex.
+        simpl.
+        split.
+        { left. reflexivity. }
+        split.
+        { exact generated_job0_ex. }
+        lia.
+      * unfold jobs_ex, job0_ex. simpl. reflexivity.
+Qed.
+
+Lemma periodic_example_task0_workload_bound :
+  total_job_cost jobs_ex [0] <= periodic_workload_upto tasks_ex 0 H_ex.
+Proof.
+  eapply (periodic_workload_upto_bound
+            T_ex tasks_ex offset_ex jobs_ex H_ex 0 [0]).
+  - exact tasks_ex_well_formed.
+  - simpl. constructor.
+    + intro H. contradiction.
+    + constructor.
+  - intros j Hj.
+    simpl in Hj.
+    destruct Hj as [Hj | []]; subst j.
+    + split.
+      * unfold periodic_jobset_upto, T_ex, jobs_ex, job0_ex, H_ex.
+        simpl.
+        split.
+        { left. reflexivity. }
+        split.
+        { exact generated_job0_ex. }
+        lia.
+      * unfold jobs_ex, job0_ex. simpl. reflexivity.
 Qed.
 
 Lemma periodic_example_same_task_same_release_implies_same_index :

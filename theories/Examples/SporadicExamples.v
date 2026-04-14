@@ -11,8 +11,10 @@ From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import Uniprocessor.Policies.EDFOptimality.
 From RocqSched Require Import Uniprocessor.Policies.LLF.
 From RocqSched Require Import Multicore.Partitioned.Partitioned.
+From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteHorizon.
+From RocqSched Require Import TaskModels.Sporadic.SporadicWorkload.
 From RocqSched Require Import TaskModels.Sporadic.SporadicEnumeration.
 From RocqSched Require Import TaskModels.Sporadic.SporadicPeriodicBridge.
 From RocqSched Require Import TaskModels.Sporadic.SporadicEDFBridge.
@@ -75,6 +77,13 @@ Qed.
 
 Definition H_sp_ex : Time := 5.
 Definition enumJ_sp_ex : list JobId := [0; 1; 2].
+
+Lemma tasks_sp_ex_well_formed :
+  well_formed_periodic_tasks_on T_sp_ex tasks_sp_ex.
+Proof.
+  intros τ Hτ.
+  destruct Hτ as [Hτ | Hτ]; subst τ; simpl; lia.
+Qed.
 
 (* ===== Jobset Membership Proofs ===== *)
 
@@ -191,6 +200,82 @@ Lemma generated_sporadic_job2_ex :
 Proof.
   unfold generated_by_sporadic_task, earliest_sporadic_release, valid_job_of_task,
          tasks_sp_ex, task_sp0_ex, jobs_sp_ex, job_sp2_ex. simpl. lia.
+Qed.
+
+Lemma sporadic_jobset_unique_index_sp_ex :
+  unique_task_index_on
+    (sporadic_jobset_upto T_sp_ex tasks_sp_ex jobs_sp_ex H_sp_ex)
+    jobs_sp_ex.
+Proof.
+  intros j1 j2 Hj1 Hj2 Htask Hidx.
+  apply enumJ_sp_ex_complete in Hj1.
+  apply enumJ_sp_ex_complete in Hj2.
+  unfold enumJ_sp_ex in *.
+  simpl in Hj1, Hj2.
+  destruct Hj1 as [Hj1 | [Hj1 | [Hj1 | []]]];
+  destruct Hj2 as [Hj2 | [Hj2 | [Hj2 | []]]];
+    subst; simpl in *; try congruence.
+Qed.
+
+Lemma sporadic_jobset_separation_sp_ex :
+  sporadic_separation_on
+    (sporadic_jobset_upto T_sp_ex tasks_sp_ex jobs_sp_ex H_sp_ex)
+    tasks_sp_ex jobs_sp_ex.
+Proof.
+  intros j1 j2 Hj1 Hj2 Htask Hlt.
+  apply enumJ_sp_ex_complete in Hj1.
+  apply enumJ_sp_ex_complete in Hj2.
+  unfold enumJ_sp_ex in *.
+  simpl in Hj1, Hj2.
+  destruct Hj1 as [Hj1 | [Hj1 | [Hj1 | []]]];
+  destruct Hj2 as [Hj2 | [Hj2 | [Hj2 | []]]];
+    subst; simpl in *; try lia; try congruence.
+Qed.
+
+Lemma sporadic_example_task0_job_count_bound :
+  length [0; 2] <= sporadic_jobs_of_task_upto_bound T_sp_ex tasks_sp_ex 0 H_sp_ex.
+Proof.
+  eapply sporadic_job_count_upto_le.
+  - exact tasks_sp_ex_well_formed.
+  - simpl. constructor.
+    + intro H. simpl in H. lia.
+    + constructor.
+      * intro H. contradiction.
+      * constructor.
+  - exact sporadic_jobset_unique_index_sp_ex.
+  - exact sporadic_jobset_separation_sp_ex.
+  - intros j Hj.
+    simpl in Hj.
+    destruct Hj as [Hj | [Hj | []]]; subst j.
+    + split.
+      * exact (enumJ_sp_ex_sound 0 (or_introl eq_refl)).
+      * reflexivity.
+    + split.
+      * exact (enumJ_sp_ex_sound 2 (or_intror (or_intror (or_introl eq_refl)))).
+      * reflexivity.
+Qed.
+
+Lemma sporadic_example_task0_workload_bound :
+  total_job_cost jobs_sp_ex [0; 2] <= sporadic_workload_upto_bound tasks_sp_ex 0 H_sp_ex.
+Proof.
+  eapply sporadic_workload_upto_le.
+  - exact tasks_sp_ex_well_formed.
+  - simpl. constructor.
+    + intro H. simpl in H. lia.
+    + constructor.
+      * intro H. contradiction.
+      * constructor.
+  - exact sporadic_jobset_unique_index_sp_ex.
+  - exact sporadic_jobset_separation_sp_ex.
+  - intros j Hj.
+    simpl in Hj.
+    destruct Hj as [Hj | [Hj | []]]; subst j.
+    + split.
+      * exact (enumJ_sp_ex_sound 0 (or_introl eq_refl)).
+      * reflexivity.
+    + split.
+      * exact (enumJ_sp_ex_sound 2 (or_intror (or_intror (or_introl eq_refl)))).
+      * reflexivity.
 Qed.
 
 Lemma sporadic_feasible_on_sp_ex :

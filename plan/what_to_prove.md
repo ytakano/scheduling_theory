@@ -545,7 +545,13 @@ Design note:
 - そのため model-level bridge では separation を追加仮定として扱う
 
 ## 6-5. periodic / sporadic schedulability analysis hooks
-**Status: Not started**
+**Status: In progress**
+
+Done:
+
+- periodic finite-horizon per-task count bounds
+- sporadic finite-horizon per-task count/workload bounds for explicit job lists
+- jittered-periodic to sporadic workload bridge lemmas
 
 予定:
 
@@ -556,6 +562,7 @@ Design note:
 注意:
 
 - ここは「generation semantics」と「analysis theorem」を分けて管理する
+- finite-horizon witness pipeline と workload analysis hook layer も分ける
 
 ---
 
@@ -854,6 +861,7 @@ Done:
 - no-idle-slot characterization for busy intervals
 - maximal busy interval boundary decomposition
 - interval processor-supply aggregation on top of schedule semantics
+- periodic / sporadic / jittered-periodic finite-horizon workload helper lemmas
 
 Remaining:
 

@@ -173,7 +173,7 @@ This phase should come earlier than in the old roadmap, because the current code
 already contains task/job structure and an initial periodic layer.
 
 ### B-1. Periodic tasks
-**Status: Finite-horizon bridge and partitioned lift done**
+**Status: Finite-horizon bridge, partitioned lift, and workload hooks done**
 
 Implemented core:
 
@@ -191,6 +191,8 @@ Implemented core:
 - `PeriodicLLFBridge.v`: thin LLF wrapper over `PeriodicFiniteOptimalityLift`
 - `PeriodicPartitionedFiniteOptimalityLift.v` (new): connects periodic
   task generation to `partitioned_scheduler` via `partitioned_finite_optimality_lift`
+- `PeriodicWorkload.v`: finite-horizon per-task count/workload bounds for
+  explicit job lists, intended as analysis hooks on top of the periodic model
 
 What remains:
 
@@ -200,7 +202,7 @@ What remains:
   and should be reused by sporadic/jitter extensions
 
 ### B-2. Sporadic tasks
-**Status: Implemented as finite-horizon witness-based layer**
+**Status: Finite-horizon witness layer and workload hooks implemented**
 
 Implemented:
 
@@ -214,6 +216,8 @@ Implemented:
 - `SporadicFiniteHorizon.v`: `sporadic_jobset_upto` updated to use
   `generated_by_sporadic_task`; boolean reflection updated;
   finite-horizon release/index bound lemmas added
+- `SporadicWorkload.v`: finite-horizon per-task job-count / cumulative-workload
+  bounds for explicit job lists under uniqueness and separation assumptions
 - `SporadicEnumeration.v`: specialization of the shared witness API to
   `sporadic_jobset_upto`; intentionally not an automatic codec
 - `SporadicPeriodicBridge.v`: `generated_by_periodic_implies_sporadic`,
@@ -232,6 +236,9 @@ Design note:
   `(task, index)` alone
 - the intended finite-horizon abstraction is a manual witness record carrying
   `enumJ` plus soundness/completeness proofs
+- the witness pipeline and the analysis-hook layer are intentionally separate:
+  witnesses enumerate concrete finite horizons, while workload lemmas give
+  reusable count / WCET bounds over explicit finite job lists
 
 ### B-3. Release jitter / arrival offsets
 **Status: Initial jittered-periodic layer implemented**
@@ -484,10 +491,11 @@ Planned:
 - future compatibility with hierarchical scheduling
 
 ### G-4. Analysis-ready workload abstractions
-**Status: Not started**
+**Status: In progress**
 
 Planned:
 
+- periodic / sporadic / jittered-periodic finite-horizon workload bounds
 - workload bounds on intervals
 - interference templates
 - reusable counting lemmas for idealized and delay-aware response-time analyses
