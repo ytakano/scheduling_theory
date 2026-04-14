@@ -1,9 +1,10 @@
-From Stdlib Require Import Arith Arith.PeanoNat Lia List.
+From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 From RocqSched Require Import Analysis.Uniprocessor.DemandBound.
+From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 
 Import ListNotations.
 
@@ -200,4 +201,126 @@ Proof.
                     T tasks offset jobs H τ l Hwf Hd Hnodup_idx Hjobs) as Hcount.
       apply Nat.mul_le_mono_r.
       exact Hcount.
+Qed.
+
+Lemma periodic_filter_task_preserves_jobset :
+  forall T tasks offset jobs H τ l j,
+    In j (filter (fun j => Nat.eqb (job_task (jobs j)) τ) l) ->
+    periodic_jobset_deadline_upto T tasks offset jobs H j ->
+    periodic_jobset_deadline_upto T tasks offset jobs H j /\
+    job_task (jobs j) = τ.
+Proof.
+  intros T tasks offset jobs H τ l j Hin Hjobset.
+  apply filter_In in Hin.
+  destruct Hin as [_ Heq].
+  split; [exact Hjobset|].
+  apply Nat.eqb_eq. exact Heq.
+Qed.
+
+Lemma periodic_filtered_indices_nodup :
+  forall (jobs : JobId -> Job) τ l,
+    NoDup (map (fun j => (job_task (jobs j), job_index (jobs j))) l) ->
+    NoDup (map (fun j => job_index (jobs j))
+      (filter (fun j => Nat.eqb (job_task (jobs j)) τ) l)).
+Proof.
+  intros jobs τ l Hnodup.
+  induction l as [|j l IH]; simpl in *.
+  - constructor.
+  - inversion Hnodup as [|x l' Hnotin Hnodup']; subst.
+    destruct (Nat.eqb (job_task (jobs j)) τ) eqn:Heq; simpl.
+    + constructor.
+      * intro Hin.
+        apply in_map_iff in Hin.
+        destruct Hin as [j' [Hidx Hin]].
+        apply filter_In in Hin.
+        destruct Hin as [Hin Heq'].
+        apply Hnotin.
+        apply in_map_iff.
+        exists j'. split.
+        -- apply Nat.eqb_eq in Heq.
+           apply Nat.eqb_eq in Heq'.
+           assert (Htask : job_task (jobs j') = job_task (jobs j)) by lia.
+           rewrite Htask.
+           rewrite Hidx.
+           reflexivity.
+        -- exact Hin.
+      * exact (IH Hnodup').
+    + exact (IH Hnodup').
+Qed.
+
+Lemma periodic_filtered_pairs_nodup :
+  forall (jobs : JobId -> Job) (p : JobId -> bool) l,
+    NoDup (map (fun j => (job_task (jobs j), job_index (jobs j))) l) ->
+    NoDup (map (fun j => (job_task (jobs j), job_index (jobs j))) (filter p l)).
+Proof.
+  intros jobs p l Hnodup.
+  induction l as [|j l IH]; simpl in *.
+  - constructor.
+  - inversion Hnodup as [|x l' Hnotin Hnodup']; subst.
+    destruct (p j); simpl.
+    + constructor.
+      * intro Hin. apply Hnotin.
+        apply in_map_iff in Hin.
+        destruct Hin as [j' [Hp Hin]].
+        apply in_map_iff.
+        exists j'. split; [exact Hp|].
+        apply filter_In in Hin.
+        exact (proj1 Hin).
+      * exact (IH Hnodup').
+    + exact (IH Hnodup').
+Qed.
+
+Lemma periodic_total_demand_le_taskset_dbf :
+  forall T tasks offset jobs H enumT l,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, In τ enumT -> 0 < task_relative_deadline (tasks τ)) ->
+    NoDup enumT ->
+    NoDup (map (fun j => (job_task (jobs j), job_index (jobs j))) l) ->
+    (forall j,
+      In j l ->
+      periodic_jobset_deadline_upto T tasks offset jobs H j /\
+      In (job_task (jobs j)) enumT) ->
+    total_job_cost jobs l <= taskset_periodic_dbf tasks enumT H.
+Proof.
+  intros T tasks offset jobs H enumT.
+  induction enumT as [|τ enumT IH]; intros l Hwf Hdl HnodupT HnodupPairs Hjobs; simpl.
+  - destruct l as [|j l'].
+    + simpl. lia.
+    + exfalso.
+      destruct (Hjobs j (or_introl eq_refl)) as [_ Hin].
+      simpl in Hin. tauto.
+  - inversion HnodupT as [|? ? HnotinT HnodupT']; subst.
+    pose (lτ := filter (fun j => Nat.eqb (job_task (jobs j)) τ) l).
+    pose (lrest := filter (fun j => negb (Nat.eqb (job_task (jobs j)) τ)) l).
+    rewrite (total_job_cost_filter_partition jobs
+               (fun j => Nat.eqb (job_task (jobs j)) τ) l).
+    apply Nat.add_le_mono.
+    { eapply (periodic_demand_le_dbf T tasks offset jobs H τ lτ).
+      - exact Hwf.
+      - apply Hdl. simpl. tauto.
+      - eapply periodic_filtered_indices_nodup. exact HnodupPairs.
+      - intros j Hj.
+        eapply (periodic_filter_task_preserves_jobset
+                  T tasks offset jobs H τ l j); try exact Hj.
+        apply filter_In in Hj.
+        destruct Hj as [Hin _].
+        exact (proj1 (Hjobs j Hin)). }
+    { eapply (IH lrest).
+      - exact Hwf.
+      - intros τ' Hin.
+        apply Hdl. simpl. tauto.
+      - exact HnodupT'.
+      - eapply periodic_filtered_pairs_nodup.
+        exact HnodupPairs.
+      - intros j Hj.
+        apply filter_In in Hj.
+        destruct Hj as [Hin Hneq].
+        destruct (Hjobs j Hin) as [Hjobset HinT].
+        split; [exact Hjobset|].
+        simpl in HinT.
+        destruct HinT as [Heq | HinT']; [|exact HinT'].
+        exfalso.
+        apply negb_true_iff in Hneq.
+        apply Nat.eqb_neq in Hneq.
+        subst. contradiction. }
 Qed.

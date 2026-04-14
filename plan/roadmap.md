@@ -454,7 +454,7 @@ global-scheduling layer, not alongside periodic tasks.
 ---
 
 ## 7. Phase G: Analysis foundations
-**Status: Not started**
+**Status: In progress**
 
 This phase collects standard abstractions from scheduling theory that should be reusable
 across idealized, delay-aware, uniprocessor, and multicore analyses.
@@ -479,7 +479,7 @@ Remaining:
 - policy-specific and policy-generic busy-window interfaces
 
 ### G-2. Demand-bound / request-bound theory
-**Status: DBF initial layer implemented**
+**Status: Aggregate processor-demand hook layer implemented**
 
 Implemented:
 
@@ -496,19 +496,28 @@ Implemented:
 - `Analysis/Uniprocessor/DemandBound.v`: `periodic_dbf`, `sporadic_dbf_bound`,
   `jittered_periodic_dbf_bound`; zero-before-deadline, at-deadline, monotonicity,
   and `periodic_dbf_le_periodic_rbf` lemmas
+- `Analysis/Uniprocessor/ProcessorDemand.v`: `taskset_periodic_dbf`,
+  `taskset_sporadic_dbf_bound`, `taskset_jittered_periodic_dbf_bound`,
+  append / monotonicity / NoDup-stability lemmas, and a busy-interval
+  contradiction hook for processor-demand style arguments
 - `TaskModels/Periodic/PeriodicDemandBound.v`: `periodic_jobset_deadline_upto`,
-  index count bound, `periodic_demand_le_dbf`
+  index count bound, `periodic_demand_le_dbf`,
+  `periodic_total_demand_le_taskset_dbf`
 - `TaskModels/Sporadic/SporadicDemandBound.v`: `sporadic_jobset_deadline_upto`,
-  count bound, `sporadic_demand_le_dbf`
+  count bound, `sporadic_demand_le_dbf`,
+  `sporadic_total_demand_le_taskset_dbf`
 - `TaskModels/Jitter/JitteredPeriodicDemandBound.v`: `jittered_periodic_jobset_deadline_upto`,
-  bridge to sporadic, `jittered_periodic_demand_le_dbf`
+  bridge to sporadic, `jittered_periodic_demand_le_dbf`,
+  `jittered_periodic_total_demand_le_taskset_dbf`
 - `Examples/DemandBoundExamples.v`: concrete DBF computations, periodic/sporadic demand
   bound examples
+- `Examples/ProcessorDemandExamples.v`: aggregate DBF computations and
+  processor-demand hook examples
 
 Remaining:
 
-- processor-demand style feasibility hooks
-- response-time analysis hooks consuming RBF
+- full EDF processor-demand feasibility theorem on top of the new aggregate hook
+- response-time analysis hooks consuming RBF / DBF
 
 ### G-3. Supply-bound / interface theory
 **Status: Not started**

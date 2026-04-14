@@ -13,10 +13,12 @@ theories/Analysis/Uniprocessor/BusyInterval.v
 theories/Analysis/Uniprocessor/BusyIntervalLemmas.v
 theories/Analysis/Uniprocessor/RequestBound.v
 theories/Analysis/Uniprocessor/DemandBound.v
+theories/Analysis/Uniprocessor/ProcessorDemand.v
 theories/Examples/AffinityExamples.v
 theories/Examples/BusyIntervalExamples.v
 theories/Examples/RequestBoundExamples.v
 theories/Examples/DemandBoundExamples.v
+theories/Examples/ProcessorDemandExamples.v
 theories/Examples/FeasibleExamples.v
 theories/Examples/FIFOExamples.v
 theories/Examples/GlobalServiceExamples.v

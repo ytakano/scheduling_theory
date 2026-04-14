@@ -1,4 +1,4 @@
-From Stdlib Require Import Arith Arith.PeanoNat Lia List.
+From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
@@ -6,6 +6,7 @@ From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteHorizon.
 From RocqSched Require Import TaskModels.Sporadic.SporadicWorkload.
 From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 From RocqSched Require Import Analysis.Uniprocessor.DemandBound.
+From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 
 Import ListNotations.
 
@@ -203,4 +204,61 @@ Proof.
                     T tasks jobs H τ l Hwf Hd Hnodup Huniq Hjobs) as Hcount.
       apply Nat.mul_le_mono_r.
       exact Hcount.
+Qed.
+
+Lemma sporadic_total_demand_le_taskset_dbf :
+  forall T tasks jobs H enumT l,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, In τ enumT -> 0 < task_relative_deadline (tasks τ)) ->
+    NoDup enumT ->
+    NoDup l ->
+    unique_task_index_on (sporadic_jobset_deadline_upto T tasks jobs H) jobs ->
+    (forall j,
+      In j l ->
+      sporadic_jobset_deadline_upto T tasks jobs H j /\
+      In (job_task (jobs j)) enumT) ->
+    total_job_cost jobs l <= taskset_sporadic_dbf_bound tasks enumT H.
+Proof.
+  intros T tasks jobs H enumT.
+  induction enumT as [|τ enumT IH]; intros l Hwf Hdl HnodupT HnodupL Huniq Hjobs; simpl.
+  - destruct l as [|j l'].
+    + simpl. lia.
+    + exfalso.
+      destruct (Hjobs j (or_introl eq_refl)) as [_ Hin].
+      simpl in Hin. tauto.
+  - inversion HnodupT as [|? ? HnotinT HnodupT']; subst.
+    pose (lτ := filter (fun j => Nat.eqb (job_task (jobs j)) τ) l).
+    pose (lrest := filter (fun j => negb (Nat.eqb (job_task (jobs j)) τ)) l).
+    rewrite (total_job_cost_filter_partition jobs
+               (fun j => Nat.eqb (job_task (jobs j)) τ) l).
+    apply Nat.add_le_mono.
+    + eapply (sporadic_demand_le_dbf T tasks jobs H τ lτ).
+      * exact Hwf.
+      * apply Hdl. simpl. tauto.
+      * apply NoDup_filter. exact HnodupL.
+      * exact Huniq.
+      * intros j Hj.
+        apply filter_In in Hj.
+        destruct Hj as [Hin Heq].
+        split.
+        -- destruct (Hjobs j Hin) as [Hjobset _]. exact Hjobset.
+        -- apply Nat.eqb_eq. exact Heq.
+    + eapply (IH lrest).
+      * exact Hwf.
+      * intros τ' Hin.
+        apply Hdl. simpl. tauto.
+      * exact HnodupT'.
+      * apply NoDup_filter. exact HnodupL.
+      * exact Huniq.
+      * intros j Hj.
+        apply filter_In in Hj.
+        destruct Hj as [Hin Hneq].
+        destruct (Hjobs j Hin) as [Hjobset HinT].
+        split; [exact Hjobset|].
+        simpl in HinT.
+        destruct HinT as [Heq | HinT']; [|exact HinT'].
+        exfalso.
+        apply negb_true_iff in Hneq.
+        apply Nat.eqb_neq in Hneq.
+        subst. contradiction.
 Qed.

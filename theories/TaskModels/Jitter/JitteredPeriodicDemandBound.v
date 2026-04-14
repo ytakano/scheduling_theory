@@ -9,6 +9,7 @@ From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicSporadicBridge.
 From RocqSched Require Import TaskModels.Sporadic.SporadicDemandBound.
 From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 From RocqSched Require Import Analysis.Uniprocessor.DemandBound.
+From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 
 Import ListNotations.
 
@@ -103,4 +104,33 @@ Proof.
   - exact (jittered_periodic_jobset_deadline_upto_implies_sporadic
              T tasks offset jitter jobs H j Hjobset).
   - exact Htask.
+Qed.
+
+Lemma jittered_periodic_total_demand_le_taskset_dbf :
+  forall T tasks offset jitter jobs H enumT l,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, In τ enumT -> 0 < task_relative_deadline (tasks τ)) ->
+    NoDup enumT ->
+    NoDup l ->
+    unique_task_index_on (sporadic_jobset_deadline_upto T tasks jobs H) jobs ->
+    (forall j,
+      In j l ->
+      jittered_periodic_jobset_deadline_upto T tasks offset jitter jobs H j /\
+      In (job_task (jobs j)) enumT) ->
+    total_job_cost jobs l <= taskset_jittered_periodic_dbf_bound tasks enumT H.
+Proof.
+  intros T tasks offset jitter jobs H enumT l Hwf Hdl HnodupT HnodupL Huniq Hjobs.
+  unfold taskset_jittered_periodic_dbf_bound, taskset_sporadic_dbf_bound.
+  eapply sporadic_total_demand_le_taskset_dbf.
+  - exact Hwf.
+  - exact Hdl.
+  - exact HnodupT.
+  - exact HnodupL.
+  - exact Huniq.
+  - intros j Hj.
+    destruct (Hjobs j Hj) as [Hjobset Hin].
+    split.
+    + exact (jittered_periodic_jobset_deadline_upto_implies_sporadic
+               T tasks offset jitter jobs H j Hjobset).
+    + exact Hin.
 Qed.

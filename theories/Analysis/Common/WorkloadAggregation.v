@@ -48,6 +48,29 @@ Fixpoint total_job_cost
   | j :: l' => job_cost (jobs j) + total_job_cost jobs l'
   end.
 
+Lemma total_job_cost_app :
+  forall jobs l1 l2,
+    total_job_cost jobs (l1 ++ l2) =
+    total_job_cost jobs l1 + total_job_cost jobs l2.
+Proof.
+  intros jobs l1 l2.
+  induction l1 as [|j l1 IH]; simpl.
+  - reflexivity.
+  - rewrite IH. lia.
+Qed.
+
+Lemma total_job_cost_filter_partition :
+  forall jobs (p : JobId -> bool) l,
+    total_job_cost jobs l =
+    total_job_cost jobs (filter p l) +
+    total_job_cost jobs (filter (fun j => negb (p j)) l).
+Proof.
+  intros jobs p l.
+  induction l as [|j l IH]; simpl.
+  - reflexivity.
+  - destruct (p j) eqn:Hp; simpl; rewrite IH; lia.
+Qed.
+
 (* A list's total cost is bounded by its length times the per-job cost cap. *)
 Lemma total_job_cost_le_length_mul :
   forall jobs l c,

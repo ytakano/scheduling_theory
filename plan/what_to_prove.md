@@ -897,11 +897,16 @@ Done:
 - maximal busy interval boundary decomposition
 - interval processor-supply aggregation on top of schedule semantics
 - periodic / sporadic / jittered-periodic finite-horizon workload helper lemmas
+- periodic / sporadic / jittered-periodic per-task DBF helper lemmas
+- aggregate task-set DBF definitions and monotonicity / append / NoDup-stability lemmas
+- explicit-demand to aggregate-DBF bridge lemmas for periodic / sporadic / jittered-periodic job lists
+- busy-interval to processor-demand contradiction hook for uniprocessor supply
 
 Remaining:
 
 - search-space reduction hooks
-- utilization / dbf hooks
+- full EDF processor-demand feasibility theorem
+- utilization / dbf hooks above the aggregate layer
 - rbf / sbf style interfaces
 - policy-specific analysis wrappers
 
