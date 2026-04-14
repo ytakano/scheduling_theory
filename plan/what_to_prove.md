@@ -483,15 +483,23 @@ Done:
 - `generated_by_sporadic_task` + bool reflection + `generated_by_sporadic_task_b_spec`
 - `sporadic_job_model_on` restructured to use generation predicate
 - `sporadic_jobset_upto` updated to use generation predicate
+- finite-horizon release lower-bound / expected-release-below-horizon /
+  index-below-horizon lemmas
+- thin finite-horizon witness abstraction for manual sporadic enumeration
 - periodic → sporadic bridge: `generated_by_periodic_implies_sporadic`,
   `periodic_model_satisfies_separation`, `periodic_model_implies_sporadic_model`
 
 Remaining:
 
-- finite-horizon index-bound lemma
-  (sporadic lacks a codec; releases are not determined by (task, index) alone)
 - utilization / dbf hooks
 - release jitter extensions (see 6-4)
+
+Design note:
+
+- sporadic still lacks an automatic codec because releases are not determined by
+  `(task, index)` alone
+- finite-horizon lifting should go through a witness record, not through
+  inferred enumeration
 
 ## 6-4. release jitter / arrival offset
 **Status: Not started**

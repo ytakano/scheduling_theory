@@ -7,6 +7,7 @@ From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteHorizon.
+From RocqSched Require Import TaskModels.Sporadic.SporadicEnumeration.
 Import ListNotations.
 
 (** * Generic sporadic finite-optimality lifting for uniprocessor schedulers
@@ -22,7 +23,8 @@ Import ListNotations.
 
     No automatic codec variant is provided: sporadic release times are not
     determined by (task, index) alone, so codec-based enumeration would require
-    additional witness machinery. Use the manual [enumJ] approach instead. *)
+    additional arrival information. The intended API is a thin witness wrapper
+    around a manual finite enumeration. *)
 
 (** ** Manual-enumeration variant
 
@@ -66,4 +68,31 @@ Proof.
   - exact Henum_complete.
   - exact Henum_sound.
   - exact Hfeas.
+Qed.
+
+Theorem sporadic_finite_optimality_lift_with_witness :
+  forall (local_scheduler : CandidateSource -> Scheduler)
+         (Hoptimal : forall J (J_bool : JobId -> bool) enumJ
+                            (cands : CandidateSource)
+                            (cand_spec : CandidateSourceSpec J cands) jobs,
+                       (forall x, J_bool x = true <-> J x) ->
+                       (forall j, J j -> In j enumJ) ->
+                       (forall j, In j enumJ -> J j) ->
+                       feasible_on J jobs 1 ->
+                       schedulable_by_on J (local_scheduler cands) jobs 1)
+         T T_bool tasks H jobs
+         (w : SporadicFiniteHorizonWitness T tasks jobs H),
+    (forall τ, T_bool τ = true <-> T τ) ->
+    feasible_on (sporadic_jobset_upto T tasks jobs H) jobs 1 ->
+    schedulable_by_on
+      (sporadic_jobset_upto T tasks jobs H)
+      (local_scheduler (enum_candidates_of (sporadic_enumJ T tasks jobs H w)))
+      jobs 1.
+Proof.
+  intros local_scheduler Hoptimal T T_bool tasks H jobs w HTbool Hfeas.
+  exact (sporadic_finite_optimality_lift local_scheduler Hoptimal
+    T T_bool tasks H (sporadic_enumJ T tasks jobs H w) jobs HTbool
+    (sporadic_enum_complete T tasks jobs H w)
+    (sporadic_enum_sound T tasks jobs H w)
+    Hfeas).
 Qed.

@@ -1,5 +1,6 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
 From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 
 (* ===== Finite Horizon Jobset for Sporadic Tasks ===== *)
@@ -73,6 +74,17 @@ Proof.
     (sporadic_jobset_upto_implies_generated T tasks jobs H j Hjobset)).
 Qed.
 
+Lemma sporadic_jobset_upto_implies_release_lb :
+  forall T tasks jobs H j,
+    sporadic_jobset_upto T tasks jobs H j ->
+    earliest_sporadic_release tasks (job_task (jobs j)) (job_index (jobs j))
+      <= job_release (jobs j).
+Proof.
+  intros T tasks jobs H j Hjobset.
+  exact (generated_sporadic_implies_release_lb tasks jobs j
+    (sporadic_jobset_upto_implies_generated T tasks jobs H j Hjobset)).
+Qed.
+
 Lemma sporadic_jobset_upto_implies_release_lt :
   forall T tasks jobs H j,
     sporadic_jobset_upto T tasks jobs H j ->
@@ -80,4 +92,29 @@ Lemma sporadic_jobset_upto_implies_release_lt :
 Proof.
   intros T tasks jobs H j [_ [_ Hrel]].
   exact Hrel.
+Qed.
+
+Lemma sporadic_jobset_upto_implies_expected_release_lt :
+  forall T tasks jobs H j,
+    sporadic_jobset_upto T tasks jobs H j ->
+    earliest_sporadic_release tasks (job_task (jobs j)) (job_index (jobs j)) < H.
+Proof.
+  intros T tasks jobs H j Hjobset.
+  pose proof (sporadic_jobset_upto_implies_release_lb T tasks jobs H j Hjobset) as Hlb.
+  pose proof (sporadic_jobset_upto_implies_release_lt T tasks jobs H j Hjobset) as Hlt.
+  lia.
+Qed.
+
+Lemma sporadic_jobset_upto_implies_index_lt :
+  forall T tasks jobs H j,
+    well_formed_periodic_tasks_on T tasks ->
+    sporadic_jobset_upto T tasks jobs H j ->
+    job_index (jobs j) < H.
+Proof.
+  intros T tasks jobs H j Hwf Hjobset.
+  pose proof (sporadic_jobset_upto_implies_task_in_scope T tasks jobs H j Hjobset) as HT.
+  pose proof (Hwf _ HT) as Hp.
+  pose proof (sporadic_jobset_upto_implies_expected_release_lt T tasks jobs H j Hjobset) as Hrel_lt.
+  unfold earliest_sporadic_release in Hrel_lt.
+  nia.
 Qed.

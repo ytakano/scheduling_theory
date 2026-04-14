@@ -207,16 +207,26 @@ Implemented:
   `sporadic_job_model_on`, `earliest_sporadic_release`,
   `generated_by_sporadic_task`, `generated_by_sporadic_task_b`
 - `SporadicFiniteHorizon.v`: `sporadic_jobset_upto` updated to use
-  `generated_by_sporadic_task`; boolean reflection updated
+  `generated_by_sporadic_task`; boolean reflection updated;
+  finite-horizon release/index bound lemmas added
+- `SporadicEnumeration.v`: thin witness abstraction for manual finite-horizon
+  job enumeration; intentionally not an automatic codec
 - `SporadicPeriodicBridge.v`: `generated_by_periodic_implies_sporadic`,
   `periodic_model_satisfies_separation`, `periodic_model_implies_sporadic_model`
-- EDF / LLF / partitioned lift bridges: compatible without text changes
+- EDF / LLF / partitioned lift bridges: witness-based entry points for the
+  sporadic finite-horizon API
 
 What remains:
 
-- sporadic job-index bound lemma (no codec since release is not determined by (task, index) alone)
 - utilization / Liu & Layland style theorems
 - release jitter / arrival offset extensions
+
+Design note:
+
+- sporadic still has no automatic codec because releases are not determined by
+  `(task, index)` alone
+- the intended finite-horizon abstraction is a manual witness record carrying
+  `enumJ` plus soundness/completeness proofs
 
 ### B-3. Release jitter / arrival offsets
 **Status: Not started**

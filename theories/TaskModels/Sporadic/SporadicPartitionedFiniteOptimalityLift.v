@@ -9,6 +9,7 @@ From RocqSched Require Import Multicore.Partitioned.Partitioned.
 From RocqSched Require Import Multicore.Partitioned.Policies.PartitionedFiniteOptimalityLift.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteHorizon.
+From RocqSched Require Import TaskModels.Sporadic.SporadicEnumeration.
 Import ListNotations.
 
 (** * Partitioned sporadic finite-optimality lifting
@@ -80,4 +81,43 @@ Proof.
   - exact Henum_complete.
   - exact Henum_sound.
   - exact Hlocal_feasible.
+Qed.
+
+Theorem partitioned_sporadic_finite_optimality_lift_with_witness :
+  forall (local_scheduler : CandidateSource -> Scheduler)
+         (spec : GenericSchedulingAlgorithm),
+    (forall cands,
+       local_scheduler cands = single_cpu_algorithm_schedule spec cands) ->
+    (forall J (J_bool : JobId -> bool) enumJ
+           (cands : CandidateSource)
+           (cand_spec : CandidateSourceSpec J cands) jobs,
+       (forall x, J_bool x = true <-> J x) ->
+       (forall j, J j -> In j enumJ) ->
+       (forall j, In j enumJ -> J j) ->
+       feasible_on J jobs 1 ->
+       schedulable_by_on J (local_scheduler cands) jobs 1) ->
+    forall (assign : JobId -> CPU) (m : nat)
+           (valid_assignment : forall j, assign j < m)
+           T T_bool tasks H jobs
+           (w : SporadicFiniteHorizonWitness T tasks jobs H),
+      (forall τ, T_bool τ = true <-> T τ) ->
+      (forall c, c < m ->
+         feasible_on
+           (local_jobset assign (sporadic_jobset_upto T tasks jobs H) c)
+           jobs 1) ->
+      schedulable_by_on
+        (sporadic_jobset_upto T tasks jobs H)
+        (partitioned_scheduler m spec
+           (enum_local_candidates_of assign (sporadic_enumJ T tasks jobs H w)))
+        jobs m.
+Proof.
+  intros local_scheduler spec Hscheduler Hoptimal
+         assign m valid_assignment T T_bool tasks H jobs w
+         HTbool Hlocal_feasible.
+  exact (partitioned_sporadic_finite_optimality_lift local_scheduler spec
+    Hscheduler Hoptimal assign m valid_assignment T T_bool tasks H
+    (sporadic_enumJ T tasks jobs H w) jobs HTbool
+    (sporadic_enum_complete T tasks jobs H w)
+    (sporadic_enum_sound T tasks jobs H w)
+    Hlocal_feasible).
 Qed.
