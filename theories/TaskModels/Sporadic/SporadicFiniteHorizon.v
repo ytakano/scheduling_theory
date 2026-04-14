@@ -2,6 +2,7 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
+From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 
 (* ===== Finite Horizon Jobset for Sporadic Tasks ===== *)
 
@@ -117,4 +118,25 @@ Proof.
   pose proof (sporadic_jobset_upto_implies_expected_release_lt T tasks jobs H j Hjobset) as Hrel_lt.
   unfold earliest_sporadic_release in Hrel_lt.
   nia.
+Qed.
+
+(* Tight ceiling-based index bound for sporadic jobs.
+   The job index is strictly below ⌈H / period⌉. *)
+Lemma sporadic_jobset_upto_implies_index_lt_tight :
+  forall T tasks jobs H j,
+    well_formed_periodic_tasks_on T tasks ->
+    sporadic_jobset_upto T tasks jobs H j ->
+    job_index (jobs j) <
+      (H + task_period (tasks (job_task (jobs j))) - 1) /
+       task_period (tasks (job_task (jobs j))).
+Proof.
+  intros T tasks jobs H j Hwf Hjobset.
+  pose proof (sporadic_jobset_upto_implies_task_in_scope T tasks jobs H j Hjobset) as HT.
+  pose proof (sporadic_jobset_upto_implies_expected_release_lt T tasks jobs H j Hjobset) as Hrel.
+  unfold earliest_sporadic_release in Hrel.
+  (* Hrel : job_index (jobs j) * task_period (tasks (job_task (jobs j))) < H *)
+  exact (nat_mul_lt_ceil_div
+           (job_index (jobs j)) H
+           (task_period (tasks (job_task (jobs j))))
+           (Hwf _ HT) Hrel).
 Qed.

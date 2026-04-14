@@ -471,14 +471,26 @@ Remaining:
 - policy-specific and policy-generic busy-window interfaces
 
 ### G-2. Demand-bound / request-bound theory
-**Status: Not started**
+**Status: RBF layer implemented**
 
-Planned:
+Implemented:
+
+- `Analysis/Common/WorkloadAggregation.v`: `total_job_cost`, `total_job_cost_le_length_mul`,
+  `nat_mul_lt_ceil_div`, `ceil_div_mono` — shared workload-aggregation helpers
+- `Analysis/Uniprocessor/RequestBound.v`: `periodic_rbf`, `sporadic_rbf_bound`,
+  monotonicity lemmas, `periodic_rbf_zero`, `periodic_rbf_le_coarse_bound`
+- `PeriodicFiniteHorizon.v` / `SporadicFiniteHorizon.v`: `*_implies_index_lt_tight`
+  tight ceiling-division count bounds replacing the coarse `< H` bound
+- `PeriodicWorkload.v` / `SporadicWorkload.v` / `JitteredPeriodicWorkload.v`:
+  period-aware `⌈H/period⌉ × wcet` workload bounds; bridge lemmas to RBF
+- `Examples/RequestBoundExamples.v`: concrete RBF computations, monotonicity examples,
+  sporadic = periodic RBF example, coarse bound comparison, jitter→sporadic bound
+
+Remaining:
 
 - demand bound function (dbf)
-- request bound function (rbf)
-- cumulative demand lemmas for periodic/sporadic workloads
 - processor-demand style feasibility hooks
+- response-time analysis hooks consuming RBF
 
 ### G-3. Supply-bound / interface theory
 **Status: Not started**

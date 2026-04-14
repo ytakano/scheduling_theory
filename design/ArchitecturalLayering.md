@@ -170,6 +170,15 @@ Typical contents include:
 - response-time search-space reduction lemmas
 - generic interval decomposition lemmas
 
+Currently implemented in `theories/Analysis/`:
+
+- `Common/WorkloadAggregation.v`: `total_job_cost`, ceiling-division arithmetic
+  helpers (`nat_mul_lt_ceil_div`, `ceil_div_mono`)
+- `Uniprocessor/BusyInterval.v`, `BusyIntervalLemmas.v`: uniprocessor busy-interval
+  foundations
+- `Uniprocessor/RequestBound.v`: `periodic_rbf`, `sporadic_rbf_bound`, and
+  associated monotonicity and algebraic lemmas
+
 This layer is important because these concepts are used by many later results, but they do not belong to:
 
 - `Semantics`, because they are not part of the meaning of schedules themselves

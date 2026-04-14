@@ -13,6 +13,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicReleaseLemmas.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWorkload.
+From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFBridge.
 From RocqSched Require Import TaskModels.Periodic.PeriodicLLFBridge.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.

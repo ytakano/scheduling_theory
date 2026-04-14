@@ -1,6 +1,7 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 From RocqSched Require Import TaskModels.Periodic.PeriodicReleaseLemmas.
 
 Definition periodic_jobset_upto
@@ -120,4 +121,30 @@ Proof.
   pose proof (periodic_jobset_upto_expected_release_lt T tasks offset jobs H j Hjobset) as Hrel_lt.
   pose proof (periodic_jobset_upto_implies_task_in_scope T tasks offset jobs H j Hjobset) as HT.
   eapply expected_release_lt_horizon_implies_index_lt; eauto.
+Qed.
+
+(* Tight ceiling-based index bound.
+   The job index of any in-scope job is strictly below ⌈H / period⌉. *)
+Lemma periodic_jobset_upto_implies_index_lt_tight :
+  forall T tasks offset jobs H j,
+    well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_upto T tasks offset jobs H j ->
+    job_index (jobs j) <
+      (H + task_period (tasks (job_task (jobs j))) - 1) /
+       task_period (tasks (job_task (jobs j))).
+Proof.
+  intros T tasks offset jobs H j Hwf Hjobset.
+  pose proof (periodic_jobset_upto_implies_task_in_scope
+                T tasks offset jobs H j Hjobset) as HT.
+  pose proof (periodic_jobset_upto_expected_release_lt
+                T tasks offset jobs H j Hjobset) as Hrel.
+  unfold expected_release in Hrel.
+  (* Hrel : offset (job_task (jobs j)) + job_index (jobs j) *
+            task_period (tasks (job_task (jobs j))) < H *)
+  assert (Hkp : job_index (jobs j) * task_period (tasks (job_task (jobs j))) < H)
+    by nia.
+  exact (nat_mul_lt_ceil_div
+           (job_index (jobs j)) H
+           (task_period (tasks (job_task (jobs j))))
+           (Hwf _ HT) Hkp).
 Qed.

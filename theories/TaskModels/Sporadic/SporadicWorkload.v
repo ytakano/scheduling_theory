@@ -3,44 +3,36 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteHorizon.
+From RocqSched Require Import Analysis.Common.WorkloadAggregation.
+From RocqSched Require Import Analysis.Uniprocessor.RequestBound.
 
 Import ListNotations.
 
-Fixpoint total_job_cost
-    (jobs : JobId -> Job) (l : list JobId) : nat :=
-  match l with
-  | [] => 0
-  | j :: l' => job_cost (jobs j) + total_job_cost jobs l'
-  end.
+(* ===== Period-aware (separation-aware) count and workload bounds ===== *)
 
+(* The number of sporadic jobs of task τ that can have release time < H is at most
+   ⌈H / period⌉, derived from the minimum inter-arrival (separation) property. *)
 Definition sporadic_jobs_of_task_upto_bound
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
     (τ : TaskId)
     (H : Time) : nat :=
-  H.
+  (H + task_period (tasks τ) - 1) / task_period (tasks τ).
 
+(* The total workload of sporadic task τ in horizon H is at most sporadic_rbf_bound. *)
 Definition sporadic_workload_upto_bound
     (tasks : TaskId -> Task)
     (τ : TaskId)
     (H : Time) : nat :=
-  H * task_cost (tasks τ).
+  sporadic_rbf_bound tasks τ H.
 
-Lemma total_job_cost_le_length_mul :
-  forall jobs l c,
-    (forall j, In j l -> job_cost (jobs j) <= c) ->
-    total_job_cost jobs l <= length l * c.
-Proof.
-  intros jobs l c Hcost.
-  induction l as [|j l IH]; simpl.
-  - lia.
-  - assert (Hhead : job_cost (jobs j) <= c).
-    { apply Hcost. now left. }
-    assert (Htail : forall j', In j' l -> job_cost (jobs j') <= c).
-    { intros j' Hj'. apply Hcost. now right. }
-    specialize (IH Htail).
-    lia.
-Qed.
+(* sporadic_workload_upto_bound equals sporadic_rbf_bound by definition. *)
+Lemma sporadic_workload_upto_bound_eq_rbf :
+  forall tasks τ H,
+    sporadic_workload_upto_bound tasks τ H = sporadic_rbf_bound tasks τ H.
+Proof. reflexivity. Qed.
+
+(* ===== Helper: NoDup on job indices ===== *)
 
 Lemma nodup_job_indices_of_unique_task_index :
   forall J jobs τ l,
@@ -70,6 +62,8 @@ Proof.
       exact (Hjobs j' (or_intror Hj')).
 Qed.
 
+(* ===== Count bound ===== *)
+
 Lemma sporadic_index_bound_from_separation :
   forall T tasks jobs H j,
     well_formed_periodic_tasks_on T tasks ->
@@ -81,7 +75,7 @@ Lemma sporadic_index_bound_from_separation :
 Proof.
   intros T tasks jobs H j Hwf _ Hjobset.
   unfold sporadic_jobs_of_task_upto_bound.
-  exact (sporadic_jobset_upto_implies_index_lt T tasks jobs H j Hwf Hjobset).
+  exact (sporadic_jobset_upto_implies_index_lt_tight T tasks jobs H j Hwf Hjobset).
 Qed.
 
 Lemma sporadic_job_count_upto_le :
@@ -98,12 +92,13 @@ Lemma sporadic_job_count_upto_le :
 Proof.
   intros T tasks jobs H τ l Hwf Hnodup Huniq Hsep Hjobs.
   unfold sporadic_jobs_of_task_upto_bound.
+  set (cnt := (H + task_period (tasks τ) - 1) / task_period (tasks τ)).
   pose (idx := fun j => job_index (jobs j)).
   assert (Hnodup_idx : NoDup (map idx l)).
   {
     eapply nodup_job_indices_of_unique_task_index; eauto.
   }
-  assert (Hincl : incl (map idx l) (seq 0 H)).
+  assert (Hincl : incl (map idx l) (seq 0 cnt)).
   {
     intros k Hk.
     apply in_map_iff in Hk.
@@ -112,17 +107,21 @@ Proof.
     rewrite in_seq.
     split.
     - apply Nat.le_0_l.
-    - destruct (Hjobs j Hj) as [Hjobset _].
-      pose proof (sporadic_index_bound_from_separation
-                    T tasks jobs H j Hwf Hsep Hjobset) as Hlt.
+    - destruct (Hjobs j Hj) as [Hjobset Htask].
+      pose proof (sporadic_jobset_upto_implies_index_lt_tight
+                    T tasks jobs H j Hwf Hjobset) as Hlt.
+      rewrite Htask in Hlt.
       exact Hlt.
   }
   eapply Nat.le_trans.
   - replace (length l) with (length (map idx l)) by apply List.length_map.
-    apply NoDup_incl_length with (l := map idx l) (l' := seq 0 H); try exact Hnodup_idx.
+    apply NoDup_incl_length with (l := map idx l) (l' := seq 0 cnt);
+      try exact Hnodup_idx.
     exact Hincl.
   - rewrite length_seq. lia.
 Qed.
+
+(* ===== Workload bound ===== *)
 
 Lemma sporadic_workload_upto_le :
   forall T tasks jobs H τ l,
@@ -137,7 +136,7 @@ Lemma sporadic_workload_upto_le :
     total_job_cost jobs l <= sporadic_workload_upto_bound tasks τ H.
 Proof.
   intros T tasks jobs H τ l Hwf Hnodup Huniq Hsep Hjobs.
-  unfold sporadic_workload_upto_bound.
+  unfold sporadic_workload_upto_bound, sporadic_rbf_bound.
   eapply Nat.le_trans.
   - eapply (total_job_cost_le_length_mul jobs l (task_cost (tasks τ))).
     intros j Hj.
@@ -151,5 +150,26 @@ Proof.
   - pose proof (sporadic_job_count_upto_le
                   T tasks jobs H τ l Hwf Hnodup Huniq Hsep Hjobs) as Hcount.
     unfold sporadic_jobs_of_task_upto_bound in Hcount.
-    nia.
+    apply Nat.mul_le_mono_r.
+    exact Hcount.
+Qed.
+
+(* ===== Bridge to RBF ===== *)
+
+(* The workload of sporadic task τ in horizon H is bounded by sporadic_rbf_bound. *)
+Lemma sporadic_workload_le_rbf :
+  forall T tasks jobs H τ l,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup l ->
+    unique_task_index_on (sporadic_jobset_upto T tasks jobs H) jobs ->
+    sporadic_separation_on (sporadic_jobset_upto T tasks jobs H) tasks jobs ->
+    (forall j,
+      In j l ->
+      sporadic_jobset_upto T tasks jobs H j /\
+      job_task (jobs j) = τ) ->
+    total_job_cost jobs l <= sporadic_rbf_bound tasks τ H.
+Proof.
+  intros T tasks jobs H τ l Hwf Hnodup Huniq Hsep Hjobs.
+  exact (sporadic_workload_upto_le T tasks jobs H τ l
+           Hwf Hnodup Huniq Hsep Hjobs).
 Qed.

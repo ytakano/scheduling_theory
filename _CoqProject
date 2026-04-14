@@ -8,10 +8,13 @@ theories/Abstractions/SchedulingAlgorithm/SchedulerBridge.v
 theories/Abstractions/SchedulingAlgorithm/EnumCandidates.v
 theories/Abstractions/SchedulingAlgorithm/TopMInterface.v
 theories/Abstractions/SchedulingAlgorithm/TopMSchedulerBridge.v
+theories/Analysis/Common/WorkloadAggregation.v
 theories/Analysis/Uniprocessor/BusyInterval.v
 theories/Analysis/Uniprocessor/BusyIntervalLemmas.v
+theories/Analysis/Uniprocessor/RequestBound.v
 theories/Examples/AffinityExamples.v
 theories/Examples/BusyIntervalExamples.v
+theories/Examples/RequestBoundExamples.v
 theories/Examples/FeasibleExamples.v
 theories/Examples/FIFOExamples.v
 theories/Examples/GlobalWorkConservingExamples.v

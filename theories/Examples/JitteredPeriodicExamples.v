@@ -14,6 +14,7 @@ From RocqSched Require Import Multicore.Partitioned.Partitioned.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicWorkload.
+From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 From RocqSched Require Import TaskModels.Jitter.ReleaseJitter.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicTasks.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicFiniteHorizon.

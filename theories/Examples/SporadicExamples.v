@@ -15,6 +15,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteHorizon.
 From RocqSched Require Import TaskModels.Sporadic.SporadicWorkload.
+From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 From RocqSched Require Import TaskModels.Sporadic.SporadicEnumeration.
 From RocqSched Require Import TaskModels.Sporadic.SporadicPeriodicBridge.
 From RocqSched Require Import TaskModels.Sporadic.SporadicEDFBridge.

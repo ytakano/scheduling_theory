@@ -545,17 +545,44 @@ Design note:
 - そのため model-level bridge では separation を追加仮定として扱う
 
 ## 6-5. periodic / sporadic schedulability analysis hooks
-**Status: In progress**
+**Status: RBF layer complete**
 
 Done:
 
-- periodic finite-horizon per-task count bounds
-- sporadic finite-horizon per-task count/workload bounds for explicit job lists
-- jittered-periodic to sporadic workload bridge lemmas
+- `Analysis/Common/WorkloadAggregation.v`:
+  - `total_job_cost`, `total_job_cost_le_length_mul`
+  - `nat_mul_lt_ceil_div`: `k * p < H → 1 ≤ p → k < ⌈H/p⌉`
+  - `ceil_div_mono`: monotonicity of ceiling division
+- `PeriodicFiniteHorizon.v`:
+  - `periodic_jobset_upto_implies_index_lt_tight`: `k < ⌈H/period⌉` tight bound
+- `SporadicFiniteHorizon.v`:
+  - `sporadic_jobset_upto_implies_index_lt_tight`: same tight bound for sporadic
+- `Analysis/Uniprocessor/RequestBound.v`:
+  - `periodic_rbf`, `sporadic_rbf_bound` (definitionally equal)
+  - `sporadic_rbf_bound_eq_periodic_rbf`
+  - `periodic_rbf_zero`: `rbf tasks τ 0 = 0`
+  - `periodic_rbf_count_monotone`, `periodic_rbf_monotone`, `sporadic_rbf_bound_monotone`
+  - `periodic_rbf_count_le_H`: `⌈H/p⌉ ≤ H`
+  - `periodic_rbf_le_coarse_bound`: `rbf ≤ H × wcet`
+- `PeriodicWorkload.v`:
+  - `periodic_jobs_of_task_upto_count`: `⌈H/period⌉` (replaced coarse `H`)
+  - `periodic_workload_upto_eq_rbf`
+  - `periodic_workload_le_rbf`
+- `SporadicWorkload.v`:
+  - `sporadic_jobs_of_task_upto_bound`: `⌈H/period⌉`
+  - `sporadic_workload_upto_bound_eq_rbf`
+  - `sporadic_workload_le_rbf`
+- `JitteredPeriodicWorkload.v`:
+  - tighter workload bound via sporadic bridge
+- `Examples/RequestBoundExamples.v`:
+  - concrete RBF computations (period=5, wcet=2)
+  - monotonicity and coarse-bound comparisons
+  - `workload_le_rbf_ex`: periodic workload bridge in action
+  - `jittered_le_sporadic_rbf`: jitter → sporadic bound
 
 予定:
 
-- finite-horizon extraction lemmas
+- demand bound function (dbf)
 - utilization-related helper lemmas
 - Liu & Layland 型の定理に接続する前段補題
 
