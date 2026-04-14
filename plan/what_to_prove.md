@@ -580,9 +580,17 @@ Done:
   - `workload_le_rbf_ex`: periodic workload bridge in action
   - `jittered_le_sporadic_rbf`: jitter → sporadic bound
 
+完了:
+
+- demand bound function (DBF): `periodic_dbf`, `sporadic_dbf_bound`,
+  `jittered_periodic_dbf_bound` defined and verified
+- `periodic_dbf_le_periodic_rbf`: DBF ≤ RBF (requires `0 < rel_deadline`)
+- `periodic_demand_le_dbf` / `sporadic_demand_le_dbf` /
+  `jittered_periodic_demand_le_dbf`: job-level demand bounds
+- `Examples/DemandBoundExamples.v`: concrete DBF examples
+
 予定:
 
-- demand bound function (dbf)
 - utilization-related helper lemmas
 - Liu & Layland 型の定理に接続する前段補題
 

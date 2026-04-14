@@ -471,7 +471,7 @@ Remaining:
 - policy-specific and policy-generic busy-window interfaces
 
 ### G-2. Demand-bound / request-bound theory
-**Status: RBF layer implemented**
+**Status: DBF initial layer implemented**
 
 Implemented:
 
@@ -485,10 +485,20 @@ Implemented:
   period-aware `⌈H/period⌉ × wcet` workload bounds; bridge lemmas to RBF
 - `Examples/RequestBoundExamples.v`: concrete RBF computations, monotonicity examples,
   sporadic = periodic RBF example, coarse bound comparison, jitter→sporadic bound
+- `Analysis/Uniprocessor/DemandBound.v`: `periodic_dbf`, `sporadic_dbf_bound`,
+  `jittered_periodic_dbf_bound`; zero-before-deadline, at-deadline, monotonicity,
+  and `periodic_dbf_le_periodic_rbf` lemmas
+- `TaskModels/Periodic/PeriodicDemandBound.v`: `periodic_jobset_deadline_upto`,
+  index count bound, `periodic_demand_le_dbf`
+- `TaskModels/Sporadic/SporadicDemandBound.v`: `sporadic_jobset_deadline_upto`,
+  count bound, `sporadic_demand_le_dbf`
+- `TaskModels/Jitter/JitteredPeriodicDemandBound.v`: `jittered_periodic_jobset_deadline_upto`,
+  bridge to sporadic, `jittered_periodic_demand_le_dbf`
+- `Examples/DemandBoundExamples.v`: concrete DBF computations, periodic/sporadic demand
+  bound examples
 
 Remaining:
 
-- demand bound function (dbf)
 - processor-demand style feasibility hooks
 - response-time analysis hooks consuming RBF
 

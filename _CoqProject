@@ -12,9 +12,11 @@ theories/Analysis/Common/WorkloadAggregation.v
 theories/Analysis/Uniprocessor/BusyInterval.v
 theories/Analysis/Uniprocessor/BusyIntervalLemmas.v
 theories/Analysis/Uniprocessor/RequestBound.v
+theories/Analysis/Uniprocessor/DemandBound.v
 theories/Examples/AffinityExamples.v
 theories/Examples/BusyIntervalExamples.v
 theories/Examples/RequestBoundExamples.v
+theories/Examples/DemandBoundExamples.v
 theories/Examples/FeasibleExamples.v
 theories/Examples/FIFOExamples.v
 theories/Examples/GlobalWorkConservingExamples.v
@@ -52,6 +54,7 @@ theories/TaskModels/Periodic/PeriodicTasks.v
 theories/TaskModels/Periodic/PeriodicReleaseLemmas.v
 theories/TaskModels/Periodic/PeriodicFiniteHorizon.v
 theories/TaskModels/Periodic/PeriodicWorkload.v
+theories/TaskModels/Periodic/PeriodicDemandBound.v
 theories/TaskModels/Periodic/PeriodicEnumeration.v
 theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v
@@ -72,6 +75,7 @@ theories/TaskModels/Jitter/JitteredPeriodicPartitionedFiniteOptimalityLift.v
 theories/TaskModels/Sporadic/SporadicTasks.v
 theories/TaskModels/Sporadic/SporadicFiniteHorizon.v
 theories/TaskModels/Sporadic/SporadicWorkload.v
+theories/TaskModels/Sporadic/SporadicDemandBound.v
 theories/TaskModels/Sporadic/SporadicEnumeration.v
 theories/TaskModels/Sporadic/SporadicPeriodicBridge.v
 theories/TaskModels/Sporadic/SporadicFiniteOptimalityLift.v
@@ -79,6 +83,7 @@ theories/TaskModels/Sporadic/SporadicEDFBridge.v
 theories/TaskModels/Sporadic/SporadicLLFBridge.v
 theories/TaskModels/Sporadic/SporadicPartitionedFiniteOptimalityLift.v
 theories/TaskModels/Jitter/JitteredPeriodicWorkload.v
+theories/TaskModels/Jitter/JitteredPeriodicDemandBound.v
 theories/Uniprocessor/Core/UniSchedulerInterface.v
 theories/Uniprocessor/Core/UniSchedulerLemmas.v
 theories/Uniprocessor/Generic/SchedulingAlgorithmCanonicalBridge.v
