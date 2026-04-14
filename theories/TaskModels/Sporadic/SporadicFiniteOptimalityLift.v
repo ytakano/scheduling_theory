@@ -8,6 +8,7 @@ From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteHorizon.
 From RocqSched Require Import TaskModels.Sporadic.SporadicEnumeration.
+From RocqSched Require Import TaskModels.Sporadic.SporadicWitnessCandidates.
 Import ListNotations.
 
 (** * Generic sporadic finite-optimality lifting for uniprocessor schedulers
@@ -86,13 +87,20 @@ Theorem sporadic_finite_optimality_lift_with_witness :
     feasible_on (sporadic_jobset_upto T tasks jobs H) jobs 1 ->
     schedulable_by_on
       (sporadic_jobset_upto T tasks jobs H)
-      (local_scheduler (enum_candidates_of (sporadic_enumJ T tasks jobs H w)))
+      (local_scheduler (sporadic_witness_candidates_of T tasks jobs H w))
       jobs 1.
 Proof.
   intros local_scheduler Hoptimal T T_bool tasks H jobs w HTbool Hfeas.
-  exact (sporadic_finite_optimality_lift local_scheduler Hoptimal
-    T T_bool tasks H (sporadic_enumJ T tasks jobs H w) jobs HTbool
-    (sporadic_enum_complete T tasks jobs H w)
-    (sporadic_enum_sound T tasks jobs H w)
-    Hfeas).
+  apply (Hoptimal
+    (sporadic_jobset_upto T tasks jobs H)
+    (sporadic_jobset_upto_bool T_bool tasks jobs H)
+    (sporadic_enumJ T tasks jobs H w)
+    (sporadic_witness_candidates_of T tasks jobs H w)
+    (sporadic_witness_candidates_spec T tasks jobs H w)
+    jobs).
+  - intros j.
+    exact (sporadic_jobset_upto_bool_spec T T_bool tasks jobs H HTbool j).
+  - exact (sporadic_enum_complete T tasks jobs H w).
+  - exact (sporadic_enum_sound T tasks jobs H w).
+  - exact Hfeas.
 Qed.

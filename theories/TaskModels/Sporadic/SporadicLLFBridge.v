@@ -10,6 +10,7 @@ From RocqSched Require Import Uniprocessor.Policies.LLFOptimality.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteHorizon.
 From RocqSched Require Import TaskModels.Sporadic.SporadicEnumeration.
+From RocqSched Require Import TaskModels.Sporadic.SporadicWitnessCandidates.
 From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteOptimalityLift.
 Import ListNotations.
 
@@ -20,7 +21,7 @@ Theorem sporadic_llf_optimality_on_finite_horizon :
     feasible_on (sporadic_jobset_upto T tasks jobs H) jobs 1 ->
     schedulable_by_on
       (sporadic_jobset_upto T tasks jobs H)
-      (llf_scheduler (enum_candidates_of (sporadic_enumJ T tasks jobs H w)))
+      (llf_scheduler (sporadic_witness_candidates_of T tasks jobs H w))
       jobs 1.
 Proof.
   intros T T_bool tasks H jobs w HTbool Hfeas.

@@ -61,6 +61,8 @@ theories/TaskModels/Jitter/JitteredPeriodicLLFBridge.v
 theories/TaskModels/Jitter/JitteredPeriodicPartitionedFiniteOptimalityLift.v
 theories/TaskModels/Sporadic/SporadicTasks.v
 theories/TaskModels/Sporadic/SporadicFiniteHorizon.v
+theories/TaskModels/Sporadic/SporadicEnumeration.v
+theories/TaskModels/Sporadic/SporadicWitnessCandidates.v
 theories/TaskModels/Sporadic/SporadicPeriodicBridge.v
 theories/TaskModels/Sporadic/SporadicFiniteOptimalityLift.v
 theories/TaskModels/Sporadic/SporadicEDFBridge.v

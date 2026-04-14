@@ -12,6 +12,7 @@ From RocqSched Require Import Multicore.Partitioned.Partitioned.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicFiniteHorizon.
 From RocqSched Require Import TaskModels.Sporadic.SporadicEnumeration.
+From RocqSched Require Import TaskModels.Sporadic.SporadicWitnessCandidates.
 From RocqSched Require Import TaskModels.Sporadic.SporadicPeriodicBridge.
 From RocqSched Require Import TaskModels.Sporadic.SporadicEDFBridge.
 From RocqSched Require Import TaskModels.Sporadic.SporadicLLFBridge.
@@ -206,8 +207,8 @@ Theorem sporadic_example_edf_schedulable_by_on :
   schedulable_by_on
     (sporadic_jobset_upto T_sp_ex tasks_sp_ex jobs_sp_ex H_sp_ex)
     (edf_scheduler
-       (enum_candidates_of
-          (sporadic_enumJ T_sp_ex tasks_sp_ex jobs_sp_ex H_sp_ex sporadic_witness_sp_ex)))
+       (sporadic_witness_candidates_of
+          T_sp_ex tasks_sp_ex jobs_sp_ex H_sp_ex sporadic_witness_sp_ex))
     jobs_sp_ex 1.
 Proof.
   eapply sporadic_edf_optimality_on_finite_horizon.
@@ -220,8 +221,8 @@ Theorem sporadic_example_llf_schedulable_by_on :
   schedulable_by_on
     (sporadic_jobset_upto T_sp_ex tasks_sp_ex jobs_sp_ex H_sp_ex)
     (llf_scheduler
-       (enum_candidates_of
-          (sporadic_enumJ T_sp_ex tasks_sp_ex jobs_sp_ex H_sp_ex sporadic_witness_sp_ex)))
+       (sporadic_witness_candidates_of
+          T_sp_ex tasks_sp_ex jobs_sp_ex H_sp_ex sporadic_witness_sp_ex))
     jobs_sp_ex 1.
 Proof.
   eapply sporadic_llf_optimality_on_finite_horizon.
