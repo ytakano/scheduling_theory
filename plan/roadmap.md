@@ -1,4 +1,4 @@
-# New Roadmap
+# Roadmap
 
 ## 0. Current Position
 
@@ -10,6 +10,21 @@ Its core is a Rocq formalization centered on:
 - reusable uniprocessor theory
 - extension toward multicore and OS-level semantics
 - analysis layered on top of those semantics
+- a bridge from theory to implementation-oriented scheduler behavior
+
+### Main research direction
+
+The main research direction is **mechanized multicore scheduler refinement**, not only
+the re-proof of classical uniprocessor theorems.
+
+The intended contribution is to connect, in one reusable framework:
+
+- abstract policy semantics
+- executable scheduler constructions
+- schedule / service / feasibility semantics
+- witness / bridge layers for finite horizons and analysis
+- multicore and OS-level operational semantics
+- refinement and trace-based validation
 
 ### Already implemented
 
@@ -28,24 +43,63 @@ Its core is a Rocq formalization centered on:
 - partitioned scheduling core
 - partitioned EDF / FIFO / RR / LLF wrappers
 - partitioned finite-job optimality lift
-- initial periodic-task layer
+- periodic-task layer
+- sporadic-task layer
+- jittered-periodic layer
 - initial multicore-common layer
 - initial global EDF layer
 - initial global LLF layer
+- busy-interval / busy-window search foundations
+- request-bound / demand-bound / processor-demand foundations
+- periodic EDF processor-demand bridge layer with explicit busy-prefix / witness interfaces
 
 ### Interpretation of the current state
 
 The project is no longer in the phase of “building the first uniprocessor core.”
-That part is mostly done.
+That base is already substantial.
 
 The next work is mainly:
 
-1. stabilize and document the reusable uniprocessor core
-2. turn partitioned multicore into a mature theorem layer
-3. grow multicore-common semantics beyond the current base layer
-4. strengthen the initial global theorem layers
-5. introduce delay-aware operational and analysis layers without polluting the core schedule semantics
-6. add standard real-time analysis foundations such as busy windows, demand/supply abstractions, and policy comparison metrics
+1. stabilize and document the reusable theory and public theorem inventory
+2. finish the current EDF processor-demand bridge stabilization work
+3. turn partitioned multicore into a mature theorem layer
+4. strengthen multicore-common semantics and the initial global theorem layers
+5. introduce OS-level operational semantics and projection discipline
+6. complete refinement on a designable OS and validate external applicability on Linux
+7. deepen idealized and delay-aware analyses on top of the current foundations
+
+### Research gap and intended novelty frontier
+
+Existing mechanization is relatively strong in:
+
+- uniprocessor scheduling semantics
+- local schedulability / optimality arguments
+- bridges between analysis and implementation in restricted settings
+
+The weaker and more research-significant frontier is:
+
+- partitioned/global multicore synthesis
+- policy-generic top-`m` reasoning
+- fairness / bounded waiting / starvation-freedom
+- interference / busy-window / tardiness reasoning on multicore
+- migration-aware service and completion reasoning
+- OS-like operational semantics with timer / wakeup / migration / IPI
+- end-to-end bridges from scheduling theory to concrete scheduler behavior
+
+This roadmap therefore treats those multicore and refinement-facing items as the
+main long-term research contributions.
+
+### Proof discipline for roadmap growth
+
+The project should follow these proof-discipline rules.
+
+- Prefer **explicit witness / bridge records** over hidden axioms.
+- When an exact public statement does not yet close, prefer **statement strengthening**
+  over leaving an unprovable API in place.
+- Treat helper lemmas, bridge lemmas, and witness-packaging records as
+  **first-class milestones**, not as disposable temporary work.
+- Close the current **Periodic EDF** public bridge/API first, then widen to other
+  bridges and only later to cross-policy generalization.
 
 ### Design principle for delay modeling
 
@@ -64,12 +118,13 @@ Instead:
 
 Analysis should be introduced in layers.
 
-- first, define semantic invariants and reusable counting/service lemmas
-- next, define analysis foundations such as busy intervals and demand/supply functions
+- first, define semantic invariants and reusable counting / service lemmas
+- next, define analysis foundations such as busy intervals and demand / supply functions
 - then, prove idealized schedulability and response-time theorems
 - finally, add blocking, suspension, limited preemption, and operational overheads
 
-This keeps the semantic core reusable while still allowing standard scheduling-theory results to be mechanized.
+This keeps the semantic core reusable while still allowing standard
+scheduling-theory results to be mechanized.
 
 ### Practical validation strategy
 
@@ -78,8 +133,8 @@ The project should separate two goals clearly:
 - **refinement completion on a designable OS**
 - **external applicability demonstration on existing OSes**
 
-Awkernel is designable together with the formal model, so it is the right place to complete
-the end-to-end refinement story:
+Awkernel is designable together with the formal model, so it is the right place
+to complete the end-to-end refinement story:
 
 - scheduling algorithm
 - scheduler semantics
@@ -87,22 +142,35 @@ the end-to-end refinement story:
 - refinement from implementation-oriented behavior to abstract schedule semantics
 
 For **Linux**, the near-term goal should be different.
-Rather than attempting full refinement first, the project should use **trace-based validation**
-to show that the abstract theory and delay-aware models can be applied externally to a real,
-existing OS whose full internal design is not controlled by this project.
+Rather than attempting full refinement first, the project should use
+**trace-based validation** to show that the abstract theory and delay-aware
+models can be applied externally to a real, existing OS whose internal design
+is not controlled by this project.
 
 This yields a two-track validation strategy:
 
 1. **Awkernel** as the primary target for completed refinement verification
 2. **Linux** as the primary target for trace-based external validation
 
+### Documentation synchronization policy
+
+Whenever the roadmap changes in a proof-relevant way, keep the following
+documents synchronized:
+
+- `roadmap.md`
+- `what_to_prove.md`
+- `design/ArchitecturalLayering.md`
+
+In addition, representative example files should be kept aligned with the
+public theorem inventory and naming conventions.
+
 ---
 
 ## 1. Phase A: Stabilize the reusable uniprocessor core
 **Status: In progress, but largely implemented**
 
-This phase is mostly about turning the existing EDF/LLF/FIFO/RR development into
-a clearly reusable theory core.
+This phase is mostly about turning the existing EDF / LLF / FIFO / RR
+development into a clearly reusable theory core.
 
 ### A-1. Generic canonicalization layer
 **Status: Mostly done**
@@ -122,7 +190,7 @@ What is already done:
 
 What remains:
 
-- make the generic/policy-specific boundary more explicit
+- make the generic / policy-specific boundary more explicit
 - document `CanonicalRepairSpec`
 - document `ChooseAgreesBefore`
 - keep design documents synchronized with the code
@@ -139,7 +207,7 @@ Implemented core:
 What is already done:
 
 - practical chooser infrastructure exists
-- EDF and LLF already serve as static/dynamic metric examples
+- EDF and LLF already serve as static / dynamic metric examples
 
 What remains:
 
@@ -148,7 +216,7 @@ What remains:
 - prepare the path for future metric-based policies
 
 ### A-3. Inventory of uniprocessor results
-**Status: Not yet finished**
+**Status: In progress**
 
 What remains:
 
@@ -164,103 +232,114 @@ What remains:
   - partially done
   - not started
 
+### A-4. Public theorem inventory and naming
+**Status: Not started as a dedicated cleanup task**
+
+Planned:
+
+- separate public entry points from helper lemmas
+- make theorem naming parallel across:
+  - generic
+  - periodic
+  - sporadic
+  - jittered-periodic
+  - partitioned
+  - global
+- document which theorems are intended as stable downstream APIs
+
 ---
 
 ## 2. Phase B: Task-generation layer
 **Status: Partially done**
 
-This phase should come earlier than in the old roadmap, because the current code
-already contains task/job structure and an initial periodic layer.
+This phase comes early because the current code already contains substantial
+task/job structure together with periodic, sporadic, and jittered variants.
 
 ### B-1. Periodic tasks
-**Status: Finite-horizon bridge, partitioned lift, and workload hooks done**
+**Status: Finite-horizon bridge, enumeration, lifts, and analysis hooks implemented**
 
 Implemented core:
 
-- `Base.v` already contains task-related fields
-- `PeriodicTasks.v`: expected release, expected deadline,
-  generated-by-periodic-task predicate, periodic-job-model predicates,
-  implicit-deadline task predicate, basic consistency lemmas
-- `PeriodicFiniteHorizon.v`: `periodic_jobset_upto` with bool reflection
-- `PeriodicEnumeration.v`: `PeriodicFiniteHorizonCodec`, `enum_periodic_jobs_upto`
-  — sound and complete codec-based job enumeration for finite horizons
-- `PeriodicFiniteOptimalityLift.v` (new): generic uniprocessor periodic
-  finite-optimality theorem; abstracts over any policy satisfying the
-  standard `finite-optimality` contract
-- `PeriodicEDFBridge.v`: thin EDF wrapper over `PeriodicFiniteOptimalityLift`
-- `PeriodicLLFBridge.v`: thin LLF wrapper over `PeriodicFiniteOptimalityLift`
-- `PeriodicPartitionedFiniteOptimalityLift.v` (new): connects periodic
-  task generation to `partitioned_scheduler` via `partitioned_finite_optimality_lift`
-- `PeriodicWorkload.v`: finite-horizon per-task count/workload bounds for
-  explicit job lists, intended as analysis hooks on top of the periodic model
+- `Base.v` contains task-related fields
+- `PeriodicTasks.v`
+- `PeriodicFiniteHorizon.v`
+- `PeriodicEnumeration.v`
+- `PeriodicFiniteOptimalityLift.v`
+- `PeriodicEDFBridge.v`
+- `PeriodicLLFBridge.v`
+- `PeriodicPartitionedFiniteOptimalityLift.v`
+- `PeriodicWorkload.v`
+- `PeriodicDemandBound.v`
+- `PeriodicWindowDemandBound.v`
+
+What is already done:
+
+- periodic task/job generation predicates and consistency lemmas exist
+- finite-horizon periodic enumeration exists with codec-based soundness/completeness
+- generic periodic finite-optimality lift exists
+- EDF / LLF wrappers exist
+- periodic partitioned lift exists
+- periodic workload and demand-bound hooks exist
 
 What remains:
 
-- sporadic task-generation layer
 - utilization / Liu & Layland style theorems
-- release-pattern foundation now lives in `PeriodicReleaseLemmas.v`
-  and should be reused by sporadic/jitter extensions
+- stronger periodic analysis beyond the current finite-horizon / witness pipeline
+- automation for routine finite-horizon bridge construction where structurally obvious
 
 ### B-2. Sporadic tasks
 **Status: Finite-horizon witness layer and workload hooks implemented**
 
 Implemented:
 
-- `SporadicTasks.v`: `unique_task_index_on`, `sporadic_separation_on`,
-  `sporadic_job_model_on`, `earliest_sporadic_release`,
-  `generated_by_sporadic_task`, `generated_by_sporadic_task_b`
-- `TaskModels/Common/FiniteHorizonWitness.v`,
-  `TaskModels/Common/WitnessCandidates.v`,
-  `TaskModels/Common/WitnessFiniteOptimalityLift.v`: shared witness API for
-  manual finite-horizon enumeration and scheduler lifting
-- `SporadicFiniteHorizon.v`: `sporadic_jobset_upto` updated to use
-  `generated_by_sporadic_task`; boolean reflection updated;
-  finite-horizon release/index bound lemmas added
-- `SporadicWorkload.v`: finite-horizon per-task job-count / cumulative-workload
-  bounds for explicit job lists under uniqueness and separation assumptions
-- `SporadicEnumeration.v`: specialization of the shared witness API to
-  `sporadic_jobset_upto`; intentionally not an automatic codec
-- `SporadicPeriodicBridge.v`: `generated_by_periodic_implies_sporadic`,
-  `periodic_model_satisfies_separation`, `periodic_model_implies_sporadic_model`
-- EDF / LLF / partitioned lift bridges: witness-based entry points for the
-  sporadic finite-horizon API
+- `SporadicTasks.v`
+- `TaskModels/Common/FiniteHorizonWitness.v`
+- `TaskModels/Common/WitnessCandidates.v`
+- `TaskModels/Common/WitnessFiniteOptimalityLift.v`
+- `SporadicFiniteHorizon.v`
+- `SporadicWorkload.v`
+- `SporadicEnumeration.v`
+- `SporadicPeriodicBridge.v`
+- EDF / LLF / partitioned witness-based lift bridges
+- `SporadicDemandBound.v`
+
+What is already done:
+
+- sporadic generation predicates and separation-based model exist
+- shared finite-horizon witness API exists
+- witness-based finite-horizon scheduling lifts exist
+- periodic-to-sporadic bridge exists
+- sporadic workload and demand-bound hooks exist
 
 What remains:
 
-- utilization / Liu & Layland style theorems
+- utilization / Liu & Layland style theorems where appropriate
 - stronger analysis results beyond the finite-horizon witness pipeline
 
 Design note:
 
-- sporadic still has no automatic codec because releases are not determined by
+- sporadic has no automatic codec because releases are not determined by
   `(task, index)` alone
 - the intended finite-horizon abstraction is a manual witness record carrying
-  `enumJ` plus soundness/completeness proofs
-- the witness pipeline and the analysis-hook layer are intentionally separate:
-  witnesses enumerate concrete finite horizons, while workload lemmas give
-  reusable count / WCET bounds over explicit finite job lists
+  `enumJ` plus soundness / completeness proofs
 
 ### B-3. Release jitter / arrival offsets
 **Status: Initial jittered-periodic layer implemented**
 
 Implemented:
 
-- `TaskModels/Jitter/ReleaseJitter.v`: reusable `within_jitter` predicate,
-  boolean reflection, lower/upper-bound lemmas
-- `JitteredPeriodicTasks.v`: bounded-release periodic generation predicate,
-  boolean reflection, local deadline/cost lemmas, periodic-to-jitter inclusion
-- `JitteredPeriodicSporadicBridge.v`: per-job bridge to sporadic generation,
-  model-level bridge when task scope, uniqueness, and separation are supplied
-- `JitteredPeriodicFiniteHorizon.v` and `JitteredPeriodicEnumeration.v`:
-  witness-based finite-horizon jobset API specialized from the shared witness
-  abstraction
-- `JitteredPeriodicFiniteOptimalityLift.v`: wrapper over the shared
-  finite-horizon witness lift
-- `JitteredPeriodicEDFBridge.v`, `JitteredPeriodicLLFBridge.v`,
-  `JitteredPeriodicPartitionedFiniteOptimalityLift.v`: EDF / LLF /
-  partitioned theorem wrappers
-- `Examples/JitteredPeriodicExamples.v`: manual witness example with delayed
-  releases and schedulability proofs
+- `TaskModels/Jitter/ReleaseJitter.v`
+- `JitteredPeriodicTasks.v`
+- `JitteredPeriodicSporadicBridge.v`
+- `JitteredPeriodicFiniteHorizon.v`
+- `JitteredPeriodicEnumeration.v`
+- `JitteredPeriodicFiniteOptimalityLift.v`
+- `JitteredPeriodicEDFBridge.v`
+- `JitteredPeriodicLLFBridge.v`
+- `JitteredPeriodicPartitionedFiniteOptimalityLift.v`
+- `JitteredPeriodicWorkload.v`
+- `JitteredPeriodicDemandBound.v`
+- `Examples/JitteredPeriodicExamples.v`
 
 Design note:
 
@@ -268,10 +347,20 @@ Design note:
 - no automatic codec is introduced, because actual releases are not recovered
   from `(task, index)` alone
 - promotion to the full sporadic model still requires an explicit
-  `sporadic_separation_on` assumption; bounded delay jitter alone does not
-  imply actual-release separation
+  `sporadic_separation_on` assumption
 
-### B-4. Why this phase is early
+### B-4. Utilization-based classical theory
+**Status: Not started**
+
+Planned:
+
+- utilization and density definitions
+- Liu & Layland style sufficient tests
+- classical EDF / RM-facing theorem interfaces where meaningful
+- clear separation between classical sufficient conditions and exact
+  busy-window / demand-bound results
+
+### B-5. Why this phase is early
 **Status: Design decision**
 
 Task-generation models that preserve the job-level semantic core should be added
@@ -331,19 +420,31 @@ What is already done:
 
 - the main entry points for lifting local schedulability already exist
 - `PartitionedFiniteOptimalityLift.v` provides a reusable finite-job lift
-  instantiated today by partitioned EDF and partitioned LLF
-- existing examples already demonstrate partitioned major results for the
-  generic, periodic, sporadic, and jittered-periodic paths
+- examples already demonstrate partitioned major results for:
+  - generic
+  - periodic
+  - sporadic
+  - jittered-periodic
+  paths
 
 What remains:
 
 - make the intended reusable theorem inventory explicit in the roadmap and docs
 - prepare the interface for later delay-aware partitioned analysis
 
+### C-4. Partitioned analysis-facing cleanup
+**Status: Not started**
+
+Planned:
+
+- make explicit which partitioned theorems are stable public APIs
+- isolate theorem families intended for later response-time / delay-aware analyses
+- align wrapper naming with periodic / sporadic / jittered-periodic bridge naming
+
 ---
 
 ## 4. Phase D: Multicore-common semantics
-**Status: Affinity layer added**
+**Status: Affinity layer and initial service/completion bridge layer implemented**
 
 Implemented core:
 
@@ -352,6 +453,8 @@ Implemented core:
 - `AffinityFacts.v`
 - `AdmissibleCandidateSource.v`
 - `TopMAdmissibilityBridge.v`
+- `Multicore/Common/ServiceFacts.v`
+- `Multicore/Common/CompletionFacts.v`
 
 What is already done:
 
@@ -362,26 +465,18 @@ What is already done:
 - bridge lemmas connecting multicore notions to the existing schedule model
 - `all_cpus_admissible` and `singleton_admissibility` concrete instances
 - general `cpu_affinity` / `affinity_admissibility` / `job_has_admissible_cpu` layer
-- equational embedding: both concrete instances are special cases of `affinity_admissibility`
-- `AdmissibleCandidateSourceSpec`: admissibility-aware completeness spec
-- `StrongAdmissibleCandidateSourceSpec`: stronger variant requiring every candidate to be admissible somewhere
-- `TopMAdmissibilityBridge`: policy-generic admissibility theorem layer
+- admissibility-aware candidate-source specs
+- migration-aware decomposition of `service_job` into projected per-CPU service
+- completion / eligibility bridges over the decomposed service view
 
 What remains:
 
 - multicore validity beyond the current minimal base
-- stronger service / completion lemmas under migration beyond the initial
-  common bridge layer
-- abstractions for top-m and non-partitioned selection
-- API stabilization: clarify public API vs helper lemma boundary in the bridge
-- richer affinity/candidate-source instantiation examples
-
-Newly implemented in the initial common bridge layer:
-
-- `Multicore/Common/ServiceFacts.v`: migration-aware decomposition of
-  `service_job` into the sum of per-CPU projected services
-- `Multicore/Common/CompletionFacts.v`: completion and eligibility bridges
-  stated in terms of the decomposed multicore service
+- stronger service / completion lemmas under migration
+- abstractions for top-`m` and non-partitioned selection beyond admissibility
+- API stabilization: clarify public API vs helper lemma boundary
+- richer affinity / candidate-source instantiation examples
+- foundations for fairness / interference reasoning on top of the current bridge layer
 
 ---
 
@@ -389,7 +484,7 @@ Newly implemented in the initial common bridge layer:
 **Status: Initial global layer started**
 
 ### E-1. Global scheduling
-**Status: Initial global EDF/LLF theorem layers done**
+**Status: Initial global EDF / LLF theorem layers done**
 
 What is already done:
 
@@ -402,13 +497,7 @@ What is already done:
   - `global_edf_no_duplication`
   - subset-aware theorem entry points
   - admissibility-aware wrappers
-- `GlobalLLF.v` provides:
-  - `global_llf_scheduler`
-  - `global_llf_valid`
-  - `global_llf_idle_outside_range`
-  - `global_llf_no_duplication`
-  - subset-aware theorem entry points
-  - admissibility-aware wrappers
+- `GlobalLLF.v` provides analogous theorem families
 
 What remains:
 
@@ -416,6 +505,7 @@ What remains:
 - tighten theorem inventory documentation for downstream analysis use
 - identify which global EDF / LLF facts should be lifted to policy-generic layers
 - richer candidate-source instantiation examples
+- prepare fairness / bounded waiting / migration-aware interference hooks
 
 ### E-2. Clustered scheduling
 **Status: Not started**
@@ -449,15 +539,15 @@ Planned:
 - connection back to job-level scheduling semantics
 
 This phase should come after multicore-common semantics and after the first
-global-scheduling layer, not alongside periodic tasks.
+global-scheduling layer.
 
 ---
 
 ## 7. Phase G: Analysis foundations
 **Status: In progress**
 
-This phase collects standard abstractions from scheduling theory that should be reusable
-across idealized, delay-aware, uniprocessor, and multicore analyses.
+This phase collects standard abstractions from scheduling theory that should be
+reusable across idealized, delay-aware, uniprocessor, and multicore analyses.
 
 ### G-1. Busy-window / busy-interval theory
 **Status: Search-space reduction layer implemented**
@@ -467,123 +557,105 @@ Implemented:
 - `Analysis/Uniprocessor/BusyInterval.v`
 - `Analysis/Uniprocessor/BusyIntervalLemmas.v`
 - `Examples/BusyIntervalExamples.v`
-- policy-independent busy interval definitions on top of `Schedule`
+- `Analysis/Uniprocessor/BusyWindowSearch.v`
+- `Analysis/Uniprocessor/ResponseTimeSearch.v`
+
+What is already done:
+
+- policy-independent busy-interval definitions on top of `Schedule`
 - prefix / suffix / no-idle-slot lemmas
 - maximal interval boundary decomposition lemmas
 - interval processor-supply aggregation for the single-CPU case
-- `Analysis/Uniprocessor/BusyWindowSearch.v`: busy-window search-space reduction layer
-  (`busy_window_candidate`, `busy_window_witness`, overload/deadline lemmas)
-- `Analysis/Uniprocessor/ResponseTimeSearch.v`: response-time search-space reduction layer
-  (`response_time_candidate`, `response_time_search_witness`)
+- busy-window search witnesses
+- response-time search witnesses
 
 Remaining:
 
-- Busy-interval existence at a busy time point: constructive extraction of maximal
-  busy interval from any busy slot (discrete-time last-idle-slot argument)
+- constructive extraction of maximal busy intervals from busy slots
 - policy-generic busy-window interfaces
+- tighter integration with downstream analysis-facing theorem inventories
 
 ### G-2. Demand-bound / request-bound theory
-**Status: Aggregate processor-demand hook layer implemented**
+**Status: Aggregate processor-demand layer implemented; EDF bridge stabilization in progress**
 
-Implemented:
+Implemented core:
 
-- `Analysis/Common/WorkloadAggregation.v`: `total_job_cost`, `total_job_cost_le_length_mul`,
-  `nat_mul_lt_ceil_div`, `ceil_div_mono` — shared workload-aggregation helpers
-- `Analysis/Uniprocessor/RequestBound.v`: `periodic_rbf`, `sporadic_rbf_bound`,
-  monotonicity lemmas, `periodic_rbf_zero`, `periodic_rbf_le_coarse_bound`
-- `PeriodicFiniteHorizon.v` / `SporadicFiniteHorizon.v`: `*_implies_index_lt_tight`
-  tight ceiling-division count bounds replacing the coarse `< H` bound
-- `PeriodicWorkload.v` / `SporadicWorkload.v` / `JitteredPeriodicWorkload.v`:
-  period-aware `⌈H/period⌉ × wcet` workload bounds; bridge lemmas to RBF
-- `Examples/RequestBoundExamples.v`: concrete RBF computations, monotonicity examples,
-  sporadic = periodic RBF example, coarse bound comparison, jitter→sporadic bound
-- `Analysis/Uniprocessor/DemandBound.v`: `periodic_dbf`, `sporadic_dbf_bound`,
-  `jittered_periodic_dbf_bound`; zero-before-deadline, at-deadline, monotonicity,
-  and `periodic_dbf_le_periodic_rbf` lemmas
-- `Analysis/Uniprocessor/ProcessorDemand.v`: `taskset_periodic_dbf`,
-  `taskset_sporadic_dbf_bound`, `taskset_jittered_periodic_dbf_bound`,
-  append / monotonicity / NoDup-stability lemmas, and a busy-interval
-  contradiction hook for processor-demand style arguments
-- `TaskModels/Periodic/PeriodicDemandBound.v`: `periodic_jobset_deadline_upto`,
-  index count bound, `periodic_demand_le_dbf`,
-  `periodic_total_demand_le_taskset_dbf`
-- `TaskModels/Periodic/PeriodicWindowDemandBound.v`:
-  `periodic_jobset_deadline_between`, finite window-DBF definitions,
-  and explicit-window-demand to aggregate-window-DBF bridge lemmas
-- `TaskModels/Sporadic/SporadicDemandBound.v`: `sporadic_jobset_deadline_upto`,
-  count bound, `sporadic_demand_le_dbf`,
-  `sporadic_total_demand_le_taskset_dbf`
-- `TaskModels/Jitter/JitteredPeriodicDemandBound.v`: `jittered_periodic_jobset_deadline_upto`,
-  bridge to sporadic, `jittered_periodic_demand_le_dbf`,
-  `jittered_periodic_total_demand_le_taskset_dbf`
-- `Examples/DemandBoundExamples.v`: concrete DBF computations, periodic/sporadic demand
-  bound examples
-- `Examples/ProcessorDemandExamples.v`: aggregate DBF computations and
-  processor-demand hook examples
-- `Analysis/Uniprocessor/EDFProcessorDemand.v`: EDF-facing busy-window wrappers,
-  window-overload contradiction core, and
-  EDF-specific theorem interfaces
-  `periodic_window_dbf_implies_no_deadline_miss_under_edf` and
-  `periodic_window_dbf_implies_edf_feasible_on_finite_horizon`
-  (both now proven at stronger interfaces that require an explicit EDF
-  schedule witness; the no-miss theorem also requires a busy-window/no-carry-in
-  bridge, and the finite-horizon feasibility theorem packages that witness
-  into `feasible_on`)
-- `TaskModels/Periodic/PeriodicEDFBridge.v`: window-DBF bridge theorems
-  `periodic_edf_schedulable_by_window_dbf_on_finite_horizon` and
-  `periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto` now close
-  without `feasible_on` as a hypothesis
-- `TaskModels/Periodic/PeriodicEDFBridge.v`: busy-prefix public wrappers
-  `..._with_busy_prefix` added for no-miss / feasible-schedule /
-  schedulable-by-on variants
-- `Analysis/Uniprocessor/EDFProcessorDemand.v`: periodic EDF busy-prefix
-  assumptions are now packaged by `periodic_edf_busy_prefix_bridge`, so the
-  analysis-facing generated/finite-horizon interfaces can share one explicit
-  bridge record instead of repeating start-before-release and no-carry-in
-  premises separately
-- `Examples/PeriodicProcessorDemandExamples.v`: periodic window-DBF computations
-  and bridge-theorem usage examples
-  `periodic_example_edf_no_deadline_miss_by_window_dbf_auto` /
-  `periodic_example_edf_schedulable_by_window_dbf_auto`
-  (no longer requires explicit `feasible_on`)
-- `Examples/PeriodicProcessorDemandExamples.v`: busy-prefix bridge examples
-  `periodic_example_edf_no_deadline_miss_by_window_dbf_auto_with_busy_prefix` /
-  `periodic_example_edf_schedulable_by_window_dbf_auto_with_busy_prefix`
-- `Analysis/Uniprocessor/BusyWindowSearch.v`: finite-horizon busy-prefix layer
-  (`busy_prefix_candidate`, `busy_prefix_witness`) added alongside the older
-  maximal-window witness
-- `Analysis/Uniprocessor/ResponseTimeSearch.v`: response-time search now also
-  has prefix-witness forms for finite-horizon reasoning
-- `Analysis/Uniprocessor/EDFProcessorDemand.v`: no-carry-in and finite-horizon
-  feasibility theorems now have busy-prefix variants, reducing dependence on a
-  maximal right boundary
+- `Analysis/Common/WorkloadAggregation.v`
+- `Analysis/Uniprocessor/RequestBound.v`
+- `Analysis/Uniprocessor/DemandBound.v`
+- `Analysis/Uniprocessor/ProcessorDemand.v`
+- periodic / sporadic / jittered-periodic demand-bound bridge files
+- `Examples/RequestBoundExamples.v`
+- `Examples/DemandBoundExamples.v`
+- `Examples/ProcessorDemandExamples.v`
+- `Analysis/Uniprocessor/EDFProcessorDemand.v`
+- `Examples/PeriodicProcessorDemandExamples.v`
+
+What is already done:
+
+- shared workload aggregation lemmas exist
+- periodic / sporadic / jittered-periodic RBF / DBF interfaces exist
+- aggregate taskset DBF interfaces exist
+- explicit finite-window demand bridges exist
+- busy-window contradiction hooks exist for processor-demand style arguments
+- EDF-facing theorem interfaces exist for:
+  - no deadline miss under explicit schedule witness assumptions
+  - finite-horizon feasibility under explicit witness assumptions
+- `PeriodicEDFBridge.v` now exposes public theorem families that no longer require
+  `feasible_on` as an input hypothesis
+- busy-prefix public wrappers exist
+- packaged bridge records exist for the periodic EDF busy-prefix assumptions
 
 Remaining:
 
 - finish migrating remaining periodic EDF clients to the packaged
-  `periodic_edf_busy_prefix_bridge` API and automate routine bridge
-  construction where it is structurally obvious
-- deeper schedulability / response-time theorems consuming the new busy-window search hook
+  `periodic_edf_busy_prefix_bridge` API
+- automate routine bridge construction where it is structurally obvious
+- decide which witness / bridge records should become policy-generic public APIs
+- add deeper schedulability / response-time theorems on top of the new hooks
+
+### G-2a. EDF processor-demand bridge stabilization
+**Status: Active near-term priority**
+
+This is the current bridge-closure work for the roadmap.
+
+Planned:
+
+- make the packaged busy-prefix bridge the default public interface
+- keep stronger-interface theorems as the canonical public statements
+- reduce duplication across:
+  - generated-jobset views
+  - finite-horizon views
+  - busy-prefix views
+- treat bridge packaging and client migration as an explicit milestone, not as
+  incidental cleanup
+- only after this closes, widen the same style to other bridges and theorem families
 
 ### G-3. Supply-bound / interface theory
 **Status: Not started**
 
 Planned:
 
-- supply bound function (sbf)
+- supply bound function (`sbf`)
 - service curves / lower supply abstractions
 - interface-based analysis hooks
 - future compatibility with hierarchical scheduling
 
 ### G-4. Analysis-ready workload abstractions
-**Status: In progress**
+**Status: Finite-horizon workload hook layer implemented; interval/interference layer not yet started**
 
-Planned:
+Implemented:
 
-- periodic / sporadic / jittered-periodic finite-horizon workload bounds
+- periodic finite-horizon workload bounds
+- sporadic finite-horizon workload bounds
+- jittered-periodic finite-horizon workload bounds
+
+Remaining:
+
 - workload bounds on intervals
-- interference templates
-- reusable counting lemmas for idealized and delay-aware response-time analyses
+- reusable interference templates
+- service / delay decomposition hooks for later response-time analyses
+- multicore-aware workload / interference abstractions built on Phase D and E
 
 ---
 
@@ -622,7 +694,7 @@ Planned:
 
 - define how an operational trace projects to an abstract schedule
 - define what it means for the projection to lag behind ideal decisions
-- isolate machine/OS delay from policy semantics
+- isolate machine / OS delay from policy semantics
 
 ---
 
@@ -638,7 +710,7 @@ Planned:
 
 - abstract blocking terms
 - critical-section model
-- lock/resource ownership model
+- lock / resource ownership model
 - interfaces suitable for PCP / SRP style protocols
 - later extension hooks for multiprocessor locking protocols
 
@@ -647,7 +719,7 @@ Planned:
 
 Planned:
 
-- self-suspending jobs/tasks
+- self-suspending jobs / tasks
 - segmented execution models
 - separation between execution demand and suspension delay
 - sufficient conditions for safe upper bounds
@@ -670,11 +742,11 @@ Planned:
 Implemented core:
 
 - `SchedulingAlgorithmRefinement.v`
-- abstract-policy / executable-algorithm connection for current single-CPU developments
 
 What is already done:
 
-- abstract policy -> executable chooser pipeline exists in the current single-CPU theory
+- abstract policy -> executable chooser pipeline exists in the current
+  single-CPU theory
 
 What remains:
 
@@ -695,8 +767,10 @@ Planned:
   - wakeup / block / completion events
   - timer / reschedule / migration events
 - define projection from Awkernel operational traces to abstract schedules
-- prove refinement from Awkernel-oriented scheduler behavior to the abstract scheduling semantics
-- complete the refinement chain end-to-end on Awkernel before attempting the same standard on Linux
+- prove refinement from Awkernel-oriented scheduler behavior to the abstract
+  scheduling semantics
+- complete the refinement chain end-to-end on Awkernel before attempting the
+  same standard on Linux
 
 Rationale:
 
@@ -719,10 +793,22 @@ Planned:
 - isolate proof-relevant scheduler state from engineering details
 - keep the abstract schedule model stable while refining the operational layer underneath
 
+### J-3. Analysis-to-implementation bridge
+**Status: Not started**
+
+Planned:
+
+- identify which assumptions from analysis are exported by implementation-facing layers
+- connect witness / bridge layers to operational traces and projections
+- reuse the same bridge discipline for:
+  - Awkernel refinement
+  - Linux trace-based validation
+- make analysis-relevant invariants explicit rather than implicit in later proofs
+
 ---
 
 ## 11. Phase K: Analysis on top of semantics
-**Status: Not started**
+**Status: Not started as a full theorem layer; foundations exist in Phase G**
 
 Planned:
 
@@ -733,12 +819,13 @@ Planned:
 - speedup bounds / policy comparison
 
 ### K-1. Idealized analysis
-**Status: Not started**
+**Status: Initial EDF processor-demand entry points exist**
 
 Planned:
 
-- zero-overhead, zero-jitter, zero-blocking baseline theorems
-- clean reuse of the existing abstract semantic core
+- package current periodic EDF results into a stable idealized-analysis inventory
+- add response-time theorems consuming busy-window / DBF / RBF abstractions
+- extend from the current periodic EDF path to broader policy / task-model combinations
 
 ### K-2. Delay-aware analysis
 **Status: Not started**
@@ -763,7 +850,7 @@ Planned:
 
 - “things get no worse when parameters improve” theorems
 - monotonicity with respect to lower execution costs
-- monotonicity with respect to smaller delays/blocking/jitter
+- monotonicity with respect to smaller delays / blocking / jitter
 - reusable theorem shapes for later policy-specific analyses
 
 ### K-4. Speedup / resource augmentation
@@ -773,7 +860,7 @@ Planned:
 
 - speedup-factor statements
 - capacity augmentation style comparisons
-- policy comparison under bounded extra speed/resources
+- policy comparison under bounded extra speed / resources
 - global vs partitioned comparison hooks
 
 ### K-5. Placement principle
@@ -790,14 +877,9 @@ Planned:
 - define a trace schema for externally observed scheduler behavior
 - instantiate the schema for Linux traces
 - relate observed trace events to the abstract schedule / delay-aware model
-- validate whether theoretical invariants and analysis assumptions are reflected in observed executions
+- validate whether theoretical invariants and analysis assumptions are reflected
+  in observed executions
 - use Linux as an external applicability case, not as the first full refinement target
-
-Rationale:
-
-- Linux is not fully designable by this project
-- the immediate value is to show external applicability of the formal framework
-- trace-based validation is a realistic bridge between theory and production OS behavior
 
 ### K-7. Linux as external applicability benchmark
 **Status: Not started**
@@ -818,11 +900,11 @@ Planned:
 ## 12. Phase L: Hierarchical scheduling and compositional interfaces
 **Status: Not started**
 
-This phase is a natural extension once demand/supply abstractions exist.
+This phase is a natural extension once demand / supply abstractions exist.
 
 Planned:
 
-- server/reservation abstractions
+- server / reservation abstractions
 - compositional interfaces
 - component-level schedulability contracts
 - relation to supply-bound functions
@@ -833,7 +915,8 @@ Planned:
 ## 13. Phase M: Future advanced extensions
 **Status: Not started**
 
-These are worthwhile, but should remain clearly downstream of the core semantic and analysis pipeline.
+These are worthwhile, but should remain clearly downstream of the core semantic
+and analysis pipeline.
 
 ### M-1. Mixed-criticality scheduling
 **Status: Not started**
@@ -851,59 +934,108 @@ Planned:
 Planned:
 
 - stronger parallel workload models
-- work/span style abstractions if useful
+- work / span style abstractions if useful
 - scheduling guarantees for parallel real-time computations
 
 ---
 
-## 14. Practical priority order from the current implementation
+## 14. Immediate milestones from the current implementation
+
+### Immediate milestone 1
+Finish the periodic EDF processor-demand bridge stabilization work.
+
+This means:
+
+- migrate remaining clients to `periodic_edf_busy_prefix_bridge`
+- keep the stronger witness-based statements as the stable public layer
+- automate routine bridge construction where the structure is obvious
+
+### Immediate milestone 2
+Synchronize theorem inventory and design documents.
+
+This means:
+
+- update `what_to_prove.md`
+- update `design/ArchitecturalLayering.md`
+- align representative examples with the intended public APIs
+
+### Immediate milestone 3
+Make the partitioned and global theorem layers easier to consume downstream.
+
+This means:
+
+- document stable entry points
+- keep wrappers thin
+- make the policy-generic vs policy-specific boundary explicit
+
+### Immediate milestone 4
+Strengthen multicore-common semantics toward later interference and fairness work.
+
+This means:
+
+- richer service / completion facts
+- clearer top-`m` abstraction boundaries
+- better admissibility / candidate-source instantiations
+
+### Immediate milestone 5
+Define the first Awkernel-facing operational projection slice.
+
+This means:
+
+- pick a minimal operational scheduler state
+- define trace-to-schedule projection
+- prepare the first refinement-facing interface
+
+---
+
+## 15. Practical priority order from the current implementation
 
 ### Priority 1
-Stabilize and document the reusable uniprocessor core.
+Finish **EDF processor-demand bridge stabilization** and client migration.
 
 ### Priority 2
-Finish the partitioned theorem layer and clean up policy lifting.
+Synchronize **roadmap / theorem inventory / architectural layering** documents.
 
 ### Priority 3
-Promote periodic/sporadic task-generation models earlier in the roadmap, including release jitter / offsets.
+Stabilize the reusable **partitioned theorem layer** and its public inventory.
 
 ### Priority 4
-Strengthen multicore-common semantics.
+Strengthen **multicore-common semantics** and top-`m`-facing abstractions.
 
 ### Priority 5
-Strengthen the existing global EDF/LLF theorem layers.
+Strengthen the existing **global EDF / LLF theorem layers**.
 
 ### Priority 6
-Complete **Awkernel-first refinement verification** for a designable OS.
+Start **Awkernel-first operational semantics and projection discipline**.
 
 ### Priority 7
-Introduce analysis foundations: busy intervals, dbf/rbf, and sbf/interface abstractions.
+Deepen **idealized analysis** on top of the busy-window / DBF / RBF foundations.
 
 ### Priority 8
-Introduce OS-level delay sources and projection discipline.
+Introduce **OS-level delay sources** and bounded-delay projection discipline.
 
 ### Priority 9
 Use **Linux trace-based validation** to demonstrate external applicability.
 
 ### Priority 10
-Add shared-resource, suspension, and limited-preemption models.
+Add **shared-resource, suspension, and limited-preemption models**.
 
 ### Priority 11
-Strengthen refinement with bounded-delay statements.
+Strengthen **refinement with bounded-delay statements**.
 
 ### Priority 12
-Build idealized and delay-aware schedulability/response-time analysis on top.
+Build fuller **partitioned / global / delay-aware analysis** on top.
 
 ### Priority 13
-Add hierarchical scheduling / compositional interfaces.
+Add **hierarchical scheduling / compositional interfaces**.
 
 ### Priority 14
-Add DAG/parallel and mixed-criticality extensions.
+Add **DAG / parallel and mixed-criticality extensions**.
 
 ---
 
-## 15. One-line summary
+## 16. One-line summary
 
-The project should complete **refinement verification on Awkernel as a designable OS first**,
-and then use **Linux trace-based validation** to demonstrate that the framework also applies
-externally to real existing operating systems.
+The project should first close the current **EDF bridge and multicore theorem-layer stabilization work**,
+then complete **refinement verification on Awkernel as a designable OS**,
+and finally use **Linux trace-based validation** to demonstrate external applicability.
