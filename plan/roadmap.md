@@ -716,6 +716,29 @@ Next:
   than importing `ProcessorSupply`, `Interference`, and `GlobalEntryPoints`
   separately
 
+### G-4b. Multicore workload absorption hooks
+**Status: Implemented**
+
+Implemented:
+
+- `Analysis/Multicore/GlobalWorkloadAbsorption.v` as the analysis-facing hook
+  layer above processor supply, interference, and the global theorem layer
+- multicore list-service upper bounds built from `valid_schedule` and
+  `no_duplication`
+- capacity-recovery theorem that turns
+  full-supply + covering-list assumptions into list-service = machine-capacity
+- strict workload-gap wrappers for global EDF / LLF when a job stays
+  eligible/admissible but non-running across an interval
+- packaged re-export through `Analysis/Multicore/GlobalAnalysisEntryPoints.v`
+  and a representative downstream example
+
+Next:
+
+- build fairness / tardiness / bounded-waiting analyses on top of the
+  workload-absorption API rather than re-deriving interval supply arguments
+- decide which parts of the EDF / LLF wrappers should later move into a more
+  policy-generic top-`m` analysis layer
+
 ---
 
 ## 8. Phase H: OS-level operational semantics

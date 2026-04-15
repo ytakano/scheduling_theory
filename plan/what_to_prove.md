@@ -746,6 +746,24 @@ internal/helper inventory として扱うもの:
 - coverage-based interference templates を full-supply consequence から
   workload-absorption statementsへ拡張する
 
+追加済み public inventory:
+
+- `Analysis/Multicore/GlobalWorkloadAbsorption.v`
+- `total_service_between_list_le_total_job_cost`
+- `covering_list_full_supply_implies_total_service_eq_capacity`
+- strict workload-gap wrappers:
+  - `global_edf_not_running_admissible_job_interval_implies_workload_gap`
+  - `global_edf_not_running_eligible_job_interval_implies_workload_gap`
+  - `global_llf_not_running_admissible_job_interval_implies_workload_gap`
+  - `global_llf_not_running_eligible_job_interval_implies_workload_gap`
+
+残作業の更新:
+
+- fairness / tardiness の client theorem を、この workload-absorption 層の上で
+  どの粒度で packaged 化するか整理する
+- policy-specific wrapper から top-`m` policy-generic analysis hook へ持ち上げる
+  範囲を見極める
+
 ## 8-2. clustered scheduling
 **Status: Not started**
 

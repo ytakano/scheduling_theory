@@ -11,6 +11,7 @@ theories/Abstractions/SchedulingAlgorithm/TopMSchedulerBridge.v
 theories/Analysis/Common/WorkloadAggregation.v
 theories/Analysis/Multicore/ProcessorSupply.v
 theories/Analysis/Multicore/Interference.v
+theories/Analysis/Multicore/GlobalWorkloadAbsorption.v
 theories/Analysis/Multicore/GlobalAnalysisEntryPoints.v
 theories/Analysis/Uniprocessor/BusyInterval.v
 theories/Analysis/Uniprocessor/BusyIntervalLemmas.v

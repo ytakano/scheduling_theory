@@ -62,3 +62,40 @@ Proof.
   rewrite eligible_iff_released_and_service_sum_lt_cost in Helig.
   exact (proj2 Helig).
 Qed.
+
+Lemma valid_no_duplication_service_sum_le_cost :
+  forall jobs m sched j t,
+    valid_schedule jobs m sched ->
+    no_duplication m sched ->
+    service_sum_on_cpus m sched j t <= job_cost (jobs j).
+Proof.
+  intros jobs m sched j t Hvalid Hnd.
+  induction t as [|t IH].
+  - rewrite <- service_job_eq_sum_of_cpu_services.
+    simpl.
+    apply Nat.le_0_l.
+  - rewrite service_sum_on_cpus_step.
+    destruct (no_duplication_cpu_count_0_or_1 m sched j t Hnd) as [Hzero | Hone].
+    + rewrite Hzero. lia.
+    + assert (Hrun : running m sched j t).
+      { apply (proj1 (no_duplication_cpu_count_eq_1_iff_executed m sched j t Hnd)).
+        exact Hone.
+      }
+      pose proof (valid_running_implies_service_sum_lt_cost jobs m sched j t Hvalid Hrun)
+        as Hlt.
+      lia.
+Qed.
+
+Lemma valid_no_duplication_service_between_le_cost :
+  forall jobs m sched j t1 t2,
+    valid_schedule jobs m sched ->
+    no_duplication m sched ->
+    t1 <= t2 ->
+    service_between m sched j t1 t2 <= job_cost (jobs j).
+Proof.
+  intros jobs m sched j t1 t2 Hvalid Hnd Hle.
+  rewrite service_between_eq_sum_of_cpu_services by lia.
+  pose proof (valid_no_duplication_service_sum_le_cost jobs m sched j t2 Hvalid Hnd)
+    as Hbound.
+  lia.
+Qed.

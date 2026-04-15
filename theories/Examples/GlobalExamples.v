@@ -25,6 +25,9 @@ Definition global_example_llf_excluded_job_interval_implies_full_supply :=
 Definition global_example_covering_list_recovers_machine_supply :=
   global_covering_list_recovers_machine_supply_example.
 
+Definition global_example_llf_excluded_job_interval_implies_workload_gap :=
+  global_llf_excluded_job_interval_implies_workload_gap_example.
+
 Definition global_example_service_preserved_under_migration :=
   migrating_global_service_is_preserved.
 

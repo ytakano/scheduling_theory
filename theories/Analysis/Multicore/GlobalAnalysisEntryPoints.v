@@ -1,5 +1,6 @@
 From RocqSched Require Export Analysis.Multicore.ProcessorSupply.
 From RocqSched Require Export Analysis.Multicore.Interference.
+From RocqSched Require Export Analysis.Multicore.GlobalWorkloadAbsorption.
 From RocqSched Require Export Multicore.Global.GlobalEntryPoints.
 
 (** * Stable public entry points for multicore global analysis
@@ -11,9 +12,9 @@ From RocqSched Require Export Multicore.Global.GlobalEntryPoints.
     - machine-supply equalities and capacity bounds
     - interval full-supply consequences
     - covering-list interference lemmas
+    - workload-absorption and strict workload-gap hooks
     - global EDF / LLF analysis-facing bridge facts
 
     Not part of this layer:
     - helper lemmas internal to processor-supply or interference proofs
-    - future fairness / tardiness APIs
     - delay-aware or OS-operational refinements *)

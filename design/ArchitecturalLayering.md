@@ -181,6 +181,10 @@ Currently implemented in `theories/Analysis/`:
 - `Multicore/Interference.v`: multicore list-service aggregation and the
   reusable hook that recovers machine supply from a list covering the running
   set over an interval
+- `Multicore/GlobalWorkloadAbsorption.v`: analysis-facing workload-absorption
+  layer that combines full-supply consequences, covering-list interference, and
+  list-workload upper bounds into strict workload-gap statements for downstream
+  fairness / tardiness clients
 - `Uniprocessor/BusyInterval.v`, `BusyIntervalLemmas.v`: uniprocessor busy-interval
   foundations
 - `Uniprocessor/BusyWindowSearch.v`: busy-window and busy-prefix witness layers
@@ -225,6 +229,10 @@ Concretely:
 - `Analysis/Multicore/GlobalAnalysisEntryPoints.v` is the canonical downstream
   import for analysis-facing multicore clients that also need processor-supply
   and interference theorems
+- `Analysis/Multicore/GlobalWorkloadAbsorption.v` sits between those packaged
+  entry points and future fairness / tardiness clients: it consumes the global
+  theorem layer plus the multicore analysis helpers, but does not push
+  workload-absorption statements down into the policy theorem files themselves
 
 This keeps policy-specific global theorems and analysis-layer interval facts
 separate while still exposing one stable packaged boundary to downstream proof
