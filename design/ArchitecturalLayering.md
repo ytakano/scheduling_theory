@@ -187,6 +187,12 @@ Currently implemented in `theories/Analysis/`:
   the packaged `periodic_edf_busy_prefix_bridge` interface connecting
   busy-prefix witnesses to periodic no-carry-in obligations
 
+For the periodic EDF processor-demand line, `periodic_edf_busy_prefix_bridge`
+is the default public interface. Older pair-of-hypotheses formulations may
+remain as compatibility wrappers, but new public theorem wiring should pass
+through the packaged bridge record rather than treating the two obligations as
+separate primary inputs.
+
 This layer is important because these concepts are used by many later results, but they do not belong to:
 
 - `Semantics`, because they are not part of the meaning of schedules themselves

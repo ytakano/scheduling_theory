@@ -1000,26 +1000,27 @@ Remaining:
 # Recommended next proof priorities
 
 ## Priority 1
-`Lv.5 Partitioned` を theorem inventory として整理し直す。
+Periodic EDF の busy-prefix / processor-demand bridge public API を安定化する。
 
 ## Priority 2
-`Lv.6 Task-generation` を periodic / sporadic / release jitter まで前倒しで強化する。
+`roadmap.md` / `what_to_prove.md` / 代表 example の文書同期を完了する。
 
 ## Priority 3
-`Lv.10 OS-like operational semantics` と `Lv.11 Delay / overhead model` の骨格を入れる。
+`Lv.5 Partitioned` を theorem inventory として整理し直す。
 
 ## Priority 4
-`Lv.12 Refinement` で bounded-delay refinement を設計する。
+`Lv.6 Task-generation` を periodic / sporadic / release jitter まで前倒しで強化する。
 
 ## Priority 5
-その上で `Lv.13 Analysis` として idealized / delay-aware response-time analysis に進む。
+`Lv.10 OS-like operational semantics` と `Lv.11 Delay / overhead model` の骨格を入れ、その後 `Lv.12 Refinement` と `Lv.13 Analysis` に進む。
 
 ---
 
 # One-line summary
 
-単一CPUの generic optimality core はすでに主要部分が完成している。
-今後の主戦場は、
+単一CPUの generic optimality core はすでに主要部分が完成しており、
+直近の最優先は periodic EDF の bridge public API 安定化である。
+その後の主戦場は、
 
 - partitioned の theorem-layer completion
 - periodic/sporadic/release-jitter generation strengthening

@@ -1191,6 +1191,30 @@ Proof.
   constructor; assumption.
 Qed.
 
+Lemma periodic_edf_busy_prefix_bridge_specialize :
+  forall T tasks offset jobs H sched j t1 t2,
+    periodic_edf_busy_prefix_bridge T tasks offset jobs H sched j ->
+    busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 ->
+    t1 <= job_release (jobs j) /\
+    (forall t j_run,
+      job_release (jobs j) <= t < job_abs_deadline (jobs j) ->
+      sched t 0 = Some j_run ->
+      periodic_jobset_deadline_between T tasks offset jobs
+        t1 (job_abs_deadline (jobs j)) j_run ->
+      job_release (jobs j) <= job_release (jobs j_run)).
+Proof.
+  intros T tasks offset jobs H sched j t1 t2 Hbridge Hwit.
+  split.
+  - exact
+      (periodic_edf_busy_prefix_start_before_release
+         T tasks offset jobs H sched j Hbridge t1 t2 Hwit).
+  - intros t j_run Hbetween Hsched Hdeadline_between.
+    eapply periodic_edf_busy_prefix_no_carry_in; eauto.
+    exact
+      (periodic_edf_busy_prefix_start_before_release
+         T tasks offset jobs H sched j Hbridge t1 t2 Hwit).
+Qed.
+
 Theorem periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_busy_prefix_bridge :
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -1275,6 +1299,10 @@ Proof.
   destruct (busy_prefix_witness_exists_from_busy_time
               sched (job_abs_deadline (jobs j)) Hbusy_at_deadline)
     as [t1 [t2 Hwit]].
+  destruct
+    (periodic_edf_busy_prefix_bridge_specialize
+       T tasks offset jobs H sched j t1 t2 Hbridge Hwit)
+    as [Ht1rel Hcarry_free].
   pose proof
     (periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in
        T tasks offset H enumT enumJ jobs codec sched j t1 t2
@@ -1284,16 +1312,7 @@ Proof.
        (enum_periodic_jobs_upto_sound T tasks offset jobs H enumT codec
           HenumT_sound)
        HenumT_complete
-       Hsched Hj Hwit
-       (periodic_edf_busy_prefix_start_before_release
-          T tasks offset jobs H sched j Hbridge t1 t2 Hwit)
-       Hj_H
-       (periodic_edf_busy_prefix_no_carry_in
-          T tasks offset jobs H sched j Hbridge
-          t1 t2 Hwit
-          (periodic_edf_busy_prefix_start_before_release
-             T tasks offset jobs H sched j Hbridge t1 t2 Hwit))
-       Hdbf) as Hnmiss.
+       Hsched Hj Hwit Ht1rel Hj_H Hcarry_free Hdbf) as Hnmiss.
   exact (Hnmiss Hmiss).
 Qed.
 
@@ -1437,13 +1456,10 @@ Proof.
   - unfold feasible_schedule_on.
     intros j Hj.
     destruct (Hjob_bridge j Hj) as [Hj_H [t1 [t2 [Hwit Hbridge]]]].
-    pose proof
-      (periodic_edf_busy_prefix_start_before_release
-         T tasks offset jobs H sched j Hbridge t1 t2 Hwit) as Ht1rel.
-    pose proof
-      (periodic_edf_busy_prefix_no_carry_in
-         T tasks offset jobs H sched j Hbridge t1 t2 Hwit Ht1rel)
-      as Hcarry_free.
+    destruct
+      (periodic_edf_busy_prefix_bridge_specialize
+         T tasks offset jobs H sched j t1 t2 Hbridge Hwit)
+      as [Ht1rel Hcarry_free].
     eapply periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in
       with (codec := codec)
            (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec)

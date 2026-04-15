@@ -692,7 +692,8 @@ Proof.
     (periodic_window_dbf_implies_edf_feasible_on_finite_horizon_with_busy_prefix
        T tasks offset H enumT jobs codec sched
        Hwf HnodupT HenumT_complete HenumT_sound
-       Hsched Hjob_bridge Hdbf) as Hfeas.
+       Hsched Hjob_bridge
+       Hdbf) as Hfeas.
   eapply periodic_edf_optimality_on_finite_horizon_auto; eauto.
 Qed.
 
