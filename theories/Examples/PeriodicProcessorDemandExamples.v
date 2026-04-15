@@ -2,6 +2,7 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
+From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import Analysis.Uniprocessor.BusyWindowSearch.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
@@ -188,6 +189,64 @@ Proof.
   intros sched Hsched Hjob_bridge.
   eapply periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto_with_busy_prefix
     with (sched := sched) (enumT := enumT_ex); eauto.
+  - exact tasks_ex_well_formed.
+  - exact enumT_ex_nodup.
+  - intros τ Hτ.
+    destruct Hτ as [Hτ | Hτ]; subst τ; simpl; tauto.
+  - intros τ Hτ.
+    simpl in Hτ.
+    destruct Hτ as [Hτ | [Hτ | []]]; subst τ.
+    + left. reflexivity.
+    + right. reflexivity.
+  - exact periodic_window_dbf_test.
+Qed.
+
+Theorem periodic_example_edf_schedulable_by_window_dbf_generated_with_busy_prefix :
+  (forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    job_abs_deadline (jobs_ex j) <= H_ex /\
+    (forall t1 t2,
+      busy_prefix_witness
+        (generated_schedule
+           edf_generic_spec
+           (enum_candidates_of
+              (enum_periodic_jobs_upto
+                 T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex))
+           jobs_ex)
+        (job_abs_deadline (jobs_ex j)) t1 t2 ->
+      t1 <= job_release (jobs_ex j)) /\
+    (forall t1 t2,
+      busy_prefix_witness
+        (generated_schedule
+           edf_generic_spec
+           (enum_candidates_of
+              (enum_periodic_jobs_upto
+                 T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex))
+           jobs_ex)
+        (job_abs_deadline (jobs_ex j)) t1 t2 ->
+      t1 <= job_release (jobs_ex j) ->
+      forall t j_run,
+        job_release (jobs_ex j) <= t < job_abs_deadline (jobs_ex j) ->
+        generated_schedule
+          edf_generic_spec
+          (enum_candidates_of
+             (enum_periodic_jobs_upto
+                T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex))
+          jobs_ex t 0 = Some j_run ->
+        periodic_jobset_deadline_between T_ex tasks_ex offset_ex jobs_ex
+          t1 (job_abs_deadline (jobs_ex j)) j_run ->
+        job_release (jobs_ex j) <= job_release (jobs_ex j_run))) ->
+  schedulable_by_on
+    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+    (edf_scheduler
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+    jobs_ex 1.
+Proof.
+  intro Hjob_bridge.
+  eapply periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix
+    with (enumT := enumT_ex); eauto.
   - exact tasks_ex_well_formed.
   - exact enumT_ex_nodup.
   - intros τ Hτ.

@@ -99,6 +99,7 @@ theories/Uniprocessor/Core/UniSchedulerInterface.v
 theories/Uniprocessor/Core/UniSchedulerLemmas.v
 theories/Uniprocessor/Generic/SchedulingAlgorithmCanonicalBridge.v
 theories/Uniprocessor/Generic/SchedulingAlgorithmNormalization.v
+theories/Uniprocessor/Generic/FinitePrefixScheduleWitness.v
 theories/Uniprocessor/Generic/SchedulingAlgorithmOptimalitySkeleton.v
 theories/Uniprocessor/Policies/Common/MetricChooser.v
 theories/Uniprocessor/Policies/Common/MetricChooserLemmas.v
