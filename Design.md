@@ -1,6 +1,7 @@
 # Design
 
 - Architectural Layering and Directory Structure: [design/ArchitecturalLayering.md](./design/ArchitecturalLayering.md)
+  - Foundation: [design/Foundation.md](./design/Foundation.md)
   - Semantics: [design/Semantics.md](./design/Semantics.md)
   - Abstractions: [design/Abstractions.md](./design/Abstractions.md)
 - Scheduling Architecture: [design/SchedulingArchitecture.md](./design/SchedulingArchitecture.md)
