@@ -506,6 +506,12 @@ What is already done:
   - subset-aware theorem entry points
   - admissibility-aware wrappers
 - `GlobalLLF.v` provides analogous theorem families
+- `TopMMetricFacts.v` provides reusable top-`m` metric-order facts for
+  dynamic-metric policies
+- `GlobalLLF.v` now also exposes LLF-facing wrappers that connect
+  non-running admissible jobs to:
+  - running-job laxity comparisons
+  - machine-full consequences
 - `GlobalEntryPoints.v` provides the canonical downstream import path for the
   stable global theorem inventory
 - `Examples/GlobalExamples.v` curates representative downstream clients in one
@@ -516,7 +522,6 @@ What remains:
 - connect the global theorem layer to later analysis results
 - identify which global EDF / LLF facts should be lifted to policy-generic layers
 - richer candidate-source / affinity instantiation examples
-- strengthen `GlobalLLF.v` on top of the new multicore-common remaining-cost / laxity layer
 - prepare analysis / fairness / migration-aware interference hooks
 
 ### E-2. Clustered scheduling
@@ -528,11 +533,10 @@ Planned:
 - bridge between partitioned and fully global scheduling
 
 ### E-3. Global dynamic-metric policies
-**Status: Initial layer exists**
+**Status: Theorem inventory strengthened; analysis-facing growth remains**
 
 Planned:
 
-- strengthen global LLF theorem inventory
 - prepare migration-aware dynamic-metric reasoning
 
 ---

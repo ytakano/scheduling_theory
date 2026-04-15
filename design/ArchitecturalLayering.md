@@ -270,6 +270,9 @@ policy wrappers:
 - `Multicore/Common/LaxityFacts.v` lifts the common layer further to
   `laxity`, which is the intended support layer for dynamic-metric global
   policies such as LLF
+- `Multicore/Common/TopMMetricFacts.v` packages policy-generic top-`m`
+  metric-order facts so that dynamic-metric policy wrappers can consume
+  reusable theorem statements without depending directly on chooser internals
 - `Multicore/Partitioned/*` and `Multicore/Global/*` should be clients of this
   common layer rather than re-encoding it
 

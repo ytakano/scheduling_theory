@@ -692,9 +692,15 @@ Done:
   - `global_llf_no_duplication`
   - EDF と同型の subset-aware theorem layer
   - admissibility-aware wrappers
+  - non-running admissible job から running jobs の laxity 上界を引く wrapper
+  - non-running eligible job から machine-full を引く LLF 固有 wrapper
+- `Multicore/Common/TopMMetricFacts.v`:
+  - 非選出 eligible candidate があるなら top-`m` result は full
+  - 非選出 eligible candidate の metric は全 chosen job 以上
 - `Examples/GlobalExamples.v` が canonical example inventory を提供する
 - curated examples は次を 1 箇所から辿れる
   - admissibility-aware running example
+  - global LLF の dynamic-metric theorem client
   - migration preserves global service
   - global service equals the sum of per-CPU service
   - duplicate schedules are rejected by `no_duplication`
@@ -703,7 +709,6 @@ Done:
 
 - global policy results を EDF 以外へ一般化できるところまで切り出す
 - richer affinity instantiation examples
-- `GlobalLLF.v` の dynamic-metric theorem inventory 強化
 - analysis / fairness hooks
 
 注:
@@ -720,7 +725,7 @@ Done:
 - partitioned と global の中間モデル
 
 ## 8-3. global dynamic-metric policies
-**Status: Initial layer exists**
+**Status: LLF theorem inventory strengthened; analysis layer still planned**
 
 候補:
 

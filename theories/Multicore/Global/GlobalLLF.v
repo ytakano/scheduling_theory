@@ -50,8 +50,10 @@ From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBrid
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.TopMMetricChooser.
+From RocqSched Require Import Multicore.Common.TopMMetricFacts.
 From RocqSched Require Import Multicore.Common.TopMAdmissibilityBridge.
 From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
+From RocqSched Require Import Multicore.Common.LaxityFacts.
 Import ListNotations.
 
 (* ===== LLF metric ===== *)
@@ -309,6 +311,148 @@ Proof.
     (top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen
        adm J global_llf_top_m_spec candidates_of jobs m sched t
        Hcand Hrel Hnone).
+Qed.
+
+(* ===== LLF metric-order wrappers ===== *)
+
+Lemma global_llf_in_chosen_implies_running :
+  forall candidates_of jobs m sched t j,
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    In j (choose_top_m global_llf_top_m_spec jobs m sched t
+            (candidates_of jobs m sched t)) ->
+    running m sched j t.
+Proof.
+  intros candidates_of jobs m sched t j Hrel Hin.
+  destruct (in_nth_error_exists
+              (choose_top_m global_llf_top_m_spec jobs m sched t
+                 (candidates_of jobs m sched t)) j Hin) as [c Hnth].
+  exists c. split.
+  - pose proof (nth_error_some_lt_length
+                  (choose_top_m global_llf_top_m_spec jobs m sched t
+                     (candidates_of jobs m sched t)) c j Hnth) as Hlt.
+    pose proof (choose_top_m_length_le_m global_llf_top_m_spec jobs m sched t
+                  (candidates_of jobs m sched t)) as Hlen.
+    lia.
+  - pose proof (global_llf_eq_cpu candidates_of jobs m sched t c Hrel) as Heq.
+    assert (Hlt : c < m).
+    { pose proof (nth_error_some_lt_length
+                    (choose_top_m global_llf_top_m_spec jobs m sched t
+                       (candidates_of jobs m sched t)) c j Hnth) as Hclt.
+      pose proof (choose_top_m_length_le_m global_llf_top_m_spec jobs m sched t
+                    (candidates_of jobs m sched t)) as Hlen.
+      lia. }
+    apply Nat.ltb_lt in Hlt.
+    rewrite Hlt in Heq. simpl in Heq.
+    transitivity
+      (nth_error
+         (choose_top_m global_llf_top_m_spec jobs m sched t
+            (candidates_of jobs m sched t)) c).
+    + exact Heq.
+    + exact Hnth.
+Qed.
+
+Lemma global_llf_not_running_admissible_job_implies_running_job_has_le_laxity :
+  forall adm J candidates_of jobs m sched t j j_run c,
+    AdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    J j ->
+    admissible_somewhere adm jobs m sched j t ->
+    ~ running m sched j t ->
+    c < m ->
+    sched t c = Some j_run ->
+    (laxity jobs m sched j_run t <= laxity jobs m sched j t)%Z.
+Proof.
+  intros adm J candidates_of jobs m sched t j j_run c
+         Hcand Hrel HJ Hadm Hnrun Hc Hrun.
+  destruct Hcand as [_ Hcomplete _].
+  assert (Helig : eligible jobs m sched j t).
+  { exact (admissible_somewhere_implies_eligible adm jobs m sched j t Hadm). }
+  assert (Hincand : In j (candidates_of jobs m sched t)).
+  { apply (Hcomplete jobs m sched t j HJ Helig Hadm). }
+  assert (Hchosen_run :
+            In j_run
+              (choose_top_m global_llf_top_m_spec jobs m sched t
+                 (candidates_of jobs m sched t))).
+  { pose proof (global_llf_eq_cpu candidates_of jobs m sched t c Hrel) as Heq.
+    apply Nat.ltb_lt in Hc.
+    rewrite Hc in Heq. simpl in Heq.
+    rewrite Hrun in Heq.
+    symmetry in Heq.
+    exact (nth_error_some_in _ _ _ Heq). }
+  assert (Hnotchosen :
+            ~ In j
+                (choose_top_m global_llf_top_m_spec jobs m sched t
+                   (candidates_of jobs m sched t))).
+  { intro Hin.
+    apply Hnrun.
+    eapply global_llf_in_chosen_implies_running; eauto.
+  }
+  eapply (choose_top_m_by_metric_member_le_excluded_eligible
+            m
+            (global_llf_metric_of_jobs jobs m sched t)
+            jobs m sched t
+            (candidates_of jobs m sched t)
+            j_run j); eauto.
+Qed.
+
+Lemma global_llf_not_running_admissible_job_implies_all_cpus_busy :
+  forall adm J candidates_of jobs m sched t j,
+    AdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    J j ->
+    admissible_somewhere adm jobs m sched j t ->
+    ~ running m sched j t ->
+    forall c, c < m -> cpu_busy sched t c.
+Proof.
+  intros adm J candidates_of jobs m sched t j
+         Hcand Hrel HJ Hadm Hnrun c Hc.
+  destruct (sched t c) as [j_run|] eqn:Hcpu.
+  - exists j_run. exact Hcpu.
+  - exfalso.
+    apply Hnrun.
+    eapply global_llf_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen; eauto.
+    exists c. split; assumption.
+Qed.
+
+Lemma global_llf_not_running_admissible_job_implies_running_jobs_have_le_laxity :
+  forall adm J candidates_of jobs m sched t j,
+    AdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    J j ->
+    admissible_somewhere adm jobs m sched j t ->
+    ~ running m sched j t ->
+    forall c, c < m ->
+      exists j_run,
+        sched t c = Some j_run /\
+        (laxity jobs m sched j_run t <= laxity jobs m sched j t)%Z.
+Proof.
+  intros adm J candidates_of jobs m sched t j
+         Hcand Hrel HJ Hadm Hnrun c Hc.
+  pose proof (global_llf_not_running_admissible_job_implies_all_cpus_busy
+                adm J candidates_of jobs m sched t j
+                Hcand Hrel HJ Hadm Hnrun c Hc) as [j_run Hrun].
+  exists j_run. split; [exact Hrun |].
+  eapply global_llf_not_running_admissible_job_implies_running_job_has_le_laxity; eauto.
+Qed.
+
+Lemma global_llf_not_running_eligible_job_implies_all_cpus_busy :
+  forall J candidates_of jobs m sched t j,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    0 < m ->
+    J j ->
+    eligible jobs m sched j t ->
+    ~ running m sched j t ->
+    forall c, c < m -> cpu_busy sched t c.
+Proof.
+  intros J candidates_of jobs m sched t j Hcand Hrel Hm HJ Helig Hnrun c Hc.
+  eapply (global_llf_not_running_admissible_job_implies_all_cpus_busy
+            all_cpus_admissible J candidates_of jobs m sched t j); eauto.
+  - exact
+      (candidate_source_spec_to_admissible
+         all_cpus_admissible J candidates_of Hcand).
+  - exact
+      (admissible_somewhere_of_all_cpus_admissible jobs m sched j t Hm Helig).
 Qed.
 
 (* ===== Schedulability introduction ===== *)
