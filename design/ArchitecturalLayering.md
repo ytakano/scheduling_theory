@@ -193,6 +193,11 @@ remain as compatibility wrappers, but new public theorem wiring should pass
 through the packaged bridge record rather than treating the two obligations as
 separate primary inputs.
 
+At the task-model layer, this means `TaskModels/Periodic/PeriodicEDFBridge.v`
+is the canonical public import for bridge-first theorems, while
+`TaskModels/Periodic/PeriodicEDFBridgeCompat.v` is reserved for legacy
+compatibility wrappers and should not be the default downstream entry point.
+
 This layer is important because these concepts are used by many later results, but they do not belong to:
 
 - `Semantics`, because they are not part of the meaning of schedules themselves

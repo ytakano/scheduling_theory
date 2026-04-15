@@ -607,27 +607,24 @@ What is already done:
   - finite-horizon feasibility under explicit witness assumptions
 - `PeriodicEDFBridge.v` now exposes public theorem families that no longer require
   `feasible_on` as an input hypothesis
-- busy-prefix public wrappers exist
+- bridge-first busy-prefix public wrappers exist in `PeriodicEDFBridge.v`
+- compatibility wrappers are isolated in `PeriodicEDFBridgeCompat.v`
 - packaged bridge records exist for the periodic EDF busy-prefix assumptions
 
 Remaining:
 
-- finish the last public-inventory cleanup around the packaged
-  `periodic_edf_busy_prefix_bridge` API
 - automate routine bridge construction where it is structurally obvious
 - decide which witness / bridge records should become policy-generic public APIs
 - add deeper schedulability / response-time theorems on top of the new hooks
 
 ### G-2a. EDF processor-demand bridge stabilization
-**Status: Near completion; public API closure in progress**
+**Status: Done**
 
 This is the current bridge-closure work for the roadmap.
 
-Planned:
-
 - keep the packaged busy-prefix bridge as the default public interface
 - keep bridge-based theorems as the canonical public statements
-- finish client/example migration and compatibility-wrapper cleanup across:
+- finished client/example migration and compatibility-wrapper cleanup across:
   - generated-jobset views
   - finite-horizon views
   - busy-prefix views

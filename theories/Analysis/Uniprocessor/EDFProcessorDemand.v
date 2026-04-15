@@ -1147,6 +1147,9 @@ Proof.
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
+(* Public packaged bridge for the periodic EDF busy-prefix line. Downstream
+   wrappers should prefer this record over exposing the start/carry
+   obligations separately. *)
 Record periodic_edf_busy_prefix_bridge
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
@@ -1171,6 +1174,8 @@ Record periodic_edf_busy_prefix_bridge
         job_release (jobs j) <= job_release (jobs j_run)
 }.
 
+(* Compatibility modules can recover the packaged bridge from the older pair
+   of hypotheses through this constructor lemma. *)
 Lemma periodic_edf_busy_prefix_bridge_of_hypotheses :
   forall T tasks offset jobs H sched j,
     (forall t1 t2,
