@@ -9,6 +9,11 @@ From RocqSched Require Import Multicore.Common.ServiceFacts.
 
 Import ListNotations.
 
+(** Public downstream theorems in this file:
+    `total_service_between_list_covers_total_cpu_supply` and
+    `total_service_between_list_lt_total_job_cost_if_one_job_misses`.
+    The remaining lemmas are helper facts for list-service aggregation. *)
+
 (* Aggregate the service received by a list of jobs over an interval. *)
 Fixpoint total_service_between_list
     (m : nat) (sched : Schedule) (l : list JobId) (t1 t2 : Time) : nat :=

@@ -649,29 +649,31 @@ This is a completed bridge-closure milestone in the roadmap.
 - only after this closes, widen the same style to other bridges and theorem families
 
 ### G-2b. Periodic EDF analysis inventory packaging
-**Status: In progress**
+**Status: Implemented**
 
 This is the immediate follow-up packaging step after G-2a.
 
-- add a stable downstream entry-point for the periodic EDF idealized-analysis
-  inventory
-- keep `PeriodicEDFBridge.v` as the canonical bridge-first theorem layer
-- keep `PeriodicEDFBridgeCompat.v` isolated as a legacy-only wrapper layer
-- make `PeriodicProcessorDemandExamples.v` the stable client of the packaged
+- `PeriodicEDFAnalysisEntryPoints.v` now packages the stable downstream import
+  for the periodic EDF idealized-analysis inventory
+- `PeriodicEDFBridge.v` remains the canonical bridge-first theorem layer
+- `PeriodicEDFBridgeCompat.v` remains isolated as a legacy-only wrapper layer
+- `PeriodicProcessorDemandExamples.v` is the stable client of the packaged
   import boundary
-- keep `PeriodicProcessorDemandCompatExamples.v` as the legacy client for the
+- `PeriodicProcessorDemandCompatExamples.v` remains the legacy client for the
   unpackaged APIs
 
 ### G-3. Supply-bound / interface theory
-**Status: Initial multicore full-supply equality layer implemented; interface abstractions not started**
+**Status: Initial multicore full-supply equality layer implemented; stable analysis entry-point packaging added**
 
 Implemented:
 
 - `Analysis/Multicore/ProcessorSupply.v` now exposes:
   - pointwise full-machine supply equality
   - interval full-machine supply equality
-- `Examples/GlobalInterferenceExamples.v` fixes representative downstream uses
-  of the new full-supply hooks
+- `Analysis/Multicore/GlobalAnalysisEntryPoints.v` now packages the stable
+  downstream import path for multicore global analysis
+- `Examples/GlobalInterferenceExamples.v` now validates that the representative
+  downstream client closes over the packaged import boundary
 
 Planned:
 
@@ -695,6 +697,24 @@ Remaining:
 - reusable interference templates beyond the current machine-full / covering-list hooks
 - service / delay decomposition hooks for later response-time analyses
 - multicore-aware workload / interference abstractions built on Phase D and E
+
+### G-4a. Multicore global analysis packaging
+**Status: Implemented as the pre-fairness stabilization step**
+
+Implemented:
+
+- stable downstream import boundary for multicore global analysis via
+  `Analysis/Multicore/GlobalAnalysisEntryPoints.v`
+- representative example migration to the packaged boundary in
+  `Examples/GlobalInterferenceExamples.v`
+- public inventory split between packaged downstream theorems and
+  file-local helper lemmas
+
+Next:
+
+- fairness / tardiness hooks should build on the packaged entry point rather
+  than importing `ProcessorSupply`, `Interference`, and `GlobalEntryPoints`
+  separately
 
 ---
 

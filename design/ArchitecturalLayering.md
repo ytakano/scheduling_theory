@@ -211,6 +211,25 @@ bridge-first layer without the compatibility wrappers. For the current
 periodic EDF processor-demand inventory, that role is served by
 `TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v`.
 
+The same packaging rule now applies to multicore global analysis. The intended
+stack is:
+
+- semantic core
+- global theorem layer
+- multicore analysis entry-point layer
+
+Concretely:
+
+- `Multicore/Global/GlobalEntryPoints.v` remains the canonical downstream import
+  for the stable global theorem inventory
+- `Analysis/Multicore/GlobalAnalysisEntryPoints.v` is the canonical downstream
+  import for analysis-facing multicore clients that also need processor-supply
+  and interference theorems
+
+This keeps policy-specific global theorems and analysis-layer interval facts
+separate while still exposing one stable packaged boundary to downstream proof
+clients.
+
 This layer is important because these concepts are used by many later results, but they do not belong to:
 
 - `Semantics`, because they are not part of the meaning of schedules themselves

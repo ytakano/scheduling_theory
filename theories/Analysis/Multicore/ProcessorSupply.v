@@ -3,6 +3,11 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 
+(** Public downstream theorems in this file:
+    `total_cpu_service_between_eq_capacity_if_all_cpus_busy` and
+    `total_cpu_service_between_le_capacity`.
+    The remaining lemmas are primarily structural helpers for supply proofs. *)
+
 (* CPU-level service contributed by all CPUs at time t. *)
 Fixpoint total_cpu_service_at
     (m : nat) (sched : Schedule) (t : Time) : nat :=

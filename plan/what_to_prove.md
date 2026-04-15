@@ -715,6 +715,37 @@ Done:
 
 - `running -> admissible_somewhere` は現実装では無条件ではなく、`valid_schedule` 前提つきで使う
 
+## 8-1a. multicore global analysis packaging
+**Status: Done for the stable downstream boundary**
+
+証明済みとして扱う public downstream inventory:
+
+- `Analysis/Multicore/GlobalAnalysisEntryPoints.v` が stable downstream import
+  を提供する
+- `ProcessorSupply.v`:
+  - `total_cpu_service_between_eq_capacity_if_all_cpus_busy`
+  - `total_cpu_service_between_le_capacity`
+- `Interference.v`:
+  - `total_service_between_list_covers_total_cpu_supply`
+- global EDF / LLF analysis-facing interval wrappers:
+  - `global_edf_not_running_admissible_job_interval_implies_full_supply`
+  - `global_edf_not_running_eligible_job_interval_implies_full_supply`
+  - `global_llf_not_running_admissible_job_interval_implies_full_supply`
+  - `global_llf_not_running_eligible_job_interval_implies_full_supply`
+
+internal/helper inventory として扱うもの:
+
+- `ProcessorSupply.v` の step/split/single-slot 補題
+- `Interference.v` の `covered_cpu_count` と list-aggregation の補助補題群
+- helper facts that only normalize list coverage or interval decomposition
+
+残作業:
+
+- fairness / tardiness へ進む analysis-facing hook を packaged boundary の上で
+  1 段抽象化する
+- coverage-based interference templates を full-supply consequence から
+  workload-absorption statementsへ拡張する
+
 ## 8-2. clustered scheduling
 **Status: Not started**
 

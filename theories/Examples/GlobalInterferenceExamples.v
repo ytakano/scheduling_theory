@@ -1,9 +1,7 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool ZArith.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
-From RocqSched Require Import Analysis.Multicore.ProcessorSupply.
-From RocqSched Require Import Analysis.Multicore.Interference.
-From RocqSched Require Import Multicore.Global.GlobalEntryPoints.
+From RocqSched Require Import Analysis.Multicore.GlobalAnalysisEntryPoints.
 From RocqSched Require Import Examples.GlobalServiceExamples.
 From RocqSched Require Import Examples.GlobalLLFExamples.
 Import ListNotations.
