@@ -952,6 +952,8 @@ Done:
 - `PeriodicEDFBridge.v` window-DBF bridge theorems close without `feasible_on` hypothesis
 - `PeriodicEDFBridge.v` exposes bridge-first public busy-prefix wrappers for
   no-miss / feasible-schedule / schedulable-by-on
+- `PeriodicEDFAnalysisEntryPoints.v` packages the stable downstream import for
+  the current periodic EDF idealized-analysis inventory
 - `PeriodicEDFBridgeCompat.v` retains the older unpackaged busy-prefix forms
   only as compatibility wrappers
 - `PeriodicProcessorDemandExamples.v` now includes both
@@ -961,8 +963,12 @@ Done:
 - `PeriodicProcessorDemandExamples.v` also includes the generated-schedule
   bridge example
   `periodic_example_edf_schedulable_by_window_dbf_generated_with_busy_prefix_bridge`
+- `PeriodicProcessorDemandExamples.v` is the stable client of the packaged
+  bridge-first entry point
 - `PeriodicProcessorDemandCompatExamples.v` isolates the older busy-window /
   unpackaged busy-prefix example entry points
+- `PeriodicProcessorDemandCompatExamples.v` remains the legacy-only client for
+  compatibility wrappers
 
 Remaining:
 - busy-interval existence lemma: constructive extraction of maximal busy interval
@@ -1025,10 +1031,10 @@ Remaining:
 # Recommended next proof priorities
 
 ## Priority 1
-Periodic EDF の busy-prefix / processor-demand bridge public API を安定化する。
+Periodic EDF idealized-analysis inventory の stable entry-point 化を完了する。
 
 ## Priority 2
-`roadmap.md` / `what_to_prove.md` / 代表 example の文書同期を完了する。
+sporadic / jittered-periodic 側へ同じ stable analysis inventory 形式を広げる。
 
 ## Priority 3
 `Lv.5 Partitioned` を theorem inventory として整理し直す。
@@ -1044,7 +1050,7 @@ Periodic EDF の busy-prefix / processor-demand bridge public API を安定化�
 # One-line summary
 
 単一CPUの generic optimality core はすでに主要部分が完成しており、
-直近の最優先は periodic EDF の bridge public API 安定化である。
+直近の最優先は periodic EDF idealized-analysis inventory の stable 化完了である。
 その後の主戦場は、
 
 - partitioned の theorem-layer completion

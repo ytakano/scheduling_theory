@@ -17,6 +17,8 @@ From RocqSched Require Import Examples.PeriodicProcessorDemandExamples.
 
 Import ListNotations.
 
+(* Legacy-only examples for the unpackaged busy-window / busy-prefix APIs. *)
+
 Theorem periodic_example_edf_no_deadline_miss_by_window_dbf_auto_compat :
   forall sched j t1 t2,
     scheduler_rel

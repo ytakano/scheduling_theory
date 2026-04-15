@@ -75,6 +75,7 @@ theories/TaskModels/Periodic/PeriodicDemandBound.v
 theories/TaskModels/Periodic/PeriodicWindowDemandBound.v
 theories/TaskModels/Periodic/PeriodicEnumeration.v
 theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
+theories/TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicEDFBridgeCompat.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v

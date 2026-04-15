@@ -4,16 +4,15 @@ From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
-From RocqSched Require Import Analysis.Uniprocessor.BusyWindowSearch.
-From RocqSched Require Import Analysis.Uniprocessor.EDFProcessorDemand.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
-From RocqSched Require Import TaskModels.Periodic.PeriodicEDFBridge.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
-From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Examples.PeriodicExamples.
 
 Import ListNotations.
+
+(* Canonical downstream client of the stable periodic EDF analysis entry point. *)
 
 Example periodic_window_dbf_task0_ex :
   periodic_dbf_window tasks_ex offset_ex 0 0 4 = 2.

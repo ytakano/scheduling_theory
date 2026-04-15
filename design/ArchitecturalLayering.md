@@ -198,6 +198,12 @@ is the canonical public import for bridge-first theorems, while
 `TaskModels/Periodic/PeriodicEDFBridgeCompat.v` is reserved for legacy
 compatibility wrappers and should not be the default downstream entry point.
 
+For stable downstream packaging, the analysis/task-model boundary may also
+expose a dedicated entry-point module that re-exports the canonical public
+bridge-first layer without the compatibility wrappers. For the current
+periodic EDF processor-demand inventory, that role is served by
+`TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v`.
+
 This layer is important because these concepts are used by many later results, but they do not belong to:
 
 - `Semantics`, because they are not part of the meaning of schedules themselves

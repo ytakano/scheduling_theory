@@ -640,6 +640,20 @@ This is a completed bridge-closure milestone in the roadmap.
   incidental cleanup
 - only after this closes, widen the same style to other bridges and theorem families
 
+### G-2b. Periodic EDF analysis inventory packaging
+**Status: In progress**
+
+This is the immediate follow-up packaging step after G-2a.
+
+- add a stable downstream entry-point for the periodic EDF idealized-analysis
+  inventory
+- keep `PeriodicEDFBridge.v` as the canonical bridge-first theorem layer
+- keep `PeriodicEDFBridgeCompat.v` isolated as a legacy-only wrapper layer
+- make `PeriodicProcessorDemandExamples.v` the stable client of the packaged
+  import boundary
+- keep `PeriodicProcessorDemandCompatExamples.v` as the legacy client for the
+  unpackaged APIs
+
 ### G-3. Supply-bound / interface theory
 **Status: Not started**
 
