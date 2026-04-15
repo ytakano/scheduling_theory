@@ -176,8 +176,16 @@ Currently implemented in `theories/Analysis/`:
   helpers (`nat_mul_lt_ceil_div`, `ceil_div_mono`)
 - `Uniprocessor/BusyInterval.v`, `BusyIntervalLemmas.v`: uniprocessor busy-interval
   foundations
+- `Uniprocessor/BusyWindowSearch.v`: busy-window and busy-prefix witness layers
+  used to reduce finite-horizon search obligations before policy-specific
+  schedulability arguments
+- `Uniprocessor/ProcessorDemand.v`: generic processor-demand and overload
+  contradiction layer that analysis clients can reuse independently of EDF
 - `Uniprocessor/RequestBound.v`: `periodic_rbf`, `sporadic_rbf_bound`, and
   associated monotonicity and algebraic lemmas
+- `Uniprocessor/EDFProcessorDemand.v`: EDF-facing processor-demand wrappers and
+  the packaged `periodic_edf_busy_prefix_bridge` interface connecting
+  busy-prefix witnesses to periodic no-carry-in obligations
 
 This layer is important because these concepts are used by many later results, but they do not belong to:
 

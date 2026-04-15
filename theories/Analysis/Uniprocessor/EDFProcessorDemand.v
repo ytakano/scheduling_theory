@@ -1147,7 +1147,51 @@ Proof.
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
-Theorem periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_busy_prefix :
+Record periodic_edf_busy_prefix_bridge
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (H : Time)
+    (sched : Schedule)
+    (j : JobId) : Prop := {
+  periodic_edf_busy_prefix_start_before_release :
+    forall t1 t2,
+      busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 ->
+      t1 <= job_release (jobs j);
+  periodic_edf_busy_prefix_no_carry_in :
+    forall t1 t2,
+      busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 ->
+      t1 <= job_release (jobs j) ->
+      forall t j_run,
+        job_release (jobs j) <= t < job_abs_deadline (jobs j) ->
+        sched t 0 = Some j_run ->
+        periodic_jobset_deadline_between T tasks offset jobs
+          t1 (job_abs_deadline (jobs j)) j_run ->
+        job_release (jobs j) <= job_release (jobs j_run)
+}.
+
+Lemma periodic_edf_busy_prefix_bridge_of_hypotheses :
+  forall T tasks offset jobs H sched j,
+    (forall t1 t2,
+      busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 ->
+      t1 <= job_release (jobs j)) ->
+    (forall t1 t2,
+      busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 ->
+      t1 <= job_release (jobs j) ->
+      forall t j_run,
+        job_release (jobs j) <= t < job_abs_deadline (jobs j) ->
+        sched t 0 = Some j_run ->
+        periodic_jobset_deadline_between T tasks offset jobs
+          t1 (job_abs_deadline (jobs j)) j_run ->
+        job_release (jobs j) <= job_release (jobs j_run)) ->
+    periodic_edf_busy_prefix_bridge T tasks offset jobs H sched j.
+Proof.
+  intros T tasks offset jobs H sched j Hstart Hcarry.
+  constructor; assumption.
+Qed.
+
+Theorem periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_busy_prefix_bridge :
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
          j,
@@ -1157,34 +1201,14 @@ Theorem periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_bu
     (forall τ, In τ enumT -> T τ) ->
     periodic_jobset_upto T tasks offset jobs H j ->
     job_abs_deadline (jobs j) <= H ->
-    (forall t1 t2,
-      busy_prefix_witness
-        (generated_schedule
-           edf_generic_spec
-           (enum_candidates_of
-              (enum_periodic_jobs_upto T tasks offset jobs H enumT codec))
-           jobs)
-        (job_abs_deadline (jobs j)) t1 t2 ->
-      t1 <= job_release (jobs j)) ->
-    (forall t1 t2,
-      busy_prefix_witness
-        (generated_schedule
-           edf_generic_spec
-           (enum_candidates_of
-              (enum_periodic_jobs_upto T tasks offset jobs H enumT codec))
-           jobs)
-        (job_abs_deadline (jobs j)) t1 t2 ->
-      t1 <= job_release (jobs j) ->
-      forall t j_run,
-        job_release (jobs j) <= t < job_abs_deadline (jobs j) ->
-        generated_schedule
-          edf_generic_spec
-          (enum_candidates_of
-             (enum_periodic_jobs_upto T tasks offset jobs H enumT codec))
-          jobs t 0 = Some j_run ->
-        periodic_jobset_deadline_between T tasks offset jobs
-          t1 (job_abs_deadline (jobs j)) j_run ->
-        job_release (jobs j) <= job_release (jobs j_run)) ->
+    periodic_edf_busy_prefix_bridge
+      T tasks offset jobs H
+      (generated_schedule
+         edf_generic_spec
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec))
+         jobs)
+      j ->
     (forall t1' t2',
       t1' <= t2' ->
       t2' <= H ->
@@ -1199,7 +1223,7 @@ Theorem periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_bu
 Proof.
   intros T tasks offset H enumT jobs codec j
          Hwf HnodupT HenumT_complete HenumT_sound
-         Hj Hj_H Hstart_before_release Hcarry_free Hdbf.
+         Hj Hj_H Hbridge Hdbf.
   set (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec).
   set (sched :=
     generated_schedule edf_generic_spec (enum_candidates_of enumJ) jobs).
@@ -1261,11 +1285,73 @@ Proof.
           HenumT_sound)
        HenumT_complete
        Hsched Hj Hwit
-       (Hstart_before_release t1 t2 Hwit)
+       (periodic_edf_busy_prefix_start_before_release
+          T tasks offset jobs H sched j Hbridge t1 t2 Hwit)
        Hj_H
-       (Hcarry_free t1 t2 Hwit (Hstart_before_release t1 t2 Hwit))
+       (periodic_edf_busy_prefix_no_carry_in
+          T tasks offset jobs H sched j Hbridge
+          t1 t2 Hwit
+          (periodic_edf_busy_prefix_start_before_release
+             T tasks offset jobs H sched j Hbridge t1 t2 Hwit))
        Hdbf) as Hnmiss.
   exact (Hnmiss Hmiss).
+Qed.
+
+Theorem periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_busy_prefix :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         j,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    periodic_jobset_upto T tasks offset jobs H j ->
+    job_abs_deadline (jobs j) <= H ->
+    (forall t1 t2,
+      busy_prefix_witness
+        (generated_schedule
+           edf_generic_spec
+           (enum_candidates_of
+              (enum_periodic_jobs_upto T tasks offset jobs H enumT codec))
+           jobs)
+        (job_abs_deadline (jobs j)) t1 t2 ->
+      t1 <= job_release (jobs j)) ->
+    (forall t1 t2,
+      busy_prefix_witness
+        (generated_schedule
+           edf_generic_spec
+           (enum_candidates_of
+              (enum_periodic_jobs_upto T tasks offset jobs H enumT codec))
+           jobs)
+        (job_abs_deadline (jobs j)) t1 t2 ->
+      t1 <= job_release (jobs j) ->
+      forall t j_run,
+        job_release (jobs j) <= t < job_abs_deadline (jobs j) ->
+        generated_schedule
+          edf_generic_spec
+          (enum_candidates_of
+             (enum_periodic_jobs_upto T tasks offset jobs H enumT codec))
+          jobs t 0 = Some j_run ->
+        periodic_jobset_deadline_between T tasks offset jobs
+          t1 (job_abs_deadline (jobs j)) j_run ->
+        job_release (jobs j) <= job_release (jobs j_run)) ->
+    (forall t1' t2',
+      t1' <= t2' ->
+      t2' <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1' t2' <= t2' - t1') ->
+    ~ missed_deadline jobs 1
+        (generated_schedule
+           edf_generic_spec
+           (enum_candidates_of
+              (enum_periodic_jobs_upto T tasks offset jobs H enumT codec))
+           jobs)
+        j.
+Proof.
+  intros T tasks offset H enumT jobs codec j
+         Hwf HnodupT HenumT_complete HenumT_sound
+         Hj Hj_H Hstart_before_release Hcarry_free Hdbf.
+  eapply periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_busy_prefix_bridge; eauto.
+  apply periodic_edf_busy_prefix_bridge_of_hypotheses; assumption.
 Qed.
 
 (* The finite-horizon theorem packages the EDF witness schedule and the
@@ -1314,6 +1400,54 @@ Proof.
         [Hj_H [t1 [t2 [Hwit [Ht1rel Hcarry_free]]]]].
     eapply periodic_window_dbf_implies_no_deadline_miss_under_edf
       with (codec := codec) (t1 := t1) (t2 := t2); eauto.
+Qed.
+
+Theorem periodic_window_dbf_implies_edf_feasible_on_finite_horizon_with_busy_prefix_bridge :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    scheduler_rel
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1 sched ->
+    (forall j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      exists t1 t2,
+        busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 /\
+        periodic_edf_busy_prefix_bridge T tasks offset jobs H sched j) ->
+    (forall t1 t2,
+      t1 <= t2 ->
+      t2 <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
+    feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1.
+Proof.
+  intros T tasks offset H enumT jobs codec sched
+         Hwf HnodupT HenumT_complete HenumT_sound
+         Hsched Hjob_bridge Hdbf.
+  exists sched.
+  split.
+  - eapply single_cpu_algorithm_valid.
+    exact Hsched.
+  - unfold feasible_schedule_on.
+    intros j Hj.
+    destruct (Hjob_bridge j Hj) as [Hj_H [t1 [t2 [Hwit Hbridge]]]].
+    pose proof
+      (periodic_edf_busy_prefix_start_before_release
+         T tasks offset jobs H sched j Hbridge t1 t2 Hwit) as Ht1rel.
+    pose proof
+      (periodic_edf_busy_prefix_no_carry_in
+         T tasks offset jobs H sched j Hbridge t1 t2 Hwit Ht1rel)
+      as Hcarry_free.
+    eapply periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in
+      with (codec := codec)
+           (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+           (t1 := t1) (t2 := t2); eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
 Theorem periodic_window_dbf_implies_edf_feasible_on_finite_horizon_with_busy_prefix :

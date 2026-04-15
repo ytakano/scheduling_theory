@@ -536,6 +536,11 @@ Implemented:
 - `TaskModels/Periodic/PeriodicEDFBridge.v`: busy-prefix public wrappers
   `..._with_busy_prefix` added for no-miss / feasible-schedule /
   schedulable-by-on variants
+- `Analysis/Uniprocessor/EDFProcessorDemand.v`: periodic EDF busy-prefix
+  assumptions are now packaged by `periodic_edf_busy_prefix_bridge`, so the
+  analysis-facing generated/finite-horizon interfaces can share one explicit
+  bridge record instead of repeating start-before-release and no-carry-in
+  premises separately
 - `Examples/PeriodicProcessorDemandExamples.v`: periodic window-DBF computations
   and bridge-theorem usage examples
   `periodic_example_edf_no_deadline_miss_by_window_dbf_auto` /
@@ -555,8 +560,9 @@ Implemented:
 
 Remaining:
 
-- construct a generic EDF witness schedule to recover the original weak
-  window-DBF APIs without requiring an explicit schedule witness
+- finish migrating remaining periodic EDF clients to the packaged
+  `periodic_edf_busy_prefix_bridge` API and automate routine bridge
+  construction where it is structurally obvious
 - deeper schedulability / response-time theorems consuming the new busy-window search hook
 
 ### G-3. Supply-bound / interface theory

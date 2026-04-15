@@ -923,6 +923,9 @@ Done:
 - busy-prefix variants in `EDFProcessorDemand.v`, including
   `periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in`
   and `periodic_window_dbf_implies_edf_feasible_on_finite_horizon_with_busy_prefix`
+- packaged periodic EDF busy-prefix bridge interface in `EDFProcessorDemand.v`
+  via `periodic_edf_busy_prefix_bridge`, so generated-schedule and
+  finite-horizon wrappers can share one explicit bridge premise
 - `PeriodicEDFBridge.v` window-DBF bridge theorems close without `feasible_on` hypothesis
 - `PeriodicEDFBridge.v` also exposes public busy-prefix wrappers for
   no-miss / feasible-schedule / schedulable-by-on
@@ -933,6 +936,9 @@ Done:
   no-miss / schedulable examples
 
 Remaining:
+- finish converting remaining examples and wrappers to consume
+  `periodic_edf_busy_prefix_bridge` directly, with compatibility lemmas only
+  where the older pair-of-hypotheses API is still useful
 
 - busy-interval existence lemma: constructive extraction of maximal busy interval
   from any busy time point in a discrete schedule
