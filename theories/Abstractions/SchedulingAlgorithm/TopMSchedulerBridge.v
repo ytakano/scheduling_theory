@@ -322,6 +322,25 @@ Proof.
     exact Heq.
 Qed.
 
+Lemma top_m_algorithm_not_running_subset_eligible_implies_all_cpus_busy :
+  forall J spec candidates_of jobs m sched t j,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (top_m_algorithm_schedule spec candidates_of) jobs m sched ->
+    J j ->
+    eligible jobs m sched j t ->
+    ~ running m sched j t ->
+    forall c, c < m -> cpu_busy sched t c.
+Proof.
+  intros J spec candidates_of jobs m sched t j
+         Hcand Hrel HJ Helig Hnrun c Hc.
+  destruct (sched t c) as [j_run|] eqn:Hcpu.
+  - exists j_run. exact Hcpu.
+  - exfalso.
+    apply Hnrun.
+    eapply top_m_algorithm_running_if_some_cpu_idle_and_subset_eligible; eauto.
+    exists c. split; assumption.
+Qed.
+
 Lemma top_m_algorithm_schedulable_by_on_intro :
   forall J spec candidates_of cand_spec jobs m sched,
     scheduler_rel

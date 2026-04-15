@@ -55,6 +55,7 @@ From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.TopMMetricChooser.
 From RocqSched Require Import Multicore.Common.TopMAdmissibilityBridge.
 From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
+From RocqSched Require Import Analysis.Multicore.ProcessorSupply.
 Import ListNotations.
 
 (* ===== EDF metric ===== *)
@@ -296,6 +297,74 @@ Proof.
     (top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen
        adm J global_edf_top_m_spec candidates_of jobs m sched t
        Hcand Hrel Hnone).
+Qed.
+
+Lemma global_edf_not_running_admissible_job_implies_all_cpus_busy :
+  forall adm J candidates_of jobs m sched t j,
+    AdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (global_edf_scheduler candidates_of) jobs m sched ->
+    J j ->
+    admissible_somewhere adm jobs m sched j t ->
+    ~ running m sched j t ->
+    forall c, c < m -> cpu_busy sched t c.
+Proof.
+  intros adm J candidates_of jobs m sched t j
+         Hcand Hrel HJ Hadm Hnrun c Hc.
+  exact
+    (top_m_algorithm_not_running_subset_admissible_somewhere_implies_all_cpus_busy_gen
+       adm J global_edf_top_m_spec candidates_of jobs m sched t j
+       Hcand Hrel HJ Hadm Hnrun c Hc).
+Qed.
+
+Lemma global_edf_not_running_eligible_job_implies_all_cpus_busy :
+  forall J candidates_of jobs m sched t j,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_edf_scheduler candidates_of) jobs m sched ->
+    J j ->
+    eligible jobs m sched j t ->
+    ~ running m sched j t ->
+    forall c, c < m -> cpu_busy sched t c.
+Proof.
+  intros J candidates_of jobs m sched t j
+         Hcand Hrel HJ Helig Hnrun c Hc.
+  exact
+    (top_m_algorithm_not_running_subset_eligible_implies_all_cpus_busy
+       J global_edf_top_m_spec candidates_of jobs m sched t j
+       Hcand Hrel HJ Helig Hnrun c Hc).
+Qed.
+
+Lemma global_edf_not_running_admissible_job_interval_implies_full_supply :
+  forall adm J candidates_of jobs m sched t1 t2 j,
+    AdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (global_edf_scheduler candidates_of) jobs m sched ->
+    J j ->
+    (forall t, t1 <= t < t2 ->
+      admissible_somewhere adm jobs m sched j t /\
+      ~ running m sched j t) ->
+    total_cpu_service_between m sched t1 t2 = m * (t2 - t1).
+Proof.
+  intros adm J candidates_of jobs m sched t1 t2 j Hcand Hrel HJ Hinterval.
+  apply total_cpu_service_between_eq_capacity_if_all_cpus_busy.
+  intros t Hrange c Hc.
+  destruct (Hinterval t Hrange) as [Hadm Hnrun].
+  eapply global_edf_not_running_admissible_job_implies_all_cpus_busy; eauto.
+Qed.
+
+Lemma global_edf_not_running_eligible_job_interval_implies_full_supply :
+  forall J candidates_of jobs m sched t1 t2 j,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_edf_scheduler candidates_of) jobs m sched ->
+    J j ->
+    (forall t, t1 <= t < t2 ->
+      eligible jobs m sched j t /\
+      ~ running m sched j t) ->
+    total_cpu_service_between m sched t1 t2 = m * (t2 - t1).
+Proof.
+  intros J candidates_of jobs m sched t1 t2 j Hcand Hrel HJ Hinterval.
+  apply total_cpu_service_between_eq_capacity_if_all_cpus_busy.
+  intros t Hrange c Hc.
+  destruct (Hinterval t Hrange) as [Helig Hnrun].
+  eapply global_edf_not_running_eligible_job_implies_all_cpus_busy; eauto.
 Qed.
 
 (* ===== Schedulability introduction ===== *)

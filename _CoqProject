@@ -30,6 +30,7 @@ theories/Examples/FIFOExamples.v
 theories/Examples/GlobalServiceExamples.v
 theories/Examples/GlobalWorkConservingExamples.v
 theories/Examples/GlobalLLFExamples.v
+theories/Examples/GlobalInterferenceExamples.v
 theories/Examples/GlobalExamples.v
 theories/Examples/JitteredPeriodicExamples.v
 theories/Examples/PartitionedExamples.v

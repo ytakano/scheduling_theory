@@ -1,4 +1,5 @@
 From RocqSched Require Import Multicore.Global.GlobalEntryPoints.
+From RocqSched Require Import Examples.GlobalInterferenceExamples.
 From RocqSched Require Import Examples.GlobalServiceExamples.
 From RocqSched Require Import Examples.GlobalLLFExamples.
 From RocqSched Require Import Examples.GlobalWorkConservingExamples.
@@ -17,6 +18,12 @@ Definition global_example_llf_excluded_job_has_more_laxity :=
 
 Definition global_example_llf_excluded_job_implies_machine_full :=
   global_llf_excluded_eligible_job_implies_machine_full_example.
+
+Definition global_example_llf_excluded_job_interval_implies_full_supply :=
+  global_llf_excluded_eligible_job_interval_implies_full_supply_example.
+
+Definition global_example_covering_list_recovers_machine_supply :=
+  global_covering_list_recovers_machine_supply_example.
 
 Definition global_example_service_preserved_under_migration :=
   migrating_global_service_is_preserved.

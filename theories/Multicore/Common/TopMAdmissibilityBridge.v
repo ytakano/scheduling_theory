@@ -162,6 +162,26 @@ Proof.
   exact (eligible_on_cpu_implies_eligible all_cpus_admissible jobs m sched j t c Helig).
 Qed.
 
+Lemma top_m_algorithm_not_running_subset_admissible_somewhere_implies_all_cpus_busy :
+  forall J spec candidates_of jobs m sched t j,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (top_m_algorithm_schedule spec candidates_of) jobs m sched ->
+    0 < m ->
+    J j ->
+    admissible_somewhere all_cpus_admissible jobs m sched j t ->
+    ~ running m sched j t ->
+    forall c, c < m -> cpu_busy sched t c.
+Proof.
+  intros J spec candidates_of jobs m sched t j
+         Hcand Hrel Hm HJ Hadm Hnrun c Hc.
+  destruct (sched t c) as [j_run|] eqn:Hcpu.
+  - exists j_run. exact Hcpu.
+  - exfalso.
+    apply Hnrun.
+    eapply top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere; eauto.
+    exists c. split; assumption.
+Qed.
+
 (* ===== Tier 2: generic adm (_gen lemmas) =====
    These lemmas work for any admissibility predicate adm.
    - busy/running lemmas use AdmissibleCandidateSourceSpec (weaker spec).
@@ -274,6 +294,25 @@ Proof.
     fold chosen in Heq.
     rewrite Hnth in Heq.
     exact Heq.
+Qed.
+
+Lemma top_m_algorithm_not_running_subset_admissible_somewhere_implies_all_cpus_busy_gen :
+  forall adm J spec candidates_of jobs m sched t j,
+    AdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (top_m_algorithm_schedule spec candidates_of) jobs m sched ->
+    J j ->
+    admissible_somewhere adm jobs m sched j t ->
+    ~ running m sched j t ->
+    forall c, c < m -> cpu_busy sched t c.
+Proof.
+  intros adm J spec candidates_of jobs m sched t j
+         Hcand Hrel HJ Hadm Hnrun c Hc.
+  destruct (sched t c) as [j_run|] eqn:Hcpu.
+  - exists j_run. exact Hcpu.
+  - exfalso.
+    apply Hnrun.
+    eapply top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen; eauto.
+    exists c. split; assumption.
 Qed.
 
 (** D-6. General version of D-1: if no J-job is admissible somewhere under an

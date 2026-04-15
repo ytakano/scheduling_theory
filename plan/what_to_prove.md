@@ -1066,3 +1066,11 @@ sporadic / jittered-periodic 側へ同じ stable analysis inventory 形式を広
 - idealized / delay-aware analysis
 
 である。
+
+直近の multicore 側では、
+
+- top-`m` bridge で non-running eligible/admissible job から machine-full を引く層
+- `total_cpu_service_between = m * (t2 - t1)` を与える interval full-supply 層
+- global EDF / LLF の thin analysis hook
+
+を stable public inventory として揃えたうえで、より豊かな interference template に進む。

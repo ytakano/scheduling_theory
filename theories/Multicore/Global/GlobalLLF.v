@@ -54,6 +54,7 @@ From RocqSched Require Import Multicore.Common.TopMMetricFacts.
 From RocqSched Require Import Multicore.Common.TopMAdmissibilityBridge.
 From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
 From RocqSched Require Import Multicore.Common.LaxityFacts.
+From RocqSched Require Import Analysis.Multicore.ProcessorSupply.
 Import ListNotations.
 
 (* ===== LLF metric ===== *)
@@ -406,12 +407,10 @@ Lemma global_llf_not_running_admissible_job_implies_all_cpus_busy :
 Proof.
   intros adm J candidates_of jobs m sched t j
          Hcand Hrel HJ Hadm Hnrun c Hc.
-  destruct (sched t c) as [j_run|] eqn:Hcpu.
-  - exists j_run. exact Hcpu.
-  - exfalso.
-    apply Hnrun.
-    eapply global_llf_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen; eauto.
-    exists c. split; assumption.
+  exact
+    (top_m_algorithm_not_running_subset_admissible_somewhere_implies_all_cpus_busy_gen
+       adm J global_llf_top_m_spec candidates_of jobs m sched t j
+       Hcand Hrel HJ Hadm Hnrun c Hc).
 Qed.
 
 Lemma global_llf_not_running_admissible_job_implies_running_jobs_have_le_laxity :
@@ -446,13 +445,47 @@ Lemma global_llf_not_running_eligible_job_implies_all_cpus_busy :
     forall c, c < m -> cpu_busy sched t c.
 Proof.
   intros J candidates_of jobs m sched t j Hcand Hrel Hm HJ Helig Hnrun c Hc.
-  eapply (global_llf_not_running_admissible_job_implies_all_cpus_busy
-            all_cpus_admissible J candidates_of jobs m sched t j); eauto.
-  - exact
-      (candidate_source_spec_to_admissible
-         all_cpus_admissible J candidates_of Hcand).
-  - exact
-      (admissible_somewhere_of_all_cpus_admissible jobs m sched j t Hm Helig).
+  exact
+    (top_m_algorithm_not_running_subset_admissible_somewhere_implies_all_cpus_busy
+       J global_llf_top_m_spec candidates_of jobs m sched t j
+       Hcand Hrel Hm HJ
+       (admissible_somewhere_of_all_cpus_admissible jobs m sched j t Hm Helig)
+       Hnrun c Hc).
+Qed.
+
+Lemma global_llf_not_running_admissible_job_interval_implies_full_supply :
+  forall adm J candidates_of jobs m sched t1 t2 j,
+    AdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    J j ->
+    (forall t, t1 <= t < t2 ->
+      admissible_somewhere adm jobs m sched j t /\
+      ~ running m sched j t) ->
+    total_cpu_service_between m sched t1 t2 = m * (t2 - t1).
+Proof.
+  intros adm J candidates_of jobs m sched t1 t2 j Hcand Hrel HJ Hinterval.
+  apply total_cpu_service_between_eq_capacity_if_all_cpus_busy.
+  intros t Hrange c Hc.
+  destruct (Hinterval t Hrange) as [Hadm Hnrun].
+  eapply global_llf_not_running_admissible_job_implies_all_cpus_busy; eauto.
+Qed.
+
+Lemma global_llf_not_running_eligible_job_interval_implies_full_supply :
+  forall J candidates_of jobs m sched t1 t2 j,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    0 < m ->
+    J j ->
+    (forall t, t1 <= t < t2 ->
+      eligible jobs m sched j t /\
+      ~ running m sched j t) ->
+    total_cpu_service_between m sched t1 t2 = m * (t2 - t1).
+Proof.
+  intros J candidates_of jobs m sched t1 t2 j Hcand Hrel Hm HJ Hinterval.
+  apply total_cpu_service_between_eq_capacity_if_all_cpus_busy.
+  intros t Hrange c Hc.
+  destruct (Hinterval t Hrange) as [Helig Hnrun].
+  eapply global_llf_not_running_eligible_job_implies_all_cpus_busy; eauto.
 Qed.
 
 (* ===== Schedulability introduction ===== *)

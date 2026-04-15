@@ -448,7 +448,7 @@ Planned:
 ---
 
 ## 4. Phase D: Multicore-common semantics
-**Status: Affinity layer and migration-aware service/completion/remaining-cost/laxity bridge layer implemented**
+**Status: Affinity layer, migration-aware service/completion/remaining-cost/laxity bridges, and top-m busy bridge strengthening implemented**
 
 Implemented core:
 
@@ -472,6 +472,8 @@ What is already done:
 - `all_cpus_admissible` and `singleton_admissibility` concrete instances
 - general `cpu_affinity` / `affinity_admissibility` / `job_has_admissible_cpu` layer
 - admissibility-aware candidate-source specs
+- top-`m` bridge lemmas that turn a non-running eligible/admissible job into
+  an all-CPUs-busy consequence
 - migration-aware decomposition of `service_job` into projected per-CPU service
 - completion / eligibility bridges over the decomposed service view
 - remaining-cost / laxity bridges over migration-aware service accounting
@@ -489,7 +491,7 @@ What remains:
 ---
 
 ## 5. Phase E: Global / clustered scheduling
-**Status: E-1 largely stable; next work shifts toward LLF strengthening and analysis-facing hooks**
+**Status: E-1 largely stable; thin interval supply hooks now exist and next work shifts toward richer analysis clients**
 
 ### E-1. Global scheduling
 **Status: Initial global EDF / LLF theorem layers done; stable entry-point layer largely in place**
@@ -512,6 +514,8 @@ What is already done:
   non-running admissible jobs to:
   - running-job laxity comparisons
   - machine-full consequences
+- `GlobalEDF.v` and `GlobalLLF.v` expose thin interval full-supply wrappers for
+  non-running eligible/admissible jobs
 - `GlobalEntryPoints.v` provides the canonical downstream import path for the
   stable global theorem inventory
 - `Examples/GlobalExamples.v` curates representative downstream clients in one
@@ -659,7 +663,15 @@ This is the immediate follow-up packaging step after G-2a.
   unpackaged APIs
 
 ### G-3. Supply-bound / interface theory
-**Status: Not started**
+**Status: Initial multicore full-supply equality layer implemented; interface abstractions not started**
+
+Implemented:
+
+- `Analysis/Multicore/ProcessorSupply.v` now exposes:
+  - pointwise full-machine supply equality
+  - interval full-machine supply equality
+- `Examples/GlobalInterferenceExamples.v` fixes representative downstream uses
+  of the new full-supply hooks
 
 Planned:
 
@@ -669,7 +681,7 @@ Planned:
 - future compatibility with hierarchical scheduling
 
 ### G-4. Analysis-ready workload abstractions
-**Status: Finite-horizon workload hook layer implemented; interval/interference layer not yet started**
+**Status: Finite-horizon workload hook layer and initial multicore interval/interference bridge layer implemented**
 
 Implemented:
 
@@ -680,7 +692,7 @@ Implemented:
 Remaining:
 
 - workload bounds on intervals
-- reusable interference templates
+- reusable interference templates beyond the current machine-full / covering-list hooks
 - service / delay decomposition hooks for later response-time analyses
 - multicore-aware workload / interference abstractions built on Phase D and E
 

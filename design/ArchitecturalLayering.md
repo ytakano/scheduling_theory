@@ -175,8 +175,9 @@ Currently implemented in `theories/Analysis/`:
 - `Common/WorkloadAggregation.v`: `total_job_cost`, ceiling-division arithmetic
   helpers (`nat_mul_lt_ceil_div`, `ceil_div_mono`)
 - `Multicore/ProcessorSupply.v`: machine-supply accounting over intervals,
-  including split lemmas and the capacity bound
-  `total_cpu_service_between <= m * (t2 - t1)`
+  including split lemmas, the capacity bound
+  `total_cpu_service_between <= m * (t2 - t1)`, and the full-machine equalities
+  that recover exact capacity when all CPUs are busy throughout an interval
 - `Multicore/Interference.v`: multicore list-service aggregation and the
   reusable hook that recovers machine supply from a list covering the running
   set over an interval
@@ -285,6 +286,9 @@ policy wrappers:
 - `Analysis/Multicore/*` should host interval supply / interference arguments
   that are shared by later global analysis clients, rather than pushing those
   arguments into policy wrappers or back down into `Multicore/Common`
+- `Multicore/Global/GlobalEDF.v` and `Multicore/Global/GlobalLLF.v` may expose
+  thin policy-specific interval hooks, but the machine-supply equalities
+  themselves should stay in `Analysis/Multicore/*`
 
 Within the partitioned sublayer, keep the public theorem boundary separate from
 the implementation files:
