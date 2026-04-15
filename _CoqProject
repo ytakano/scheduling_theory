@@ -40,6 +40,8 @@ theories/Foundation/Base.v
 theories/Multicore/Common/MultiCoreBase.v
 theories/Multicore/Common/ServiceFacts.v
 theories/Multicore/Common/CompletionFacts.v
+theories/Multicore/Common/RemainingCostFacts.v
+theories/Multicore/Common/LaxityFacts.v
 theories/Multicore/Common/Admissibility.v
 theories/Multicore/Common/AffinityFacts.v
 theories/Multicore/Common/AdmissibleCandidateSource.v

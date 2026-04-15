@@ -142,10 +142,19 @@
 - `laxity_step_running_uni`
 - `laxity_step_not_running_uni`
 
+multicore-common 側で追加済みとして扱うもの:
+
+- `remaining_cost_eq_job_cost_minus_service_sum`
+- `remaining_cost_step_running_mc`
+- `remaining_cost_step_not_running_mc`
+- `laxity_unfold_service_sum`
+- `laxity_step_running_mc`
+- `laxity_step_not_running_mc`
+
 残作業:
 
-- 単一CPU向けだけでなく、multicore 共通形で remaining-cost / laxity をどこまで上げるか整理する
 - dynamic metric policy 向けに、再利用しやすい補題セットへ整理する
+- `GlobalLLF.v` や multicore interference hook が必要とする補題粒度を見極める
 
 ---
 
@@ -643,12 +652,12 @@ Done:
 - richer candidate-source instantiation examples
 
 ## 7-3. multicore service / completion under migration
-**Status: Initial service/completion bridge implemented**
+**Status: Service/completion/remaining-cost/laxity bridge implemented**
 
 残作業:
 
-- remaining-cost / laxity まで含めた migration-aware 一貫性
 - global / clustered analysis 向けのより強い再利用補題層
+- fairness / interference 向けの interval-level migration-aware 補題
 
 ---
 
@@ -694,6 +703,7 @@ Done:
 
 - global policy results を EDF 以外へ一般化できるところまで切り出す
 - richer affinity instantiation examples
+- `GlobalLLF.v` の dynamic-metric theorem inventory 強化
 - analysis / fairness hooks
 
 注:

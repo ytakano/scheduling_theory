@@ -259,6 +259,11 @@ policy wrappers:
   decomposition across per-CPU projections
 - `Multicore/Common/CompletionFacts.v` provides completion-facing bridge lemmas
   on top of the decomposed multicore service
+- `Multicore/Common/RemainingCostFacts.v` lifts the same migration-aware
+  service view to reusable `remaining_cost` lemmas
+- `Multicore/Common/LaxityFacts.v` lifts the common layer further to
+  `laxity`, which is the intended support layer for dynamic-metric global
+  policies such as LLF
 - `Multicore/Partitioned/*` and `Multicore/Global/*` should be clients of this
   common layer rather than re-encoding it
 

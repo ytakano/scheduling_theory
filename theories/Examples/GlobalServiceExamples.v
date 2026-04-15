@@ -1,10 +1,12 @@
-From Stdlib Require Import Arith Arith.PeanoNat Lia.
+From Stdlib Require Import Arith Arith.PeanoNat Lia ZArith.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.ServiceFacts.
 From RocqSched Require Import Multicore.Common.CompletionFacts.
+From RocqSched Require Import Multicore.Common.RemainingCostFacts.
+From RocqSched Require Import Multicore.Common.LaxityFacts.
 
 Section GlobalServiceExamples.
 
@@ -69,6 +71,47 @@ Section GlobalServiceExamples.
     rewrite <- migrating_service_matches_sum_of_cpu_services.
     simpl.
     lia.
+  Qed.
+
+  Example migrating_remaining_cost_matches_service_sum :
+    remaining_cost migrating_jobs 2 migrating_sched 0 1 =
+    job_cost (migrating_jobs 0) - service_sum_on_cpus 2 migrating_sched 0 1.
+  Proof.
+    apply remaining_cost_eq_job_cost_minus_service_sum.
+  Qed.
+
+  Example migrating_remaining_cost_decreases_while_running :
+    remaining_cost migrating_jobs 2 migrating_sched 0 1 =
+    remaining_cost migrating_jobs 2 migrating_sched 0 0 - 1.
+  Proof.
+    apply remaining_cost_step_running_mc.
+    - apply migrating_schedule_no_duplication.
+    - exists 0. split; [lia | reflexivity].
+    - rewrite not_completed_iff_service_sum_lt_cost.
+      simpl.
+      lia.
+  Qed.
+
+  Example migrating_laxity_is_preserved_while_running :
+    laxity migrating_jobs 2 migrating_sched 0 1 =
+    laxity migrating_jobs 2 migrating_sched 0 0.
+  Proof.
+    apply laxity_step_running_mc.
+    - apply migrating_schedule_no_duplication.
+    - exists 0. split; [lia | reflexivity].
+    - rewrite not_completed_iff_service_sum_lt_cost.
+      simpl.
+      lia.
+  Qed.
+
+  Example migrating_laxity_drops_when_not_running :
+    laxity migrating_jobs 2 migrating_sched 0 3 =
+    Z.sub (laxity migrating_jobs 2 migrating_sched 0 2) 1.
+  Proof.
+    apply laxity_step_not_running_mc.
+    - apply migrating_schedule_no_duplication.
+    - intros [c [Hlt Hrun]].
+      destruct c as [|[|c']]; simpl in Hrun; try discriminate; lia.
   Qed.
 
   Definition duplicate_sched (t : Time) (cpu : CPU) : option JobId :=

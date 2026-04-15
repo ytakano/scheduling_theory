@@ -448,7 +448,7 @@ Planned:
 ---
 
 ## 4. Phase D: Multicore-common semantics
-**Status: Affinity layer and initial service/completion bridge layer implemented**
+**Status: Affinity layer and migration-aware service/completion/remaining-cost/laxity bridge layer implemented**
 
 Implemented core:
 
@@ -459,6 +459,8 @@ Implemented core:
 - `TopMAdmissibilityBridge.v`
 - `Multicore/Common/ServiceFacts.v`
 - `Multicore/Common/CompletionFacts.v`
+- `Multicore/Common/RemainingCostFacts.v`
+- `Multicore/Common/LaxityFacts.v`
 
 What is already done:
 
@@ -472,11 +474,13 @@ What is already done:
 - admissibility-aware candidate-source specs
 - migration-aware decomposition of `service_job` into projected per-CPU service
 - completion / eligibility bridges over the decomposed service view
+- remaining-cost / laxity bridges over migration-aware service accounting
+- one-step change lemmas for `remaining_cost` and `laxity` under `no_duplication`
 
 What remains:
 
 - multicore validity beyond the current minimal base
-- stronger service / completion lemmas under migration
+- stronger fairness / interference-facing lemmas under migration
 - abstractions for top-`m` and non-partitioned selection beyond admissibility
 - API stabilization: clarify public API vs helper lemma boundary
 - richer affinity / candidate-source instantiation examples
@@ -485,10 +489,10 @@ What remains:
 ---
 
 ## 5. Phase E: Global / clustered scheduling
-**Status: Public API stabilization in progress**
+**Status: E-1 largely stable; next work shifts toward LLF strengthening and analysis-facing hooks**
 
 ### E-1. Global scheduling
-**Status: Initial global EDF / LLF theorem layers done; stable entry-point layer being finalized**
+**Status: Initial global EDF / LLF theorem layers done; stable entry-point layer largely in place**
 
 What is already done:
 
@@ -512,6 +516,7 @@ What remains:
 - connect the global theorem layer to later analysis results
 - identify which global EDF / LLF facts should be lifted to policy-generic layers
 - richer candidate-source / affinity instantiation examples
+- strengthen `GlobalLLF.v` on top of the new multicore-common remaining-cost / laxity layer
 - prepare analysis / fairness / migration-aware interference hooks
 
 ### E-2. Clustered scheduling

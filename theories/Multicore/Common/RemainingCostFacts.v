@@ -1,0 +1,54 @@
+From Stdlib Require Import Arith Arith.PeanoNat Lia.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Multicore.Common.ServiceFacts.
+From RocqSched Require Import Multicore.Common.CompletionFacts.
+
+Lemma remaining_cost_eq_job_cost_minus_service_sum :
+  forall jobs m sched j t,
+    remaining_cost jobs m sched j t =
+    job_cost (jobs j) - service_sum_on_cpus m sched j t.
+Proof.
+  intros jobs m sched j t.
+  unfold remaining_cost.
+  rewrite service_job_eq_sum_of_cpu_services.
+  reflexivity.
+Qed.
+
+Lemma remaining_cost_step_running_mc :
+  forall jobs m sched j t,
+    no_duplication m sched ->
+    running m sched j t ->
+    ~ completed jobs m sched j t ->
+    remaining_cost jobs m sched j (S t) =
+    remaining_cost jobs m sched j t - 1.
+Proof.
+  intros jobs m sched j t Hnd Hrun Hncomp.
+  rewrite !remaining_cost_eq_job_cost_minus_service_sum.
+  rewrite service_sum_on_cpus_step.
+  rewrite (proj2 (no_duplication_cpu_count_eq_1_iff_executed m sched j t Hnd)).
+  - pose proof (proj1 (not_completed_iff_service_sum_lt_cost jobs m sched j t) Hncomp)
+      as Hlt.
+    lia.
+  - exact Hrun.
+Qed.
+
+Lemma remaining_cost_step_not_running_mc :
+  forall jobs m sched j t,
+    no_duplication m sched ->
+    ~ running m sched j t ->
+    remaining_cost jobs m sched j (S t) =
+    remaining_cost jobs m sched j t.
+Proof.
+  intros jobs m sched j t Hnd Hnrun.
+  rewrite !remaining_cost_eq_job_cost_minus_service_sum.
+  rewrite service_sum_on_cpus_step.
+  pose proof (no_duplication_cpu_count_0_or_1 m sched j t Hnd) as [Hzero | Hone].
+  - lia.
+  - exfalso.
+    apply Hnrun.
+    apply (proj1 (no_duplication_cpu_count_eq_1_iff_executed m sched j t Hnd)).
+    exact Hone.
+Qed.
