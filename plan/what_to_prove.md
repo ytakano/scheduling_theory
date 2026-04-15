@@ -653,10 +653,10 @@ Done:
 ---
 
 # Lv.8: Global / clustered scheduling
-**Status: Initial global EDF/LLF layers exist**
+**Status: Stable downstream entry layer being finalized**
 
 ## 8-1. global scheduling
-**Status: In progress at the initial theorem-layer stage**
+**Status: In progress at the public-API stabilization stage**
 
 証明済みとして扱うもの:
 
@@ -666,6 +666,7 @@ Done:
   - `top_m_algorithm_no_duplication`
   - subset-aware theorem layer
 - `TopMAdmissibilityBridge.v` generic bridge
+- `GlobalEntryPoints.v` が stable downstream import を提供する
 - `GlobalEDF.v`:
   - `global_edf_scheduler`
   - `global_edf_valid`
@@ -682,13 +683,18 @@ Done:
   - `global_llf_no_duplication`
   - EDF と同型の subset-aware theorem layer
   - admissibility-aware wrappers
+- `Examples/GlobalExamples.v` が canonical example inventory を提供する
+- curated examples は次を 1 箇所から辿れる
+  - admissibility-aware running example
+  - migration preserves global service
+  - global service equals the sum of per-CPU service
+  - duplicate schedules are rejected by `no_duplication`
 
 残作業:
 
-- wrapper layer documentation and API stabilization
 - global policy results を EDF 以外へ一般化できるところまで切り出す
-- analysis theorem の前段となる theorem inventory を明示する
 - richer affinity instantiation examples
+- analysis / fairness hooks
 
 注:
 

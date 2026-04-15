@@ -61,9 +61,9 @@ That base is already substantial.
 The next work is mainly:
 
 1. stabilize and document the reusable theory and public theorem inventory
-2. finish the current EDF processor-demand bridge stabilization work
+2. stabilize and document the multicore theorem-layer public APIs
 3. turn partitioned multicore into a mature theorem layer
-4. strengthen multicore-common semantics and the initial global theorem layers
+4. strengthen multicore-common semantics and the reusable global theorem layers
 5. introduce OS-level operational semantics and projection discipline
 6. complete refinement on a designable OS and validate external applicability on Linux
 7. deepen idealized and delay-aware analyses on top of the current foundations
@@ -485,10 +485,10 @@ What remains:
 ---
 
 ## 5. Phase E: Global / clustered scheduling
-**Status: Initial global layer started**
+**Status: Public API stabilization in progress**
 
 ### E-1. Global scheduling
-**Status: Initial global EDF / LLF theorem layers done**
+**Status: Initial global EDF / LLF theorem layers done; stable entry-point layer being finalized**
 
 What is already done:
 
@@ -502,14 +502,17 @@ What is already done:
   - subset-aware theorem entry points
   - admissibility-aware wrappers
 - `GlobalLLF.v` provides analogous theorem families
+- `GlobalEntryPoints.v` provides the canonical downstream import path for the
+  stable global theorem inventory
+- `Examples/GlobalExamples.v` curates representative downstream clients in one
+  place
 
 What remains:
 
 - connect the global theorem layer to later analysis results
-- tighten theorem inventory documentation for downstream analysis use
 - identify which global EDF / LLF facts should be lifted to policy-generic layers
-- richer candidate-source instantiation examples
-- prepare fairness / bounded waiting / migration-aware interference hooks
+- richer candidate-source / affinity instantiation examples
+- prepare analysis / fairness / migration-aware interference hooks
 
 ### E-2. Clustered scheduling
 **Status: Not started**
@@ -580,7 +583,7 @@ Remaining:
 - tighter integration with downstream analysis-facing theorem inventories
 
 ### G-2. Demand-bound / request-bound theory
-**Status: Aggregate processor-demand layer implemented; EDF bridge stabilization in progress**
+**Status: Aggregate processor-demand layer implemented; EDF bridge stabilization completed**
 
 Implemented core:
 
@@ -620,7 +623,7 @@ Remaining:
 ### G-2a. EDF processor-demand bridge stabilization
 **Status: Done**
 
-This is the current bridge-closure work for the roadmap.
+This is a completed bridge-closure milestone in the roadmap.
 
 - keep the packaged busy-prefix bridge as the default public interface
 - keep bridge-based theorems as the canonical public statements
@@ -943,34 +946,26 @@ Planned:
 ## 14. Immediate milestones from the current implementation
 
 ### Immediate milestone 1
-Finish the periodic EDF processor-demand bridge stabilization work.
-
-This means:
-
-- complete the remaining client/example cleanup around
-  `periodic_edf_busy_prefix_bridge`
-- keep the bridge-based witness statements as the stable public layer
-- automate routine bridge construction where the structure is obvious
-
-### Immediate milestone 2
-Synchronize theorem inventory and design documents.
+Synchronize theorem inventory and design documents with the current multicore
+code.
 
 This means:
 
 - update `what_to_prove.md`
 - update `design/ArchitecturalLayering.md`
+- update `roadmap.md`
 - align representative examples with the intended public APIs
 
-### Immediate milestone 3
-Make the partitioned and global theorem layers easier to consume downstream.
+### Immediate milestone 2
+Stabilize the reusable global theorem layer and its public inventory.
 
 This means:
 
-- document stable entry points
-- keep wrappers thin
-- make the policy-generic vs policy-specific boundary explicit
+- add a canonical downstream import for the global theorem layer
+- add a canonical example inventory for downstream global clients
+- keep the policy-generic vs policy-specific boundary explicit
 
-### Immediate milestone 4
+### Immediate milestone 3
 Strengthen multicore-common semantics toward later interference and fairness work.
 
 This means:
@@ -979,7 +974,7 @@ This means:
 - clearer top-`m` abstraction boundaries
 - better admissibility / candidate-source instantiations
 
-### Immediate milestone 5
+### Immediate milestone 4
 Define the first Awkernel-facing operational projection slice.
 
 This means:
@@ -993,51 +988,49 @@ This means:
 ## 15. Practical priority order from the current implementation
 
 ### Priority 1
-Finish **EDF processor-demand bridge stabilization** and client migration.
-
-### Priority 2
 Synchronize **roadmap / theorem inventory / architectural layering** documents.
 
-### Priority 3
-Stabilize the reusable **partitioned theorem layer** and its public inventory.
+### Priority 2
+Stabilize the reusable **global theorem layer** and its public inventory.
 
-### Priority 4
+### Priority 3
 Strengthen **multicore-common semantics** and top-`m`-facing abstractions.
 
-### Priority 5
-Strengthen the existing **global EDF / LLF theorem layers**.
+### Priority 4
+Strengthen the existing **partitioned theorem layer** where later analysis
+needs clearer public boundaries.
 
-### Priority 6
+### Priority 5
 Start **Awkernel-first operational semantics and projection discipline**.
 
-### Priority 7
+### Priority 6
 Deepen **idealized analysis** on top of the busy-window / DBF / RBF foundations.
 
-### Priority 8
+### Priority 7
 Introduce **OS-level delay sources** and bounded-delay projection discipline.
 
-### Priority 9
+### Priority 8
 Use **Linux trace-based validation** to demonstrate external applicability.
 
-### Priority 10
+### Priority 9
 Add **shared-resource, suspension, and limited-preemption models**.
 
-### Priority 11
+### Priority 10
 Strengthen **refinement with bounded-delay statements**.
 
-### Priority 12
+### Priority 11
 Build fuller **partitioned / global / delay-aware analysis** on top.
 
-### Priority 13
+### Priority 12
 Add **hierarchical scheduling / compositional interfaces**.
 
-### Priority 14
+### Priority 13
 Add **DAG / parallel and mixed-criticality extensions**.
 
 ---
 
 ## 16. One-line summary
 
-The project should first close the current **EDF bridge and multicore theorem-layer stabilization work**,
+The project should first close the current **documentation sync and global multicore theorem-layer stabilization work**,
 then complete **refinement verification on Awkernel as a designable OS**,
 and finally use **Linux trace-based validation** to demonstrate external applicability.

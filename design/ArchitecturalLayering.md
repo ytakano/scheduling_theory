@@ -287,6 +287,25 @@ Representative clients should point to `Examples/PartitionedExamples.v` rather
 than forcing users to discover the theorem inventory across multiple example
 files.
 
+Within the global sublayer, keep the generic top-`m` bridge boundary separate
+from the policy wrappers:
+
+- `Abstractions/SchedulingAlgorithm/TopMInterface.v` hosts the generic top-`m`
+  scheduling-algorithm interface
+- `Abstractions/SchedulingAlgorithm/TopMSchedulerBridge.v` hosts the generic
+  top-`m` scheduler bridge and structural facts such as validity,
+  no-duplication, and idle-outside-range
+- `Multicore/Common/TopMAdmissibilityBridge.v` hosts the policy-generic
+  admissibility-aware top-`m` theorem layer
+- `Multicore/Global/GlobalEDF.v` and `Multicore/Global/GlobalLLF.v` host thin
+  policy-specific wrappers over that generic boundary
+- `Multicore/Global/GlobalEntryPoints.v` is the canonical downstream import for
+  the stable global theorem inventory
+
+Representative clients should point to `Examples/GlobalExamples.v` rather than
+forcing users to discover the global theorem inventory across multiple example
+files.
+
 As in the uniprocessor case, this layer should depend on shared lower layers rather than cloning them.
 
 Whenever a proof concept is common to both uniprocessor and multicore reasoning, it should be pushed downward into `Abstractions` or `Analysis` instead of being duplicated.
