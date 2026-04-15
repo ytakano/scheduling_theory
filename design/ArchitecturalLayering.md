@@ -174,6 +174,12 @@ Currently implemented in `theories/Analysis/`:
 
 - `Common/WorkloadAggregation.v`: `total_job_cost`, ceiling-division arithmetic
   helpers (`nat_mul_lt_ceil_div`, `ceil_div_mono`)
+- `Multicore/ProcessorSupply.v`: machine-supply accounting over intervals,
+  including split lemmas and the capacity bound
+  `total_cpu_service_between <= m * (t2 - t1)`
+- `Multicore/Interference.v`: multicore list-service aggregation and the
+  reusable hook that recovers machine supply from a list covering the running
+  set over an interval
 - `Uniprocessor/BusyInterval.v`, `BusyIntervalLemmas.v`: uniprocessor busy-interval
   foundations
 - `Uniprocessor/BusyWindowSearch.v`: busy-window and busy-prefix witness layers
@@ -262,7 +268,8 @@ policy wrappers:
 - `Multicore/Common/MultiCoreBase.v` provides the basic projections and
   multicore notions such as `cpu_schedule` and `no_duplication`
 - `Multicore/Common/ServiceFacts.v` provides migration-aware service
-  decomposition across per-CPU projections
+  decomposition across per-CPU projections and job-level interval bounds such as
+  `service_between <= total_cpu_service_between`
 - `Multicore/Common/CompletionFacts.v` provides completion-facing bridge lemmas
   on top of the decomposed multicore service
 - `Multicore/Common/RemainingCostFacts.v` lifts the same migration-aware
@@ -275,6 +282,9 @@ policy wrappers:
   reusable theorem statements without depending directly on chooser internals
 - `Multicore/Partitioned/*` and `Multicore/Global/*` should be clients of this
   common layer rather than re-encoding it
+- `Analysis/Multicore/*` should host interval supply / interference arguments
+  that are shared by later global analysis clients, rather than pushing those
+  arguments into policy wrappers or back down into `Multicore/Common`
 
 Within the partitioned sublayer, keep the public theorem boundary separate from
 the implementation files:

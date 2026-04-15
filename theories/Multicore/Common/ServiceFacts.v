@@ -2,6 +2,7 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Analysis.Multicore.ProcessorSupply.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 
 (* Migration-aware cumulative service on an m-CPU schedule, decomposed into
@@ -118,4 +119,92 @@ Proof.
   rewrite service_sum_on_cpus_step.
   pose proof (no_duplication_cpu_count_le_1 m sched j t Hnd) as Hle.
   lia.
+Qed.
+
+Lemma service_between_single_slot_eq_cpu_count :
+  forall m sched j t,
+    service_between m sched j t (S t) = cpu_count m sched j t.
+Proof.
+  intros m sched j t.
+  unfold service_between.
+  rewrite service_job_step.
+  lia.
+Qed.
+
+Lemma cpu_count_le_total_cpu_service_at :
+  forall m sched j t,
+    cpu_count m sched j t <= total_cpu_service_at m sched t.
+Proof.
+  induction m as [|m IH]; intros sched j t.
+  - reflexivity.
+  - simpl.
+    pose proof (IH sched j t) as Hrest.
+    destruct (runs_on sched j t m) eqn:Hruns;
+      destruct (sched t m) eqn:Hsched; simpl in *.
+    + lia.
+    + apply runs_on_true_iff in Hruns.
+      rewrite Hsched in Hruns.
+      discriminate.
+    + lia.
+    + lia.
+Qed.
+
+Lemma service_between_le_total_cpu_service_between :
+  forall m sched j t1 t2,
+    t1 <= t2 ->
+    service_between m sched j t1 t2 <=
+    total_cpu_service_between m sched t1 t2.
+Proof.
+  intros m sched j t1 t2 Hle.
+  remember (t2 - t1) as len eqn:Hlen.
+  revert t1 t2 Hle Hlen.
+  induction len as [|len IH]; intros t1 t2 Hle Hlen.
+  - assert (t1 = t2) by lia.
+    subst t2.
+    rewrite service_between_refl.
+    rewrite total_cpu_service_between_refl.
+    lia.
+  - destruct (Nat.eq_dec t2 t1) as [-> | Hneq].
+    + lia.
+    + destruct (Nat.eq_dec t2 (S t1)) as [-> | Hneq'].
+      * rewrite service_between_single_slot_eq_cpu_count.
+        rewrite total_cpu_service_between_single_slot.
+        apply cpu_count_le_total_cpu_service_at.
+      * assert (Hlen' : len = t2 - S t1) by lia.
+        rewrite (service_between_split m sched j t1 (S t1) t2) by lia.
+        rewrite (total_cpu_service_between_split m sched t1 (S t1) t2) by lia.
+        rewrite service_between_single_slot_eq_cpu_count.
+        rewrite total_cpu_service_between_single_slot.
+        assert (Hslot : cpu_count m sched j t1 <= total_cpu_service_at m sched t1).
+        { apply cpu_count_le_total_cpu_service_at. }
+        pose proof (IH (S t1) t2 ltac:(lia) Hlen') as Hrest.
+        lia.
+Qed.
+
+Lemma no_duplication_service_between_le_interval_length :
+  forall m sched j t1 t2,
+    no_duplication m sched ->
+    t1 <= t2 ->
+    service_between m sched j t1 t2 <= t2 - t1.
+Proof.
+  intros m sched j t1 t2 Hnd Hle.
+  remember (t2 - t1) as len eqn:Hlen.
+  revert t1 t2 Hle Hlen.
+  induction len as [|len IH]; intros t1 t2 Hle Hlen.
+  - assert (t1 = t2) by lia.
+    subst t2.
+    rewrite service_between_refl.
+    lia.
+  - destruct (Nat.eq_dec t2 t1) as [-> | Hneq].
+    + lia.
+    + destruct (Nat.eq_dec t2 (S t1)) as [-> | Hneq'].
+      * rewrite service_between_single_slot_eq_cpu_count.
+        pose proof (no_duplication_cpu_count_le_1 m sched j t1 Hnd) as Hcpu.
+        lia.
+      * assert (Hlen' : len = t2 - S t1) by lia.
+        rewrite (service_between_split m sched j t1 (S t1) t2) by lia.
+        rewrite service_between_single_slot_eq_cpu_count.
+        pose proof (no_duplication_cpu_count_le_1 m sched j t1 Hnd) as Hcpu.
+        pose proof (IH (S t1) t2 ltac:(lia) Hlen') as Hrest.
+        lia.
 Qed.

@@ -2,6 +2,8 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia ZArith.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Analysis.Multicore.ProcessorSupply.
+From RocqSched Require Import Analysis.Multicore.Interference.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.ServiceFacts.
 From RocqSched Require Import Multicore.Common.CompletionFacts.
@@ -56,11 +58,46 @@ Section GlobalServiceExamples.
     reflexivity.
   Qed.
 
+  Example migrating_interval_service_is_preserved :
+    service_between 2 migrating_sched 0 0 2 = 2.
+  Proof.
+    simpl.
+    reflexivity.
+  Qed.
+
   Example migrating_service_matches_sum_of_cpu_services :
     service_job 2 migrating_sched 0 2 =
     service_sum_on_cpus 2 migrating_sched 0 2.
   Proof.
     apply service_job_eq_sum_of_cpu_services.
+  Qed.
+
+  Example migrating_total_cpu_service_between :
+    total_cpu_service_between 2 migrating_sched 0 2 = 2.
+  Proof.
+    reflexivity.
+  Qed.
+
+  Example migrating_service_between_bounded_by_machine_supply :
+    service_between 2 migrating_sched 0 0 2 <=
+    total_cpu_service_between 2 migrating_sched 0 2.
+  Proof.
+    apply service_between_le_total_cpu_service_between.
+    lia.
+  Qed.
+
+  Example migrating_machine_supply_bounded_by_capacity :
+    total_cpu_service_between 2 migrating_sched 0 2 <= 2 * (2 - 0).
+  Proof.
+    apply total_cpu_service_between_le_capacity.
+  Qed.
+
+  Example migrating_no_duplication_interval_service_bound :
+    service_between 2 migrating_sched 0 0 2 <= 2.
+  Proof.
+    eapply no_duplication_service_between_le_interval_length.
+    - apply migrating_schedule_no_duplication.
+    - lia.
   Qed.
 
   Example migrating_completion_via_service_sum :
@@ -143,6 +180,20 @@ Section GlobalServiceExamples.
   Proof.
     simpl.
     lia.
+  Qed.
+
+  Example duplicate_schedule_interval_service_exceeds_unit_length :
+    ~ service_between 2 duplicate_sched 0 0 1 <= 1.
+  Proof.
+    unfold service_between.
+    simpl.
+    lia.
+  Qed.
+
+  Example duplicate_schedule_machine_supply_on_one_slot :
+    total_cpu_service_between 2 duplicate_sched 0 1 = 2.
+  Proof.
+    reflexivity.
   Qed.
 
 End GlobalServiceExamples.

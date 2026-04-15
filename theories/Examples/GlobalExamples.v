@@ -21,11 +21,23 @@ Definition global_example_llf_excluded_job_implies_machine_full :=
 Definition global_example_service_preserved_under_migration :=
   migrating_global_service_is_preserved.
 
+Definition global_example_interval_service_preserved_under_migration :=
+  migrating_interval_service_is_preserved.
+
 Definition global_example_service_sum_matches_global_service :=
   migrating_service_matches_sum_of_cpu_services.
+
+Definition global_example_machine_supply_bounded_by_capacity :=
+  migrating_machine_supply_bounded_by_capacity.
+
+Definition global_example_no_duplication_interval_service_bound :=
+  migrating_no_duplication_interval_service_bound.
 
 Definition global_example_laxity_preserved_while_running :=
   migrating_laxity_is_preserved_while_running.
 
 Definition global_example_duplicate_schedule_rejected :=
   duplicate_schedule_not_no_duplication.
+
+Definition global_example_duplicate_schedule_exceeds_unit_length :=
+  duplicate_schedule_interval_service_exceeds_unit_length.

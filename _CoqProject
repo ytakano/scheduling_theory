@@ -9,6 +9,8 @@ theories/Abstractions/SchedulingAlgorithm/EnumCandidates.v
 theories/Abstractions/SchedulingAlgorithm/TopMInterface.v
 theories/Abstractions/SchedulingAlgorithm/TopMSchedulerBridge.v
 theories/Analysis/Common/WorkloadAggregation.v
+theories/Analysis/Multicore/ProcessorSupply.v
+theories/Analysis/Multicore/Interference.v
 theories/Analysis/Uniprocessor/BusyInterval.v
 theories/Analysis/Uniprocessor/BusyIntervalLemmas.v
 theories/Analysis/Uniprocessor/BusyWindowSearch.v

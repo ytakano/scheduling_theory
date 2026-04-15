@@ -994,6 +994,8 @@ Strengthen multicore-common semantics toward later interference and fairness wor
 This means:
 
 - richer service / completion facts
+- interval-level machine-supply accounting
+- reusable running-set coverage lemmas for interference arguments
 - clearer top-`m` abstraction boundaries
 - better admissibility / candidate-source instantiations
 

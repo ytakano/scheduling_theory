@@ -1061,6 +1061,7 @@ sporadic / jittered-periodic 側へ同じ stable analysis inventory 形式を広
 - partitioned の theorem-layer completion
 - periodic/sporadic/release-jitter generation strengthening
 - multicore-common semantics
+- multicore interval supply / interference foundations
 - OS / delay / refinement
 - idealized / delay-aware analysis
 
