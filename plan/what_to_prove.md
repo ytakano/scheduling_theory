@@ -927,18 +927,20 @@ Done:
   via `periodic_edf_busy_prefix_bridge`, so generated-schedule and
   finite-horizon wrappers can share one explicit bridge premise
 - `PeriodicEDFBridge.v` window-DBF bridge theorems close without `feasible_on` hypothesis
-- `PeriodicEDFBridge.v` also exposes public busy-prefix wrappers for
-  no-miss / feasible-schedule / schedulable-by-on
+- `PeriodicEDFBridge.v` exposes bridge-first public busy-prefix wrappers for
+  no-miss / feasible-schedule / schedulable-by-on, with older unpackaged
+  forms retained only as compatibility wrappers
 - `PeriodicProcessorDemandExamples.v` now includes both
-  `periodic_example_edf_no_deadline_miss_by_window_dbf_auto` and
-  `periodic_example_edf_schedulable_by_window_dbf_auto`
-- `PeriodicProcessorDemandExamples.v` also includes busy-prefix variants of the
-  no-miss / schedulable examples
+  `periodic_example_edf_no_deadline_miss_by_window_dbf_auto_with_busy_prefix_bridge`
+  and
+  `periodic_example_edf_schedulable_by_window_dbf_auto_with_busy_prefix_bridge`
+- `PeriodicProcessorDemandExamples.v` also includes the generated-schedule
+  bridge example
+  `periodic_example_edf_schedulable_by_window_dbf_generated_with_busy_prefix_bridge`
 
 Remaining:
-- finish converting remaining examples and wrappers to consume
-  `periodic_edf_busy_prefix_bridge` directly, with compatibility lemmas only
-  where the older pair-of-hypotheses API is still useful
+- keep older busy-window / unpackaged busy-prefix examples only as
+  compatibility wrappers where the older APIs remain useful
 
 - busy-interval existence lemma: constructive extraction of maximal busy interval
   from any busy time point in a discrete schedule

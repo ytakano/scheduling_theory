@@ -133,6 +133,8 @@ Proof.
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
+(* Compatibility wrapper: expose the busy-prefix start/carry obligations
+   separately instead of through the packaged bridge record. *)
 Theorem periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_busy_prefix :
   forall T tasks offset H enumT enumJ jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -169,6 +171,8 @@ Proof.
     eauto.
 Qed.
 
+(* Canonical public entry point for finite-horizon no-miss proofs under
+   periodic EDF with a busy-prefix witness. *)
 Theorem periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_busy_prefix_bridge :
   forall T tasks offset H enumT enumJ jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -204,6 +208,7 @@ Proof.
                 T tasks offset jobs H sched j Hbridge t1 t2 Hwit)).
 Qed.
 
+(* Compatibility wrapper around the bridge-based auto theorem. *)
 Theorem periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_auto_with_busy_prefix :
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -242,6 +247,7 @@ Proof.
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
+(* Canonical public auto entry point for finite-horizon no-miss proofs. *)
 Theorem periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_auto_with_busy_prefix_bridge :
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -354,6 +360,8 @@ Proof.
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
+(* Compatibility wrapper: expose the busy-prefix start/carry obligations
+   separately instead of through the packaged bridge record. *)
 Theorem periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon_with_busy_prefix :
   forall T tasks offset H enumT enumJ jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -394,6 +402,7 @@ Proof.
   eapply periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_busy_prefix; eauto.
 Qed.
 
+(* Canonical public entry point for finite-horizon feasible-schedule proofs. *)
 Theorem periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon_with_busy_prefix_bridge :
   forall T tasks offset H enumT enumJ jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -427,6 +436,7 @@ Proof.
   eapply periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_busy_prefix_bridge; eauto.
 Qed.
 
+(* Compatibility wrapper around the bridge-based auto feasible-schedule theorem. *)
 Theorem periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon_auto_with_busy_prefix :
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -561,6 +571,8 @@ Proof.
   eapply periodic_edf_optimality_on_finite_horizon_auto; eauto.
 Qed.
 
+(* Compatibility wrapper: expose the busy-prefix start/carry obligations
+   separately instead of through the packaged bridge record. *)
 Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_with_busy_prefix :
   forall T T_bool tasks offset H enumT enumJ jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -608,6 +620,7 @@ Proof.
   eapply periodic_edf_optimality_on_finite_horizon; eauto.
 Qed.
 
+(* Canonical public entry point for schedulability on a fixed finite horizon. *)
 Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_with_busy_prefix_bridge :
   forall T T_bool tasks offset H enumT enumJ jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -649,6 +662,7 @@ Proof.
   eapply periodic_edf_optimality_on_finite_horizon; eauto.
 Qed.
 
+(* Compatibility wrapper around the bridge-based auto schedulability theorem. *)
 Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto_with_busy_prefix :
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -697,6 +711,7 @@ Proof.
   eapply periodic_edf_optimality_on_finite_horizon_auto; eauto.
 Qed.
 
+(* Canonical public auto entry point for schedulability on a finite horizon. *)
 Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto_with_busy_prefix_bridge :
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -738,6 +753,8 @@ Proof.
   eapply periodic_edf_optimality_on_finite_horizon_auto; eauto.
 Qed.
 
+(* Compatibility wrapper for generated schedules with unpackaged start/carry
+   obligations. *)
 Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix :
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),
@@ -819,6 +836,7 @@ Proof.
     eapply periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_busy_prefix; eauto.
 Qed.
 
+(* Canonical public generated-schedule entry point. *)
 Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge :
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),

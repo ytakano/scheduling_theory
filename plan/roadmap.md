@@ -608,22 +608,22 @@ What is already done:
 
 Remaining:
 
-- finish migrating remaining periodic EDF clients to the packaged
+- finish the last public-inventory cleanup around the packaged
   `periodic_edf_busy_prefix_bridge` API
 - automate routine bridge construction where it is structurally obvious
 - decide which witness / bridge records should become policy-generic public APIs
 - add deeper schedulability / response-time theorems on top of the new hooks
 
 ### G-2a. EDF processor-demand bridge stabilization
-**Status: Active near-term priority**
+**Status: Near completion; public API closure in progress**
 
 This is the current bridge-closure work for the roadmap.
 
 Planned:
 
-- make the packaged busy-prefix bridge the default public interface
-- keep stronger-interface theorems as the canonical public statements
-- reduce duplication across:
+- keep the packaged busy-prefix bridge as the default public interface
+- keep bridge-based theorems as the canonical public statements
+- finish client/example migration and compatibility-wrapper cleanup across:
   - generated-jobset views
   - finite-horizon views
   - busy-prefix views
@@ -946,8 +946,9 @@ Finish the periodic EDF processor-demand bridge stabilization work.
 
 This means:
 
-- migrate remaining clients to `periodic_edf_busy_prefix_bridge`
-- keep the stronger witness-based statements as the stable public layer
+- complete the remaining client/example cleanup around
+  `periodic_edf_busy_prefix_bridge`
+- keep the bridge-based witness statements as the stable public layer
 - automate routine bridge construction where the structure is obvious
 
 ### Immediate milestone 2

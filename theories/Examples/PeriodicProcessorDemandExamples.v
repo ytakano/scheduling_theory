@@ -52,7 +52,7 @@ Proof.
     + constructor.
 Qed.
 
-Theorem periodic_example_edf_no_deadline_miss_by_window_dbf_auto :
+Theorem periodic_example_edf_no_deadline_miss_by_window_dbf_auto_compat :
   forall sched j t1 t2,
     scheduler_rel
       (edf_scheduler
@@ -86,7 +86,7 @@ Proof.
   - exact periodic_window_dbf_test.
 Qed.
 
-Theorem periodic_example_edf_no_deadline_miss_by_window_dbf_auto_with_busy_prefix :
+Theorem periodic_example_edf_no_deadline_miss_by_window_dbf_auto_with_busy_prefix_bridge :
   forall sched j t1 t2,
     scheduler_rel
       (edf_scheduler
@@ -136,7 +136,7 @@ Proof.
   apply periodic_edf_busy_prefix_bridge_of_hypotheses; assumption.
 Qed.
 
-Theorem periodic_example_edf_no_deadline_miss_by_window_dbf_auto_with_busy_prefix_hypotheses :
+Theorem periodic_example_edf_no_deadline_miss_by_window_dbf_auto_with_busy_prefix_compat :
   forall sched j t1 t2,
     scheduler_rel
       (edf_scheduler
@@ -161,11 +161,11 @@ Theorem periodic_example_edf_no_deadline_miss_by_window_dbf_auto_with_busy_prefi
     ~ missed_deadline jobs_ex 1 sched j.
 Proof.
   intros sched j t1 t2 Hsched Hj Hwit Hj_H Hstart Hcarry.
-  eapply periodic_example_edf_no_deadline_miss_by_window_dbf_auto_with_busy_prefix; eauto.
+  eapply periodic_example_edf_no_deadline_miss_by_window_dbf_auto_with_busy_prefix_bridge; eauto.
   apply periodic_example_edf_busy_prefix_bridge; assumption.
 Qed.
 
-Theorem periodic_example_edf_schedulable_by_window_dbf_auto :
+Theorem periodic_example_edf_schedulable_by_window_dbf_auto_compat :
   forall sched,
     scheduler_rel
       (edf_scheduler
@@ -206,7 +206,7 @@ Proof.
   - exact periodic_window_dbf_test.
 Qed.
 
-Theorem periodic_example_edf_schedulable_by_window_dbf_auto_with_busy_prefix :
+Theorem periodic_example_edf_schedulable_by_window_dbf_auto_with_busy_prefix_bridge :
   forall sched,
     scheduler_rel
       (edf_scheduler
@@ -242,7 +242,48 @@ Proof.
   - exact periodic_window_dbf_test.
 Qed.
 
-Theorem periodic_example_edf_schedulable_by_window_dbf_generated_with_busy_prefix :
+Theorem periodic_example_edf_schedulable_by_window_dbf_auto_with_busy_prefix_compat :
+  forall sched,
+    scheduler_rel
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+      jobs_ex 1 sched ->
+    (forall j,
+      periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+      job_abs_deadline (jobs_ex j) <= H_ex /\
+      exists t1 t2,
+        busy_prefix_witness sched (job_abs_deadline (jobs_ex j)) t1 t2 /\
+        (forall t1' t2',
+          busy_prefix_witness sched (job_abs_deadline (jobs_ex j)) t1' t2' ->
+          t1' <= job_release (jobs_ex j)) /\
+        (forall t1' t2',
+          busy_prefix_witness sched (job_abs_deadline (jobs_ex j)) t1' t2' ->
+          t1' <= job_release (jobs_ex j) ->
+          forall t j_run,
+            job_release (jobs_ex j) <= t < job_abs_deadline (jobs_ex j) ->
+            sched t 0 = Some j_run ->
+            periodic_jobset_deadline_between T_ex tasks_ex offset_ex jobs_ex
+              t1' (job_abs_deadline (jobs_ex j)) j_run ->
+            job_release (jobs_ex j) <= job_release (jobs_ex j_run))) ->
+    schedulable_by_on
+      (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+      jobs_ex 1.
+Proof.
+  intros sched Hsched Hjob_bridge.
+  eapply periodic_example_edf_schedulable_by_window_dbf_auto_with_busy_prefix_bridge; eauto.
+  intros j Hj.
+  destruct (Hjob_bridge j Hj) as [Hj_H [t1 [t2 [Hwit [Hstart Hcarry]]]]].
+  split; [exact Hj_H |].
+  exists t1, t2.
+  split; [exact Hwit |].
+  apply periodic_example_edf_busy_prefix_bridge; assumption.
+Qed.
+
+Theorem periodic_example_edf_schedulable_by_window_dbf_generated_with_busy_prefix_bridge :
   (forall j,
     periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
     job_abs_deadline (jobs_ex j) <= H_ex /\
