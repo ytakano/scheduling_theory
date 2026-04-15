@@ -257,6 +257,31 @@ policy wrappers:
 - `Multicore/Partitioned/*` and `Multicore/Global/*` should be clients of this
   common layer rather than re-encoding it
 
+Within the partitioned sublayer, keep the public theorem boundary separate from
+the implementation files:
+
+- `Multicore/Partitioned/Partitioned.v` hosts the core partitioned semantics,
+  assignment-respect facts, and service localization such as
+  `service_partitioned_eq_local_service`
+- `Multicore/Partitioned/PartitionedCompose.v` hosts the generic local-to-global
+  composition theorems such as
+  `local_witnesses_imply_partitioned_schedulable_by_on`
+- `Multicore/Partitioned/Policies/*` hosts thin policy wrappers over the
+  generic layer
+- `Multicore/Partitioned/PartitionedEntryPoints.v` is the canonical downstream
+  import for the stable partitioned theorem inventory
+
+For downstream users, the intended policy boundary is:
+
+- EDF / LLF are finite-optimality-ready and expose local-feasible partitioned
+  entry points
+- FIFO / RR are wrapper-only for now and expose only witness-based and
+  local-schedulable partitioned entry points
+
+Representative clients should point to `Examples/PartitionedExamples.v` rather
+than forcing users to discover the theorem inventory across multiple example
+files.
+
 As in the uniprocessor case, this layer should depend on shared lower layers rather than cloning them.
 
 Whenever a proof concept is common to both uniprocessor and multicore reasoning, it should be pushed downward into `Abstractions` or `Analysis` instead of being duplicated.

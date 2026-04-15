@@ -379,7 +379,7 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 ---
 
 # Lv.5: Partitioned multicore composition
-**Status: Generic theorem layer done, inventory/documentation still in progress**
+**Status: Generic theorem layer done, public inventory stabilized**
 
 この層は「未着手」ではなく、すでに reusable theorem layer が立ち上がっている。
 
@@ -392,8 +392,9 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - `glue_other_cpus_idle_local_view`
 - `glue_respects_assignment`
 - `glue_valid_if_local_valid`
-- local witness schedules から global partitioned schedule を作る定理
-- local `schedulable_by_on` から partitioned `schedulable_by_on` への lifting
+- `local_witnesses_imply_partitioned_schedulable_by_on`
+- `local_schedulable_by_on_implies_partitioned_schedulable_by_on`
+- `glue_feasible_on_if_local_feasible_on`
 
 ## 5-2. partitioned service localization
 **Status: Done**
@@ -415,6 +416,8 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - partitioned RR
 - partitioned LLF
 - `PartitionedPolicyLift.v` による wrapper theorem の共通化
+- EDF / LLF は finite-optimality-ready policy
+- FIFO / RR は wrapper-only policy
 
 ## 5-4. partitioned EDF from local feasibility
 **Status: Done**
@@ -424,6 +427,9 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 - local finite-job EDF feasibility から
   partitioned EDF `schedulable_by_on` を導く定理
 - `PartitionedFiniteOptimalityLift.v` による finite-job lifting の generic entry point
+- `partitioned_periodic_finite_optimality_lift`
+- `partitioned_sporadic_finite_optimality_lift_with_witness`
+- `partitioned_jittered_periodic_finite_optimality_lift_with_witness`
 
 ## 5-5. partitioned LLF from local feasibility
 **Status: Done**
@@ -439,11 +445,13 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 
 証明済みとして扱うもの:
 
-- `SchedulableExamples.v` に explicit local witness / local schedulable /
-  local feasible からの partitioned EDF / LLF 入口例がある
-- `PeriodicExamples.v` / `SporadicExamples.v` /
-  `JitteredPeriodicExamples.v` に task-generation layer から
-  partitioned schedulability を得る major-result 例がある
+- `PartitionedEntryPoints.v` が stable downstream import を提供する
+- `Examples/PartitionedExamples.v` が canonical example inventory を提供する
+- curated examples は次を 1 箇所から辿れる
+  - local witness → partitioned EDF
+  - local schedulable → partitioned EDF
+  - local feasible → partitioned EDF / LLF
+  - periodic / sporadic / jittered periodic → partitioned EDF
 
 ## 5-7. remaining work for partitioned
 **Status: In progress**
@@ -451,7 +459,6 @@ policy を抽象 scheduler / scheduling algorithm として扱うための基盤
 残作業:
 
 - FIFO / RR を finite-optimality pipeline に載せるかどうかを判断する
-- wrapper-only policy と finite-optimality-ready policy の境界を文書上で固定する
 - 後段の delay-aware partitioned analysis に必要な theorem inventory を整理する
 
 ---

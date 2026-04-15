@@ -370,17 +370,19 @@ This matches the current implementation better than pushing them to a very late 
 ---
 
 ## 3. Phase C: Partitioned multicore as a mature theorem layer
-**Status: Core theorem layer implemented; stabilization and documentation in progress**
+**Status: Core theorem layer implemented; public inventory stabilized**
 
 Implemented core:
 
 - `Partitioned.v`
 - `PartitionedCompose.v`
+- `PartitionedEntryPoints.v`
 - `Multicore/Partitioned/Policies/PartitionedEDF.v`
 - `Multicore/Partitioned/Policies/PartitionedFIFO.v`
 - `Multicore/Partitioned/Policies/PartitionedRR.v`
 - `Multicore/Partitioned/Policies/PartitionedLLF.v`
 - `Multicore/Partitioned/Policies/PartitionedFiniteOptimalityLift.v`
+- `Examples/PartitionedExamples.v`
 
 ### C-1. Partitioned construction and compose layer
 **Status: Done as a reusable generic entry-point layer**
@@ -392,13 +394,11 @@ What is already done:
 - local witness -> partitioned schedulable-by lifting exists
 - policy-specific partitioned wrappers exist
 
-What remains:
+What is already done:
 
-- better separate:
-  - assignment-respect
-  - local scheduler validity
-  - global schedule validity
-  in documentation and public-inventory terms
+- assignment-respect, local scheduler validity, and global validity now have a
+  documented public boundary
+- `PartitionedEntryPoints.v` provides the canonical downstream import path
 
 ### C-2. Partitioned policy lifting
 **Status: Done for EDF / FIFO / RR / LLF, with light cleanup remaining**
@@ -407,11 +407,11 @@ What is already done:
 
 - EDF / FIFO / RR / LLF wrappers all exist
 
-What remains:
+What is already done:
 
-- keep the wrapper files thin and explicit about their role
-- document that EDF / LLF include finite-optimality-based entry theorems
-- document that FIFO / RR are intentionally wrapper-only for now
+- wrapper files stay thin and explicit about their role
+- EDF / LLF are documented as finite-optimality-ready
+- FIFO / RR are documented as intentionally wrapper-only for now
 
 ### C-3. Partitioned schedulability lifting
 **Status: Done for EDF / LLF finite-optimality lifting**
@@ -427,9 +427,14 @@ What is already done:
   - jittered-periodic
   paths
 
+What is already done:
+
+- the intended reusable theorem inventory is exposed via
+  `PartitionedEntryPoints.v`
+- representative examples are curated in `Examples/PartitionedExamples.v`
+
 What remains:
 
-- make the intended reusable theorem inventory explicit in the roadmap and docs
 - prepare the interface for later delay-aware partitioned analysis
 
 ### C-4. Partitioned analysis-facing cleanup
@@ -437,9 +442,8 @@ What remains:
 
 Planned:
 
-- make explicit which partitioned theorems are stable public APIs
 - isolate theorem families intended for later response-time / delay-aware analyses
-- align wrapper naming with periodic / sporadic / jittered-periodic bridge naming
+- decide whether FIFO / RR should later gain finite-optimality-ready lifts
 
 ---
 
