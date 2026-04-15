@@ -319,6 +319,11 @@ This layer does not define how periodic or sporadic tasks generate jobs. It only
 
 This layer is not yet a machine semantics for interrupts, migrations, wakeups, locks, or hardware events. It is a clean schedule semantics, not an operational kernel model.
 
+The operational layer now connects to this semantic core only through an
+explicit projection. An operational trace may expose per-CPU current state,
+runnable jobs, and reschedule flags, while this layer continues to see only the
+projected abstract `Schedule := Time -> CPU -> option JobId`.
+
 These exclusions are intentional. They keep the semantic layer small, reusable, and stable.
 
 ---

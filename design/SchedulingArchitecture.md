@@ -206,3 +206,28 @@ This architecture also clarifies the distinction between:
 * **execution artifacts** (`Schedule`),
 * **decision procedures** (`SchedulingAlgorithm`),
 * and **semantic schedulability objects** (`Scheduler`).
+
+---
+
+## 7. Operational State Machines
+
+The repository also has a minimal `Operational` layer, which is distinct from
+all three concepts above.
+
+An operational model records implementation-oriented scheduler state such as:
+
+* per-CPU current jobs
+* runnable-job state
+* pending reschedule requests
+* event-labelled small-step transitions
+
+Its role is not to replace `Schedule`, but to explain how a machine-oriented
+trace projects to a schedule. The intended split is:
+
+* `Schedule`: abstract execution timeline
+* `SchedulingAlgorithm`: local executable choice rule
+* `Scheduler`: semantic admission criterion for full schedules
+* `Operational`: state machine whose traces can be projected back to `Schedule`
+
+This keeps schedule-level theorems stable while opening a refinement-facing
+layer for later Awkernel and delay-aware developments.

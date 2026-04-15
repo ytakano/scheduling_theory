@@ -34,6 +34,7 @@ theories/Examples/GlobalWorkConservingExamples.v
 theories/Examples/GlobalLLFExamples.v
 theories/Examples/GlobalInterferenceExamples.v
 theories/Examples/GlobalExamples.v
+theories/Examples/OperationalProjectionExamples.v
 theories/Examples/JitteredPeriodicExamples.v
 theories/Examples/PartitionedExamples.v
 theories/Examples/PeriodicExamples.v
@@ -68,6 +69,12 @@ theories/Multicore/Partitioned/Policies/PartitionedFIFO.v
 theories/Multicore/Partitioned/Policies/PartitionedLLF.v
 theories/Multicore/Partitioned/Policies/PartitionedRR.v
 theories/Refinement/SchedulingAlgorithmRefinement.v
+theories/Operational/Common/State.v
+theories/Operational/Common/Trace.v
+theories/Operational/Common/Projection.v
+theories/Operational/Common/Step.v
+theories/Operational/Common/ProjectionLemmas.v
+theories/Operational/Awkernel/MinimalProjection.v
 theories/Semantics/Schedule.v
 theories/Semantics/ScheduleLemmas/ScheduleFacts.v
 theories/Semantics/ScheduleLemmas/SchedulePrefix.v

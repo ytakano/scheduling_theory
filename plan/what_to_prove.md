@@ -18,7 +18,9 @@
 - partitioned EDF / FIFO / RR / LLF wrapper
 - multicore-common の初期層
 - global EDF / LLF の初期層
-- periodic task generation の初期層
+- periodic / sporadic / jittered-periodic task generation の初期層
+- Periodic EDF idealized-analysis の stable entry-point
+- minimal operational projection slice
 
 したがって、このファイルでは
 「証明すべきこと」を単なる未来の一覧ではなく、
@@ -50,6 +52,9 @@
 5. task-generation model
 6. OS / delay / refinement
 7. analysis and advanced guarantees
+
+現状では、Periodic EDF idealized-analysis inventory の stable entry-point 化は
+完了済みとして扱う。次の主戦場は `Operational / Delay / Refinement` である。
 
 ## Design principle for delay-aware proofs
 
@@ -821,29 +826,43 @@ internal/helper inventory として扱うもの:
 ---
 
 # Lv.10: OS-like operational semantics
-**Status: Not started**
+**Status: In progress at the minimal projection-slice level**
 
 ## 10-1. machine / scheduler state
-**Status: Not started**
+**Status: In progress**
+
+実装済みとして扱うもの:
+
+- `OpState`
+- per-CPU current
+- runnable-job list view
+- pending reschedule requests
+- minimal Awkernel-facing state wrapper
 
 予定:
 
-- per-CPU current
 - per-CPU runqueue / global runqueue
-- wakeup / block / completion
+- richer wakeup / block / completion invariants
 - migration
 - reschedule IPI
 - timer / quantum / preemption
 
 ## 10-2. trace semantics
-**Status: Not started**
+**Status: In progress**
+
+実装済みとして扱うもの:
+
+- `OpTrace`
+- `OpEvent`
+- `op_step` の最小骨格
+- abstract schedule への projection
+- projection invariants から `valid_schedule` を得る bridge
 
 予定:
 
 - machine trace
-- step relation
 - trace-level event labels
-- abstract schedule への projection
+- step-preservation から trace invariants を閉じる補題群
 
 ## 10-3. explicit operational delay sources
 **Status: Not started**
@@ -904,7 +923,7 @@ core schedule semantics と OS operational semantics の中間に置く。
 ---
 
 # Lv.12: Refinement
-**Status: Partially done only at the abstract single-CPU bridge level**
+**Status: Partially done at the abstract single-CPU bridge level, with an operational projection bridge skeleton now available**
 
 ## 12-1. abstract policy -> executable single-CPU scheduler
 **Status: Done**
@@ -912,7 +931,12 @@ core schedule semantics と OS operational semantics の中間に置く。
 これは現在の single-CPU algorithm/scheduler bridge でほぼ達成済みとみなす。
 
 ## 12-2. executable scheduler -> operational scheduler
-**Status: Planned**
+**Status: Planned, with projection skeleton done**
+
+前段として実装済み:
+
+- operational state から abstract schedule を読む interface
+- Awkernel-facing projection wrapper
 
 予定:
 
@@ -1085,27 +1109,27 @@ Remaining:
 # Recommended next proof priorities
 
 ## Priority 1
-Periodic EDF idealized-analysis inventory の stable entry-point 化を完了する。
+Operational projection slice の上で invariant-preservation を閉じる。
 
 ## Priority 2
-sporadic / jittered-periodic 側へ同じ stable analysis inventory 形式を広げる。
+明示的な delay source を `Operational` 層に導入する。
 
 ## Priority 3
-`Lv.5 Partitioned` を theorem inventory として整理し直す。
+`Lv.12 Refinement` の executable scheduler -> operational scheduler bridge を始める。
 
 ## Priority 4
-`Lv.6 Task-generation` を periodic / sporadic / release jitter まで前倒しで強化する。
+sporadic / jittered-periodic 側へ stable analysis inventory 形式を広げる。
 
 ## Priority 5
-`Lv.10 OS-like operational semantics` と `Lv.11 Delay / overhead model` の骨格を入れ、その後 `Lv.12 Refinement` と `Lv.13 Analysis` に進む。
+`Lv.5 Partitioned` と `Lv.6 Task-generation` の inventory を必要な範囲で整理し直す。
 
 ---
 
 # One-line summary
 
-単一CPUの generic optimality core はすでに主要部分が完成しており、
-直近の最優先は periodic EDF idealized-analysis inventory の stable 化完了である。
-その後の主戦場は、
+単一CPUの generic optimality core と periodic EDF idealized-analysis の
+stable entry-point はすでに主要部分が完成している。
+直近の主戦場は、
 
 - partitioned の theorem-layer completion
 - periodic/sporadic/release-jitter generation strengthening

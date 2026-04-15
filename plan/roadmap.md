@@ -52,6 +52,11 @@ The intended contribution is to connect, in one reusable framework:
 - busy-interval / busy-window search foundations
 - request-bound / demand-bound / processor-demand foundations
 - periodic EDF processor-demand bridge layer with explicit busy-prefix / witness interfaces
+- minimal operational projection slice:
+  - operational state / trace skeleton
+  - trace-to-schedule projection
+  - initial projection soundness lemmas
+  - Awkernel-facing thin wrapper
 
 ### Interpretation of the current state
 
@@ -742,18 +747,27 @@ Next:
 ---
 
 ## 8. Phase H: OS-level operational semantics
-**Status: Not started**
+**Status: In progress at the minimal projection-slice level**
 
-Planned:
+Implemented core:
+
+- `Operational/Common/State.v`
+- `Operational/Common/Trace.v`
+- `Operational/Common/Projection.v`
+- `Operational/Common/Step.v`
+- `Operational/Common/ProjectionLemmas.v`
+- `Operational/Awkernel/MinimalProjection.v`
+
+What is already done:
 
 - per-CPU current
-- runqueues
-- wakeup / block / completion
-- timer event
-- preemption point
-- migration / IPI / reschedule request
+- runnable-job view
+- pending reschedule requests
+- wakeup / block / completion / dispatch / tick event skeleton
 - trace semantics
 - schedule projection
+- initial bridge lemmas from trace invariants to `valid_schedule`
+- Awkernel-facing thin projection wrapper
 
 ### H-1. Explicit delay sources
 **Status: Not started**
@@ -770,13 +784,18 @@ Planned:
 These delays should live in the operational layer, not in the core abstract schedule.
 
 ### H-2. Projection discipline
-**Status: Not started**
+**Status: In progress**
 
-Planned:
+Implemented core:
 
 - define how an operational trace projects to an abstract schedule
+- isolate machine / OS state from policy semantics with a dedicated projection layer
+
+What remains:
+
 - define what it means for the projection to lag behind ideal decisions
 - isolate machine / OS delay from policy semantics
+- prove step-preservation lemmas that establish the required trace invariants
 
 ---
 
@@ -819,7 +838,7 @@ Planned:
 ---
 
 ## 10. Phase J: Refinement strengthening
-**Status: Partially done at the abstract uniprocessor level**
+**Status: Partially done at the abstract uniprocessor level, with an operational projection skeleton now available**
 
 Implemented core:
 
@@ -829,6 +848,8 @@ What is already done:
 
 - abstract policy -> executable chooser pipeline exists in the current
   single-CPU theory
+- operational trace -> abstract schedule projection skeleton exists
+- Awkernel-facing naming wrapper exists for the first projection slice
 
 What remains:
 
@@ -838,11 +859,15 @@ What remains:
 - bounded-delay refinement theorems connecting operational delay to abstract schedules
 
 ### J-1. Awkernel-first refinement completion
-**Status: Not started**
+**Status: In progress at the projection-wrapper level**
 
-Planned:
+Implemented core:
 
-- define the Awkernel-facing operational scheduler model
+- define a minimal Awkernel-facing operational scheduler state
+- define projection from Awkernel operational traces to abstract schedules
+
+What remains:
+
 - identify the concrete Awkernel state needed for projection:
   - current task / thread
   - runnable state
@@ -1081,7 +1106,7 @@ Strengthen the existing **partitioned theorem layer** where later analysis
 needs clearer public boundaries.
 
 ### Priority 5
-Start **Awkernel-first operational semantics and projection discipline**.
+Deepen the new **Awkernel-first operational semantics and projection discipline**.
 
 ### Priority 6
 Deepen **idealized analysis** on top of the busy-window / DBF / RBF foundations.

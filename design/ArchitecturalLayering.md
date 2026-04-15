@@ -378,6 +378,16 @@ This layer is for reasoning about operational scheduler states, such as:
 - scheduling steps
 - enqueue/dequeue behavior
 - implementation invariants
+- trace-to-schedule projection
+
+The current minimal slice already includes:
+
+- a proof-relevant operational state with per-CPU `current`, runnable jobs,
+  and pending reschedule flags
+- a trace model `Time -> OpState`
+- a projection back to the abstract `Schedule`
+- lightweight bridge lemmas that recover schedule-facing properties such as
+  `no_duplication` and `valid_schedule` from trace invariants
 
 The operational layer is intentionally distinct from the schedule semantics layer.
 
@@ -390,6 +400,11 @@ The operational question is:
 - how does a scheduler state evolve to produce it?
 
 This distinction is necessary for future refinement results involving actual kernels or scheduler implementations.
+
+The design rule is that operational files may explain how machine state
+evolves and how a schedule is read from that state, but they should not push
+timer, wakeup, or migration artifacts down into the core `Schedule`
+definition itself.
 
 ---
 
