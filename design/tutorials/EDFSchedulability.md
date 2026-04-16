@@ -308,6 +308,13 @@ Example enumJ_ex_is_small :
 Proof.
   reflexivity.
 Qed.
+
+Example periodic_window_dbf_test_upto_ex :
+  window_dbf_test_upto tasks_ex offset_ex enumT_ex H_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
 ```
 
 This is a useful checkpoint: the concrete world really contains only the two intended jobs.
@@ -330,9 +337,14 @@ This is an important design point: the example is about using the public theorem
 
 ---
 
-## 10. State the two user obligations
+## 10. State the two analysis obligations
 
-At this point, the concrete system is completely defined. The remaining work is no longer model construction but analysis. The tutorial isolates the two real obligations as hypotheses.
+At this point, the concrete system is completely defined. The remaining work is no longer model construction but analysis. Conceptually, the tutorial still revolves around two obligations:
+
+* a window-DBF bound, and
+* a generated-EDF busy-prefix bridge.
+
+However, the checked tutorial no longer leaves these obligations open as `Hypothesis`. Instead, it proves both of them from concrete finite-horizon facts.
 
 ### 10.1 The window-DBF bound
 
@@ -360,13 +372,59 @@ Definition generated_edf_busy_prefix_bridge_ex : Prop :=
       j.
 ```
 
-The key point is that these two obligations are the only genuinely open analysis tasks in the checked tutorial. Everything else is already fully concrete and mechanically checked.
+These two propositions are still the right interface-level summary of the analysis layer. The difference is that the checked tutorial now proves them outright.
+
+Before proving either proposition abstractly, the file records that the concrete window checker succeeds:
+
+```coq
+Example periodic_window_dbf_test_upto_ex :
+  window_dbf_test_upto tasks_ex offset_ex enumT_ex H_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+```
 
 ---
 
-## 11. Prove that deadlines stay inside the horizon
+## 11. Prove the concrete helper lemmas
 
-The final theorem expects not only the busy-prefix bridge but also the fact that the jobs under consideration have deadlines inside the horizon. The tutorial proves this separately.
+The final theorem still expects the horizon-side deadline fact, but the bridge proof now also relies on a few tiny concrete lemmas about the in-horizon jobs and the generated schedule.
+
+First, the tutorial proves that any in-horizon job must be either `0` or `1`:
+
+```coq
+Lemma periodic_jobset_upto_ex_cases :
+  forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    j = 0 \/ j = 1.
+```
+
+Next, it records the generated EDF schedule at the only relevant time points:
+
+```coq
+Lemma sched_gen_ex_at_0 :
+  sched_gen_ex 0 0 = Some 0.
+
+Lemma sched_gen_ex_at_1 :
+  sched_gen_ex 1 0 = Some 1.
+
+Lemma sched_gen_ex_at_2 :
+  sched_gen_ex 2 0 = None.
+
+Lemma sched_gen_ex_at_3 :
+  sched_gen_ex 3 0 = None.
+```
+
+These local facts are enough to prove that job `1` has no covering busy-prefix witness:
+
+```coq
+Lemma no_busy_prefix_witness_job1_ex :
+  forall t1 t2,
+    ~ busy_prefix_witness sched_gen_ex (job_abs_deadline job1_ex) t1 t2.
+```
+
+The horizon-side deadline lemma remains as before:
 
 ```coq
 Lemma deadlines_within_horizon_ex :
@@ -392,101 +450,108 @@ Again, this works because the example is tiny: any supposed in-horizon job beyon
 
 ---
 
-## 12. Package the remaining assumptions in a section
+## 12. Prove the bridge and DBF obligations
 
-The checked tutorial does not use `Admitted` inside the main code block. Instead, it introduces the two open obligations as section hypotheses. This keeps the artifact compile-checked while still showing the intended downstream use pattern.
+The checked tutorial no longer introduces a separate `Section` with assumptions. Instead, it proves the two analysis propositions directly.
 
 ```coq
-Section TutorialProof.
-
-  Hypothesis Hdbf : periodic_window_dbf_bound_ex.
-  Hypothesis Hbridge : generated_edf_busy_prefix_bridge_ex.
+Lemma generated_edf_busy_prefix_bridge_ex_proved :
+  generated_edf_busy_prefix_bridge_ex.
 ```
 
-Inside the section, the first helper lemma just combines the deadline property and the busy-prefix bridge into the exact shape expected by the final theorem.
+The bridge proof splits on `periodic_jobset_upto_ex_cases`.
+
+* For `j = 0`, any covering busy-prefix witness must start at `t1 = 0`; otherwise the left boundary would contradict `sched_gen_ex_at_0` or `sched_gen_ex_at_1`.
+* For `j = 1`, the bridge is vacuous because `no_busy_prefix_witness_job1_ex` rules out the existence of a covering witness.
+
+The DBF obligation is discharged from the checker result:
 
 ```coq
-  Lemma generated_edf_busy_prefix_bridge_and_deadline_ex :
-    forall j,
-      periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-      job_abs_deadline (jobs_ex j) <= H_ex /\
-      periodic_edf_busy_prefix_bridge
-        T_ex tasks_ex offset_ex jobs_ex H_ex
-        sched_gen_ex
-        j.
-  Proof.
-    intros j Hj.
-    split.
-    - apply deadlines_within_horizon_ex; exact Hj.
-    - apply Hbridge; exact Hj.
-  Qed.
+Lemma periodic_window_dbf_bound_ex_proved :
+  periodic_window_dbf_bound_ex.
+Proof.
+  intros t1 t2 Hle12 Hle2H.
+  eapply (window_dbf_test_upto_true_implies_bounded_window_dbf
+            tasks_ex offset_ex enumT_ex H_ex t1 t2).
+  - exact periodic_window_dbf_test_upto_ex.
+  - exact Hle12.
+  - exact Hle2H.
+Qed.
+```
+
+Once both propositions are available as lemmas, the tutorial packages them with the deadline-side condition in the shape expected by the final theorem:
+
+```coq
+Lemma generated_edf_busy_prefix_bridge_and_deadline_ex :
+  forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    job_abs_deadline (jobs_ex j) <= H_ex /\
+    periodic_edf_busy_prefix_bridge
+      T_ex tasks_ex offset_ex jobs_ex H_ex
+      sched_gen_ex
+      j.
 ```
 
 ---
 
 ## 13. Apply the public theorem
 
-Now the proof is straightforward: apply the public EDF schedulability theorem and supply the setup lemmas and the two analysis hypotheses.
+Now the proof is straightforward: apply the public EDF schedulability theorem and supply the setup lemmas together with the proved bridge and DBF lemmas.
 
 ```coq
-  Theorem tutorial_periodic_edf_schedulable :
-    schedulable_by_on
-      (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
-      (edf_scheduler
-         (enum_candidates_of
-            (enum_periodic_jobs_upto
-               T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
-      jobs_ex 1.
-  Proof.
-    eapply
-      periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
-      with (enumT := enumT_ex).
-    - exact tasks_ex_well_formed.
-    - exact enumT_ex_nodup.
-    - exact enumT_ex_complete.
-    - exact enumT_ex_sound.
-    - exact generated_edf_busy_prefix_bridge_and_deadline_ex.
-    - exact Hdbf.
-  Qed.
-
-End TutorialProof.
+Theorem tutorial_periodic_edf_schedulable :
+  schedulable_by_on
+    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+    (edf_scheduler
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+    jobs_ex 1.
+Proof.
+  eapply
+    periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
+    with (enumT := enumT_ex).
+  - exact tasks_ex_well_formed.
+  - exact enumT_ex_nodup.
+  - exact enumT_ex_complete.
+  - exact enumT_ex_sound.
+  - exact generated_edf_busy_prefix_bridge_and_deadline_ex.
+  - exact periodic_window_dbf_bound_ex_proved.
+Qed.
 ```
 
 This is the entire proof pattern. The public theorem acts as the final assembly point: once the concrete finite-horizon model, the codec, the EDF-generated schedule, the deadline-side condition, and the DBF-side condition are in place, the schedulability result follows.
 
 ---
 
-## 14. What the user still has to prove
+## 14. What the tutorial now proves concretely
 
-The tutorial intentionally leaves exactly two obligations to the user.
+The tutorial no longer leaves the two analysis propositions open.
 
-### Obligation 1: the DBF bound
+### Concrete result 1: the DBF bound
 
-You must prove:
-
-```coq
-forall t1 t2,
-  t1 <= t2 ->
-  t2 <= H_ex ->
-  taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1
-```
-
-This is the actual schedulability-analysis statement. It expresses that processor demand never exceeds available processor supply in any relevant finite window.
-
-### Obligation 2: the busy-prefix bridge
-
-You must prove:
+The file proves:
 
 ```coq
-forall j,
-  periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-  periodic_edf_busy_prefix_bridge
-    T_ex tasks_ex offset_ex jobs_ex H_ex
-    sched_gen_ex
-    j
+periodic_window_dbf_bound_ex
 ```
 
-This is the theorem-specific bridge that ties the generated EDF schedule to the analysis infrastructure.
+It does so by first establishing `window_dbf_test_upto ... = true` and then invoking the generic bounded-window theorem.
+
+### Concrete result 2: the busy-prefix bridge
+
+The file also proves:
+
+```coq
+generated_edf_busy_prefix_bridge_ex
+```
+
+This is the theorem-specific bridge that ties the generated EDF schedule to the analysis infrastructure. In this tiny example, the proof is explicit:
+
+* `j = 0` is the only job with a non-vacuous bridge argument.
+* `j = 1` has no covering busy-prefix witness because the schedule is idle before its deadline.
+
+The conceptual lesson is unchanged: these are still the two right obligations to think about. The checked file now simply proves them outright for this concrete task set.
 
 ---
 
@@ -744,6 +809,117 @@ Definition generated_edf_busy_prefix_bridge_ex : Prop :=
       sched_gen_ex
       j.
 
+Lemma periodic_jobset_upto_ex_cases :
+  forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    j = 0 \/ j = 1.
+Proof.
+  intros j Hj.
+  destruct j as [| [| j']]; auto.
+  exfalso.
+  unfold periodic_jobset_upto, jobs_ex, other_job_ex, H_ex in Hj.
+  cbn in Hj.
+  destruct Hj as [_ [_ Hrel]].
+  lia.
+Qed.
+
+Lemma sched_gen_ex_at_0 :
+  sched_gen_ex 0 0 = Some 0.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma sched_gen_ex_at_1 :
+  sched_gen_ex 1 0 = Some 1.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma sched_gen_ex_at_2 :
+  sched_gen_ex 2 0 = None.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma sched_gen_ex_at_3 :
+  sched_gen_ex 3 0 = None.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma no_busy_prefix_witness_job1_ex :
+  forall t1 t2,
+    ~ busy_prefix_witness sched_gen_ex (job_abs_deadline job1_ex) t1 t2.
+Proof.
+  intros t1 t2 Hwit.
+  destruct Hwit as [Hcand [Ht1 Ht2]].
+  destruct Hcand as [[Hlt Hbusy] _].
+  unfold job1_ex in Ht1, Ht2; cbn in Ht1, Ht2.
+  assert (t1 <= 3) by lia.
+  destruct t1 as [| [| [| [| t1']]]]; cbn in *.
+  - destruct (Hbusy 2) as [j Hj]; try lia.
+    rewrite sched_gen_ex_at_2 in Hj. discriminate.
+  - destruct (Hbusy 2) as [j Hj]; try lia.
+    rewrite sched_gen_ex_at_2 in Hj. discriminate.
+  - destruct (Hbusy 2) as [j Hj]; try lia.
+    rewrite sched_gen_ex_at_2 in Hj. discriminate.
+  - destruct (Hbusy 3) as [j Hj]; try lia.
+    rewrite sched_gen_ex_at_3 in Hj. discriminate.
+  - lia.
+Qed.
+
+Lemma generated_edf_busy_prefix_bridge_ex_proved :
+  generated_edf_busy_prefix_bridge_ex.
+Proof.
+  intros j Hj.
+  destruct (periodic_jobset_upto_ex_cases j Hj) as [-> | ->].
+  - apply periodic_edf_busy_prefix_bridge_of_hypotheses.
+    + intros t1 t2 Hwit.
+      destruct Hwit as [Hcand [Ht1 Ht2]].
+      destruct Hcand as [[_ Hbusy] Hleft].
+      assert (t1 = 0).
+      { destruct Hleft as [-> | Hleft]; auto.
+        unfold job0_ex in Ht1.
+        cbn in Ht1.
+        destruct t1 as [| t1]; auto.
+        destruct t1 as [| t1].
+        - exfalso.
+          apply Hleft.
+          exists 0.
+          exact sched_gen_ex_at_0.
+        - destruct t1 as [| t1].
+          + exfalso.
+            apply Hleft.
+            exists 1.
+            exact sched_gen_ex_at_1.
+          + lia. }
+      lia.
+    + intros t1 t2 Hwit _ t j_run Hbetween Hsched _.
+      exact (Nat.le_0_l (job_release (jobs_ex j_run))).
+  - apply periodic_edf_busy_prefix_bridge_of_hypotheses.
+    + intros t1 t2 Hwit.
+      exfalso.
+      eapply no_busy_prefix_witness_job1_ex; eauto.
+    + intros t1 t2 Hwit _ t j_run Hbetween Hsched Hdl_between.
+      exfalso.
+      eapply no_busy_prefix_witness_job1_ex; eauto.
+Qed.
+
+Lemma periodic_window_dbf_bound_ex_proved :
+  periodic_window_dbf_bound_ex.
+Proof.
+  intros t1 t2 Hle12 Hle2H.
+  eapply (window_dbf_test_upto_true_implies_bounded_window_dbf
+            tasks_ex offset_ex enumT_ex H_ex t1 t2).
+  - exact periodic_window_dbf_test_upto_ex.
+  - exact Hle12.
+  - exact Hle2H.
+Qed.
+
 Lemma deadlines_within_horizon_ex :
   forall j,
     periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
@@ -762,45 +938,38 @@ Proof.
     destruct Hscope as [Hscope | Hscope]; lia.
 Qed.
 
-Section TutorialProof.
+Lemma generated_edf_busy_prefix_bridge_and_deadline_ex :
+  forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    job_abs_deadline (jobs_ex j) <= H_ex /\
+    periodic_edf_busy_prefix_bridge
+      T_ex tasks_ex offset_ex jobs_ex H_ex
+      sched_gen_ex
+      j.
+Proof.
+  intros j Hj.
+  split.
+  - apply deadlines_within_horizon_ex; exact Hj.
+  - apply generated_edf_busy_prefix_bridge_ex_proved; exact Hj.
+Qed.
 
-  Hypothesis Hdbf : periodic_window_dbf_bound_ex.
-  Hypothesis Hbridge : generated_edf_busy_prefix_bridge_ex.
-
-  Lemma generated_edf_busy_prefix_bridge_and_deadline_ex :
-    forall j,
-      periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-      job_abs_deadline (jobs_ex j) <= H_ex /\
-      periodic_edf_busy_prefix_bridge
-        T_ex tasks_ex offset_ex jobs_ex H_ex
-        sched_gen_ex
-        j.
-  Proof.
-    intros j Hj.
-    split.
-    - apply deadlines_within_horizon_ex; exact Hj.
-    - apply Hbridge; exact Hj.
-  Qed.
-
-  Theorem tutorial_periodic_edf_schedulable :
-    schedulable_by_on
-      (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
-      (edf_scheduler
-         (enum_candidates_of
-            (enum_periodic_jobs_upto
-               T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
-      jobs_ex 1.
-  Proof.
-    eapply
-      periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
-      with (enumT := enumT_ex).
-    - exact tasks_ex_well_formed.
-    - exact enumT_ex_nodup.
-    - exact enumT_ex_complete.
-    - exact enumT_ex_sound.
-    - exact generated_edf_busy_prefix_bridge_and_deadline_ex.
-    - exact Hdbf.
-  Qed.
-
-End TutorialProof.
+Theorem tutorial_periodic_edf_schedulable :
+  schedulable_by_on
+    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+    (edf_scheduler
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+    jobs_ex 1.
+Proof.
+  eapply
+    periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
+    with (enumT := enumT_ex).
+  - exact tasks_ex_well_formed.
+  - exact enumT_ex_nodup.
+  - exact enumT_ex_complete.
+  - exact enumT_ex_sound.
+  - exact generated_edf_busy_prefix_bridge_and_deadline_ex.
+  - exact periodic_window_dbf_bound_ex_proved.
+Qed.
 ~~~

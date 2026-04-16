@@ -196,6 +196,13 @@ Proof.
   reflexivity.
 Qed.
 
+Example periodic_window_dbf_test_upto_ex :
+  window_dbf_test_upto tasks_ex offset_ex enumT_ex H_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
 (* ================================================================ *)
 (* 6. User obligations                                               *)
 (* ================================================================ *)
@@ -213,6 +220,117 @@ Definition generated_edf_busy_prefix_bridge_ex : Prop :=
       T_ex tasks_ex offset_ex jobs_ex H_ex
       sched_gen_ex
       j.
+
+Lemma periodic_jobset_upto_ex_cases :
+  forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    j = 0 \/ j = 1.
+Proof.
+  intros j Hj.
+  destruct j as [| [| j']]; auto.
+  exfalso.
+  unfold periodic_jobset_upto, jobs_ex, other_job_ex, H_ex in Hj.
+  cbn in Hj.
+  destruct Hj as [_ [_ Hrel]].
+  lia.
+Qed.
+
+Lemma sched_gen_ex_at_0 :
+  sched_gen_ex 0 0 = Some 0.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma sched_gen_ex_at_1 :
+  sched_gen_ex 1 0 = Some 1.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma sched_gen_ex_at_2 :
+  sched_gen_ex 2 0 = None.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma sched_gen_ex_at_3 :
+  sched_gen_ex 3 0 = None.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma no_busy_prefix_witness_job1_ex :
+  forall t1 t2,
+    ~ busy_prefix_witness sched_gen_ex (job_abs_deadline job1_ex) t1 t2.
+Proof.
+  intros t1 t2 Hwit.
+  destruct Hwit as [Hcand [Ht1 Ht2]].
+  destruct Hcand as [[Hlt Hbusy] _].
+  unfold job1_ex in Ht1, Ht2; cbn in Ht1, Ht2.
+  assert (t1 <= 3) by lia.
+  destruct t1 as [| [| [| [| t1']]]]; cbn in *.
+  - destruct (Hbusy 2) as [j Hj]; try lia.
+    rewrite sched_gen_ex_at_2 in Hj. discriminate.
+  - destruct (Hbusy 2) as [j Hj]; try lia.
+    rewrite sched_gen_ex_at_2 in Hj. discriminate.
+  - destruct (Hbusy 2) as [j Hj]; try lia.
+    rewrite sched_gen_ex_at_2 in Hj. discriminate.
+  - destruct (Hbusy 3) as [j Hj]; try lia.
+    rewrite sched_gen_ex_at_3 in Hj. discriminate.
+  - lia.
+Qed.
+
+Lemma generated_edf_busy_prefix_bridge_ex_proved :
+  generated_edf_busy_prefix_bridge_ex.
+Proof.
+  intros j Hj.
+  destruct (periodic_jobset_upto_ex_cases j Hj) as [-> | ->].
+  - apply periodic_edf_busy_prefix_bridge_of_hypotheses.
+    + intros t1 t2 Hwit.
+      destruct Hwit as [Hcand [Ht1 Ht2]].
+      destruct Hcand as [[_ Hbusy] Hleft].
+      assert (t1 = 0).
+      { destruct Hleft as [-> | Hleft]; auto.
+        unfold job0_ex in Ht1.
+        cbn in Ht1.
+        destruct t1 as [| t1]; auto.
+        destruct t1 as [| t1].
+        - exfalso.
+          apply Hleft.
+          exists 0.
+          exact sched_gen_ex_at_0.
+        - destruct t1 as [| t1].
+          + exfalso.
+            apply Hleft.
+            exists 1.
+            exact sched_gen_ex_at_1.
+          + lia. }
+      lia.
+    + intros t1 t2 Hwit _ t j_run Hbetween Hsched _.
+      exact (Nat.le_0_l (job_release (jobs_ex j_run))).
+  - apply periodic_edf_busy_prefix_bridge_of_hypotheses.
+    + intros t1 t2 Hwit.
+      exfalso.
+      eapply no_busy_prefix_witness_job1_ex; eauto.
+    + intros t1 t2 Hwit _ t j_run Hbetween Hsched Hdl_between.
+      exfalso.
+      eapply no_busy_prefix_witness_job1_ex; eauto.
+Qed.
+
+Lemma periodic_window_dbf_bound_ex_proved :
+  periodic_window_dbf_bound_ex.
+Proof.
+  intros t1 t2 Hle12 Hle2H.
+  eapply (window_dbf_test_upto_true_implies_bounded_window_dbf
+            tasks_ex offset_ex enumT_ex H_ex t1 t2).
+  - exact periodic_window_dbf_test_upto_ex.
+  - exact Hle12.
+  - exact Hle2H.
+Qed.
 
 Lemma deadlines_within_horizon_ex :
   forall j,
@@ -232,44 +350,37 @@ Proof.
     destruct Hscope as [Hscope | Hscope]; lia.
 Qed.
 
-Section TutorialProof.
+Lemma generated_edf_busy_prefix_bridge_and_deadline_ex :
+  forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    job_abs_deadline (jobs_ex j) <= H_ex /\
+    periodic_edf_busy_prefix_bridge
+      T_ex tasks_ex offset_ex jobs_ex H_ex
+      sched_gen_ex
+      j.
+Proof.
+  intros j Hj.
+  split.
+  - apply deadlines_within_horizon_ex; exact Hj.
+  - apply generated_edf_busy_prefix_bridge_ex_proved; exact Hj.
+Qed.
 
-  Hypothesis Hdbf : periodic_window_dbf_bound_ex.
-  Hypothesis Hbridge : generated_edf_busy_prefix_bridge_ex.
-
-  Lemma generated_edf_busy_prefix_bridge_and_deadline_ex :
-    forall j,
-      periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-      job_abs_deadline (jobs_ex j) <= H_ex /\
-      periodic_edf_busy_prefix_bridge
-        T_ex tasks_ex offset_ex jobs_ex H_ex
-        sched_gen_ex
-        j.
-  Proof.
-    intros j Hj.
-    split.
-    - apply deadlines_within_horizon_ex; exact Hj.
-    - apply Hbridge; exact Hj.
-  Qed.
-
-  Theorem tutorial_periodic_edf_schedulable :
-    schedulable_by_on
-      (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
-      (edf_scheduler
-         (enum_candidates_of
-            (enum_periodic_jobs_upto
-               T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
-      jobs_ex 1.
-  Proof.
-    eapply
-      periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
-      with (enumT := enumT_ex).
-    - exact tasks_ex_well_formed.
-    - exact enumT_ex_nodup.
-    - exact enumT_ex_complete.
-    - exact enumT_ex_sound.
-    - exact generated_edf_busy_prefix_bridge_and_deadline_ex.
-    - exact Hdbf.
-  Qed.
-
-End TutorialProof.
+Theorem tutorial_periodic_edf_schedulable :
+  schedulable_by_on
+    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+    (edf_scheduler
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+    jobs_ex 1.
+Proof.
+  eapply
+    periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
+    with (enumT := enumT_ex).
+  - exact tasks_ex_well_formed.
+  - exact enumT_ex_nodup.
+  - exact enumT_ex_complete.
+  - exact enumT_ex_sound.
+  - exact generated_edf_busy_prefix_bridge_and_deadline_ex.
+  - exact periodic_window_dbf_bound_ex_proved.
+Qed.
