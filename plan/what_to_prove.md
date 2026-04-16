@@ -1049,6 +1049,8 @@ Done:
   no-miss / feasible-schedule / schedulable-by-on
 - `PeriodicEDFAnalysisEntryPoints.v` packages the stable downstream import for
   the current periodic EDF idealized-analysis inventory
+- `PeriodicLLFAnalysisEntryPoints.v` packages the stable downstream import for
+  periodic LLF analysis wrappers layered on top of the EDF feasibility bridge
 - `PeriodicEDFBridgeCompat.v` retains the older unpackaged busy-prefix forms
   only as compatibility wrappers
 - `PeriodicProcessorDemandExamples.v` now includes both
@@ -1058,8 +1060,15 @@ Done:
 - `PeriodicProcessorDemandExamples.v` also includes the generated-schedule
   bridge example
   `periodic_example_edf_schedulable_by_window_dbf_generated_with_busy_prefix_bridge`
+- `PeriodicLLFAnalysisBridge.v` now exposes bridge-first LLF schedulable-by-on
+  wrappers from both window DBF and zero-offset classical DBF assumptions
+- `PeriodicProcessorDemandExamples.v` also includes LLF clients for the
+  packaged bridge-first entry points:
+  `periodic_example_llf_schedulable_by_window_dbf_generated_with_busy_prefix_bridge`
+  and
+  `periodic_example_llf_schedulable_by_classical_dbf_generated_with_busy_prefix_bridge`
 - `PeriodicProcessorDemandExamples.v` is the stable client of the packaged
-  bridge-first entry point
+  bridge-first EDF/LLF entry points
 - `PeriodicProcessorDemandCompatExamples.v` isolates the older busy-window /
   unpackaged busy-prefix example entry points
 - `PeriodicProcessorDemandCompatExamples.v` remains the legacy-only client for
@@ -1074,7 +1083,7 @@ Remaining:
   separate task with explicit backlog-exclusion / prefix-choice assumptions
 - utilization / dbf hooks above the aggregate layer
 - rbf / sbf style interfaces
-- policy-specific analysis wrappers
+- broader policy-specific analysis wrappers beyond the current EDF/LLF layer
 
 ## 13-1. idealized uniprocessor / partitioned analysis
 **Status: Planned**

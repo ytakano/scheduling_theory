@@ -102,6 +102,7 @@ theories/TaskModels/Periodic/PeriodicClassicDBF.v
 theories/TaskModels/Periodic/PeriodicEDFClassicalBridge.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v
 theories/TaskModels/Periodic/PeriodicLLFAnalysisBridge.v
+theories/TaskModels/Periodic/PeriodicLLFAnalysisEntryPoints.v
 theories/TaskModels/Periodic/PeriodicPartitionedFiniteOptimalityLift.v
 theories/TaskModels/Common/FiniteHorizonWitness.v
 theories/TaskModels/Common/WitnessCandidates.v

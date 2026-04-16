@@ -970,13 +970,25 @@ Planned:
 - speedup bounds / policy comparison
 
 ### K-1. Idealized analysis
-**Status: Initial EDF processor-demand entry points exist**
+**Status: Bridge-first periodic EDF/LLF entry points exist**
 
 Planned:
 
-- package current periodic EDF results into a stable idealized-analysis inventory
 - add response-time theorems consuming busy-window / DBF / RBF abstractions
-- extend from the current periodic EDF path to broader policy / task-model combinations
+- extend from the current periodic EDF/LLF path to broader policy / task-model combinations
+
+Current packaged inventory:
+
+- `PeriodicEDFAnalysisEntryPoints.v` packages the stable downstream import for
+  periodic EDF idealized analysis
+- `PeriodicEDFClassicalBridge.v` exposes zero-offset classical DBF corollaries
+  while keeping `periodic_edf_busy_prefix_bridge` explicit
+- `PeriodicLLFAnalysisEntryPoints.v` packages the stable downstream import for
+  periodic LLF analysis wrappers
+- `PeriodicLLFAnalysisBridge.v` exposes LLF schedulable-by-on wrappers from
+  both window-DBF and zero-offset classical DBF assumptions
+- the bridge-first public policy remains unchanged: do not weaken these APIs by
+  auto-supplying `periodic_edf_busy_prefix_bridge` or `no_carry_in`
 
 ### K-2. Delay-aware analysis
 **Status: Not started**

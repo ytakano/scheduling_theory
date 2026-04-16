@@ -1,12 +1,16 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
+From RocqSched Require Import Uniprocessor.Policies.EDFLemmas.
+From RocqSched Require Import Uniprocessor.Policies.LLF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
-From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
+From RocqSched Require Import TaskModels.Periodic.PeriodicLLFAnalysisEntryPoints.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Examples.PeriodicExamples.
@@ -50,6 +54,23 @@ Proof.
   - constructor.
     + simpl. tauto.
     + constructor.
+Qed.
+
+Lemma T_ex_in_enumT_ex :
+  forall τ, T_ex τ -> In τ enumT_ex.
+Proof.
+  intros τ Hτ.
+  destruct Hτ as [Hτ | Hτ]; subst τ; simpl; tauto.
+Qed.
+
+Lemma in_enumT_ex_implies_T_ex :
+  forall τ, In τ enumT_ex -> T_ex τ.
+Proof.
+  intros τ Hτ.
+  simpl in Hτ.
+  destruct Hτ as [Hτ | [Hτ | []]]; subst τ.
+  - left. reflexivity.
+  - right. reflexivity.
 Qed.
 
 Theorem periodic_example_edf_no_deadline_miss_by_window_dbf_auto_with_busy_prefix_bridge :
@@ -208,4 +229,142 @@ Proof.
     destruct Hτ as [Hτ | [Hτ | []]]; subst τ.
     + left. reflexivity.
     + right. reflexivity.
+Qed.
+
+Theorem periodic_example_llf_schedulable_by_window_dbf_generated_with_busy_prefix_bridge :
+  (forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    job_abs_deadline (jobs_ex j) <= H_ex /\
+    exists t1 t2,
+      busy_prefix_witness
+        (generated_schedule
+           edf_generic_spec
+           (enum_candidates_of
+              (enum_periodic_jobs_upto
+                 T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex))
+           jobs_ex)
+        (job_abs_deadline (jobs_ex j)) t1 t2 /\
+      periodic_edf_busy_prefix_bridge
+        T_ex tasks_ex offset_ex jobs_ex H_ex
+        (generated_schedule
+           edf_generic_spec
+           (enum_candidates_of
+              (enum_periodic_jobs_upto
+                 T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex))
+           jobs_ex)
+        j) ->
+  schedulable_by_on
+    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+    (llf_scheduler
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+    jobs_ex 1.
+Proof.
+  intro Hjob_bridge.
+  set (enumJ :=
+         enum_periodic_jobs_upto
+           T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex).
+  set (sched := generated_schedule edf_generic_spec (enum_candidates_of enumJ) jobs_ex).
+  assert (Hcand_spec :
+    CandidateSourceSpec (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+      (enum_candidates_of enumJ)).
+  {
+    apply enum_candidates_spec.
+    - exact (enum_periodic_jobs_upto_complete
+               T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex
+               tasks_ex_well_formed
+               T_ex_in_enumT_ex).
+    - exact (enum_periodic_jobs_upto_sound
+               T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex
+               in_enumT_ex_implies_T_ex).
+  }
+  assert (Hsched :
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs_ex 1 sched).
+  {
+    unfold sched.
+    eapply generated_schedule_scheduler_rel with
+      (J := periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+      (cand_spec := Hcand_spec).
+    intros s1 s2 t Hagree.
+    eapply edf_choose_agrees_before; eauto.
+  }
+  eapply periodic_llf_schedulable_by_window_dbf_on_finite_horizon_auto_with_busy_prefix_bridge
+    with (enumT := enumT_ex) (sched := sched); eauto.
+  - exact tasks_ex_well_formed.
+  - exact enumT_ex_nodup.
+  - intros τ Hτ.
+    exact (T_ex_in_enumT_ex τ Hτ).
+  - intros τ Hτ.
+    exact (in_enumT_ex_implies_T_ex τ Hτ).
+  - exact periodic_window_dbf_test.
+Qed.
+
+Theorem periodic_example_llf_schedulable_by_classical_dbf_generated_with_busy_prefix_bridge :
+  (forall t, taskset_periodic_dbf tasks_ex enumT_ex t <= t) ->
+  (forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    job_abs_deadline (jobs_ex j) <= H_ex /\
+    exists t1 t2,
+      busy_prefix_witness
+        (generated_schedule
+           edf_generic_spec
+           (enum_candidates_of
+              (enum_periodic_jobs_upto
+                 T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex))
+           jobs_ex)
+        (job_abs_deadline (jobs_ex j)) t1 t2 /\
+      periodic_edf_busy_prefix_bridge
+        T_ex tasks_ex offset_ex jobs_ex H_ex
+        (generated_schedule
+           edf_generic_spec
+           (enum_candidates_of
+              (enum_periodic_jobs_upto
+                 T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex))
+           jobs_ex)
+        j) ->
+  schedulable_by_on
+    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+    (llf_scheduler
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+    jobs_ex 1.
+Proof.
+  intros Hdbf_classical Hjob_bridge.
+  set (enumJ :=
+         enum_periodic_jobs_upto
+           T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex).
+  set (sched := generated_schedule edf_generic_spec (enum_candidates_of enumJ) jobs_ex).
+  assert (Hcand_spec :
+    CandidateSourceSpec (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+      (enum_candidates_of enumJ)).
+  {
+    apply enum_candidates_spec.
+    - exact (enum_periodic_jobs_upto_complete
+               T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex
+               tasks_ex_well_formed
+               T_ex_in_enumT_ex).
+    - exact (enum_periodic_jobs_upto_sound
+               T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex
+               in_enumT_ex_implies_T_ex).
+  }
+  assert (Hsched :
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs_ex 1 sched).
+  {
+    unfold sched.
+    eapply generated_schedule_scheduler_rel with
+      (J := periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+      (cand_spec := Hcand_spec).
+    intros s1 s2 t Hagree.
+    eapply edf_choose_agrees_before; eauto.
+  }
+  eapply periodic_llf_schedulable_by_classical_dbf_on_finite_horizon_auto_with_busy_prefix_bridge
+    with (enumT := enumT_ex) (sched := sched); eauto.
+  - exact tasks_ex_well_formed.
+  - exact enumT_ex_nodup.
+  - intros τ Hτ.
+    exact (T_ex_in_enumT_ex τ Hτ).
+  - intros τ Hτ.
+    exact (in_enumT_ex_implies_T_ex τ Hτ).
 Qed.

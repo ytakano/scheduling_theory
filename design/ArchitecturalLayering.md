@@ -76,6 +76,9 @@ For uniprocessor policy analysis, this layer may also expose:
 - finite-horizon witness / bridge theorems
 - classical corollaries extracted from richer window-aware statements
 - policy-specific feasibility bridges such as EDF processor-demand and LLF laxity results
+- task-model-facing packaged entry points that expose bridge-first EDF
+  classical corollaries and LLF schedulability wrappers on top of EDF
+  feasibility bridges
 
 When a classical corollary depends on a stronger schedule-local bridge
 (`no_carry_in`, backlog exclusion, or chosen busy-prefix properties), keep the
