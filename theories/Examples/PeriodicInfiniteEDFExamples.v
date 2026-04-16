@@ -2,6 +2,7 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import Analysis.Uniprocessor.EDFProcessorDemand.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
@@ -37,6 +38,13 @@ Section InfinitePeriodicEDFExample.
       t1 <= t2 ->
       taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
 
+  Hypothesis offset_zero_ex :
+    forall τ, In τ enumT_ex -> offset_ex τ = 0.
+
+  Hypothesis periodic_classical_dbf_ex :
+    forall t,
+      taskset_periodic_dbf tasks_ex enumT_ex t <= t.
+
   Example periodic_infinite_example_job0_no_deadline_miss :
     ~ missed_deadline jobs_ex 1
         (generated_periodic_edf_schedule
@@ -60,7 +68,7 @@ Section InfinitePeriodicEDFExample.
     - exact periodic_window_dbf_ex.
   Qed.
 
-  Example periodic_infinite_example_schedulable_by_on :
+  Example periodic_infinite_example_schedulable_by_classical_dbf_on :
     schedulable_by_on
       (periodic_jobset T_ex tasks_ex offset_ex jobs_ex)
       (edf_scheduler
@@ -68,7 +76,49 @@ Section InfinitePeriodicEDFExample.
             T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_inf_ex))
       jobs_ex 1.
   Proof.
-    eapply periodic_edf_schedulable_by_on; eauto.
+    eapply periodic_edf_schedulable_by_on.
+    1: exact tasks_ex_well_formed.
+    1: exact enumT_ex_nodup.
+    1: exact T_ex_in_enumT_ex.
+    1: exact in_enumT_ex_implies_T_ex.
+    1: exact offset_zero_ex.
+    1: apply busy_prefix_bridge_ex.
+    1: exact periodic_classical_dbf_ex.
+  Qed.
+
+  Example periodic_infinite_example_job0_no_deadline_miss_by_classical_dbf :
+    ~ missed_deadline jobs_ex 1
+        (generated_periodic_edf_schedule
+           T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_inf_ex)
+        0.
+  Proof.
+    apply periodic_edf_no_deadline_miss_from_classical_dbf.
+    - exact tasks_ex_well_formed.
+    - exact enumT_ex_nodup.
+    - exact T_ex_in_enumT_ex.
+    - exact in_enumT_ex_implies_T_ex.
+    - exact offset_zero_ex.
+    - unfold periodic_jobset, T_ex.
+      split.
+      + left. reflexivity.
+      + exact generated_job0_ex.
+    - apply busy_prefix_bridge_ex.
+      unfold periodic_jobset, T_ex.
+      split.
+      + left. reflexivity.
+      + exact generated_job0_ex.
+    - exact periodic_classical_dbf_ex.
+  Qed.
+
+  Example periodic_infinite_example_schedulable_by_window_dbf_on :
+    schedulable_by_on
+      (periodic_jobset T_ex tasks_ex offset_ex jobs_ex)
+      (edf_scheduler
+         (periodic_candidates_before
+            T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_inf_ex))
+      jobs_ex 1.
+  Proof.
+    eapply periodic_edf_schedulable_by_window_dbf_on; eauto.
     - exact tasks_ex_well_formed.
     - exact enumT_ex_nodup.
     - exact T_ex_in_enumT_ex.

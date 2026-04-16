@@ -2,6 +2,7 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import Uniprocessor.Policies.LLF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
@@ -228,10 +229,9 @@ Definition sched_inf_ex : Schedule :=
   generated_periodic_llf_schedule
     T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex.
 
-Definition periodic_window_dbf_bound_ex : Prop :=
-  forall t1 t2,
-    t1 <= t2 ->
-    taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
+Definition periodic_classical_dbf_bound_ex : Prop :=
+  forall t,
+    taskset_periodic_dbf tasks_ex enumT_ex t <= t.
 
 Definition generated_edf_busy_prefix_bridge_ex : Prop :=
   forall H j,
@@ -251,23 +251,24 @@ Definition generated_edf_busy_prefix_bridge_ex : Prop :=
 
 Section TutorialProof.
 
-  Hypothesis Hdbf : periodic_window_dbf_bound_ex.
+  Hypothesis Hclassical_dbf : periodic_classical_dbf_bound_ex.
   Hypothesis Hbridge : generated_edf_busy_prefix_bridge_ex.
 
   Theorem tutorial_periodic_llf_job0_no_deadline_miss :
     ~ missed_deadline jobs_ex 1 sched_inf_ex (job_id_of_ex 0 0).
   Proof.
-    apply periodic_llf_no_deadline_miss_from_window_dbf.
+    apply periodic_llf_no_deadline_miss_from_classical_dbf.
     - exact tasks_ex_well_formed.
     - exact enumT_ex_nodup.
     - exact enumT_ex_complete.
     - exact enumT_ex_sound.
+    - intros tau Htau_in. unfold offset_ex. reflexivity.
     - unfold periodic_jobset, T_ex.
       split.
       + left. reflexivity.
       + exact generated_job0_ex.
     - exact Hbridge.
-    - exact Hdbf.
+    - exact Hclassical_dbf.
   Qed.
 
   Theorem tutorial_periodic_llf_schedulable :
@@ -278,11 +279,14 @@ Section TutorialProof.
             T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex))
       jobs_ex 1.
   Proof.
-    eapply periodic_llf_schedulable_by_on; eauto.
-    - exact tasks_ex_well_formed.
-    - exact enumT_ex_nodup.
-    - exact enumT_ex_complete.
-    - exact enumT_ex_sound.
+    eapply periodic_llf_schedulable_by_on.
+    1: exact tasks_ex_well_formed.
+    1: exact enumT_ex_nodup.
+    1: exact enumT_ex_complete.
+    1: exact enumT_ex_sound.
+    1: intros tau Htau_in; unfold offset_ex; reflexivity.
+    1: exact Hbridge.
+    1: exact Hclassical_dbf.
   Qed.
 
 End TutorialProof.

@@ -985,12 +985,20 @@ Current packaged inventory:
   periodic EDF idealized analysis
 - `PeriodicEDFClassicalBridge.v` exposes zero-offset classical DBF corollaries
   while keeping `periodic_edf_busy_prefix_bridge` explicit
+- `PeriodicEDFInfiniteBridge.v` now also exposes infinite-time periodic EDF
+  no-miss / feasible wrappers plus
+  `periodic_edf_schedulable_by_on` as the canonical classical-DBF
+  schedulability API and `periodic_edf_schedulable_by_window_dbf_on`
+  as the explicit lower-level window-DBF variant
 - `PeriodicLLFAnalysisEntryPoints.v` packages the stable downstream import for
   periodic LLF analysis wrappers
 - `PeriodicLLFAnalysisBridge.v` exposes LLF schedulable-by-on wrappers from
   both window-DBF and zero-offset classical DBF assumptions
 - `PeriodicLLFPrefixCoherence.v` and `PeriodicLLFInfiniteBridge.v` expose the
-  infinite-time periodic LLF candidate/coherence and schedulability wrappers
+  infinite-time periodic LLF candidate/coherence and schedulability wrappers,
+  with `periodic_llf_schedulable_by_on` canonicalized to the zero-offset
+  classical-DBF API and `periodic_llf_schedulable_by_window_dbf_on`
+  retained as the explicit window-DBF variant
 - the bridge-first public policy remains unchanged: do not weaken these APIs by
   auto-supplying `periodic_edf_busy_prefix_bridge` or `no_carry_in`
 
