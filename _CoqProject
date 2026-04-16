@@ -12,6 +12,7 @@ theories/Analysis/Common/WorkloadAggregation.v
 theories/Analysis/Multicore/ProcessorSupply.v
 theories/Analysis/Multicore/Interference.v
 theories/Analysis/Multicore/GlobalWorkloadAbsorption.v
+theories/Analysis/Multicore/GlobalFairness.v
 theories/Analysis/Multicore/GlobalAnalysisEntryPoints.v
 theories/Analysis/Uniprocessor/BusyInterval.v
 theories/Analysis/Uniprocessor/BusyIntervalLemmas.v
@@ -33,6 +34,7 @@ theories/Examples/GlobalServiceExamples.v
 theories/Examples/GlobalWorkConservingExamples.v
 theories/Examples/GlobalLLFExamples.v
 theories/Examples/GlobalInterferenceExamples.v
+theories/Examples/GlobalFairnessExamples.v
 theories/Examples/GlobalExamples.v
 theories/Examples/OperationalProjectionExamples.v
 theories/Examples/JitteredPeriodicExamples.v

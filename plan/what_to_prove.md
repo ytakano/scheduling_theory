@@ -746,8 +746,6 @@ internal/helper inventory として扱うもの:
 
 残作業:
 
-- fairness / tardiness へ進む analysis-facing hook を packaged boundary の上で
-  1 段抽象化する
 - coverage-based interference templates を full-supply consequence から
   workload-absorption statementsへ拡張する
 
@@ -762,12 +760,26 @@ internal/helper inventory として扱うもの:
   - `global_llf_not_running_admissible_job_interval_implies_workload_gap`
   - `global_llf_not_running_eligible_job_interval_implies_workload_gap`
 
+追加済み fairness client inventory:
+
+- `Analysis/Multicore/GlobalFairness.v`
+- contradiction wrappers:
+  - `global_edf_not_running_admissible_job_interval_contradicts_workload_upper_bound`
+  - `global_edf_not_running_eligible_job_interval_contradicts_workload_upper_bound`
+  - `global_llf_not_running_admissible_job_interval_contradicts_workload_upper_bound`
+  - `global_llf_not_running_eligible_job_interval_contradicts_workload_upper_bound`
+- first must-run client theorems:
+  - `global_edf_persistently_admissible_job_must_run_in_interval`
+  - `global_edf_persistently_eligible_job_must_run_in_interval`
+  - `global_llf_persistently_admissible_job_must_run_in_interval`
+  - `global_llf_persistently_eligible_job_must_run_in_interval`
+
 残作業の更新:
 
-- fairness / tardiness の client theorem を、この workload-absorption 層の上で
-  どの粒度で packaged 化するか整理する
 - policy-specific wrapper から top-`m` policy-generic analysis hook へ持ち上げる
   範囲を見極める
+- bounded waiting / bounded tardiness を task-model-specific bridge に接続する
+  ための client 定理粒度を整理する
 
 ## 8-2. clustered scheduling
 **Status: Not started**

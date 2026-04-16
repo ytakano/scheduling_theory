@@ -1,4 +1,5 @@
 From RocqSched Require Import Multicore.Global.GlobalEntryPoints.
+From RocqSched Require Import Examples.GlobalFairnessExamples.
 From RocqSched Require Import Examples.GlobalInterferenceExamples.
 From RocqSched Require Import Examples.GlobalServiceExamples.
 From RocqSched Require Import Examples.GlobalLLFExamples.
@@ -27,6 +28,12 @@ Definition global_example_covering_list_recovers_machine_supply :=
 
 Definition global_example_llf_excluded_job_interval_implies_workload_gap :=
   global_llf_excluded_job_interval_implies_workload_gap_example.
+
+Definition global_example_llf_excluded_job_contradicts_small_workload_upper_bound :=
+  global_llf_excluded_job_contradicts_small_workload_upper_bound_example.
+
+Definition global_example_edf_persistently_eligible_job_must_run :=
+  global_edf_persistently_eligible_job_must_run_example.
 
 Definition global_example_service_preserved_under_migration :=
   migrating_global_service_is_preserved.

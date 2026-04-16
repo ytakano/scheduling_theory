@@ -744,6 +744,28 @@ Next:
 - decide which parts of the EDF / LLF wrappers should later move into a more
   policy-generic top-`m` analysis layer
 
+### G-4c. First global fairness client layer
+**Status: Implemented as the first post-absorption client slice**
+
+Implemented:
+
+- `Analysis/Multicore/GlobalFairness.v` as the first client layer above
+  `GlobalWorkloadAbsorption.v`
+- contradiction wrappers that close the strict workload-gap lemmas against an
+  explicit interval workload upper bound
+- first EDF / LLF fairness corollaries showing that a persistently
+  eligible/admissible job must run somewhere in the interval once the
+  non-running case would force a workload contradiction
+- packaged re-export through `Analysis/Multicore/GlobalAnalysisEntryPoints.v`
+  and curated downstream examples
+
+Next:
+
+- lift the EDF / LLF fairness clients toward a policy-generic top-`m`
+  analysis layer where the admissibility interface is stable enough
+- connect the fairness client layer to bounded waiting / bounded tardiness
+  statements for concrete task models
+
 ---
 
 ## 8. Phase H: OS-level operational semantics

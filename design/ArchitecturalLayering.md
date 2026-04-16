@@ -221,6 +221,7 @@ stack is:
 - semantic core
 - global theorem layer
 - multicore analysis entry-point layer
+- fairness client layer
 
 Concretely:
 
@@ -230,9 +231,13 @@ Concretely:
   import for analysis-facing multicore clients that also need processor-supply
   and interference theorems
 - `Analysis/Multicore/GlobalWorkloadAbsorption.v` sits between those packaged
-  entry points and future fairness / tardiness clients: it consumes the global
+  entry points and the first fairness client layer: it consumes the global
   theorem layer plus the multicore analysis helpers, but does not push
   workload-absorption statements down into the policy theorem files themselves
+- `Analysis/Multicore/GlobalFairness.v` sits above workload absorption and
+  packages strict workload-gap hooks into contradiction-style and must-run
+  client theorems without moving interval-analysis obligations into the
+  policy-specific global files
 
 This keeps policy-specific global theorems and analysis-layer interval facts
 separate while still exposing one stable packaged boundary to downstream proof
