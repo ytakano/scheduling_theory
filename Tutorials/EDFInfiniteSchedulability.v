@@ -351,6 +351,120 @@ Definition slot_job_ex (t : Time) : option JobId :=
   else
     None.
 
+Lemma jobs_ex_in_periodic_jobset :
+  forall j,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j.
+Proof.
+  intro j.
+  destruct (Nat.even j) eqn:Heven.
+  - apply Nat.even_spec in Heven.
+    destruct Heven as [k ->].
+    unfold periodic_jobset.
+    split.
+    + left. rewrite jobs_ex_task0. reflexivity.
+    + pose proof (codec_ex_sound 0 k (or_introl eq_refl)) as [_ [_ Hgen]].
+      exact Hgen.
+  - assert (Hodd : Nat.odd j = true).
+    { rewrite <- Nat.negb_even. rewrite Heven. reflexivity. }
+    apply Nat.odd_spec in Hodd.
+    destruct Hodd as [k Hk].
+    subst j.
+    replace (2 * k + 1) with (S (2 * k)) by lia.
+    unfold periodic_jobset.
+    split.
+    + right. rewrite jobs_ex_task1. reflexivity.
+    + pose proof (codec_ex_sound 1 k (or_intror eq_refl)) as [_ [_ Hgen]].
+      exact Hgen.
+Qed.
+
+Lemma service_slot_ex_task0 :
+  forall k,
+    service_slot_ex (job_id_of_ex 0 k) = 5 * k.
+Proof.
+  intro k.
+  unfold service_slot_ex, job_id_of_ex.
+  rewrite Nat.even_mul.
+  simpl.
+  replace (Nat.div2 (k + (k + 0))) with k.
+  2:{
+    replace (k + (k + 0)) with (2 * k) by lia.
+    symmetry.
+    apply nat_div2_double.
+  }
+  reflexivity.
+Qed.
+
+Lemma service_slot_ex_task1 :
+  forall k,
+    service_slot_ex (job_id_of_ex 1 k) =
+    if Nat.eqb (k mod 5) 0 then 7 * k + 1 else 7 * k.
+Proof.
+  intro k.
+  unfold service_slot_ex, job_id_of_ex.
+  rewrite Nat.even_succ.
+  rewrite Nat.odd_mul.
+  simpl.
+  replace
+    match k + (k + 0) with
+    | 0 => 0
+    | S n' => S (Nat.div2 n')
+    end
+  with k.
+  2:{
+    replace
+      (match k + (k + 0) with
+       | 0 => 0
+       | S n' => S (Nat.div2 n')
+       end)
+    with (Nat.div2 (S (k + (k + 0)))) by reflexivity.
+    replace (S (k + (k + 0))) with (S (2 * k)) by lia.
+    symmetry.
+    apply nat_div2_succ_double.
+  }
+  reflexivity.
+Qed.
+
+Lemma slot_job_ex_task0 :
+  forall k,
+    slot_job_ex (5 * k) = Some (job_id_of_ex 0 k).
+Proof.
+  intro k.
+  unfold slot_job_ex.
+  rewrite <- Nat.mul_comm.
+  rewrite nat_mod_mul_left by lia.
+  rewrite Nat.eqb_refl.
+  rewrite nat_div_mul_exact by lia.
+  reflexivity.
+Qed.
+
+Lemma slot_job_ex_task1_simultaneous :
+  forall q,
+    slot_job_ex (35 * q + 1) = Some (job_id_of_ex 1 (5 * q)).
+Proof.
+  intro q.
+  unfold slot_job_ex.
+  assert (Hmod5eq : (35 * q + 1) mod 5 = 1).
+  {
+    rewrite Nat.add_mod by lia.
+    replace ((35 * q) mod 5) with 0.
+    2:{
+      replace (35 * q) with ((7 * q) * 5) by lia.
+      symmetry.
+      apply nat_mod_mul_left.
+      lia.
+    }
+    simpl.
+    reflexivity.
+  }
+  assert (Hmod5 : (35 * q + 1) mod 5 <> 0) by (rewrite Hmod5eq; discriminate).
+  destruct (Nat.eqb ((35 * q + 1) mod 5) 0) eqn:Heq5.
+  - apply Nat.eqb_eq in Heq5. contradiction.
+  - rewrite nat_mod_35q_plus_1_by_35.
+    rewrite Nat.eqb_refl.
+    rewrite nat_div_35q_plus_1_by_7.
+    reflexivity.
+Qed.
+
 Lemma hyperperiod_load_ex :
   hyperperiod_load tasks_ex enumT_ex 35 = 12.
 Proof.
