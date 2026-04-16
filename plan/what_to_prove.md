@@ -55,7 +55,14 @@
 
 現状では、Periodic EDF idealized-analysis inventory の stable entry-point 化は
 完了済みとして扱う。次の uniprocessor analysis 側の主戦場は、
-zero-offset classical EDF corollary と LLF analytical bridge である。
+zero-offset classical EDF corollary、infinite-time periodic EDF wrapper、
+そして LLF analytical bridge である。
+
+## Current periodic EDF wrapper direction
+
+- finite-horizon window-DBF theorems remain the proof core
+- infinite-time periodic EDF should be exposed as a wrapper over that core
+- public bridge assumptions remain bridge-first rather than auto-deriving `no_carry_in`
 
 ## Design principle for delay-aware proofs
 

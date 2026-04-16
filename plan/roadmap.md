@@ -67,11 +67,12 @@ The next work is mainly:
 
 1. close the current periodic EDF window-DBF layer with zero-offset classical corollaries
 2. add an analytical LLF theorem layer via laxity / feasibility bridges
-3. stabilize and document the multicore theorem-layer public APIs
-4. turn partitioned multicore into a mature theorem layer
-5. strengthen multicore-common semantics and the reusable global theorem layers
-6. introduce OS-level operational semantics and projection discipline
-7. complete refinement on a designable OS and validate external applicability on Linux
+3. add an infinite-time periodic EDF wrapper on top of the finite-horizon bridge
+4. stabilize and document the multicore theorem-layer public APIs
+5. turn partitioned multicore into a mature theorem layer
+6. strengthen multicore-common semantics and the reusable global theorem layers
+7. introduce OS-level operational semantics and projection discipline
+8. complete refinement on a designable OS and validate external applicability on Linux
 
 ### Research gap and intended novelty frontier
 
@@ -105,7 +106,8 @@ The project should follow these proof-discipline rules.
   **first-class milestones**, not as disposable temporary work.
 - Treat the current **Periodic EDF** public bridge/API as largely stabilized:
   the next uniprocessor step is to derive zero-offset classical corollaries
-  from the existing window-DBF bridge, then widen to other policy-specific
+  from the existing window-DBF bridge, add an infinite-time wrapper that
+  reuses the finite-horizon core prefix-wise, then widen to other policy-specific
   analytical layers such as LLF.
 
 ### Design principle for delay modeling

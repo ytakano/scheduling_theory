@@ -4,6 +4,8 @@ From RocqSched Require Export TaskModels.Periodic.PeriodicWindowDemandBound.
 From RocqSched Require Export TaskModels.Periodic.PeriodicClassicDBF.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFBridge.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFClassicalBridge.
+From RocqSched Require Export TaskModels.Periodic.PeriodicEDFPrefixCoherence.
+From RocqSched Require Export TaskModels.Periodic.PeriodicEDFInfiniteBridge.
 
 (** * Stable public entry points for idealized periodic EDF analysis
 
@@ -14,6 +16,8 @@ From RocqSched Require Export TaskModels.Periodic.PeriodicEDFClassicalBridge.
     - busy-prefix witness search facts
     - EDF processor-demand bridge facts
     - periodic window-DBF bridge facts
+    - infinite-time periodic EDF candidate/coherence interfaces
+    - infinite-time generated-EDF no-miss / feasible / schedulable wrappers
     - zero-offset classical-DBF corollaries with explicit busy-prefix bridges
     - periodic EDF no-miss / feasible-schedule / schedulable-by-on wrappers
 

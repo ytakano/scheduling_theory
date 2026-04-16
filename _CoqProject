@@ -41,12 +41,14 @@ theories/Examples/OperationalProjectionExamples.v
 theories/Examples/JitteredPeriodicExamples.v
 theories/Examples/PartitionedExamples.v
 theories/Examples/PeriodicExamples.v
+theories/Examples/PeriodicInfiniteEDFExamples.v
 theories/Examples/PeriodicProcessorDemandExamples.v
 theories/Examples/PeriodicProcessorDemandCompatExamples.v
 theories/Examples/SporadicExamples.v
 theories/Examples/RRExamples.v
 theories/Examples/SchedulableExamples.v
 Tutorials/EDFSchedulability.v
+Tutorials/EDFInfiniteSchedulability.v
 theories/Foundation/Base.v
 theories/Multicore/Common/MultiCoreBase.v
 theories/Multicore/Common/ServiceFacts.v
@@ -91,6 +93,8 @@ theories/Semantics/ScheduleLemmas/ScheduleTruncation.v
 theories/TaskModels/Periodic/PeriodicTasks.v
 theories/TaskModels/Periodic/PeriodicReleaseLemmas.v
 theories/TaskModels/Periodic/PeriodicFiniteHorizon.v
+theories/TaskModels/Periodic/PeriodicInfinite.v
+theories/TaskModels/Periodic/PeriodicCodec.v
 theories/TaskModels/Periodic/PeriodicWorkload.v
 theories/TaskModels/Periodic/PeriodicDemandBound.v
 theories/TaskModels/Periodic/PeriodicWindowDemandBound.v
@@ -101,6 +105,8 @@ theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicEDFBridgeCompat.v
 theories/TaskModels/Periodic/PeriodicClassicDBF.v
 theories/TaskModels/Periodic/PeriodicEDFClassicalBridge.v
+theories/TaskModels/Periodic/PeriodicEDFPrefixCoherence.v
+theories/TaskModels/Periodic/PeriodicEDFInfiniteBridge.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v
 theories/TaskModels/Periodic/PeriodicLLFAnalysisBridge.v
 theories/TaskModels/Periodic/PeriodicLLFAnalysisEntryPoints.v

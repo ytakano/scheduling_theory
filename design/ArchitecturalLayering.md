@@ -74,6 +74,7 @@ The analysis layer hosts interval-based schedulability reasoning such as busy in
 For uniprocessor policy analysis, this layer may also expose:
 
 - finite-horizon witness / bridge theorems
+- infinite-time wrappers that reuse finite-horizon bridge theorems prefix-wise
 - classical corollaries extracted from richer window-aware statements
 - policy-specific feasibility bridges such as EDF processor-demand and LLF laxity results
 - task-model-facing packaged entry points that expose bridge-first EDF

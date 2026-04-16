@@ -2,6 +2,8 @@ From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
+From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
+From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
 Import ListNotations.
 
 (* ===== Boolean task-list membership ===== *)
@@ -58,6 +60,23 @@ Record PeriodicFiniteHorizonCodec
       periodic_jobset_upto T tasks offset jobs H j ->
       j = periodic_job_id_of (job_task (jobs j)) (job_index (jobs j))
 }.
+
+Definition periodic_finite_horizon_codec_of
+    T tasks offset jobs H
+    (codec : PeriodicCodec T tasks offset jobs)
+  : PeriodicFiniteHorizonCodec T tasks offset jobs H.
+Proof.
+  refine
+    (mkPeriodicFiniteHorizonCodec
+       T tasks offset jobs H
+       (global_periodic_job_id_of T tasks offset jobs codec) _ _).
+  - intros τ k HT _.
+    exact (global_periodic_job_id_of_sound T tasks offset jobs codec τ k HT).
+  - intros j Hjobset.
+    apply global_periodic_job_id_of_complete.
+    exact (periodic_jobset_upto_implies_periodic_jobset
+             T tasks offset jobs H j Hjobset).
+Defined.
 
 (* ===== Index enumeration ===== *)
 
@@ -349,4 +368,64 @@ Proof.
   - intros j Hj.
     eapply enum_periodic_jobs_upto_sound; eauto.
   - eapply enum_periodic_jobs_upto_task_index_nodup; eauto.
+Qed.
+
+(* ===== Released-prefix enumeration via the global codec ===== *)
+
+Definition enum_periodic_jobs_before
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (t : Time)
+    : list JobId :=
+  enum_periodic_jobs_upto
+    T tasks offset jobs t enumT
+    (periodic_finite_horizon_codec_of T tasks offset jobs t codec).
+
+Lemma enum_periodic_jobs_before_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs),
+    (forall τ, In τ enumT -> T τ) ->
+    forall t j,
+      In j (enum_periodic_jobs_before T tasks offset jobs enumT codec t) ->
+      periodic_jobset T tasks offset jobs j /\
+      job_release (jobs j) < t.
+Proof.
+  intros T tasks offset jobs enumT codec HenumT_sound t j Hj.
+  unfold enum_periodic_jobs_before in Hj.
+  pose proof
+    (enum_periodic_jobs_upto_sound
+       T tasks offset jobs t enumT
+       (periodic_finite_horizon_codec_of T tasks offset jobs t codec)
+       HenumT_sound j Hj) as Hjobset.
+  split.
+  - exact (periodic_jobset_upto_implies_periodic_jobset
+             T tasks offset jobs t j Hjobset).
+  - exact (periodic_jobset_upto_implies_release_lt
+             T tasks offset jobs t j Hjobset).
+Qed.
+
+Lemma enum_periodic_jobs_before_complete :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs),
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    forall t j,
+      periodic_jobset T tasks offset jobs j ->
+      job_release (jobs j) < t ->
+      In j (enum_periodic_jobs_before T tasks offset jobs enumT codec t).
+Proof.
+  intros T tasks offset jobs enumT codec Hwf HenumT_complete t j Hjobset Hrel.
+  unfold enum_periodic_jobs_before.
+  eapply enum_periodic_jobs_upto_complete.
+  - exact Hwf.
+  - exact HenumT_complete.
+  - split.
+    + exact (periodic_jobset_implies_task_in_scope T tasks offset jobs j Hjobset).
+    + split.
+      * exact (periodic_jobset_implies_generated T tasks offset jobs j Hjobset).
+      * exact Hrel.
 Qed.

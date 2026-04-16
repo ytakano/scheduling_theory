@@ -43,11 +43,13 @@ The current organization is:
 Two recurring patterns matter across the task-model layer:
 
 - horizon-bounded enumeration of generated jobs
+- horizon-free jobset / codec interfaces that can drive infinite-time wrappers
 - bridge-first packaging for downstream theorem use
 
 For example, periodic EDF uses:
 
 - `PeriodicEDFBridge.v` as the canonical bridge-first public module
+- `PeriodicEDFInfiniteBridge.v` as the infinite-time wrapper over the finite core
 - `PeriodicEDFBridgeCompat.v` only as a compatibility wrapper for older unpackaged interfaces
 - `PeriodicEDFAnalysisEntryPoints.v` as the default downstream import for the packaged periodic EDF analysis surface
 

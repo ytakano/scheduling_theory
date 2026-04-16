@@ -1,46 +1,529 @@
 # Tutorial: A Concrete EDF Schedulability Proof for a Periodic Task Set
 
-This tutorial shows how to prove that a **concrete periodic task set** is schedulable under EDF on a **uniprocessor**, using the theorem
+This tutorial explains, step by step, how to prove that a **concrete periodic task set** is schedulable under EDF on a **uniprocessor** using the theorem
 
-~~~coq
+```coq
 periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
-~~~
+```
 
 The checked Rocq code for this tutorial lives in:
 
-- `Tutorials/EDFSchedulability.v`
+* `Tutorials/EDFSchedulability.v`
 
-We use a very small example on purpose:
+We intentionally use a very small example:
 
-- two periodic tasks,
-- zero offsets,
-- one processor,
-- a short finite horizon,
-- only one released job per task inside the horizon.
+* two periodic tasks,
+* zero offsets,
+* one processor,
+* a short finite horizon,
+* only one released job per task inside the horizon.
 
-This keeps the setup concrete while preserving the real proof structure.
+This keeps the example concrete while preserving the real proof structure.
+
+---
+
+## 1. What is the final goal?
+
+The final theorem proves that our concrete finite-horizon periodic job set is schedulable by EDF on one CPU. In other words, everything in this tutorial is organized around constructing the arguments required by this final statement.
+
+```coq
+Theorem tutorial_periodic_edf_schedulable :
+  schedulable_by_on
+    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+    (edf_scheduler
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+    jobs_ex 1.
+```
+
+A good way to read the file is therefore:
+
+1. identify this final goal,
+2. see how the concrete model is built,
+3. see how the finite-horizon jobs are encoded and enumerated,
+4. see how the generated EDF schedule is obtained,
+5. isolate the remaining analysis obligations,
+6. apply the public theorem.
 
 ---
 
-## Idea
+## 2. Import the required libraries
 
-We define:
+We first import the standard library modules and the RocqSched components used by the example. These imports provide the task and job models, the finite-horizon codec infrastructure, job enumeration, the EDF policy, and the final analysis entry point.
 
-- a concrete task set `T_ex`,
-- concrete tasks `tasks_ex`,
-- concrete jobs `jobs_ex`,
-- a finite horizon `H_ex`,
-- a concrete codec `codec_ex`,
-- a generated EDF schedule `sched_gen_ex`.
+```coq
+From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
+From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
+From RocqSched Require Import Uniprocessor.Policies.EDF.
+From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
 
-Then we prove the easy setup lemmas directly. The two real analysis obligations are left as hypotheses:
-
-1. the **window-DBF bound**, and
-2. the **busy-prefix bridge** for the generated EDF schedule.
-
-This is the intended downstream use pattern of the current public theorem layer: the concrete system model is fully defined, while the task-set-specific analysis obligations are supplied separately.
+Import ListNotations.
+```
 
 ---
+
+## 3. Define a concrete periodic task set
+
+We now define a very small concrete task set. The example uses two periodic tasks with long enough periods so that, inside the finite horizon `H_ex = 4`, each task releases only one job. This is the main simplification that makes the example easy to read.
+
+```coq
+Definition task0_ex : Task := mkTask 1 5 2.
+Definition task1_ex : Task := mkTask 1 7 3.
+
+Definition tasks_ex (tau : TaskId) : Task :=
+  match tau with
+  | 0 => task0_ex
+  | 1 => task1_ex
+  | _ => mkTask 1 100 100
+  end.
+
+Definition T_ex (tau : TaskId) : Prop := tau = 0 \/ tau = 1.
+
+Definition offset_ex (_ : TaskId) : Time := 0.
+
+Definition H_ex : Time := 4.
+
+Definition enumT_ex : list TaskId := [0; 1].
+```
+
+At this point, the key objects are:
+
+* `tasks_ex`: the concrete task parameters,
+* `T_ex`: the predicate selecting the in-scope tasks,
+* `offset_ex`: the release offsets,
+* `H_ex`: the finite horizon,
+* `enumT_ex`: the finite enumeration of the in-scope tasks.
+
+---
+
+## 4. Define the concrete jobs
+
+Since `H_ex = 4` and the task periods are `5` and `7`, only the first job of each task is released before the horizon. We therefore define exactly two in-scope jobs, plus a default out-of-scope job for all remaining job IDs.
+
+```coq
+Definition job0_ex : Job := mkJob 0 0 0 1 2.
+Definition job1_ex : Job := mkJob 1 0 0 1 3.
+
+Definition other_job_ex : Job := mkJob 2 0 10 1 110.
+
+Definition jobs_ex (j : JobId) : Job :=
+  match j with
+  | 0 => job0_ex
+  | 1 => job1_ex
+  | _ => other_job_ex
+  end.
+```
+
+The purpose of `other_job_ex` is only to make `jobs_ex` total. The actual proof concerns the two jobs `0` and `1`.
+
+---
+
+## 5. Show that the concrete jobs are really generated by the periodic task model
+
+Before using the periodic analysis theorem, we must show that our concrete jobs are consistent with the periodic task definitions. This is done by proving that each in-scope job is generated by the corresponding periodic task.
+
+```coq
+Lemma generated_job0_ex :
+  generated_by_periodic_task tasks_ex offset_ex jobs_ex 0.
+Proof.
+  unfold generated_by_periodic_task, jobs_ex, job0_ex, tasks_ex, task0_ex, offset_ex.
+  simpl.
+  repeat split; lia.
+Qed.
+
+Lemma generated_job1_ex :
+  generated_by_periodic_task tasks_ex offset_ex jobs_ex 1.
+Proof.
+  unfold generated_by_periodic_task, jobs_ex, job1_ex, tasks_ex, task1_ex, offset_ex.
+  simpl.
+  repeat split; lia.
+Qed.
+```
+
+These proofs are simple because the example is fully concrete. They are not the main analysis step; they are consistency checks between the concrete data and the periodic model.
+
+---
+
+## 6. Show that the task set enumeration is well formed
+
+The theorem also expects a finite and well-behaved task enumeration. We therefore prove:
+
+* the in-scope tasks are well formed,
+* the task enumeration has no duplicates,
+* every in-scope task appears in the enumeration,
+* every enumerated task is in scope.
+
+```coq
+Lemma tasks_ex_well_formed :
+  well_formed_periodic_tasks_on T_ex tasks_ex.
+Proof.
+  intros tau Htau.
+  destruct Htau as [-> | ->]; simpl; lia.
+Qed.
+
+Lemma enumT_ex_nodup :
+  NoDup enumT_ex.
+Proof.
+  unfold enumT_ex.
+  constructor.
+  - simpl. intros [H | []]. discriminate.
+  - constructor.
+    + simpl. tauto.
+    + constructor.
+Qed.
+
+Lemma enumT_ex_complete :
+  forall tau, T_ex tau -> In tau enumT_ex.
+Proof.
+  intros tau Htau.
+  destruct Htau as [-> | ->]; simpl; tauto.
+Qed.
+
+Lemma enumT_ex_sound :
+  forall tau, In tau enumT_ex -> T_ex tau.
+Proof.
+  intros tau Htau.
+  simpl in Htau.
+  destruct Htau as [Htau | [Htau | []]]; subst tau.
+  - left; reflexivity.
+  - right; reflexivity.
+Qed.
+```
+
+These lemmas are again structural setup lemmas. They prepare a finite task set for later enumeration and analysis.
+
+---
+
+## 7. Build a finite-horizon codec
+
+This is the central implementation device in the tutorial. The finite-horizon codec connects periodic task releases to concrete job IDs. Conceptually, it says: given a task `tau` and an index `k`, which concrete job ID represents that job inside the finite horizon?
+
+In this tiny example, the mapping is trivial:
+
+* `(task 0, index 0)` maps to job `0`,
+* `(task 1, index 0)` maps to job `1`,
+* everything else maps to the irrelevant default job `2`.
+
+```coq
+Definition job_id_of_ex (tau : TaskId) (k : nat) : JobId :=
+  match tau, k with
+  | 0, 0 => 0
+  | 1, 0 => 1
+  | _, _ => 2
+  end.
+```
+
+### 7.1 Prove codec soundness
+
+Soundness states that whenever a task is in scope and the expected release of its `k`-th job lies before the horizon, then the codec returns a concrete job with the correct task, the correct index, and a valid periodic-generation proof.
+
+```coq
+Lemma codec_ex_sound :
+  forall tau k,
+    T_ex tau ->
+    expected_release tasks_ex offset_ex tau k < H_ex ->
+    let j := job_id_of_ex tau k in
+    job_task (jobs_ex j) = tau /\
+    job_index (jobs_ex j) = k /\
+    generated_by_periodic_task tasks_ex offset_ex jobs_ex j.
+Proof.
+  intros tau k Htau Hrel.
+  destruct Htau as [-> | ->].
+  - assert (k = 0).
+    { unfold expected_release, tasks_ex, task0_ex, offset_ex, H_ex in Hrel.
+      simpl in Hrel. lia. }
+    subst k.
+    simpl.
+    split; [reflexivity |].
+    split; [reflexivity |].
+    exact generated_job0_ex.
+  - assert (k = 0).
+    { unfold expected_release, tasks_ex, task1_ex, offset_ex, H_ex in Hrel.
+      simpl in Hrel. lia. }
+    subst k.
+    simpl.
+    split; [reflexivity |].
+    split; [reflexivity |].
+    exact generated_job1_ex.
+Qed.
+```
+
+The reason this proof is easy is the horizon choice: because `H_ex = 4`, only `k = 0` is possible for both tasks.
+
+### 7.2 Prove codec completeness
+
+Completeness goes in the opposite direction. It states that every job in the periodic finite-horizon job set is represented by the codec.
+
+```coq
+Lemma codec_ex_complete :
+  forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    j = job_id_of_ex (job_task (jobs_ex j)) (job_index (jobs_ex j)).
+Proof.
+  intros j Hj.
+  destruct j as [| [| j']]; simpl; try reflexivity.
+  unfold periodic_jobset_upto, jobs_ex, other_job_ex, H_ex in Hj.
+  simpl in Hj.
+  destruct Hj as [_ [_ Hrel]].
+  lia.
+Qed.
+```
+
+With these two lemmas in place, we can package the codec:
+
+```coq
+Definition codec_ex : PeriodicFiniteHorizonCodec T_ex tasks_ex offset_ex jobs_ex H_ex :=
+  mkPeriodicFiniteHorizonCodec
+    T_ex tasks_ex offset_ex jobs_ex H_ex
+    job_id_of_ex
+    codec_ex_sound
+    codec_ex_complete.
+```
+
+This codec is what allows the library to enumerate the finite-horizon jobs from the periodic task model.
+
+---
+
+## 8. Enumerate the finite-horizon jobs
+
+Now that the codec exists, we can enumerate all periodic jobs that belong to the finite horizon.
+
+```coq
+Definition enumJ_ex : list JobId :=
+  enum_periodic_jobs_upto T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex.
+```
+
+In this concrete example, the resulting list is exactly `[0; 1]`. The file includes a simple check of that fact.
+
+```coq
+Example enumJ_ex_is_small :
+  enumJ_ex = [0; 1].
+Proof.
+  reflexivity.
+Qed.
+```
+
+This is a useful checkpoint: the concrete world really contains only the two intended jobs.
+
+---
+
+## 9. Generate the EDF schedule
+
+The tutorial does not manually define an operational EDF scheduler. Instead, it uses the generic EDF policy specification together with the enumerated candidate jobs to build a generated schedule.
+
+```coq
+Definition sched_gen_ex : Schedule :=
+  generated_schedule
+    edf_generic_spec
+    (enum_candidates_of enumJ_ex)
+    jobs_ex.
+```
+
+This is an important design point: the example is about using the public theorem layer, not about reimplementing EDF from scratch.
+
+---
+
+## 10. State the two user obligations
+
+At this point, the concrete system is completely defined. The remaining work is no longer model construction but analysis. The tutorial isolates the two real obligations as hypotheses.
+
+### 10.1 The window-DBF bound
+
+This is the actual schedulability-analysis obligation. It says that, for every window `[t1, t2)`, the total periodic processor demand whose deadlines fall inside the window does not exceed the window length.
+
+```coq
+Definition periodic_window_dbf_bound_ex : Prop :=
+  forall t1 t2,
+    t1 <= t2 ->
+    t2 <= H_ex ->
+    taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
+```
+
+### 10.2 The generated EDF busy-prefix bridge
+
+This is the EDF-specific bridge obligation required by the current theorem interface. It connects the generated EDF schedule to the busy-prefix reasoning expected by the theorem.
+
+```coq
+Definition generated_edf_busy_prefix_bridge_ex : Prop :=
+  forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    periodic_edf_busy_prefix_bridge
+      T_ex tasks_ex offset_ex jobs_ex H_ex
+      sched_gen_ex
+      j.
+```
+
+The key point is that these two obligations are the only genuinely open analysis tasks in the checked tutorial. Everything else is already fully concrete and mechanically checked.
+
+---
+
+## 11. Prove that deadlines stay inside the horizon
+
+The final theorem expects not only the busy-prefix bridge but also the fact that the jobs under consideration have deadlines inside the horizon. The tutorial proves this separately.
+
+```coq
+Lemma deadlines_within_horizon_ex :
+  forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    job_abs_deadline (jobs_ex j) <= H_ex.
+Proof.
+  intros j Hj.
+  destruct j as [| [| j0]].
+  - unfold H_ex. cbn. lia.
+  - unfold H_ex. cbn. lia.
+  - exfalso.
+    pose proof
+      (periodic_jobset_upto_implies_task_in_scope
+         T_ex tasks_ex offset_ex jobs_ex H_ex (S (S j0)) Hj) as Hscope.
+    unfold T_ex, jobs_ex, other_job_ex in Hscope.
+    cbn in Hscope.
+    destruct Hscope as [Hscope | Hscope]; lia.
+Qed.
+```
+
+Again, this works because the example is tiny: any supposed in-horizon job beyond `0` and `1` leads to contradiction.
+
+---
+
+## 12. Package the remaining assumptions in a section
+
+The checked tutorial does not use `Admitted` inside the main code block. Instead, it introduces the two open obligations as section hypotheses. This keeps the artifact compile-checked while still showing the intended downstream use pattern.
+
+```coq
+Section TutorialProof.
+
+  Hypothesis Hdbf : periodic_window_dbf_bound_ex.
+  Hypothesis Hbridge : generated_edf_busy_prefix_bridge_ex.
+```
+
+Inside the section, the first helper lemma just combines the deadline property and the busy-prefix bridge into the exact shape expected by the final theorem.
+
+```coq
+  Lemma generated_edf_busy_prefix_bridge_and_deadline_ex :
+    forall j,
+      periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+      job_abs_deadline (jobs_ex j) <= H_ex /\
+      periodic_edf_busy_prefix_bridge
+        T_ex tasks_ex offset_ex jobs_ex H_ex
+        sched_gen_ex
+        j.
+  Proof.
+    intros j Hj.
+    split.
+    - apply deadlines_within_horizon_ex; exact Hj.
+    - apply Hbridge; exact Hj.
+  Qed.
+```
+
+---
+
+## 13. Apply the public theorem
+
+Now the proof is straightforward: apply the public EDF schedulability theorem and supply the setup lemmas and the two analysis hypotheses.
+
+```coq
+  Theorem tutorial_periodic_edf_schedulable :
+    schedulable_by_on
+      (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto
+               T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+      jobs_ex 1.
+  Proof.
+    eapply
+      periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
+      with (enumT := enumT_ex).
+    - exact tasks_ex_well_formed.
+    - exact enumT_ex_nodup.
+    - exact enumT_ex_complete.
+    - exact enumT_ex_sound.
+    - exact generated_edf_busy_prefix_bridge_and_deadline_ex.
+    - exact Hdbf.
+  Qed.
+
+End TutorialProof.
+```
+
+This is the entire proof pattern. The public theorem acts as the final assembly point: once the concrete finite-horizon model, the codec, the EDF-generated schedule, the deadline-side condition, and the DBF-side condition are in place, the schedulability result follows.
+
+---
+
+## 14. What the user still has to prove
+
+The tutorial intentionally leaves exactly two obligations to the user.
+
+### Obligation 1: the DBF bound
+
+You must prove:
+
+```coq
+forall t1 t2,
+  t1 <= t2 ->
+  t2 <= H_ex ->
+  taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1
+```
+
+This is the actual schedulability-analysis statement. It expresses that processor demand never exceeds available processor supply in any relevant finite window.
+
+### Obligation 2: the busy-prefix bridge
+
+You must prove:
+
+```coq
+forall j,
+  periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+  periodic_edf_busy_prefix_bridge
+    T_ex tasks_ex offset_ex jobs_ex H_ex
+    sched_gen_ex
+    j
+```
+
+This is the theorem-specific bridge that ties the generated EDF schedule to the analysis infrastructure.
+
+---
+
+## 15. How to understand the structure of the tutorial
+
+A useful mental model is to split the file into three layers. This is the main reason the step-by-step order is easier to read than the original presentation order.
+
+### Layer A: concrete model construction
+
+This includes:
+
+* concrete tasks,
+* concrete jobs,
+* scope predicates,
+* offsets,
+* finite horizon.
+
+### Layer B: finite-horizon infrastructure
+
+This includes:
+
+* task enumeration facts,
+* codec soundness and completeness,
+* finite-horizon job enumeration,
+* generated EDF schedule.
+
+### Layer C: analysis obligations and theorem application
+
+This includes:
+
+* the window-DBF bound,
+* the busy-prefix bridge,
+* the final theorem application.
+
+Once the file is read in this order, the role of each component becomes much clearer.
+
+--
 
 ## Checked Tutorial Code
 
@@ -321,67 +804,3 @@ Section TutorialProof.
 
 End TutorialProof.
 ~~~
-
----
-
-## What the user still has to prove
-
-The two important user obligations are the following.
-
-### 1. `periodic_window_dbf_bound_ex`
-
-You must prove
-
-~~~coq
-forall t1 t2,
-  t1 <= t2 ->
-  t2 <= H_ex ->
-  taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1
-~~~
-
-This is the actual schedulability analysis step. It says that the total demand of all periodic jobs whose deadlines fall in the window does not exceed the available processor time in that window.
-
-### 2. `generated_edf_busy_prefix_bridge_ex`
-
-You must prove
-
-~~~coq
-forall j,
-  periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-  periodic_edf_busy_prefix_bridge
-    T_ex tasks_ex offset_ex jobs_ex H_ex
-    sched_gen_ex
-    j
-~~~
-
-This is the EDF-specific bridge required by the current generated-schedule theorem.
-
----
-
-## Why the code is written this way
-
-The previous draft used `Admitted` placeholders inside the code block. That is useful as an informal proof sketch, but it is not a compile-checked tutorial artifact.
-
-The checked tutorial instead packages the two open obligations as hypotheses in a section:
-
-- the concrete model is fully defined and checked,
-- the public theorem is applied exactly as in downstream use,
-- and the remaining work is isolated to the task-set-specific analysis obligations.
-
----
-
-## Summary
-
-The proof recipe is:
-
-1. build a concrete periodic task model,
-2. encode the finite-horizon jobs with a codec,
-3. state the DBF bound as a concrete obligation,
-4. state the EDF busy-prefix bridge as a concrete obligation,
-5. apply
-
-~~~coq
-periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
-~~~
-
-to conclude EDF schedulability on one CPU.

@@ -27,6 +27,74 @@ Proof.
   apply choose_min_metric_agrees_before. exact Hagree.
 Qed.
 
+Lemma choose_edf_irrelevant_future_jobs :
+  forall jobs sched t cand1 cand2,
+    (forall j, In j cand2 -> ~ eligible jobs 1 sched j t) ->
+    choose_edf jobs 1 sched t (cand1 ++ cand2) =
+    choose_edf jobs 1 sched t cand1.
+Proof.
+  intros jobs sched t cand1 cand2 Hnone.
+  unfold choose_edf, choose_min_metric.
+  rewrite filter_app.
+  assert (Hf2 : filter (fun j : JobId => eligibleb jobs 1 sched j t) cand2 = []).
+  {
+    induction cand2 as [|j cand2 IH]; simpl.
+    - reflexivity.
+    - destruct (eligibleb jobs 1 sched j t) eqn:Helig.
+      + exfalso.
+        apply (Hnone j (or_introl eq_refl)).
+        apply eligibleb_iff.
+        exact Helig.
+      + apply IH.
+        intros j' Hin.
+        apply Hnone.
+        right.
+        exact Hin.
+  }
+  rewrite Hf2.
+  rewrite app_nil_r.
+  reflexivity.
+Qed.
+
+Lemma choose_edf_filter_ineligible :
+  forall jobs sched t candidates keep,
+    (forall j, In j candidates -> keep j = false -> ~ eligible jobs 1 sched j t) ->
+    choose_edf jobs 1 sched t candidates =
+    choose_edf jobs 1 sched t (filter keep candidates).
+Proof.
+  intros jobs sched t candidates keep Hnone.
+  unfold choose_edf, choose_min_metric.
+  f_equal.
+  induction candidates as [|j candidates IH]; simpl.
+  - reflexivity.
+  - destruct (eligibleb jobs 1 sched j t) eqn:Helig,
+             (keep j) eqn:Hkeep; simpl.
+    + rewrite Helig.
+      rewrite IH.
+      * reflexivity.
+      * intros j' Hin Hk.
+        apply Hnone.
+        right; exact Hin.
+        exact Hk.
+    + exfalso.
+      apply (Hnone j (or_introl eq_refl) Hkeep).
+      apply eligibleb_iff.
+      exact Helig.
+    + rewrite Helig.
+      rewrite IH.
+      * reflexivity.
+      * intros j' Hin Hk.
+        apply Hnone.
+        right; exact Hin.
+        exact Hk.
+    + rewrite IH.
+      * reflexivity.
+      * intros j' Hin Hk.
+        apply Hnone.
+        right; exact Hin.
+        exact Hk.
+Qed.
+
 Lemma edf_choose_agrees_before :
   forall J candidates_of
          (cand_spec : CandidateSourceSpec J candidates_of)

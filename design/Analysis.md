@@ -25,6 +25,11 @@ Its job is to host reusable analysis notions such as:
 
 The layer is organized so that policy theorem layers remain structural and analysis clients can import packaged entry points instead of rebuilding interval arguments from scratch.
 
+For periodic EDF, the current direction is to keep the finite-horizon
+window-DBF bridge as the analysis core and layer infinite-time no-miss /
+feasible / schedulable wrappers on top via prefix reuse, rather than replacing
+the existing finite theorem family.
+
 ### Example: Busy Intervals, a Busy Window, and Busy Prefixes
 
 ```
