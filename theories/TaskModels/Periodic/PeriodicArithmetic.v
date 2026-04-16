@@ -79,23 +79,3 @@ Proof.
   simpl.
   reflexivity.
 Qed.
-
-Lemma nat_mod_7k_by_7 :
-  forall k,
-    (7 * k) mod 7 = 0.
-Proof.
-  intro k.
-  rewrite Nat.mul_comm.
-  apply nat_mod_mul_left.
-  lia.
-Qed.
-
-Lemma nat_mod_5k_by_5 :
-  forall k,
-    (5 * k) mod 5 = 0.
-Proof.
-  intro k.
-  rewrite Nat.mul_comm.
-  apply nat_mod_mul_left.
-  lia.
-Qed.
