@@ -55,6 +55,7 @@ We first import the standard library modules and the RocqSched components used b
 ```coq
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
@@ -308,13 +309,6 @@ Example enumJ_ex_is_small :
 Proof.
   reflexivity.
 Qed.
-
-Example periodic_window_dbf_test_upto_ex :
-  window_dbf_test_upto tasks_ex offset_ex enumT_ex H_ex = true.
-Proof.
-  vm_compute.
-  reflexivity.
-Qed.
 ```
 
 This is a useful checkpoint: the concrete world really contains only the two intended jobs.
@@ -374,17 +368,6 @@ Definition generated_edf_busy_prefix_bridge_ex : Prop :=
 
 These two propositions are still the right interface-level summary of the analysis layer. The difference is that the checked tutorial now proves them outright.
 
-Before proving either proposition abstractly, the file records that the concrete window checker succeeds:
-
-```coq
-Example periodic_window_dbf_test_upto_ex :
-  window_dbf_test_upto tasks_ex offset_ex enumT_ex H_ex = true.
-Proof.
-  vm_compute.
-  reflexivity.
-Qed.
-```
-
 ---
 
 ## 11. Prove the concrete helper lemmas
@@ -400,7 +383,12 @@ Lemma periodic_jobset_upto_ex_cases :
     j = 0 \/ j = 1.
 ```
 
-Next, it records the generated EDF schedule at the only relevant time points:
+Next, it proves the generated EDF schedule at the only relevant time points. These are not obtained by `vm_compute`. Instead, the file unfolds `generated_schedule` and uses EDF choice lemmas:
+
+* `choose_edf_unique_min` shows that EDF must pick job `0` at time `0` and job `1` at time `1`,
+* `choose_edf_none_if_no_eligible` shows that the schedule is idle at times `2` and `3`.
+
+So the local schedule facts are symbolic consequences of EDF's specification on this tiny example, not raw computation results.
 
 ```coq
 Lemma sched_gen_ex_at_0 :
@@ -464,18 +452,17 @@ The bridge proof splits on `periodic_jobset_upto_ex_cases`.
 * For `j = 0`, any covering busy-prefix witness must start at `t1 = 0`; otherwise the left boundary would contradict `sched_gen_ex_at_0` or `sched_gen_ex_at_1`.
 * For `j = 1`, the bridge is vacuous because `no_busy_prefix_witness_job1_ex` rules out the existence of a covering witness.
 
-The DBF obligation is discharged from the checker result:
+The DBF obligation is also proved directly. Since `H_ex = 4`, every admissible pair `t1 <= t2 <= H_ex` can be discharged by bounded case analysis on `t1` and `t2`, followed by simplification and `lia`:
 
 ```coq
 Lemma periodic_window_dbf_bound_ex_proved :
   periodic_window_dbf_bound_ex.
 Proof.
   intros t1 t2 Hle12 Hle2H.
-  eapply (window_dbf_test_upto_true_implies_bounded_window_dbf
-            tasks_ex offset_ex enumT_ex H_ex t1 t2).
-  - exact periodic_window_dbf_test_upto_ex.
-  - exact Hle12.
-  - exact Hle2H.
+  unfold H_ex in Hle2H.
+  destruct t2 as [| [| [| [| [| t2']]]]]; try lia;
+    destruct t1 as [| [| [| [| [| t1']]]]]; try lia;
+    simpl; lia.
 Qed.
 ```
 
@@ -536,7 +523,7 @@ The file proves:
 periodic_window_dbf_bound_ex
 ```
 
-It does so by first establishing `window_dbf_test_upto ... = true` and then invoking the generic bounded-window theorem.
+It does so directly, by exploiting the tiny finite horizon `H_ex = 4` and checking all admissible windows with bounded case analysis plus `lia`.
 
 ### Concrete result 2: the busy-prefix bridge
 
@@ -576,7 +563,7 @@ This includes:
 * task enumeration facts,
 * codec soundness and completeness,
 * finite-horizon job enumeration,
-* generated EDF schedule.
+* generated EDF schedule together with a few symbolic local schedule lemmas.
 
 ### Layer C: analysis obligations and theorem application
 
@@ -595,6 +582,7 @@ Once the file is read in this order, the role of each component becomes much cle
 ~~~coq
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
@@ -826,29 +814,99 @@ Qed.
 Lemma sched_gen_ex_at_0 :
   sched_gen_ex 0 0 = Some 0.
 Proof.
-  vm_compute.
-  reflexivity.
+  unfold sched_gen_ex, generated_schedule.
+  simpl.
+  apply choose_edf_unique_min.
+  - rewrite enumJ_ex_is_small. simpl. auto.
+  - unfold eligible, released, completed, jobs_ex, job0_ex.
+    simpl.
+    split; [lia |].
+    intro Hcompleted.
+    simpl in Hcompleted.
+    lia.
+  - intros j' Hin Helig Hneq.
+    rewrite enumJ_ex_is_small in Hin.
+    simpl in Hin.
+    destruct Hin as [Hin | [Hin | []]]; subst j'.
+    + contradiction.
+    + unfold jobs_ex, job0_ex, job1_ex.
+      simpl.
+      lia.
 Qed.
 
 Lemma sched_gen_ex_at_1 :
   sched_gen_ex 1 0 = Some 1.
 Proof.
-  vm_compute.
-  reflexivity.
+  unfold sched_gen_ex, generated_schedule.
+  simpl.
+  apply choose_edf_unique_min.
+  - rewrite enumJ_ex_is_small. simpl. auto.
+  - unfold eligible, released, completed, jobs_ex, job1_ex.
+    simpl.
+    split; [lia |].
+    intro Hcompleted.
+    simpl in Hcompleted.
+    lia.
+  - intros j' Hin Helig Hneq.
+    rewrite enumJ_ex_is_small in Hin.
+    simpl in Hin.
+    destruct Hin as [Hin | [Hin | []]]; subst j'.
+    + exfalso.
+      unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
+      simpl in Helig.
+      destruct Helig as [_ Hnot_completed].
+      apply Hnot_completed.
+      simpl.
+      lia.
+    + contradiction.
 Qed.
 
 Lemma sched_gen_ex_at_2 :
   sched_gen_ex 2 0 = None.
 Proof.
-  vm_compute.
-  reflexivity.
+  unfold sched_gen_ex, generated_schedule.
+  simpl.
+  apply choose_edf_none_if_no_eligible.
+  intros j Hin Helig.
+  rewrite enumJ_ex_is_small in Hin.
+  simpl in Hin.
+  destruct Hin as [Hin | [Hin | []]]; subst j.
+  - unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
+    simpl in Helig.
+    destruct Helig as [_ Hnot_completed].
+    apply Hnot_completed.
+    simpl.
+    lia.
+  - unfold eligible, released, completed, jobs_ex, job1_ex in Helig.
+    simpl in Helig.
+    destruct Helig as [_ Hnot_completed].
+    apply Hnot_completed.
+    simpl.
+    lia.
 Qed.
 
 Lemma sched_gen_ex_at_3 :
   sched_gen_ex 3 0 = None.
 Proof.
-  vm_compute.
-  reflexivity.
+  unfold sched_gen_ex, generated_schedule.
+  simpl.
+  apply choose_edf_none_if_no_eligible.
+  intros j Hin Helig.
+  rewrite enumJ_ex_is_small in Hin.
+  simpl in Hin.
+  destruct Hin as [Hin | [Hin | []]]; subst j.
+  - unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
+    simpl in Helig.
+    destruct Helig as [_ Hnot_completed].
+    apply Hnot_completed.
+    simpl.
+    lia.
+  - unfold eligible, released, completed, jobs_ex, job1_ex in Helig.
+    simpl in Helig.
+    destruct Helig as [_ Hnot_completed].
+    apply Hnot_completed.
+    simpl.
+    lia.
 Qed.
 
 Lemma no_busy_prefix_witness_job1_ex :
@@ -913,11 +971,10 @@ Lemma periodic_window_dbf_bound_ex_proved :
   periodic_window_dbf_bound_ex.
 Proof.
   intros t1 t2 Hle12 Hle2H.
-  eapply (window_dbf_test_upto_true_implies_bounded_window_dbf
-            tasks_ex offset_ex enumT_ex H_ex t1 t2).
-  - exact periodic_window_dbf_test_upto_ex.
-  - exact Hle12.
-  - exact Hle2H.
+  unfold H_ex in Hle2H.
+  destruct t2 as [| [| [| [| [| t2']]]]]; try lia;
+    destruct t1 as [| [| [| [| [| t1']]]]]; try lia;
+    simpl; lia.
 Qed.
 
 Lemma deadlines_within_horizon_ex :

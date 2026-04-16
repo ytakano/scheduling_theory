@@ -1,5 +1,6 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
@@ -196,13 +197,6 @@ Proof.
   reflexivity.
 Qed.
 
-Example periodic_window_dbf_test_upto_ex :
-  window_dbf_test_upto tasks_ex offset_ex enumT_ex H_ex = true.
-Proof.
-  vm_compute.
-  reflexivity.
-Qed.
-
 (* ================================================================ *)
 (* 6. User obligations                                               *)
 (* ================================================================ *)
@@ -238,29 +232,99 @@ Qed.
 Lemma sched_gen_ex_at_0 :
   sched_gen_ex 0 0 = Some 0.
 Proof.
-  vm_compute.
-  reflexivity.
+  unfold sched_gen_ex, generated_schedule.
+  simpl.
+  apply choose_edf_unique_min.
+  - rewrite enumJ_ex_is_small. simpl. auto.
+  - unfold eligible, released, completed, jobs_ex, job0_ex.
+    simpl.
+    split; [lia |].
+    intro Hcompleted.
+    simpl in Hcompleted.
+    lia.
+  - intros j' Hin Helig Hneq.
+    rewrite enumJ_ex_is_small in Hin.
+    simpl in Hin.
+    destruct Hin as [Hin | [Hin | []]]; subst j'.
+    + contradiction.
+    + unfold jobs_ex, job0_ex, job1_ex.
+      simpl.
+      lia.
 Qed.
 
 Lemma sched_gen_ex_at_1 :
   sched_gen_ex 1 0 = Some 1.
 Proof.
-  vm_compute.
-  reflexivity.
+  unfold sched_gen_ex, generated_schedule.
+  simpl.
+  apply choose_edf_unique_min.
+  - rewrite enumJ_ex_is_small. simpl. auto.
+  - unfold eligible, released, completed, jobs_ex, job1_ex.
+    simpl.
+    split; [lia |].
+    intro Hcompleted.
+    simpl in Hcompleted.
+    lia.
+  - intros j' Hin Helig Hneq.
+    rewrite enumJ_ex_is_small in Hin.
+    simpl in Hin.
+    destruct Hin as [Hin | [Hin | []]]; subst j'.
+    + exfalso.
+      unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
+      simpl in Helig.
+      destruct Helig as [_ Hnot_completed].
+      apply Hnot_completed.
+      simpl.
+      lia.
+    + contradiction.
 Qed.
 
 Lemma sched_gen_ex_at_2 :
   sched_gen_ex 2 0 = None.
 Proof.
-  vm_compute.
-  reflexivity.
+  unfold sched_gen_ex, generated_schedule.
+  simpl.
+  apply choose_edf_none_if_no_eligible.
+  intros j Hin Helig.
+  rewrite enumJ_ex_is_small in Hin.
+  simpl in Hin.
+  destruct Hin as [Hin | [Hin | []]]; subst j.
+  - unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
+    simpl in Helig.
+    destruct Helig as [_ Hnot_completed].
+    apply Hnot_completed.
+    simpl.
+    lia.
+  - unfold eligible, released, completed, jobs_ex, job1_ex in Helig.
+    simpl in Helig.
+    destruct Helig as [_ Hnot_completed].
+    apply Hnot_completed.
+    simpl.
+    lia.
 Qed.
 
 Lemma sched_gen_ex_at_3 :
   sched_gen_ex 3 0 = None.
 Proof.
-  vm_compute.
-  reflexivity.
+  unfold sched_gen_ex, generated_schedule.
+  simpl.
+  apply choose_edf_none_if_no_eligible.
+  intros j Hin Helig.
+  rewrite enumJ_ex_is_small in Hin.
+  simpl in Hin.
+  destruct Hin as [Hin | [Hin | []]]; subst j.
+  - unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
+    simpl in Helig.
+    destruct Helig as [_ Hnot_completed].
+    apply Hnot_completed.
+    simpl.
+    lia.
+  - unfold eligible, released, completed, jobs_ex, job1_ex in Helig.
+    simpl in Helig.
+    destruct Helig as [_ Hnot_completed].
+    apply Hnot_completed.
+    simpl.
+    lia.
 Qed.
 
 Lemma no_busy_prefix_witness_job1_ex :
@@ -325,11 +389,10 @@ Lemma periodic_window_dbf_bound_ex_proved :
   periodic_window_dbf_bound_ex.
 Proof.
   intros t1 t2 Hle12 Hle2H.
-  eapply (window_dbf_test_upto_true_implies_bounded_window_dbf
-            tasks_ex offset_ex enumT_ex H_ex t1 t2).
-  - exact periodic_window_dbf_test_upto_ex.
-  - exact Hle12.
-  - exact Hle2H.
+  unfold H_ex in Hle2H.
+  destruct t2 as [| [| [| [| [| t2']]]]]; try lia;
+    destruct t1 as [| [| [| [| [| t1']]]]]; try lia;
+    simpl; lia.
 Qed.
 
 Lemma deadlines_within_horizon_ex :
