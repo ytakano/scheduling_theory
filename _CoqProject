@@ -75,6 +75,9 @@ theories/Operational/Common/State.v
 theories/Operational/Common/Trace.v
 theories/Operational/Common/Projection.v
 theories/Operational/Common/Step.v
+theories/Operational/Common/Invariants.v
+theories/Operational/Common/StepLemmas.v
+theories/Operational/Common/Execution.v
 theories/Operational/Common/ProjectionLemmas.v
 theories/Operational/Awkernel/MinimalProjection.v
 theories/Semantics/Schedule.v

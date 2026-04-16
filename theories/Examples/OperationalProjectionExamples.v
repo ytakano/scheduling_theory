@@ -5,6 +5,9 @@ From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.ServiceFacts.
 From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.Trace.
+From RocqSched Require Import Operational.Common.Invariants.
+From RocqSched Require Import Operational.Common.Step.
+From RocqSched Require Import Operational.Common.Execution.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 Import ListNotations.
@@ -14,11 +17,27 @@ Section OperationalProjectionExamples.
   Definition op_example_job : Job := mkJob 0 0 0 1 2.
   Definition op_example_jobs (_ : JobId) : Job := op_example_job.
 
+  Definition op_example_long_job : Job := mkJob 0 0 0 3 10.
+  Definition op_example_long_jobs (_ : JobId) : Job := op_example_long_job.
+
+  Definition one_cpu_state0 : OpState :=
+    mkOpState (fun _ => None) [0] (fun _ => true).
+
+  Definition one_cpu_state1 : OpState :=
+    clear_need_resched 0
+      (mkOpState
+         (fun c => if Nat.eqb c 0 then Some 0 else op_current one_cpu_state0 c)
+         (remove_job 0 (op_runnable one_cpu_state0))
+         (op_need_resched one_cpu_state0)).
+
+  Definition one_cpu_state2 : OpState :=
+    clear_current_and_request 0 one_cpu_state1.
+
   Definition one_cpu_trace (t : Time) : OpState :=
     match t with
-    | 0 => mkOpState (fun _ => None) [0] (fun _ => true)
-    | 1 => mkOpState (fun c => if Nat.eqb c 0 then Some 0 else None) [] (fun _ => false)
-    | _ => mkOpState (fun _ => None) [] (fun _ => false)
+    | 0 => one_cpu_state0
+    | 1 => one_cpu_state1
+    | _ => one_cpu_state2
     end.
 
   Example one_cpu_projection_reads_current_slot :
@@ -33,6 +52,20 @@ Section OperationalProjectionExamples.
     apply current_implies_projected_running with (c := 0).
     - lia.
     - reflexivity.
+  Qed.
+
+  Lemma one_cpu_trace_stepwise :
+    trace_stepwise one_cpu_trace.
+  Proof.
+    intros [|[|t]].
+    - exists (EvDispatch 0 0).
+      constructor.
+      + simpl. left. reflexivity.
+      + reflexivity.
+    - exists (EvComplete 0).
+      constructor.
+    - exists EvTick.
+      constructor.
   Qed.
 
   Definition two_cpu_trace (_ : Time) : OpState :=
@@ -65,31 +98,102 @@ Section OperationalProjectionExamples.
     exact two_cpu_trace_no_dup_state.
   Qed.
 
-  Lemma one_cpu_trace_projectable :
-    projectable_trace op_example_jobs 1 one_cpu_trace.
+  Lemma one_cpu_state_struct_inv :
+    forall t, op_struct_inv 1 (one_cpu_trace t).
   Proof.
-    refine (mkProjectableTrace op_example_jobs 1 one_cpu_trace _ _ _).
-    - intros t j c1 c2 Hlt1 Hlt2 Hrun1 Hrun2.
-      lia.
+    intros [|[|t']].
+    - constructor.
+      + intros j c1 c2 Hlt1 Hlt2 Hrun1 _.
+        lia.
+      + constructor.
+        * simpl. tauto.
+        * constructor.
+      + intros c j Hlt Hcur Hin.
+        simpl in Hcur. discriminate.
+    - constructor.
+      + intros j c1 c2 Hlt1 Hlt2 Hrun1 Hrun2.
+        assert (c1 = 0) by lia.
+        assert (c2 = 0) by lia.
+        subst c1 c2. reflexivity.
+      + constructor.
+      + intros c j Hlt Hcur Hin.
+        assert (c = 0) by lia.
+        subst c.
+        simpl in Hcur.
+        inversion Hcur; subst.
+        simpl in Hin.
+        contradiction.
+    - constructor.
+      + intros j c1 c2 Hlt1 Hlt2 Hrun1 _.
+        lia.
+      + constructor.
+      + intros c j Hlt Hcur Hin.
+        assert (c = 0) by lia.
+        subst c.
+        unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hcur.
+        simpl in Hcur.
+        discriminate.
+  Qed.
+
+  Definition one_cpu_execution : execution 1 :=
+    mkExecution 1 one_cpu_trace True one_cpu_trace_stepwise one_cpu_state_struct_inv.
+
+  Lemma one_cpu_execution_sound :
+    execution_projection_sound op_example_long_jobs 1 one_cpu_execution.
+  Proof.
+    constructor.
     - intros t c j Hlt Hrun.
-      destruct t as [|[|t']]; simpl in Hrun; try discriminate.
-      inversion Hrun; subst.
-      unfold released, op_example_jobs, op_example_job.
-      simpl.
-      lia.
+      destruct t as [|t'].
+      + simpl in Hrun. discriminate.
+      + destruct t' as [|t''].
+        * assert (c = 0) by lia.
+          subst c.
+          inversion Hrun; subst.
+          unfold released, op_example_long_jobs, op_example_long_job.
+          simpl.
+          lia.
+        * assert (c = 0) by lia.
+          subst c.
+          unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hrun.
+          simpl in Hrun.
+          discriminate.
     - intros t c j Hlt Hrun.
-      destruct t as [|[|t']]; simpl in Hrun; try discriminate.
-      inversion Hrun; subst.
-      unfold completed, service_job, cpu_count, runs_on, op_example_jobs, op_example_job.
-      simpl.
-      lia.
+      destruct t as [|t'].
+      + simpl in Hrun. discriminate.
+      + destruct t' as [|t''].
+        * assert (c = 0) by lia.
+          subst c.
+          inversion Hrun; subst.
+          unfold completed, service_job, cpu_count, runs_on, project_schedule,
+                 op_example_long_jobs, op_example_long_job.
+          simpl.
+          lia.
+        * assert (c = 0) by lia.
+          subst c.
+          unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hrun.
+          simpl in Hrun.
+          discriminate.
+  Qed.
+
+  Example execution_projection_sound_yields_valid_schedule :
+    valid_schedule op_example_long_jobs 1 (project_schedule (ex_trace one_cpu_execution)).
+  Proof.
+    apply execution_projection_sound_implies_valid_schedule.
+    exact one_cpu_execution_sound.
+  Qed.
+
+  Lemma one_cpu_execution_projectable :
+    projectable_trace op_example_long_jobs 1 (ex_trace one_cpu_execution).
+  Proof.
+    apply execution_projection_sound_implies_projectable.
+    exact one_cpu_execution_sound.
   Qed.
 
   Example projected_schedule_is_valid :
-    valid_schedule op_example_jobs 1 (project_schedule one_cpu_trace).
+    valid_schedule op_example_long_jobs 1 (project_schedule one_cpu_trace).
   Proof.
     apply projectable_trace_implies_valid_schedule.
-    exact one_cpu_trace_projectable.
+    exact one_cpu_execution_projectable.
   Qed.
 
   Example projected_schedule_service_is_available :

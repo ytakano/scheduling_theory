@@ -769,7 +769,7 @@ Next:
 ---
 
 ## 8. Phase H: OS-level operational semantics
-**Status: In progress at the minimal projection-slice level**
+**Status: In progress at the execution-first projection-discipline level**
 
 Implemented core:
 
@@ -777,6 +777,9 @@ Implemented core:
 - `Operational/Common/Trace.v`
 - `Operational/Common/Projection.v`
 - `Operational/Common/Step.v`
+- `Operational/Common/Invariants.v`
+- `Operational/Common/StepLemmas.v`
+- `Operational/Common/Execution.v`
 - `Operational/Common/ProjectionLemmas.v`
 - `Operational/Awkernel/MinimalProjection.v`
 
@@ -787,9 +790,12 @@ What is already done:
 - pending reschedule requests
 - wakeup / block / completion / dispatch / tick event skeleton
 - trace semantics
+- structural operational invariants separated from trace-level soundness
+- step-preservation lemmas for the structural invariant layer
+- public `trace_stepwise` plus packaged `execution` record
 - schedule projection
-- initial bridge lemmas from trace invariants to `valid_schedule`
-- Awkernel-facing thin projection wrapper
+- execution-first bridge lemmas from operational soundness to `valid_schedule`
+- Awkernel-facing thin projection wrapper over the execution-first bridge
 
 ### H-1. Explicit delay sources
 **Status: Not started**
@@ -812,12 +818,14 @@ Implemented core:
 
 - define how an operational trace projects to an abstract schedule
 - isolate machine / OS state from policy semantics with a dedicated projection layer
+- separate structural invariants from release/completion trace obligations
+- package the public operational interface around `trace_stepwise` and `execution`
 
 What remains:
 
 - define what it means for the projection to lag behind ideal decisions
 - isolate machine / OS delay from policy semantics
-- prove step-preservation lemmas that establish the required trace invariants
+- extend the current execution-first bridge with richer delay and refinement obligations
 
 ---
 

@@ -5,6 +5,8 @@ From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.Trace.
 From RocqSched Require Import Operational.Common.Projection.
+From RocqSched Require Import Operational.Common.Invariants.
+From RocqSched Require Import Operational.Common.Execution.
 
 Record projectable_trace
     (jobs : JobId -> Job) (m : nat) (tr : OpTrace) : Prop := mkProjectableTrace {
@@ -21,6 +23,21 @@ Record projectable_trace
       op_current (tr t) c = Some j ->
       ~ completed jobs m (project_schedule tr) j t;
 }.
+
+Record execution_projection_sound
+    (jobs : JobId -> Job) (m : nat) (ex : execution m) : Prop :=
+  mkExecutionProjectionSound {
+    eps_release_sound :
+      forall t c j,
+        c < m ->
+        op_current (ex_trace ex t) c = Some j ->
+        released jobs j t;
+    eps_completion_sound :
+      forall t c j,
+        c < m ->
+        op_current (ex_trace ex t) c = Some j ->
+        ~ completed jobs m (project_schedule (ex_trace ex)) j t;
+  }.
 
 Lemma current_implies_projected_running :
   forall m tr t c j,
@@ -64,6 +81,32 @@ Proof.
   split.
   - eapply pt_released; eauto.
   - eapply pt_not_completed; eauto.
+Qed.
+
+Lemma execution_projection_sound_implies_projectable :
+  forall jobs m ex,
+    execution_projection_sound jobs m ex ->
+    projectable_trace jobs m (ex_trace ex).
+Proof.
+  intros jobs m ex Hsound.
+  refine (mkProjectableTrace jobs m (ex_trace ex) _ _ _).
+  - intros t.
+    exact (osi_no_dup _ _ (ex_struct_inv ex t)).
+  - intros t c j Hlt Hrun.
+    exact (eps_release_sound _ _ _ Hsound t c j Hlt Hrun).
+  - intros t c j Hlt Hrun.
+    exact (eps_completion_sound _ _ _ Hsound t c j Hlt Hrun).
+Qed.
+
+Lemma execution_projection_sound_implies_valid_schedule :
+  forall jobs m ex,
+    execution_projection_sound jobs m ex ->
+    valid_schedule jobs m (project_schedule (ex_trace ex)).
+Proof.
+  intros jobs m ex Hsound j t c Hlt Hrun.
+  split.
+  - exact (eps_release_sound _ _ _ Hsound t c j Hlt Hrun).
+  - exact (eps_completion_sound _ _ _ Hsound t c j Hlt Hrun).
 Qed.
 
 Lemma projectable_trace_implies_valid_schedule :

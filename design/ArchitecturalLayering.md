@@ -390,9 +390,12 @@ The current minimal slice already includes:
 - a proof-relevant operational state with per-CPU `current`, runnable jobs,
   and pending reschedule flags
 - a trace model `Time -> OpState`
+- a state-only invariant layer for proof-relevant operational structure
+- an execution layer exposing both `trace_stepwise` and a packaged `execution`
+  record
 - a projection back to the abstract `Schedule`
-- lightweight bridge lemmas that recover schedule-facing properties such as
-  `no_duplication` and `valid_schedule` from trace invariants
+- an execution-first projection-soundness bridge that recovers schedule-facing
+  properties such as `no_duplication` and `valid_schedule`
 
 The operational layer is intentionally distinct from the schedule semantics layer.
 

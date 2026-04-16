@@ -838,7 +838,7 @@ internal/helper inventory として扱うもの:
 ---
 
 # Lv.10: OS-like operational semantics
-**Status: In progress at the minimal projection-slice level**
+**Status: In progress at the execution-first projection-discipline level**
 
 ## 10-1. machine / scheduler state
 **Status: In progress**
@@ -868,13 +868,17 @@ internal/helper inventory として扱うもの:
 - `OpEvent`
 - `op_step` の最小骨格
 - abstract schedule への projection
-- projection invariants から `valid_schedule` を得る bridge
+- `op_struct_inv`
+- `trace_stepwise`
+- `execution`
+- execution-first projection soundness bridge
 
 予定:
 
 - machine trace
 - trace-level event labels
-- step-preservation から trace invariants を閉じる補題群
+- structural invariant を richer operational state へ拡張する
+- execution-first bridge に delay/refinement obligation を積む
 
 ## 10-3. explicit operational delay sources
 **Status: Not started**
@@ -1121,7 +1125,7 @@ Remaining:
 # Recommended next proof priorities
 
 ## Priority 1
-Operational projection slice の上で invariant-preservation を閉じる。
+Operational execution slice の上で delay-aware obligation を導入する。
 
 ## Priority 2
 明示的な delay source を `Operational` 層に導入する。
