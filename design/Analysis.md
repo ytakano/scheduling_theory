@@ -25,6 +25,198 @@ Its job is to host reusable analysis notions such as:
 
 The layer is organized so that policy theorem layers remain structural and analysis clients can import packaged entry points instead of rebuilding interval arguments from scratch.
 
+### Example: Busy Intervals, a Busy Window, and Busy Prefixes
+
+```
+(I: Idle, B: Busy)
+
+CPU | I | I | I | B | B | B | B | I | I | I
+Time|   |   |t0 |t1 |t2 |t3 |t4 |t5 |   |
+
+Busy intervals: [t1, t4), [t1, t3), [t2, t4), etc.
+Busy window: [t1, t5)
+  (1) CPU must be idle at t0 or t1 == 0
+  (2) CPU must be idle at t5
+  (3) [t1, t5) is busy interval
+Busy prefixes: [t1, t2), [t1, t3), [t1, t4), [t1, t5)
+  (1) CPU must be idle at t0 or t1 == 0
+  (2) [t1, t2), [t1, t3), [t1, t4), and [t1, t5) are busy intervals
+```
+
+- $\text{BusyIntervals} = \{[t_a,t_b)\mid t_1 \le t_a < t_b \le t_5\}$
+- $\text{BusyWindow} = [t_1,t_5)$
+- $\text{BusyPrefixes} = \{[t_1,t)\mid t_1 < t \le t_5\}$
+
+### Example: Request Bound, Demand Bound, and Processor Demand
+
+Consider the following periodic task set:
+
+```math
+\tau_1 = (C_1 = 2,\; T_1 = 5,\; D_1 = 5),\\
+\tau_2 = (C_2 = 1,\; T_2 = 4,\; D_2 = 3).
+```
+
+where $C_i$, $T_i$, and $D_i$ denote the execution cost, period, and relative deadline of task $\tau_i$, respectively.
+
+Let the analysis-window length be
+
+$H = 5$
+
+For this window:
+
+- task $\tau_1$ can release at most one job in any window of length $5$,
+  and that job also has its deadline within the window;
+- task $\tau_2$ can release at most two jobs in a window of length $5$,
+  but only one of them must have its deadline within the window.
+
+Hence:
+
+#### Request Bound
+
+Request bound is an upper bound on the amount of execution that may be requested within the interval.
+
+```math
+\mathrm{RBF}_{\tau_1}(H)
+=
+\left\lceil \frac{H}{5} \right\rceil \cdot 2
+=
+\left\lceil \frac{5}{5} \right\rceil \cdot 2
+=
+2,
+```
+
+So, task $\tau_1$ may request up to $2$ units of execution in any window of length $5$.
+
+```math
+\mathrm{RBF}_{\tau_2}(H)
+=
+\left\lceil \frac{H}{4} \right\rceil \cdot 1
+=
+\left\lceil \frac{5}{4} \right\rceil \cdot 1
+=
+2.
+```
+
+So, task $\tau_2$ may request up to $2$ units of execution in any window of length $5$.
+
+As a result, the total request bound is
+
+```math
+\mathrm{RBF}_{\tau_1}(5) + \mathrm{RBF}_{\tau_2}(5) = 4.
+```
+
+#### Demand Bound
+
+Demand bound is the amount of execution that must be completed within the window for jobs whose deadlines fall within that window.
+
+```math
+\mathrm{DBF}_{\tau_1}(H)
+=
+\left(\left\lfloor \frac{H - 5}{5} \right\rfloor + 1\right)\cdot 2
+=
+\left(\left\lfloor \frac{5 - 5}{5} \right\rfloor + 1\right)\cdot 2
+=
+2,
+```
+
+```math
+\mathrm{DBF}_{\tau_2}(H)
+=
+\left(\left\lfloor \frac{H - 3}{4} \right\rfloor + 1\right)\cdot 1
+=
+\left(\left\lfloor \frac{5 - 3}{4} \right\rfloor + 1\right)\cdot 1
+=
+1.
+```
+
+So the total demand bound is
+
+```math
+\mathrm{DBF}_{\tau_1}(5) + \mathrm{DBF}_{\tau_2}(5) = 3.
+```
+
+#### Processor Demand
+
+For periodic task sets, processor demand is instantiated as the sum of the tasks' demand bounds.
+For the task set $\Gamma = \{\tau_1,\tau_2\}$, the processor demand over a window of length $5$ is
+
+```math
+\mathrm{PD}_{\Gamma}(5)
+=
+\sum_{\tau \in \Gamma} \mathrm{DBF}_{\tau}(5)
+=
+3.
+```
+
+Therefore,
+
+- **request bound** over-approximates how much work may be released: $4$
+- **demand bound** over-approximates how much work must finish within the window: $3$
+- **processor demand** is the task-set sum of demand bounds: $3$
+
+In this example,
+
+```math
+\mathrm{PD}_{\Gamma}(5)
+=
+3
+\;\le\;
+4
+=
+\mathrm{RBF}_{\tau_1}(5) + \mathrm{RBF}_{\tau_2}(5).
+```
+
+### Example: Processor Supply and Interference
+
+Here, **processor supply** means the total amount of service provided by the processors over an interval, whereas **interference** means the part of that supply consumed by jobs other than a given target job.
+
+Consider a two-processor platform and the interval $[t_1,t_4)$.
+
+```text
+CPU 1| x | x | x |
+CPU 2| y | z | y |
+Time |t1 |t2 |t3 | t4
+```
+
+In this example, the machine provides one unit of execution per processor and per time slot.
+Hence, over the interval $[t_1,t_4)$, the total **processor supply** is
+
+```math
+2 \cdot (t_4 - t_1) = 6.
+```
+
+A job is **pending** if it has been released but has not yet completed, and it is **eligible** if it is pending and permitted to execute under the scheduler state.
+
+Now consider a target job $j$ that is pending throughout $[t_1,t_4)$ but does not execute in the interval.
+Then all supplied service is consumed by other jobs, namely $x$, $y$, and $z$.
+
+This motivates the notion of **interference**: the execution of other jobs occupies processor supply that could otherwise have been available to the target job.
+In this example, the jobs $x$, $y$, and $z$ collectively account for all supply in $[t_1,t_4)$, and thus fully interfere with job $j$ over the interval.
+
+### Example: Workload Absorption and a Fairness-Facing Contradiction
+
+A **covering workload** is a set of jobs whose execution accounts for the occupied processor slots in the interval of interest, and a **fairness-facing contradiction hook** is the proof pattern that assumes an eligible job never executes, absorbs the interval's supply into such a covering workload, and then derives a contradiction from an independent upper bound on that workload.
+
+Continuing the previous example, suppose that job $j$ is eligible throughout $[t_1,t_4)$ but never executes.
+
+Since every processor slot in the interval is occupied by jobs $x$, $y$, and $z$, the full processor supply is **absorbed** by their workload.
+That is, all $6$ units of service provided by the machine are accounted for by the covering workload $L = \{x, y, z\}$.
+
+Now suppose that, independently of the assumption that job $j$ never executes,
+a previously established workload bound shows that the jobs in $L$ can account for at most $5$ units of execution in $[t_1,t_4)$.
+Since workload absorption implies that $L$ must account for all $6$ units of processor supply in the interval, we obtain a contradiction:
+
+```math
+\text{processor supply in } [t_1,t_4) = 6
+\qquad\text{but}\qquad
+\text{workload of } L \le 5.
+```
+
+Therefore, the assumption that job $j$ remains eligible and yet never executes throughout the interval cannot be correct.
+
+This is the basic proof pattern behind **workload absorption** and **fairness-facing contradiction hooks**:
+first account for processor supply via covering interference, and then close the argument by contradicting an external workload bound.
+
 ## Core concepts and guarantees
 
 The current analysis layer is split into three sublayers.
