@@ -47,6 +47,87 @@ Definition generated_periodic_edf_schedule_upto
           (periodic_finite_horizon_codec_of T tasks offset jobs H codec)))
     jobs.
 
+Lemma generated_periodic_edf_schedule_scheduler_rel :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs),
+    scheduler_rel
+      (edf_scheduler (periodic_candidates_before T tasks offset jobs enumT codec))
+      jobs 1
+      (generated_periodic_edf_schedule T tasks offset jobs enumT codec).
+Proof.
+  intros T tasks offset jobs enumT codec.
+  unfold generated_periodic_edf_schedule.
+  exact
+    (infinite_generated_edf_scheduler_rel
+       T tasks offset jobs enumT codec).
+Qed.
+
+Lemma generated_periodic_edf_schedule_valid :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs),
+    valid_schedule
+      jobs 1
+      (generated_periodic_edf_schedule T tasks offset jobs enumT codec).
+Proof.
+  intros T tasks offset jobs enumT codec.
+  eapply single_cpu_algorithm_valid.
+  exact
+    (generated_periodic_edf_schedule_scheduler_rel
+       T tasks offset jobs enumT codec).
+Qed.
+
+Lemma generated_periodic_edf_schedule_upto_agrees_before_generated :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         H,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    agrees_before
+      (generated_periodic_edf_schedule_upto T tasks offset jobs H enumT codec)
+      (generated_periodic_edf_schedule T tasks offset jobs enumT codec)
+      H.
+Proof.
+  intros T tasks offset jobs enumT codec H
+         Hwf HenumT_complete HenumT_sound.
+  exact
+    (infinite_generated_edf_prefix_coherence
+       T tasks offset jobs enumT codec
+       Hwf HenumT_complete HenumT_sound H).
+Qed.
+
+Lemma generated_periodic_edf_schedule_upto_completed_iff_generated_before :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         H j t,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    t < H ->
+    completed
+      jobs 1
+      (generated_periodic_edf_schedule_upto T tasks offset jobs H enumT codec)
+      j t <->
+    completed
+      jobs 1
+      (generated_periodic_edf_schedule T tasks offset jobs enumT codec)
+      j t.
+Proof.
+  intros T tasks offset jobs enumT codec H j t
+         Hwf HenumT_complete HenumT_sound Ht.
+  apply agrees_before_completed.
+  apply
+    (agrees_before_weaken
+       (generated_periodic_edf_schedule_upto T tasks offset jobs H enumT codec)
+       (generated_periodic_edf_schedule T tasks offset jobs enumT codec)
+       t H).
+  - lia.
+  - exact
+      (generated_periodic_edf_schedule_upto_agrees_before_generated
+         T tasks offset jobs enumT codec H
+         Hwf HenumT_complete HenumT_sound).
+Qed.
+
 Lemma periodic_jobset_implies_upto_deadline_succ :
   forall T tasks offset jobs j,
     periodic_jobset T tasks offset jobs j ->

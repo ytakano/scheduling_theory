@@ -9,6 +9,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
 From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFInfiniteBridge.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
 
 Import ListNotations.
@@ -229,6 +230,50 @@ Definition codec_ex : PeriodicCodec T_ex tasks_ex offset_ex jobs_ex :=
 Definition sched_inf_ex : Schedule :=
   generated_periodic_edf_schedule
     T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex.
+
+Lemma sched_inf_ex_scheduler_rel :
+  scheduler_rel
+    (edf_scheduler
+       (periodic_candidates_before
+          T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex))
+    jobs_ex 1 sched_inf_ex.
+Proof.
+  unfold sched_inf_ex.
+  exact
+    (generated_periodic_edf_schedule_scheduler_rel
+       T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex).
+Qed.
+
+Lemma sched_inf_ex_valid :
+  valid_schedule jobs_ex 1 sched_inf_ex.
+Proof.
+  unfold sched_inf_ex.
+  exact
+    (generated_periodic_edf_schedule_valid
+       T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex).
+Qed.
+
+Lemma sched_upto_ex_completed_iff_sched_inf_ex :
+  forall H j t,
+    t < H ->
+    completed
+      jobs_ex 1
+      (generated_periodic_edf_schedule_upto
+         T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex)
+      j t <->
+    completed jobs_ex 1 sched_inf_ex j t.
+Proof.
+  intros H j t Ht.
+  unfold sched_inf_ex.
+  exact
+    (generated_periodic_edf_schedule_upto_completed_iff_generated_before
+       T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex
+       H j t
+       tasks_ex_well_formed
+       enumT_ex_complete
+       enumT_ex_sound
+       Ht).
+Qed.
 
 Lemma hyperperiod_load_ex :
   hyperperiod_load tasks_ex enumT_ex 35 = 12.
