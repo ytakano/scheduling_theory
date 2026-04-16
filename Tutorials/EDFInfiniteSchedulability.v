@@ -7,6 +7,8 @@ From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
+From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
+From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
 
 Import ListNotations.
@@ -228,31 +230,89 @@ Definition sched_inf_ex : Schedule :=
   generated_periodic_edf_schedule
     T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex.
 
-Example periodic_classical_dbf_test_by_cutoff_ex :
-  dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Lemma hyperperiod_load_ex :
+  hyperperiod_load tasks_ex enumT_ex 35 = 12.
 Proof.
-  vm_compute.
   reflexivity.
 Qed.
 
-Example periodic_window_dbf_test_by_cutoff_ex :
-  window_dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Lemma periodic_classical_dbf_upto_38_ex :
+  forall t,
+    t <= 38 ->
+    taskset_periodic_dbf tasks_ex enumT_ex t <= t.
 Proof.
-  vm_compute.
-  reflexivity.
+  intros t Ht.
+  do 39 (
+    destruct t as [| t];
+    [cbn; lia |]
+  ).
+  lia.
 Qed.
 
 Lemma periodic_classical_dbf_from_cutoff_ex :
   forall t,
     taskset_periodic_dbf tasks_ex enumT_ex t <= t.
 Proof.
-  apply dbf_check_by_cutoff.
-  - exact enumT_ex_nodup.
-  - intros τ Hin.
-    apply tasks_ex_well_formed.
-    apply enumT_ex_sound.
-    exact Hin.
-  - exact periodic_classical_dbf_test_by_cutoff_ex.
+  intros t.
+  destruct (le_gt_dec t 38) as [Hle | Hgt].
+  - exact (periodic_classical_dbf_upto_38_ex t Hle).
+  - set (delta := t - 3).
+    set (q := delta / 35).
+    set (r := delta mod 35).
+    set (base := 3 + r).
+    assert (Hbase_ge : 3 <= base).
+    { unfold base. lia. }
+    assert (Hbase_le : base <= 38).
+    {
+      assert (Hr_lt : r < 35).
+      {
+        unfold r.
+        apply Nat.mod_upper_bound.
+        lia.
+      }
+      unfold base.
+      lia.
+    }
+    assert (Hbase_eq : t = base + q * 35).
+    {
+      unfold base, q, r, delta.
+      pose proof (Nat.div_mod (t - 3) 35) as Hdivmod.
+      assert (Hneq : 35 <> 0) by lia.
+      specialize (Hdivmod Hneq).
+      lia.
+    }
+    assert (Hbase_dbf :
+      taskset_periodic_dbf tasks_ex enumT_ex base <= base).
+    {
+      apply periodic_classical_dbf_upto_38_ex.
+      exact Hbase_le.
+    }
+    assert (Hperiodic :
+      taskset_periodic_dbf tasks_ex enumT_ex t =
+      taskset_periodic_dbf tasks_ex enumT_ex base +
+      q * hyperperiod_load tasks_ex enumT_ex 35).
+    {
+      rewrite Hbase_eq.
+      eapply (taskset_periodic_dbf_add_hyperperiod_after_deadline_n
+                tasks_ex enumT_ex base 35 q).
+      - intros τ Hin.
+        simpl in Hin.
+        destruct Hin as [Hin | [Hin | []]]; subst τ; simpl.
+        + lia.
+        + exact Hbase_ge.
+      - intros τ Hin.
+        apply tasks_ex_well_formed.
+        apply enumT_ex_sound.
+        exact Hin.
+      - intros τ Hin.
+        simpl in Hin.
+        destruct Hin as [Hin | [Hin | []]]; subst τ.
+        + exists 7. reflexivity.
+        + exists 5. reflexivity.
+    }
+    rewrite Hperiodic.
+    rewrite hyperperiod_load_ex.
+    nia.
 Qed.
 
 Lemma periodic_window_dbf_from_cutoff_ex :
@@ -260,13 +320,15 @@ Lemma periodic_window_dbf_from_cutoff_ex :
     t1 <= t2 ->
     taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
 Proof.
-  apply window_dbf_check_by_cutoff.
-  - exact enumT_ex_nodup.
-  - intros τ Hin.
-    apply tasks_ex_well_formed.
-    apply enumT_ex_sound.
-    exact Hin.
-  - exact periodic_window_dbf_test_by_cutoff_ex.
+  intros t1 t2 Hle.
+  eapply Nat.le_trans.
+  - eapply zero_offset_taskset_window_dbf_le_classical_dbf.
+    + intros τ Hin. reflexivity.
+    + intros τ Hin.
+      apply tasks_ex_well_formed.
+      apply enumT_ex_sound.
+      exact Hin.
+  - apply periodic_classical_dbf_from_cutoff_ex.
 Qed.
 
 Definition periodic_window_dbf_bound_ex : Prop :=

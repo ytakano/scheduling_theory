@@ -44,10 +44,11 @@ S (job_abs_deadline (jobs_ex j))
 
 but the public theorem itself concludes a global schedulability result.
 
-For concrete zero-offset task sets, both infinite demand-side paths are now finite-checkable:
+For the concrete zero-offset example in the checked tutorial, the demand side is now proved directly in a DBF-first style:
 
-* the canonical window-DBF wrapper via `window_dbf_test_by_cutoff` and `window_dbf_check_by_cutoff`,
-* the explicit classical-DBF convenience wrapper via `dbf_test_by_cutoff` and `dbf_check_by_cutoff`.
+* first prove the scalar classical DBF bound,
+* then derive the window DBF bound from it,
+* and leave only the finite no-carry-in bridge as an external hypothesis.
 
 ---
 
@@ -64,6 +65,8 @@ From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
+From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
+From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
 ```
 
@@ -198,72 +201,86 @@ internally, so only jobs released by time `t` are relevant to the EDF choice. Th
 
 The infinite wrapper now leaves two analysis obligations to the user.
 
-### 8.1 Window-DBF bound through a finite cutoff check
+### 8.1 Classical scalar DBF by direct proof
 
 ```coq
-Example periodic_window_dbf_test_by_cutoff_ex :
-  window_dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Lemma hyperperiod_load_ex :
+  hyperperiod_load tasks_ex enumT_ex 35 = 12.
 Proof.
-  vm_compute.
   reflexivity.
 Qed.
 
+Lemma periodic_classical_dbf_upto_38_ex :
+  forall t,
+    t <= 38 ->
+    taskset_periodic_dbf tasks_ex enumT_ex t <= t.
+Proof.
+  intros t Ht.
+  do 39 (
+    destruct t as [| t];
+    [cbn; lia |]
+  ).
+  lia.
+Qed.
+```
+
+The checked tutorial does not use `vm_compute` or cutoff booleans anymore. Instead, it proves the scalar DBF bound in two phases:
+
+* First, it checks the concrete base interval `t <= 38` by bounded case analysis.
+* Then it extends the result to all `t` using the hyperperiod `35` and the concrete load identity `hyperperiod_load ... 35 = 12`.
+
+The resulting global scalar lemma is:
+
+```coq
+Lemma periodic_classical_dbf_from_cutoff_ex :
+  forall t,
+    taskset_periodic_dbf tasks_ex enumT_ex t <= t.
+Proof.
+  intros t.
+  destruct (le_gt_dec t 38) as [Hle | Hgt].
+  - exact (periodic_classical_dbf_upto_38_ex t Hle).
+  - set (delta := t - 3).
+    set (q := delta / 35).
+    set (r := delta mod 35).
+    set (base := 3 + r).
+    ...
+    rewrite hyperperiod_load_ex.
+    nia.
+Qed.
+```
+
+The arithmetic decomposition is the key infinite-time idea:
+
+* write `t = base + q * 35`,
+* keep `base` inside the finite interval `[3, 38]`,
+* use `taskset_periodic_dbf_add_hyperperiod_after_deadline_n`,
+* and conclude by arithmetic.
+
+The lemma name still says `from_cutoff`, but in the checked file it is now a direct proof rather than a cutoff-check result.
+
+### 8.1-bis Window DBF from the classical bound
+
+The window-DBF theorem is no longer proved by a separate checker either. Instead, it is derived from the classical scalar DBF lemma using the zero-offset comparison theorem:
+
+```coq
 Lemma periodic_window_dbf_from_cutoff_ex :
   forall t1 t2,
     t1 <= t2 ->
     taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
 Proof.
-  apply window_dbf_check_by_cutoff.
-  - exact enumT_ex_nodup.
-  - intros τ Hin.
-    apply tasks_ex_well_formed.
-    apply enumT_ex_sound.
-    exact Hin.
-  - exact periodic_window_dbf_test_by_cutoff_ex.
+  intros t1 t2 Hle.
+  eapply Nat.le_trans.
+  - eapply zero_offset_taskset_window_dbf_le_classical_dbf.
+    + intros τ Hin. reflexivity.
+    + intros τ Hin.
+      apply tasks_ex_well_formed.
+      apply enumT_ex_sound.
+      exact Hin.
+  - apply periodic_classical_dbf_from_cutoff_ex.
 Qed.
 ```
 
-This is the scalable demand-side obligation consumed by the canonical infinite-time public API. For the concrete zero-offset example, it is now discharged by computation instead of a manual universal proof.
-
-### 8.1-bis Classical scalar DBF through a finite cutoff check
-
-For the classical wrapper, do **not** hand-prove
-
-```coq
-forall t, taskset_periodic_dbf tasks_ex enumT_ex t <= t
-```
-
-directly. The intended path is:
-
-```coq
-Example periodic_classical_dbf_test_by_cutoff_ex :
-  dbf_test_by_cutoff tasks_ex enumT_ex = true.
-Proof.
-  vm_compute.
-  reflexivity.
-Qed.
-
-Lemma periodic_classical_dbf_from_cutoff_ex :
-  forall t,
-    taskset_periodic_dbf tasks_ex enumT_ex t <= t.
-Proof.
-  apply dbf_check_by_cutoff.
-  - exact enumT_ex_nodup.
-  - intros τ Hin.
-    apply tasks_ex_well_formed.
-    apply enumT_ex_sound.
-    exact Hin.
-  - exact periodic_classical_dbf_test_by_cutoff_ex.
-Qed.
-```
-
-This cutoff helper is currently:
-
-* scalar only,
-* zero-offset only,
-* conservative rather than minimal.
-
-It is meant to eliminate the user-facing infinite `forall t` proof obligation for concrete task sets.
+This is the scalable demand-side obligation consumed by the canonical infinite-time public API. In the checked tutorial, the window bound is therefore reduced to the scalar bound instead of being established by a second boolean computation.
 
 ### 8.2 Per-job finite no-carry-in bridge
 
@@ -331,8 +348,13 @@ Theorem tutorial_periodic_edf_schedulable :
           T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex))
     jobs_ex 1.
 Proof.
-  eapply periodic_edf_schedulable_by_on; eauto.
-  - exact Hdbf.
+  eapply periodic_edf_schedulable_by_on_with_no_carry_in_bridge.
+  1: exact tasks_ex_well_formed.
+  1: exact enumT_ex_nodup.
+  1: exact enumT_ex_complete.
+  1: exact enumT_ex_sound.
+  1: apply Hbridge.
+  1: exact periodic_window_dbf_from_cutoff_ex.
 Qed.
 ```
 
@@ -341,7 +363,7 @@ At this point, the entire proof pattern is visible:
 1. define the concrete periodic tasks,
 2. define a truly global concrete job map,
 3. prove the global codec,
-4. derive the infinite window-DBF obligation from a finite cutoff check and isolate the busy-prefix obligation,
+4. prove the scalar DBF bound directly, derive the window-DBF obligation from it, and isolate the busy-prefix obligation,
 5. apply the canonical infinite-time EDF wrapper theorem.
 
 The tutorial file also includes the explicit classical-DBF variant:
@@ -351,7 +373,7 @@ Theorem tutorial_periodic_edf_schedulable_by_classical_dbf :
   schedulable_by_on ...
 ```
 
-which reuses `periodic_classical_dbf_from_cutoff_ex` rather than a manual universal DBF hypothesis.
+which reuses `periodic_classical_dbf_from_cutoff_ex` as the already-proved universal DBF bound.
 
 ---
 
@@ -376,7 +398,7 @@ forall j,
     j
 ```
 
-For both the window-DBF path and the classical path, the infinite demand-side theorem is now recovered from a finite cutoff computation. The tutorial therefore leaves only the finite no-carry-in bridge as a hypothesis.
+For both the window-DBF path and the classical path, the demand-side theorem is proved directly inside the tutorial file. The tutorial therefore leaves only the finite no-carry-in bridge as a hypothesis.
 
 ---
 
@@ -406,4 +428,4 @@ This is the intended layering of the library:
 * infinite periodic EDF API is a wrapper above it,
 * downstream users import only the stable public entry points.
 
-At the moment, the concrete zero-offset example has finite cutoff helpers for both scalar DBF and window DBF. A generic-offset infinite cutoff API for `window_dbf` remains future work.
+At the moment, the concrete zero-offset example demonstrates a different lesson from the earlier cutoff-based version: even in the infinite-time wrapper, the core proof can stay DBF-first and avoid schedule computation and boolean checker proofs entirely. A generic-offset infinite automation layer for `window_dbf` remains future work.
