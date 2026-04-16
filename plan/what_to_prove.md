@@ -1069,8 +1069,8 @@ Done:
   driven client proofs
 - the same finite-horizon helper now exposes a conservative critical-point /
   critical-window search space for bounded periodic window-DBF checking
-- the same module now packages a conservative finite cutoff checker for
-  zero-offset infinite scalar DBF obligations
+- the same module now packages conservative finite cutoff checkers for
+  zero-offset infinite scalar DBF and window-DBF obligations
 - `PeriodicLLFPrefixCoherence.v` packages the periodic LLF finite/infinite
   prefix-coherence layer
 - `PeriodicLLFInfiniteBridge.v` exposes infinite-time periodic LLF no-miss /

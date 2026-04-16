@@ -63,8 +63,8 @@ For example, periodic EDF/LLF uses:
   periodic DBF checking up to a finite horizon, including conservative
   critical-point and critical-window enumeration for finite `vm_compute`
   proofs
-- the same module also hosts the finite-cutoff scalar DBF checker used by
-  infinite zero-offset classical wrappers
+- the same module also hosts conservative infinite zero-offset cutoff helpers
+  for both scalar DBF and window-DBF wrappers
 
 ## Public entry points
 
@@ -84,7 +84,7 @@ Supporting modules include:
 - the various `*Enumeration.v`, `*FiniteHorizon.v`, `*Workload.v`, and `*DemandBound.v` files
 - `PeriodicConcreteAnalysis.v` for bounded concrete DBF/window-DBF checkers
 - conservative finite critical-point/window enumeration for periodic clients
-- finite scalar classical-DBF cutoff helpers for zero-offset periodic task sets
+- finite cutoff helpers for zero-offset periodic scalar DBF and window DBF
 - the periodic/sporadic/jitter bridge modules
 - the partitioned finite-optimality lifts for each task family
 

@@ -37,9 +37,10 @@ bounded theorem into the existing finite EDF/LLF bridge theorems.
 That helper now exposes a conservative finite critical-point / critical-window
 enumeration for bounded `vm_compute`-driven DBF and window-DBF proofs.
 
-For infinite-time zero-offset classical DBF clients, the same helper layer now
-provides a conservative finite cutoff theorem so downstream proofs can replace
-`forall t` obligations with a finite `vm_compute` check.
+For infinite-time zero-offset periodic clients, the same helper layer now
+provides conservative finite cutoff theorems for both scalar classical DBF and
+window DBF, so downstream proofs can replace the remaining infinite demand
+obligations with finite `vm_compute` checks.
 
 ### Example: Busy Intervals, a Busy Window, and Busy Prefixes
 

@@ -38,7 +38,10 @@ Theorem tutorial_periodic_llf_schedulable :
 
 The infinite wrapper builds a global generated LLF schedule from the released-prefix candidate source `periodic_candidates_before`. The canonical public schedulability theorem is the window-DBF wrapper, while the proof core still consumes finite-horizon bridge information.
 
-For the explicit classical-DBF convenience wrapper, the recommended proof path is now to prove a finite scalar cutoff check by `vm_compute` and then derive the universal DBF theorem with `dbf_check_by_cutoff`.
+For concrete zero-offset task sets, both infinite demand-side paths are now finite-checkable:
+
+* the canonical window-DBF wrapper via `window_dbf_test_by_cutoff` and `window_dbf_check_by_cutoff`,
+* the explicit classical-DBF convenience wrapper via `dbf_test_by_cutoff` and `dbf_check_by_cutoff`.
 
 ---
 
@@ -182,16 +185,32 @@ internally, so only jobs released by time `t` matter to the LLF choice.
 
 The infinite LLF wrapper now leaves two analysis obligations to the user.
 
-### 8.1 Window-DBF bound
+### 8.1 Window-DBF bound through a finite cutoff check
 
 ```coq
-Definition periodic_window_dbf_bound_ex : Prop :=
+Example periodic_window_dbf_test_by_cutoff_ex :
+  window_dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma periodic_window_dbf_from_cutoff_ex :
   forall t1 t2,
     t1 <= t2 ->
     taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
+Proof.
+  apply window_dbf_check_by_cutoff.
+  - exact enumT_ex_nodup.
+  - intros τ Hin.
+    apply tasks_ex_well_formed.
+    apply enumT_ex_sound.
+    exact Hin.
+  - exact periodic_window_dbf_test_by_cutoff_ex.
+Qed.
 ```
 
-This is the scalable demand-side obligation consumed by the canonical infinite-time public API. The zero-offset classical-DBF wrappers remain available as explicit convenience corollaries, but the main schedulability path is now the window-DBF one.
+This is the scalable demand-side obligation consumed by the canonical infinite-time public API. For the concrete zero-offset example, it is now discharged by computation instead of a manual universal proof.
 
 ### 8.1-bis Classical scalar DBF through a finite cutoff check
 
@@ -300,7 +319,7 @@ At this point, the proof pattern is visible:
 1. define the concrete periodic tasks,
 2. define a truly global concrete job map,
 3. prove the global codec,
-4. isolate window-DBF and finite-horizon busy-prefix obligations,
+4. derive the infinite window-DBF obligation from a finite cutoff check and isolate the finite-horizon busy-prefix obligation,
 5. apply the canonical infinite-time LLF wrapper theorem.
 
 The tutorial file also includes the explicit classical-DBF LLF theorem, which uses the cutoff-derived scalar DBF lemma instead of a manual `forall t` assumption.
@@ -309,19 +328,9 @@ The tutorial file also includes the explicit classical-DBF LLF theorem, which us
 
 ## 11. What the user still has to prove
 
-The tutorial intentionally leaves exactly two open assumptions.
+The tutorial intentionally leaves exactly one open assumption.
 
-### Obligation 1: window-DBF bound
-
-You must prove:
-
-```coq
-forall t1 t2,
-  t1 <= t2 ->
-  taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1
-```
-
-### Obligation 2: finite busy-prefix bridge for each finite horizon
+### Obligation: finite busy-prefix bridge for each finite horizon
 
 You must prove:
 
@@ -342,7 +351,7 @@ forall H j,
       j
 ```
 
-For the window-DBF path, these are the only tutorial hypotheses. For the classical path, the scalar `forall t` DBF argument is replaced by a finite cutoff computation, so only the finite-horizon EDF busy-prefix bridge remains as a hypothesis.
+For both the window-DBF path and the classical path, the infinite demand-side theorem is now recovered from a finite cutoff computation, so only the finite-horizon EDF busy-prefix bridge remains as a hypothesis.
 
 ---
 
@@ -372,4 +381,4 @@ This is the intended layering of the library:
 * infinite periodic LLF API is a wrapper above them,
 * downstream users import only the stable public entry points.
 
-As in the EDF tutorial, only the scalar classical-DBF path currently has a finite cutoff helper. A generic `window_dbf` cutoff API remains future work.
+As in the EDF tutorial, the concrete zero-offset example now has finite cutoff helpers for both scalar DBF and window DBF. A generic-offset infinite `window_dbf` cutoff API remains future work.

@@ -44,7 +44,10 @@ S (job_abs_deadline (jobs_ex j))
 
 but the public theorem itself concludes a global schedulability result.
 
-For the explicit classical-DBF convenience wrapper, the recommended proof path is now to prove a finite cutoff check by `vm_compute` and then derive the universal scalar DBF theorem with `dbf_check_by_cutoff`.
+For concrete zero-offset task sets, both infinite demand-side paths are now finite-checkable:
+
+* the canonical window-DBF wrapper via `window_dbf_test_by_cutoff` and `window_dbf_check_by_cutoff`,
+* the explicit classical-DBF convenience wrapper via `dbf_test_by_cutoff` and `dbf_check_by_cutoff`.
 
 ---
 
@@ -195,16 +198,32 @@ internally, so only jobs released by time `t` are relevant to the EDF choice. Th
 
 The infinite wrapper now leaves two analysis obligations to the user.
 
-### 8.1 Window-DBF bound
+### 8.1 Window-DBF bound through a finite cutoff check
 
 ```coq
-Definition periodic_window_dbf_bound_ex : Prop :=
+Example periodic_window_dbf_test_by_cutoff_ex :
+  window_dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma periodic_window_dbf_from_cutoff_ex :
   forall t1 t2,
     t1 <= t2 ->
     taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
+Proof.
+  apply window_dbf_check_by_cutoff.
+  - exact enumT_ex_nodup.
+  - intros τ Hin.
+    apply tasks_ex_well_formed.
+    apply enumT_ex_sound.
+    exact Hin.
+  - exact periodic_window_dbf_test_by_cutoff_ex.
+Qed.
 ```
 
-This is the scalable demand-side obligation consumed by the canonical infinite-time public API. The zero-offset classical-DBF wrappers remain available as explicit convenience corollaries, but the main schedulability path is now the window-DBF one.
+This is the scalable demand-side obligation consumed by the canonical infinite-time public API. For the concrete zero-offset example, it is now discharged by computation instead of a manual universal proof.
 
 ### 8.1-bis Classical scalar DBF through a finite cutoff check
 
@@ -318,7 +337,7 @@ At this point, the entire proof pattern is visible:
 1. define the concrete periodic tasks,
 2. define a truly global concrete job map,
 3. prove the global codec,
-4. isolate window-DBF and busy-prefix obligations,
+4. derive the infinite window-DBF obligation from a finite cutoff check and isolate the busy-prefix obligation,
 5. apply the canonical infinite-time EDF wrapper theorem.
 
 The tutorial file also includes the explicit classical-DBF variant:
@@ -334,19 +353,9 @@ which reuses `periodic_classical_dbf_from_cutoff_ex` rather than a manual univer
 
 ## 11. What the user still has to prove
 
-The tutorial intentionally leaves exactly two open assumptions.
+The tutorial intentionally leaves exactly one open assumption.
 
-### Obligation 1: window-DBF bound
-
-You must prove:
-
-```coq
-forall t1 t2,
-  t1 <= t2 ->
-  taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1
-```
-
-### Obligation 2: finite busy-prefix bridge at each job deadline
+### Obligation: finite busy-prefix bridge at each job deadline
 
 You must prove:
 
@@ -363,7 +372,7 @@ forall j,
     j
 ```
 
-For the window-DBF path, these are the only tutorial hypotheses. For the classical path, the tutorial replaces the scalar `forall t` demand bound with a finite cutoff computation and therefore leaves only the busy-prefix bridge as a hypothesis.
+For both the window-DBF path and the classical path, the infinite demand-side theorem is now recovered from a finite cutoff computation. The tutorial therefore leaves only the busy-prefix bridge as a hypothesis.
 
 ---
 
@@ -393,4 +402,4 @@ This is the intended layering of the library:
 * infinite periodic EDF API is a wrapper above it,
 * downstream users import only the stable public entry points.
 
-At the moment, only the scalar classical-DBF path has a finite cutoff helper. A generic finite cutoff API for `window_dbf` remains future work.
+At the moment, the concrete zero-offset example has finite cutoff helpers for both scalar DBF and window DBF. A generic-offset infinite cutoff API for `window_dbf` remains future work.

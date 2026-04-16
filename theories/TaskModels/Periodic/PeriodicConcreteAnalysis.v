@@ -2,6 +2,7 @@ From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Analysis.Uniprocessor.DemandBound.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
+From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
 
@@ -311,6 +312,18 @@ Definition dbf_test_by_cutoff
     (enumT : list TaskId) : bool :=
   dbf_test_upto tasks enumT (scalar_dbf_cutoff_bound tasks enumT).
 
+Definition zero_offset_window_dbf_cutoff_bound
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId) : Time :=
+  scalar_dbf_cutoff_bound tasks enumT.
+
+Definition window_dbf_test_by_cutoff
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId) : bool :=
+  window_dbf_test_upto tasks (fun _ => 0) enumT
+                       (zero_offset_window_dbf_cutoff_bound tasks enumT)
+  && dbf_test_by_cutoff tasks enumT.
+
 Lemma periodic_hyperperiod_positive :
   forall tasks enumT,
     (forall τ, In τ enumT -> 0 < task_period (tasks τ)) ->
@@ -584,4 +597,36 @@ Theorem dbf_check_by_cutoff :
       taskset_periodic_dbf tasks enumT t <= t.
 Proof.
   exact dbf_test_by_cutoff_sound.
+Qed.
+
+Theorem window_dbf_test_by_cutoff_sound :
+  forall tasks enumT,
+    NoDup enumT ->
+    (forall τ, In τ enumT -> 0 < task_period (tasks τ)) ->
+    window_dbf_test_by_cutoff tasks enumT = true ->
+    forall t1 t2,
+      t1 <= t2 ->
+      taskset_periodic_dbf_window tasks (fun _ => 0) enumT t1 t2 <= t2 - t1.
+Proof.
+  intros tasks enumT Hnodup Hpos Htest t1 t2 Hle.
+  apply andb_true_iff in Htest.
+  destruct Htest as [_ Hscalar].
+  eapply Nat.le_trans.
+  - eapply zero_offset_taskset_window_dbf_le_classical_dbf.
+    + intros τ Hin. reflexivity.
+    + exact Hpos.
+  - apply (dbf_check_by_cutoff tasks enumT Hnodup Hpos).
+    exact Hscalar.
+Qed.
+
+Theorem window_dbf_check_by_cutoff :
+  forall tasks enumT,
+    NoDup enumT ->
+    (forall τ, In τ enumT -> 0 < task_period (tasks τ)) ->
+    window_dbf_test_by_cutoff tasks enumT = true ->
+    forall t1 t2,
+      t1 <= t2 ->
+      taskset_periodic_dbf_window tasks (fun _ => 0) enumT t1 t2 <= t2 - t1.
+Proof.
+  exact window_dbf_test_by_cutoff_sound.
 Qed.

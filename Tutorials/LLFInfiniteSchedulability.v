@@ -236,6 +236,13 @@ Proof.
   reflexivity.
 Qed.
 
+Example periodic_window_dbf_test_by_cutoff_ex :
+  window_dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
 Lemma periodic_classical_dbf_from_cutoff_ex :
   forall t,
     taskset_periodic_dbf tasks_ex enumT_ex t <= t.
@@ -247,6 +254,20 @@ Proof.
     apply enumT_ex_sound.
     exact Hin.
   - exact periodic_classical_dbf_test_by_cutoff_ex.
+Qed.
+
+Lemma periodic_window_dbf_from_cutoff_ex :
+  forall t1 t2,
+    t1 <= t2 ->
+    taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
+Proof.
+  apply window_dbf_check_by_cutoff.
+  - exact enumT_ex_nodup.
+  - intros τ Hin.
+    apply tasks_ex_well_formed.
+    apply enumT_ex_sound.
+    exact Hin.
+  - exact periodic_window_dbf_test_by_cutoff_ex.
 Qed.
 
 Definition periodic_window_dbf_bound_ex : Prop :=
@@ -271,7 +292,6 @@ Definition generated_edf_busy_prefix_bridge_ex : Prop :=
         j.
 
 Section TutorialProof.
-  Hypothesis Hdbf : periodic_window_dbf_bound_ex.
   Hypothesis Hbridge : generated_edf_busy_prefix_bridge_ex.
 
   Theorem tutorial_periodic_llf_job0_no_deadline_miss :
@@ -287,7 +307,7 @@ Section TutorialProof.
       + left. reflexivity.
       + exact generated_job0_ex.
     - exact Hbridge.
-    - exact Hdbf.
+    - exact periodic_window_dbf_from_cutoff_ex.
   Qed.
 
   Theorem tutorial_periodic_llf_schedulable :
@@ -304,7 +324,7 @@ Section TutorialProof.
     1: exact enumT_ex_complete.
     1: exact enumT_ex_sound.
     1: exact Hbridge.
-    1: exact Hdbf.
+    1: exact periodic_window_dbf_from_cutoff_ex.
   Qed.
 
 End TutorialProof.

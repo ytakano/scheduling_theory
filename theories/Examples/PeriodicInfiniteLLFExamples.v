@@ -19,6 +19,13 @@ Proof.
   reflexivity.
 Qed.
 
+Example periodic_infinite_llf_example_window_dbf_test_by_cutoff :
+  window_dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
 Lemma periodic_infinite_llf_example_classical_dbf :
   forall t,
     taskset_periodic_dbf tasks_ex enumT_ex t <= t.
@@ -30,6 +37,20 @@ Proof.
     apply in_enumT_ex_implies_T_ex.
     exact Hin.
   - exact periodic_infinite_llf_example_dbf_test_by_cutoff.
+Qed.
+
+Lemma periodic_infinite_llf_example_window_dbf :
+  forall t1 t2,
+    t1 <= t2 ->
+    taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
+Proof.
+  apply window_dbf_check_by_cutoff.
+  - exact enumT_ex_nodup.
+  - intros τ Hin.
+    apply tasks_ex_well_formed.
+    apply in_enumT_ex_implies_T_ex.
+    exact Hin.
+  - exact periodic_infinite_llf_example_window_dbf_test_by_cutoff.
 Qed.
 
 Section InfinitePeriodicLLFExample.
@@ -53,11 +74,6 @@ Section InfinitePeriodicLLFExample.
              T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_inf_ex)
           j.
 
-  Hypothesis periodic_window_dbf_ex :
-    forall t1 t2,
-      t1 <= t2 ->
-      taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
-
   Hypothesis offset_zero_ex :
     forall τ, In τ enumT_ex -> offset_ex τ = 0.
 
@@ -77,7 +93,7 @@ Section InfinitePeriodicLLFExample.
       + left. reflexivity.
       + exact generated_job0_ex.
     - exact busy_prefix_bridge_ex.
-    - exact periodic_window_dbf_ex.
+    - exact periodic_infinite_llf_example_window_dbf.
   Qed.
 
   Example periodic_infinite_llf_example_schedulable_by_window_dbf_on :
@@ -94,7 +110,7 @@ Section InfinitePeriodicLLFExample.
     1: exact T_ex_in_enumT_ex.
     1: exact in_enumT_ex_implies_T_ex.
     1: exact busy_prefix_bridge_ex.
-    1: exact periodic_window_dbf_ex.
+    1: exact periodic_infinite_llf_example_window_dbf.
   Qed.
 
   Example periodic_infinite_llf_example_schedulable_by_classical_dbf_on :
