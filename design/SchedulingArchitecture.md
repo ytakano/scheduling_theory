@@ -1,5 +1,17 @@
 # Scheduling Architecture
 
+This is a supplemental design note for the abstraction-facing split among
+`Schedule`, `SchedulingAlgorithm`, and `Scheduler`.
+
+The primary layer documents are:
+
+- `design/Semantics.md`
+- `design/Abstractions.md`
+- `design/Refinement.md`
+
+This note should stay focused on that cross-cutting conceptual split and avoid
+duplicating broader layer-local detail that belongs in the primary design docs.
+
 This document explains the intended architectural separation between **Schedule**, **SchedulingAlgorithm**, and **Scheduler**, together with their roles in the formalization.
 
 ## 1. Schedule

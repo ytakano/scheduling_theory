@@ -1,0 +1,152 @@
+# Multicore
+
+## Scope
+
+This document describes the multicore specialization layer.
+
+Its scope is:
+
+- `theories/Multicore/Common/*`
+- `theories/Multicore/Partitioned/*`
+- `theories/Multicore/Global/*`
+
+This layer packages multicore-specific structure and theorem layers for both partitioned and global scheduling.
+
+## Purpose of the Multicore layer
+
+The multicore layer explains how the repository specializes the general framework to multiple CPUs.
+
+Its role is to separate:
+
+- policy-independent multicore schedule facts,
+- partitioned multicore scheduler construction,
+- global top-`m` scheduling structure and policy wrappers.
+
+This layer owns multicore structure. It does not own most fairness or tardiness analysis, even when those analyses consume multicore theorem layers.
+
+## Core concepts and guarantees
+
+The layer is organized into three parts.
+
+`Multicore/Common`
+- multicore base views such as per-CPU projection
+- service, completion, remaining-cost, and laxity facts specialized to multicore schedules
+- admissibility and candidate-source infrastructure
+- top-`m` metric and admissibility bridges
+
+`Multicore/Partitioned`
+- static assignment of jobs to CPUs
+- composition of local single-CPU schedulers into a multicore schedule
+- partitioned validity, service localization, and schedulability bridges
+- partitioned policy lifts and task-model lifts
+
+`Multicore/Global`
+- global top-`m` scheduler structure
+- policy wrappers for global EDF and global LLF
+- stable entry-point packaging for the reusable global theorem layer
+
+The main multicore-specific abstraction boundary is top-`m` scheduling:
+
+- global selection chooses up to `m` eligible jobs,
+- admissibility and no-duplication properties ensure sound multicore scheduling structure,
+- policy wrappers instantiate that shared theorem layer.
+
+## Public entry points
+
+The canonical public entry points for this layer are:
+
+- `theories/Multicore/Global/GlobalEntryPoints.v`
+- `theories/Multicore/Partitioned/PartitionedEntryPoints.v`
+
+Important supporting modules include:
+
+- `theories/Multicore/Common/MultiCoreBase.v`
+- `theories/Multicore/Common/ServiceFacts.v`
+- `theories/Multicore/Common/CompletionFacts.v`
+- `theories/Multicore/Common/RemainingCostFacts.v`
+- `theories/Multicore/Common/LaxityFacts.v`
+- `theories/Multicore/Common/Admissibility.v`
+- `theories/Multicore/Common/TopMAdmissibilityBridge.v`
+- `theories/Multicore/Partitioned/Partitioned.v`
+- `theories/Multicore/Partitioned/PartitionedCompose.v`
+- `theories/Multicore/Global/GlobalEDF.v`
+- `theories/Multicore/Global/GlobalLLF.v`
+
+## Design boundaries
+
+This layer includes:
+
+- multicore semantic specializations and structural theorem layers,
+- partitioned scheduling and composition infrastructure,
+- global top-`m` scheduling structure,
+- multicore policy wrappers and stable theorem-layer entry points.
+
+This layer does not include:
+
+- the core meaning of schedules,
+- generic scheduler interfaces that are not multicore-specific,
+- fairness, workload absorption, and tardiness analysis as the primary abstraction boundary,
+- implementation-facing operational traces.
+
+Those belong respectively to:
+
+- `design/Semantics.md`
+- `design/Abstractions.md`
+- `design/Analysis.md`
+- `design/Operational.md`
+
+In particular, fairness and related contradiction-style interval arguments should primarily live in `Analysis`, even when they are built on top of the theorem layers exported from `Multicore`.
+
+## Extension points
+
+The current multicore layer is designed to support:
+
+- additional partitioned wrappers and local-scheduler composition results,
+- more global top-`m` policies,
+- stronger migration-aware service and completion facts,
+- clearer public theorem inventories for downstream multicore clients.
+
+New multicore work should keep structural scheduling facts here and move interval-analysis consequences upward into `Analysis`.
+
+## File map
+
+- `theories/Multicore/Common/MultiCoreBase.v`
+  Core multicore schedule views and projections.
+- `theories/Multicore/Common/ServiceFacts.v`
+  Multicore service-accounting facts.
+- `theories/Multicore/Common/CompletionFacts.v`
+  Completion facts specialized to multicore schedules.
+- `theories/Multicore/Common/RemainingCostFacts.v`
+  Remaining-cost lemmas for multicore settings.
+- `theories/Multicore/Common/LaxityFacts.v`
+  Multicore laxity infrastructure.
+- `theories/Multicore/Common/Admissibility.v`
+  Admissibility structure for multicore scheduling.
+- `theories/Multicore/Common/AdmissibleCandidateSource.v`
+  Candidate-source discipline for multicore settings.
+- `theories/Multicore/Common/AffinityFacts.v`
+  Affinity-facing supporting facts.
+- `theories/Multicore/Common/TopMMetricChooser.v`
+  Shared top-`m` metric-based chooser layer.
+- `theories/Multicore/Common/TopMMetricFacts.v`
+  Supporting top-`m` metric facts.
+- `theories/Multicore/Common/TopMAdmissibilityBridge.v`
+  Top-`m` admissibility-aware bridge layer.
+- `theories/Multicore/Partitioned/Partitioned.v`
+  Core partitioned schedule definitions and theorems.
+- `theories/Multicore/Partitioned/PartitionedCompose.v`
+  Composition from per-CPU local schedulers to multicore schedules.
+- `theories/Multicore/Partitioned/PartitionedEntryPoints.v`
+  Canonical downstream import for the partitioned theorem layer.
+- `theories/Multicore/Global/GlobalEDF.v`
+  Global EDF wrapper layer over the top-`m` theorem infrastructure.
+- `theories/Multicore/Global/GlobalLLF.v`
+  Global LLF wrapper layer over the top-`m` theorem infrastructure.
+- `theories/Multicore/Global/GlobalEntryPoints.v`
+  Canonical downstream import for the global theorem layer.
+
+## Summary
+
+The multicore layer is the structural multicore theorem layer of the project.
+
+It packages common multicore facts plus partitioned and global scheduling developments, with top-`m` scheduling as the key global abstraction. Analysis consequences built on top of those theorem layers should remain in `Analysis`, not be folded back into the structural multicore docs.

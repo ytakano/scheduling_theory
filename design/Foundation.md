@@ -2,359 +2,123 @@
 
 ## Scope
 
-This document describes the **minimal foundational definitions** used by the current RocqSched implementation.
+This document describes the foundation layer of the current RocqSched implementation.
 
-The current scope is intentionally small. It covers only the base identifiers, time and CPU domains, and the two core data records:
+Its scope is intentionally small and currently centers on:
+
+- `theories/Foundation/Base.v`
+
+This layer fixes the basic scalar domains and the minimal records that later layers consume.
+
+It does not define schedule meaning, scheduler interfaces, task-generation semantics, analysis theorems, or operational traces.
+
+## Purpose of the Foundation layer
+
+The foundation layer provides the smallest stable vocabulary shared by the rest of the development.
+
+Its role is to fix:
+
+- the identifier types used for tasks and jobs,
+- the discrete time and CPU domains,
+- the minimal task and job records,
+- the first derived schedule shape used by later semantic developments.
+
+The design goal is stability. Later layers should be able to grow without forcing churn in these base definitions.
+
+## Core concepts and guarantees
+
+The current implementation defines four scalar aliases:
 
 - `JobId`
 - `TaskId`
 - `CPU`
 - `Time`
-- `Task`
-- `Job`
 
-It is based on:
+All are currently `nat`. This keeps the base layer constructive and lightweight.
+
+The layer also defines the two central records:
+
+- `Task`, with `task_cost`, `task_period`, and `task_relative_deadline`
+- `Job`, with `job_task`, `job_index`, `job_release`, `job_cost`, and `job_abs_deadline`
+
+These records are deliberately minimal.
+
+- `Task` is a task-level parameter container, not yet a full periodic or sporadic generation rule.
+- `Job` is the current execution unit used by schedule semantics.
+
+`Base.v` also introduces the derived schedule shape:
+
+```coq
+Schedule := Time -> CPU -> option JobId
+```
+
+This is already multicore-capable even though many developments later specialize to one CPU.
+
+Finally, the foundation file includes a few very close-to-the-data predicates such as:
+
+- `released`
+- `pre_release`
+- `valid_jobs`
+- `valid_job_of_task`
+
+These remain foundational because they only relate jobs and tasks at the data level. They do not yet define completion, readiness, validity of schedules, or schedulability.
+
+## Public entry points
+
+The default downstream entry point for this layer is:
 
 - `theories/Foundation/Base.v`
 
-This document does **not** define:
+Clients reading the library from the bottom up should start here to learn:
 
-- schedule semantics such as readiness, completion, or feasibility,
-- scheduling algorithms or scheduler relations,
-- task-model-specific generation rules beyond the minimal data carried by `Task` and `Job`,
-- operational semantics such as interrupts, migrations, or wakeups.
+- the base identifiers,
+- the minimal task and job records,
+- the shared discrete-time schedule shape.
 
----
+## Design boundaries
 
-## 1. Purpose of the foundation layer
+This layer includes:
 
-The foundation layer provides the smallest set of shared definitions on which all later layers depend.
+- base identifiers and scalar domains,
+- minimal task and job records,
+- the raw schedule carrier type,
+- simple data-facing predicates closely attached to the records.
 
-Its purpose is to fix:
+This layer does not include:
 
-- what counts as a job identifier,
-- what counts as a task identifier,
-- what time and CPU indices are,
-- what information is stored in a task,
-- what information is stored in a job.
+- semantic notions such as `eligible`, `ready`, `completed`, `valid_schedule`, or `feasible`,
+- scheduler or algorithm interfaces,
+- periodic, sporadic, or jitter-aware job generation,
+- busy-window, demand-bound, or interference reasoning,
+- operational state machines or trace projection.
 
-This layer is deliberately minimal. It is meant to stay stable even when later layers evolve.
+Those belong respectively to:
 
----
+- `design/Semantics.md`
+- `design/Abstractions.md`
+- `design/TaskModels.md`
+- `design/Analysis.md`
+- `design/Operational.md`
 
-## 2. Base scalar types
+## Extension points
 
-The current implementation defines the four base scalar types as aliases of `nat`.
+The current base layer leaves room for later growth without committing to it yet.
 
-```coq
-Definition JobId  : Type := nat.
-Definition TaskId : Type := nat.
-Definition CPU    : Type := nat.
-Definition Time   : Type := nat.
-```
+The main visible extension directions are:
 
-### `JobId`
+- richer task records or auxiliary task-model metadata,
+- future DAG-aware execution units layered above the current job-centric core,
+- alternate finite or abstract CPU domains if the project later needs them.
 
-`JobId` is the identifier of a concrete job instance.
+Any such extension should preserve the base role of this layer as a small shared vocabulary rather than push higher-level semantics downward.
 
-A schedule refers to jobs through `JobId`, not through the full `Job` record.
-
-### `TaskId`
-
-`TaskId` is the identifier of a task.
-
-A job may record the task that generated it through `job_task`.
-
-### `CPU`
-
-`CPU` is the index type for processors.
-
-The current development uses numeric CPU indices rather than an abstract finite CPU type.
-
-### `Time`
-
-`Time` is the discrete time domain.
-
-The current model is based on natural-number time, so all scheduling semantics are phrased in discrete steps.
-
----
-
-## 3. `Task`: the minimal task record
-
-A `Task` is currently defined as:
-
-```coq
-Record Task : Type := mkTask {
-  task_cost     : nat;
-  task_period   : nat;
-  task_relative_deadline : nat;
-}.
-```
-
-This is a **minimal periodic-task skeleton**.
-
-### Fields
-
-- `task_cost`
-  The worst-case execution time of each job generated by the task.
-
-- `task_period`
-  The minimum inter-arrival time, and in the periodic interpretation, the period.
-
-- `task_relative_deadline`
-  The task-relative deadline used to derive absolute deadlines of generated jobs.
-
-### Current role
-
-At the current stage, `Task` is mainly a structural placeholder for future periodic-task theory.
-
-It is not yet the full semantic definition of periodic generation. In particular, the record does **not** encode:
-
-- offsets,
-- release formulas,
-- generation uniqueness,
-- or non-overlap properties.
-
-Those belong to later task-model layers.
-
----
-
-## 4. `Job`: the minimal job record
-
-A `Job` is currently defined as:
-
-```coq
-Record Job : Type := mkJob {
-  job_task         : TaskId;
-  job_index        : nat;
-  job_release      : Time;
-  job_cost         : nat;
-  job_abs_deadline : Time;
-}.
-```
-
-A `Job` is a concrete execution instance.
-
-### Fields
-
-- `job_task`
-  The task that generated the job.
-  This allows a concrete job to be connected back to a task-level model.
-
-- `job_index`
-  The instance number of the job within its generating task.
-
-- `job_release`
-  The absolute release time of the job.
-
-- `job_cost`
-  The execution time required by the job.
-
-- `job_abs_deadline`
-  The absolute deadline of the job.
-
-### Current role
-
-The current implementation is **job-centric**. The main scheduling object is a job, not a task.
-
-This is why most semantic and scheduling definitions operate over:
-
-- `jobs : JobId -> Job`
-
-rather than directly over task sets.
-
-### Why `job_task` and `job_index` already exist
-
-Although many current lemmas do not yet use these fields heavily, they are already included so that periodic-task extensions can attach task identity and instance identity without changing the shape of the `Job` record later.
-
-This is a stabilizing design choice.
-
----
-
-## 5. The current execution unit
-
-The present development treats a **job** as the execution unit.
-
-This is important because the source file already contains a design note toward future DAG extensions.
-
-### Current model
-
-- execution unit = `Job`
-- schedule entries refer to `JobId`
-
-### Planned extension direction
-
-A future DAG-aware design may introduce a third layer:
-
-- `Task`
-  generation rule
-- `Job`
-  concrete released instance
-- `Node`
-  executable DAG node inside a job
-
-If that happens, the execution unit may move from jobs to nodes, and schedule entries may no longer be `option JobId`.
-
-For now, however, the minimal foundation remains job-based.
-
----
-
-## 6. Derived foundational notion: `Schedule`
-
-Although this document focuses on `JobId`, `TaskId`, `CPU`, `Time`, `Task`, and `Job`, the current foundation file also defines the basic schedule type:
-
-```coq
-Definition Schedule : Type := Time -> CPU -> option JobId.
-```
-
-A schedule is therefore a total function that, for each time and CPU, returns either:
-
-- `Some j` for a scheduled job `j`, or
-- `None` for an idle CPU.
-
-This is a **multicore schedule shape** from the beginning, even though many early developments are uniprocessor.
-
-`Schedule` is not itself one of the six minimal data definitions requested here, but it is the first derived object built directly from them.
-
----
-
-## 7. Derived foundational predicates
-
-The foundation file also introduces a small number of simple predicates that depend only on the base records.
-
-These are not yet the full semantics layer, but they are close to the data definitions and therefore worth mentioning briefly.
-
-### `released`
-
-```coq
-released (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop
-```
-
-A job has been released by time `t`.
-
-### `pre_release`
-
-```coq
-pre_release (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop
-```
-
-A job has not yet been released at time `t`.
-
-This predicate exists to avoid overloading the word “waiting,” which in scheduling theory is often used for ready-queue states.
-
-### `valid_jobs`
-
-```coq
-valid_jobs (jobs : JobId -> Job) : Prop
-```
-
-All jobs have strictly positive execution cost.
-
-This excludes zero-cost jobs from later readiness and completion arguments.
-
-### `valid_job_of_task`
-
-```coq
-valid_job_of_task (tasks : TaskId -> Task) (jobs : JobId -> Job) (j : JobId) : Prop
-```
-
-This is a **minimal consistency relation** between a job and its generating task.
-
-At the current stage, it requires only:
-
-- the absolute deadline matches
-  `release + relative_deadline`,
-- the job cost is bounded by the task cost.
-
-It is **not yet** a full periodic-generation predicate.
-
----
-
-## 8. Design choices
-
-The current foundation layer makes several deliberate choices.
-
-### Numeric identifiers
-
-All identifiers are `nat`.
-
-This keeps the base layer simple and avoids introducing finite-index machinery too early.
-
-### Discrete time
-
-`Time` is `nat`.
-
-This commits the current model to step-based discrete scheduling semantics.
-
-### Job-centric core
-
-Although tasks are already present, most of the current theory is built over jobs.
-
-This is the right trade-off for the present stage because scheduling semantics and analysis are easier to stabilize over concrete job instances.
-
-### Early support for future extensions
-
-The record fields already anticipate future periodic-task and DAG extensions, even where current proofs do not yet exploit them.
-
-This keeps the foundation small without making later migration unnecessarily disruptive.
-
----
-
-## 9. Boundaries of the foundation layer
-
-The foundation layer does **not** answer any of the following questions:
-
-- when a job is ready,
-- when a job is completed,
-- what makes a schedule valid,
-- what it means for deadlines to be met,
-- how a scheduler chooses among jobs,
-- how periodic or sporadic tasks generate all of their jobs,
-- how migrations or interrupts are represented.
-
-Those questions belong to later layers:
-
-- **Semantics**
-- **Abstractions**
-- **TaskModels**
-- **Operational**
-- **Analysis**
-
-The foundation layer only defines the objects those layers talk about.
-
----
-
-## 10. File map
+## File map
 
 - `theories/Foundation/Base.v`
-  Minimal foundational definitions:
-  - scalar types,
-  - `Task`,
-  - `Job`,
-  - `Schedule`,
-  - simple base predicates.
-
----
+  Base identifiers, task and job records, the raw `Schedule` type, and simple foundational predicates.
 
 ## Summary
 
-The current foundation layer is intentionally small.
+The foundation layer is the minimal data layer of the project.
 
-Its stable core consists of:
-
-- `JobId`
-- `TaskId`
-- `CPU`
-- `Time`
-- `Task`
-- `Job`
-
-These definitions establish a discrete-time, job-centric, multicore-capable base model.
-
-Among them:
-
-- `Task` is a minimal periodic-task skeleton,
-- `Job` is the concrete execution instance used by current semantics,
-- and `Schedule` is the first derived object built on top of them.
-
-This layer is already designed to admit later periodic-task and DAG-oriented extensions, but its present role is only to provide the smallest shared vocabulary for the rest of the development.
+It defines the stable base objects that every higher layer talks about, while deliberately avoiding schedule semantics, scheduler logic, task-generation policy, and operational behavior. That small scope is intentional and should remain stable.

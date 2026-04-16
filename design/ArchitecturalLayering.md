@@ -1,41 +1,26 @@
 # Architectural Layering
 
-This document explains the intended architectural layering of the RocqSched development.
-The goal is not only to organize files, but to make the proof structure visible from the directory structure itself.
+This document gives the global overview of the repository's intended layering.
 
-The central design principle is:
+Its purpose is to show dependency direction and placement rules for new developments. Layer-local detail belongs in the dedicated layer documents referenced below.
 
-> Define scheduling semantics first, separate executable scheduling algorithms from the schedules they induce, and connect concrete implementations to abstract specifications by refinement.
+## Purpose of layering
 
-This separation keeps the library extensible across scheduling policies, machine models, task models, and later OS-level semantics.
+The central design principle of the project is:
 
----
+> define schedule semantics first, separate executable scheduling logic from semantic schedule admission, and expose policy, analysis, task-model, multicore, and operational developments through explicit layer boundaries.
 
-## 1. Overall Structure
+This keeps proofs reusable across:
 
-The development is organized around the following conceptual layers:
+- scheduler policies,
+- task models,
+- machine models,
+- refinement styles,
+- analysis clients.
 
-1. **Foundation**
-2. **Semantics**
-3. **Abstractions**
-4. **Refinement**
-5. **Analysis**
-6. **Uniprocessor**
-7. **Multicore**
-8. **Operational**
-9. **TaskModels**
-10. **Examples**
+## Dependency direction
 
-These layers are not merely thematic.
-They define the intended dependency direction of the library.
-
-A higher layer may depend on lower layers, but a lower layer should not depend on a higher one.
-
----
-
-## 2. Dependency Direction
-
-The intended dependency direction is:
+The intended logical dependency direction is:
 
 ```text
 Foundation
@@ -47,517 +32,102 @@ Foundation
   -> Examples
 ```
 
-More concretely:
+This is an architectural rule, not a claim that every directory forms a perfect chain. New developments should preserve the direction unless there is a clear structural reason not to.
 
-- `Foundation` contains reusable base definitions and proof utilities.
-- `Semantics` defines what schedules, jobs, executions, and feasibility mean.
-- `Abstractions` packages common interfaces and canonical views used across policies.
-- `Refinement` connects executable or operational objects to semantic specifications.
-- `Analysis` provides reusable schedulability-analysis theory on top of semantic schedules.
-- `Uniprocessor` and `Multicore` build policy-specific theory for abstract machine models.
-- `Operational` connects the abstract model to implementation-oriented scheduler state machines.
-- `TaskModels` defines task-generation models that instantiate semantic job sets.
-- `Examples` provides concrete instantiations and regression-style proof clients.
+## Layer guide
 
-This is a logical dependency structure, not a claim that every file must follow a perfectly linear order.
-However, new developments should preserve this direction unless there is a strong reason not to.
+### Foundation
 
----
+The foundation layer fixes the base scalar types, minimal task/job records, and raw schedule carrier type. It should remain a small shared vocabulary.
 
-## 3. Foundation
+Primary document:
+- `design/Foundation.md`
 
-**Purpose:** provide shared mathematical and proof infrastructure.
+### Semantics
 
-Typical contents include:
+The semantics layer defines what schedules mean: execution, service, completion, readiness, validity, feasibility, and the semantic effects of prefix, restriction, truncation, and local transformations.
 
-- time domains
-- identifiers
-- finite maps and finite sets
-- list lemmas
-- arithmetic utilities
-- canonical proof helpers
+Primary document:
+- `design/Semantics.md`
 
-This layer must remain policy-independent and model-independent.
+### Abstractions
 
-It should not contain scheduling-specific theorems except for the most basic reusable definitions that are required everywhere.
+The abstraction layer packages scheduler and scheduling-algorithm interfaces, candidate sources, declarative policy views, and chooser-to-schedule bridges.
 
----
+Primary document:
+- `design/Abstractions.md`
 
-## 4. Semantics
+Supplemental note:
+- `design/SchedulingArchitecture.md`
 
-**Purpose:** define the meaning of scheduling objects.
+### Refinement
 
-This is the semantic core of the project.
+The refinement layer connects executable or implementation-facing scheduling objects to abstract policy specifications and semantic schedule admission.
 
-Typical contents include:
+Primary document:
+- `design/Refinement.md`
 
-- jobs and job parameters
-- schedules
-- release/completion predicates
-- service and execution accounting
-- validity and feasibility
-- horizon-bounded schedule reasoning
+### Analysis
 
-A key principle is that **a schedule is defined first as a mathematical object**.
-For example, a schedule may be modeled as a function from time and CPU to the job running there, if any.
+The analysis layer hosts interval-based schedulability reasoning such as busy intervals, busy windows, processor demand, processor supply, interference, workload absorption, and fairness-facing packaged entry points.
 
-This layer answers questions such as:
+Primary document:
+- `design/Analysis.md`
 
-- What does it mean for a job to be running?
-- What does it mean for a schedule to be valid?
-- What does it mean for a job to complete?
-- What does it mean for a job set to be feasible?
+### Uniprocessor
 
-This layer should not commit to a particular scheduling algorithm.
+The uniprocessor layer specializes the generic interfaces to single-CPU scheduling and policy-specific theorem families such as EDF, LLF, FIFO, and RR.
 
----
+Primary document:
+- `design/Uniprocessor.md`
 
-## 5. Abstractions
+Supplemental note:
+- `design/GenericUniprocessorOptimality.md`
 
-**Purpose:** introduce reusable interfaces and canonical forms above raw semantics.
+### Multicore
 
-This layer exists to avoid duplicating structurally identical proof arguments across EDF, LLF, and future policies.
+The multicore layer specializes the framework to common multicore semantics plus partitioned and global scheduling theorem layers.
 
-Typical contents include:
+Primary document:
+- `design/Multicore.md`
 
-- generic scheduling algorithm interfaces
-- canonical priority views
-- witness-oriented abstractions
-- common finite-horizon proof skeletons
-- policy-independent exchange or local-step interfaces
+### Operational
 
-This is the place where one factors out “the shape of a proof” from a specific policy.
+The operational layer introduces implementation-facing state, traces, and projection back into schedule semantics. Its current scope is a minimal operational projection slice, not a full OS semantics.
 
-For example, if EDF and LLF both use a finite-horizon witness argument with the same structure, that structure belongs here, while the policy-specific ordering facts belong higher up.
+Primary document:
+- `design/Operational.md`
 
----
+### TaskModels
 
-## 6. Refinement
+The task-model layer defines how periodic, sporadic, and jitter-aware task families generate jobs and how those generated job sets are exposed to policy and analysis layers.
 
-**Purpose:** connect concrete scheduling procedures to abstract semantic objects.
+Primary document:
+- `design/TaskModels.md`
 
-This layer expresses statements of the form:
+### Examples
 
-- an executable scheduler induces a schedule
-- a local scheduling step refines an abstract policy condition
-- an implementation-level scheduler is correct with respect to the semantic model
+Example files are proof clients and regression-style usages of the public theorem inventory. They should consume stable layer boundaries rather than act as hidden implementation layers.
 
-This separation is essential for long-term goals involving OS verification.
-The project should be able to state and prove:
+## Placement rules for new files
 
-- an abstract scheduling specification,
-- an executable scheduling algorithm,
-- and a refinement theorem connecting the two.
-
-This makes it possible to reuse schedule-level theory even when the implementation model changes.
-
----
-
-## 7. Analysis
-
-**Purpose:** provide reusable schedulability-analysis theory on top of semantic schedules.
-
-This layer sits above semantic schedules and refinement, but below policy-specific theorem files.
-Its role is to host analysis concepts that are neither task-generation logic nor scheduler implementation logic.
-
-Typical contents include:
-
-- busy intervals
-- busy windows
-- processor supply over intervals
-- workload and demand aggregation
-- request-bound and demand-bound style interfaces
-- response-time search-space reduction lemmas
-- generic interval decomposition lemmas
-
-Currently implemented in `theories/Analysis/`:
-
-- `Common/WorkloadAggregation.v`: `total_job_cost`, ceiling-division arithmetic
-  helpers (`nat_mul_lt_ceil_div`, `ceil_div_mono`)
-- `Multicore/ProcessorSupply.v`: machine-supply accounting over intervals,
-  including split lemmas, the capacity bound
-  `total_cpu_service_between <= m * (t2 - t1)`, and the full-machine equalities
-  that recover exact capacity when all CPUs are busy throughout an interval
-- `Multicore/Interference.v`: multicore list-service aggregation and the
-  reusable hook that recovers machine supply from a list covering the running
-  set over an interval
-- `Multicore/GlobalWorkloadAbsorption.v`: analysis-facing workload-absorption
-  layer that combines full-supply consequences, covering-list interference, and
-  list-workload upper bounds into strict workload-gap statements for downstream
-  fairness / tardiness clients
-- `Uniprocessor/BusyInterval.v`, `BusyIntervalLemmas.v`: uniprocessor busy-interval
-  foundations
-- `Uniprocessor/BusyWindowSearch.v`: busy-window and busy-prefix witness layers
-  used to reduce finite-horizon search obligations before policy-specific
-  schedulability arguments
-- `Uniprocessor/ProcessorDemand.v`: generic processor-demand and overload
-  contradiction layer that analysis clients can reuse independently of EDF
-- `Uniprocessor/RequestBound.v`: `periodic_rbf`, `sporadic_rbf_bound`, and
-  associated monotonicity and algebraic lemmas
-- `Uniprocessor/EDFProcessorDemand.v`: EDF-facing processor-demand wrappers and
-  the packaged `periodic_edf_busy_prefix_bridge` interface connecting
-  busy-prefix witnesses to periodic no-carry-in obligations
-
-For the periodic EDF processor-demand line, `periodic_edf_busy_prefix_bridge`
-is the default public interface. Older pair-of-hypotheses formulations may
-remain as compatibility wrappers, but new public theorem wiring should pass
-through the packaged bridge record rather than treating the two obligations as
-separate primary inputs.
-
-At the task-model layer, this means `TaskModels/Periodic/PeriodicEDFBridge.v`
-is the canonical public import for bridge-first theorems, while
-`TaskModels/Periodic/PeriodicEDFBridgeCompat.v` is reserved for legacy
-compatibility wrappers and should not be the default downstream entry point.
-
-For stable downstream packaging, the analysis/task-model boundary may also
-expose a dedicated entry-point module that re-exports the canonical public
-bridge-first layer without the compatibility wrappers. For the current
-periodic EDF processor-demand inventory, that role is served by
-`TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v`.
-
-The same packaging rule now applies to multicore global analysis. The intended
-stack is:
-
-- semantic core
-- global theorem layer
-- multicore analysis entry-point layer
-- fairness client layer
-
-Concretely:
-
-- `Multicore/Global/GlobalEntryPoints.v` remains the canonical downstream import
-  for the stable global theorem inventory
-- `Analysis/Multicore/GlobalAnalysisEntryPoints.v` is the canonical downstream
-  import for analysis-facing multicore clients that also need processor-supply
-  and interference theorems
-- `Analysis/Multicore/GlobalWorkloadAbsorption.v` sits between those packaged
-  entry points and the first fairness client layer: it consumes the global
-  theorem layer plus the multicore analysis helpers, but does not push
-  workload-absorption statements down into the policy theorem files themselves
-- `Analysis/Multicore/GlobalFairness.v` sits above workload absorption and
-  packages strict workload-gap hooks into contradiction-style and must-run
-  client theorems without moving interval-analysis obligations into the
-  policy-specific global files
-
-This keeps policy-specific global theorems and analysis-layer interval facts
-separate while still exposing one stable packaged boundary to downstream proof
-clients.
-
-This layer is important because these concepts are used by many later results, but they do not belong to:
-
-- `Semantics`, because they are not part of the meaning of schedules themselves
-- `TaskModels`, because they are not about how jobs are generated
-- `Operational`, because they are not implementation state machines
-- `Uniprocessor` or `Multicore`, because many analysis patterns should be shared before specialization
-
-In short:
-
-- `Semantics` says what schedules mean.
-- `Analysis` says how to reason about schedulability over intervals.
-- `TaskModels` says where jobs come from.
-
-This distinction should remain explicit in the directory structure.
-
----
-
-## 8. Uniprocessor
-
-**Purpose:** develop uniprocessor scheduling theory on top of the common core.
-
-Typical contents include:
-
-- EDF theorems
-- LLF theorems
-- finite optimality results
-- uniprocessor feasibility theorems
-- policy-specific witness constructions
-
-This layer should reuse:
-
-- semantic schedule definitions from `Semantics`
-- reusable proof shapes from `Abstractions`
-- refinement hooks from `Refinement`
-- interval reasoning from `Analysis`
-
-The uniprocessor layer should not redefine generic interval concepts if they can live in `Analysis`.
-
----
-
-## 9. Multicore
-
-**Purpose:** develop multicore scheduling theory.
-
-Typical contents include:
-
-- partitioned scheduling
-- global scheduling
-- migration-aware reasoning
-- multicore feasibility and optimality theorems
-- multicore witness constructions
-
-Within `Multicore/`, keep the reusable common theorem layer separate from
-policy wrappers:
-
-- `Multicore/Common/MultiCoreBase.v` provides the basic projections and
-  multicore notions such as `cpu_schedule` and `no_duplication`
-- `Multicore/Common/ServiceFacts.v` provides migration-aware service
-  decomposition across per-CPU projections and job-level interval bounds such as
-  `service_between <= total_cpu_service_between`
-- `Multicore/Common/CompletionFacts.v` provides completion-facing bridge lemmas
-  on top of the decomposed multicore service
-- `Multicore/Common/RemainingCostFacts.v` lifts the same migration-aware
-  service view to reusable `remaining_cost` lemmas
-- `Multicore/Common/LaxityFacts.v` lifts the common layer further to
-  `laxity`, which is the intended support layer for dynamic-metric global
-  policies such as LLF
-- `Multicore/Common/TopMMetricFacts.v` packages policy-generic top-`m`
-  metric-order facts so that dynamic-metric policy wrappers can consume
-  reusable theorem statements without depending directly on chooser internals
-- `Multicore/Partitioned/*` and `Multicore/Global/*` should be clients of this
-  common layer rather than re-encoding it
-- `Analysis/Multicore/*` should host interval supply / interference arguments
-  that are shared by later global analysis clients, rather than pushing those
-  arguments into policy wrappers or back down into `Multicore/Common`
-- `Multicore/Global/GlobalEDF.v` and `Multicore/Global/GlobalLLF.v` may expose
-  thin policy-specific interval hooks, but the machine-supply equalities
-  themselves should stay in `Analysis/Multicore/*`
-
-Within the partitioned sublayer, keep the public theorem boundary separate from
-the implementation files:
-
-- `Multicore/Partitioned/Partitioned.v` hosts the core partitioned semantics,
-  assignment-respect facts, and service localization such as
-  `service_partitioned_eq_local_service`
-- `Multicore/Partitioned/PartitionedCompose.v` hosts the generic local-to-global
-  composition theorems such as
-  `local_witnesses_imply_partitioned_schedulable_by_on`
-- `Multicore/Partitioned/Policies/*` hosts thin policy wrappers over the
-  generic layer
-- `Multicore/Partitioned/PartitionedEntryPoints.v` is the canonical downstream
-  import for the stable partitioned theorem inventory
-
-For downstream users, the intended policy boundary is:
-
-- EDF / LLF are finite-optimality-ready and expose local-feasible partitioned
-  entry points
-- FIFO / RR are wrapper-only for now and expose only witness-based and
-  local-schedulable partitioned entry points
-
-Representative clients should point to `Examples/PartitionedExamples.v` rather
-than forcing users to discover the theorem inventory across multiple example
-files.
-
-Within the global sublayer, keep the generic top-`m` bridge boundary separate
-from the policy wrappers:
-
-- `Abstractions/SchedulingAlgorithm/TopMInterface.v` hosts the generic top-`m`
-  scheduling-algorithm interface
-- `Abstractions/SchedulingAlgorithm/TopMSchedulerBridge.v` hosts the generic
-  top-`m` scheduler bridge and structural facts such as validity,
-  no-duplication, and idle-outside-range
-- `Multicore/Common/TopMAdmissibilityBridge.v` hosts the policy-generic
-  admissibility-aware top-`m` theorem layer
-- `Multicore/Global/GlobalEDF.v` and `Multicore/Global/GlobalLLF.v` host thin
-  policy-specific wrappers over that generic boundary
-- `Multicore/Global/GlobalEntryPoints.v` is the canonical downstream import for
-  the stable global theorem inventory
+When adding a new file, place it at the lowest layer whose responsibility matches the concept.
 
-Representative clients should point to `Examples/GlobalExamples.v` rather than
-forcing users to discover the global theorem inventory across multiple example
-files.
+Use these rules:
 
-As in the uniprocessor case, this layer should depend on shared lower layers rather than cloning them.
+- if the file defines meaning of schedules or schedule-derived predicates, place it in `Semantics`
+- if it defines reusable scheduler or chooser interfaces, place it in `Abstractions`
+- if it proves executable-to-spec or implementation-to-semantics relationships, place it in `Refinement`
+- if it proves interval reasoning or schedulability-analysis facts, place it in `Analysis`
+- if it is policy-specific single-CPU theory, place it in `Uniprocessor`
+- if it is multicore structure, partitioning, or global top-`m` theorem work, place it in `Multicore`
+- if it defines implementation-facing states, traces, or projection invariants, place it in `Operational`
+- if it defines generated job sets from task parameters, place it in `TaskModels`
 
-Whenever a proof concept is common to both uniprocessor and multicore reasoning, it should be pushed downward into `Abstractions` or `Analysis` instead of being duplicated.
+When a proof feels awkward, the default fix should be a cleaner interface or helper lemma at the correct layer, not collapsing the layers together.
 
----
+## Summary
 
-## 10. Operational
+`ArchitecturalLayering.md` is the map of the repository, not the full specification of each layer.
 
-**Purpose:** model scheduler execution as an implementation-oriented transition system.
-
-This layer is for reasoning about operational scheduler states, such as:
-
-- run queues
-- local or global dispatcher state
-- scheduling steps
-- enqueue/dequeue behavior
-- implementation invariants
-- trace-to-schedule projection
-
-The current minimal slice already includes:
-
-- a proof-relevant operational state with per-CPU `current`, runnable jobs,
-  and pending reschedule flags
-- a trace model `Time -> OpState`
-- a state-only invariant layer for proof-relevant operational structure
-- an execution layer exposing both `trace_stepwise` and a packaged `execution`
-  record
-- a projection back to the abstract `Schedule`
-- an execution-first projection-soundness bridge that recovers schedule-facing
-  properties such as `no_duplication` and `valid_schedule`
-
-The operational layer is intentionally distinct from the schedule semantics layer.
-
-The semantic question is:
-
-- what schedule is produced?
-
-The operational question is:
-
-- how does a scheduler state evolve to produce it?
-
-This distinction is necessary for future refinement results involving actual kernels or scheduler implementations.
-
-The design rule is that operational files may explain how machine state
-evolves and how a schedule is read from that state, but they should not push
-timer, wakeup, or migration artifacts down into the core `Schedule`
-definition itself.
-
----
-
-## 11. TaskModels
-
-**Purpose:** define reusable job-generation models.
-
-Typical contents include:
-
-- periodic tasks
-- sporadic tasks
-- jittered periodic tasks
-- DAG-style release structures
-- finite-horizon job-set generation theorems
-
-This layer explains how a task model generates a semantic job set.
-It should not contain policy-specific scheduling theorems unless those are merely thin instantiations.
-
-Conceptually:
-
-- `TaskModels` generates jobs.
-- `Semantics` interprets schedules over jobs.
-- `Analysis` reasons about intervals and schedulability.
-- `Uniprocessor` / `Multicore` prove policy-specific results.
-
-Keeping these roles separate prevents the library from entangling generation logic with schedulability reasoning.
-
----
-
-## 12. Examples
-
-**Purpose:** provide small proof clients and concrete instantiations.
-
-Examples serve several roles:
-
-- sanity checks for APIs
-- documentation by instantiation
-- regression tests for refactoring
-- minimal demonstrations of how layers fit together
-
-Examples should consume the library rather than define new core abstractions.
-
----
-
-## 13. Why Analysis Is a Separate Layer
-
-The `Analysis` layer is intentionally separated because schedulability arguments often introduce theory that is not semantic in the narrow sense and not policy-specific in the final-theorem sense.
-
-For example, a busy interval theorem is typically:
-
-- not a definition of what a schedule is,
-- not a description of how jobs are generated,
-- not an implementation state transition,
-- and not tied to EDF alone.
-
-It is a reusable intermediate reasoning layer.
-
-Without a separate `Analysis` layer, such theory tends to be scattered across:
-
-- uniprocessor policy files,
-- task-model-specific proofs,
-- or ad hoc utility files.
-
-That makes later extensions harder, especially when adding:
-
-- utilization-based bounds,
-- demand-bound analyses,
-- response-time analyses,
-- or multicore generalizations.
-
-Therefore, interval-based analysis theory should live in `theories/Analysis/...` whenever it is meant to be reused across multiple later developments.
-
----
-
-## 14. Design Rules for New Files
-
-When adding a new file, use the following rules.
-
-### Put it in `Semantics` if:
-
-- it defines the meaning of schedules, jobs, service, completion, or feasibility
-
-### Put it in `Abstractions` if:
-
-- it factors out a reusable proof interface or canonical proof shape
-
-### Put it in `Refinement` if:
-
-- it connects a concrete scheduler or step relation to an abstract semantic property
-
-### Put it in `Analysis` if:
-
-- it reasons about workload, demand, supply, busy windows, or interval-based schedulability arguments
-
-### Put it in `Uniprocessor` or `Multicore` if:
-
-- it proves policy-specific theorems for those machine models
-
-### Put it in `Operational` if:
-
-- it models implementation-style scheduler state evolution
-
-### Put it in `TaskModels` if:
-
-- it defines how jobs are generated from a task model
-
-### Put it in `Examples` if:
-
-- it is mainly illustrative, demonstrative, or regression-oriented
-
----
-
-## 15. Long-Term Intended Use
-
-This layering is designed to support the following long-term path:
-
-1. define schedules semantically,
-2. define scheduling algorithms and operational schedulers separately,
-3. prove refinement from implementation-oriented models to semantic schedules,
-4. prove schedulability and optimality theorems on the semantic side,
-5. instantiate the framework with richer task models and eventually OS-level semantics.
-
-This path is meant to scale from:
-
-- finite-horizon witness arguments,
-- to uniprocessor and multicore theory,
-- to refinement results for actual schedulers,
-- and eventually to system-level validation or verification.
-
----
-
-## 16. Summary
-
-The core architectural principle is:
-
-> semantics first, algorithms second, refinement in between, analysis as a reusable reasoning layer, and policy-specific theorems above them.
-
-Accordingly, the project should preserve the following conceptual separation:
-
-- **Semantics** for meaning
-- **Abstractions** for reusable proof structure
-- **Refinement** for correctness bridges
-- **Analysis** for schedulability reasoning infrastructure
-- **Uniprocessor / Multicore** for policy-specific theorems
-- **Operational** for implementation models
-- **TaskModels** for job generation
-
-If this separation is reflected consistently in the directory structure, then the codebase itself will communicate the intended proof architecture.
+The detailed design notes now live in the dedicated layer documents under `design/`. This overview should stay short, stable, and focused on dependency direction and file placement.

@@ -1,5 +1,16 @@
 # Generic Uniprocessor Canonicalization and Finite-Horizon Optimality
 
+This is a supplemental design note for the generic uniprocessor
+canonicalization and finite-optimality pipeline.
+
+The primary layer document is:
+
+- `design/Uniprocessor.md`
+
+This note exists to explain the detailed mechanics of horizon,
+canonicalization, repair, and normalization without pushing that level of
+detail into the main layer overview.
+
 ## Summary
 
 This design factors finite-job optimality proofs for uniprocessor scheduling
