@@ -60,7 +60,9 @@ For example, periodic EDF/LLF uses:
 - `PeriodicEDFAnalysisEntryPoints.v` as the default downstream import for the packaged periodic EDF analysis surface
 - `PeriodicLLFAnalysisEntryPoints.v` as the default downstream import for the packaged periodic LLF analysis surface
 - `PeriodicConcreteAnalysis.v` as the bounded helper layer for concrete
-  periodic DBF checking up to a finite horizon
+  periodic DBF checking up to a finite horizon, including conservative
+  critical-point and critical-window enumeration for finite `vm_compute`
+  proofs
 - the same module also hosts the finite-cutoff scalar DBF checker used by
   infinite zero-offset classical wrappers
 
@@ -81,6 +83,7 @@ Supporting modules include:
 
 - the various `*Enumeration.v`, `*FiniteHorizon.v`, `*Workload.v`, and `*DemandBound.v` files
 - `PeriodicConcreteAnalysis.v` for bounded concrete DBF/window-DBF checkers
+- conservative finite critical-point/window enumeration for periodic clients
 - finite scalar classical-DBF cutoff helpers for zero-offset periodic task sets
 - the periodic/sporadic/jitter bridge modules
 - the partitioned finite-optimality lifts for each task family

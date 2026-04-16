@@ -2,19 +2,56 @@ From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Analysis.Uniprocessor.DemandBound.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
+From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
 
 Import ListNotations.
 
-(* A first bounded checker for concrete periodic DBF goals. The point set is a
-   sound superset of all relevant times up to H: we simply enumerate every time
-   in [0, H]. *)
+Definition bounded_time_points (H : Time) : list Time :=
+  seq 0 (S H).
+
+Definition task_release_points_upto
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (τ : TaskId)
+    (H : Time) : list Time :=
+  filter (fun t => t <=? H)
+         (map (expected_release tasks offset τ)
+              (bounded_time_points H)).
+
+Definition task_deadline_points_upto
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (τ : TaskId)
+    (H : Time) : list Time :=
+  filter (fun t => t <=? H)
+         (map (expected_abs_deadline tasks offset τ)
+              (bounded_time_points H)).
+
+(* A conservative finite search space for concrete periodic DBF goals.
+   We expose release/deadline-shaped points explicitly, but we also keep the
+   entire bounded range [0, H] so bounded completeness remains constructive and
+   proof-friendly in v1. *)
 Definition critical_dbf_points_upto
     (tasks : TaskId -> Task)
     (offset : TaskId -> Time)
     (enumT : list TaskId)
     (H : Time) : list Time :=
-  seq 0 (S H).
+  0 :: H :: bounded_time_points H ++
+  flat_map (fun τ => task_release_points_upto tasks offset τ H) enumT ++
+  flat_map (fun τ => task_deadline_points_upto tasks offset τ H) enumT.
+
+Definition critical_dbf_windows_upto
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (enumT : list TaskId)
+    (H : Time) : list (Time * Time) :=
+  let points := critical_dbf_points_upto tasks offset enumT H in
+  flat_map
+    (fun t1 =>
+       map (fun t2 => (t1, t2))
+           (filter (fun t2 => (t1 <=? t2) && (t2 <=? H)) points))
+    points.
 
 Definition dbf_test_upto
     (tasks : TaskId -> Task)
@@ -29,12 +66,10 @@ Definition window_dbf_test_upto
     (enumT : list TaskId)
     (H : Time) : bool :=
   forallb
-    (fun t1 =>
-       forallb
-         (fun t2 =>
-            taskset_periodic_dbf_window tasks offset enumT t1 t2 <=? t2 - t1)
-         (seq t1 (S (H - t1))))
-    (critical_dbf_points_upto tasks offset enumT H).
+    (fun w =>
+       let '(t1, t2) := w in
+       taskset_periodic_dbf_window tasks offset enumT t1 t2 <=? t2 - t1)
+    (critical_dbf_windows_upto tasks offset enumT H).
 
 Lemma critical_dbf_points_upto_complete :
   forall tasks offset enumT H t,
@@ -43,19 +78,149 @@ Lemma critical_dbf_points_upto_complete :
 Proof.
   intros tasks offset enumT H t Hle.
   unfold critical_dbf_points_upto.
-  rewrite in_seq.
-  lia.
+  simpl.
+  destruct t as [|t'].
+  - now left.
+  - right.
+    right.
+    right.
+    apply in_or_app.
+    left.
+    unfold bounded_time_points.
+    rewrite in_seq.
+    lia.
 Qed.
 
-Lemma window_dbf_test_upto_inner_complete :
-  forall H t1 t2,
+Lemma task_release_points_upto_contains_index :
+  forall tasks offset τ H k,
+    k <= H ->
+    expected_release tasks offset τ k <= H ->
+    In (expected_release tasks offset τ k)
+       (task_release_points_upto tasks offset τ H).
+Proof.
+  intros tasks offset τ H k Hkle Hrel.
+  unfold task_release_points_upto.
+  apply filter_In.
+  split.
+  - apply in_map_iff.
+    exists k.
+    split; [reflexivity|].
+    unfold bounded_time_points.
+    rewrite in_seq.
+    lia.
+  - apply Nat.leb_le.
+    exact Hrel.
+Qed.
+
+Lemma task_deadline_points_upto_contains_index :
+  forall tasks offset τ H k,
+    k <= H ->
+    expected_abs_deadline tasks offset τ k <= H ->
+    In (expected_abs_deadline tasks offset τ k)
+       (task_deadline_points_upto tasks offset τ H).
+Proof.
+  intros tasks offset τ H k Hkle Hdl.
+  unfold task_deadline_points_upto.
+  apply filter_In.
+  split.
+  - apply in_map_iff.
+    exists k.
+    split; [reflexivity|].
+    + unfold bounded_time_points.
+      rewrite in_seq.
+      lia.
+  - apply Nat.leb_le.
+    exact Hdl.
+Qed.
+
+Lemma critical_dbf_points_upto_contains_release :
+  forall tasks offset enumT H τ k,
+    In τ enumT ->
+    k <= H ->
+    expected_release tasks offset τ k <= H ->
+    In (expected_release tasks offset τ k)
+       (critical_dbf_points_upto tasks offset enumT H).
+Proof.
+  intros tasks offset enumT H τ k Hinτ Hkle Hrel.
+  unfold critical_dbf_points_upto.
+  simpl.
+  right.
+  right.
+  right.
+  apply in_or_app.
+  right.
+  apply in_or_app.
+  left.
+  apply in_flat_map.
+  exists τ.
+  split; [exact Hinτ|].
+  apply task_release_points_upto_contains_index; assumption.
+Qed.
+
+Lemma critical_dbf_points_upto_contains_deadline :
+  forall tasks offset enumT H τ k,
+    In τ enumT ->
+    k <= H ->
+    expected_abs_deadline tasks offset τ k <= H ->
+    In (expected_abs_deadline tasks offset τ k)
+       (critical_dbf_points_upto tasks offset enumT H).
+Proof.
+  intros tasks offset enumT H τ k Hinτ Hkle Hdl.
+  unfold critical_dbf_points_upto.
+  simpl.
+  right.
+  right.
+  right.
+  apply in_or_app.
+  right.
+  apply in_or_app.
+  right.
+  apply in_flat_map.
+  exists τ.
+  split; [exact Hinτ|].
+  apply task_deadline_points_upto_contains_index; assumption.
+Qed.
+
+Lemma critical_dbf_windows_upto_complete :
+  forall tasks offset enumT H t1 t2,
     t1 <= t2 ->
     t2 <= H ->
-    In t2 (seq t1 (S (H - t1))).
+    In (t1, t2) (critical_dbf_windows_upto tasks offset enumT H).
 Proof.
-  intros H t1 t2 Hle12 Hle2H.
-  rewrite in_seq.
-  lia.
+  intros tasks offset enumT H t1 t2 Hle12 Hle2H.
+  unfold critical_dbf_windows_upto.
+  apply in_flat_map.
+  exists t1.
+  split.
+  - apply critical_dbf_points_upto_complete. lia.
+  - apply in_map_iff.
+    exists t2.
+    split; [reflexivity|].
+    apply filter_In.
+    split.
+    + apply critical_dbf_points_upto_complete. exact Hle2H.
+    + rewrite andb_true_iff.
+      rewrite !Nat.leb_le.
+      lia.
+Qed.
+
+Lemma critical_dbf_windows_upto_bounds :
+  forall tasks offset enumT H t1 t2,
+    In (t1, t2) (critical_dbf_windows_upto tasks offset enumT H) ->
+    t1 <= t2 /\ t2 <= H.
+Proof.
+  intros tasks offset enumT H t1 t2 Hin.
+  unfold critical_dbf_windows_upto in Hin.
+  apply in_flat_map in Hin.
+  destruct Hin as [x [Hin_points Hin_pairs]].
+  apply in_map_iff in Hin_pairs.
+  destruct Hin_pairs as [t2' [Hpair Hin_filter]].
+  inversion Hpair; subst x t2'; clear Hpair.
+  apply filter_In in Hin_filter.
+  destruct Hin_filter as [_ Hbounds].
+  rewrite andb_true_iff in Hbounds.
+  rewrite !Nat.leb_le in Hbounds.
+  exact Hbounds.
 Qed.
 
 Lemma dbf_test_upto_sound :
@@ -81,17 +246,15 @@ Proof.
   apply critical_dbf_points_upto_complete; exact Hle.
 Qed.
 
-Lemma window_dbf_test_upto_sound :
+Lemma critical_dbf_windows_upto_sound :
   forall tasks offset enumT H t1 t2,
     window_dbf_test_upto tasks offset enumT H = true ->
-    In t1 (critical_dbf_points_upto tasks offset enumT H) ->
-    In t2 (seq t1 (S (H - t1))) ->
+    In (t1, t2) (critical_dbf_windows_upto tasks offset enumT H) ->
     taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1.
 Proof.
-  intros tasks offset enumT H t1 t2 Htest Ht1 Ht2.
+  intros tasks offset enumT H t1 t2 Htest Hin.
   unfold window_dbf_test_upto in Htest.
-  apply forallb_forall with (x := t1) in Htest; auto.
-  apply forallb_forall with (x := t2) in Htest; auto.
+  apply forallb_forall with (x := (t1, t2)) in Htest; auto.
   now apply Nat.leb_le in Htest.
 Qed.
 
@@ -103,9 +266,8 @@ Theorem window_dbf_test_upto_true_implies_bounded_window_dbf :
     taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1.
 Proof.
   intros tasks offset enumT H t1 t2 Htest Hle12 Hle2H.
-  eapply window_dbf_test_upto_sound; eauto.
-  - apply critical_dbf_points_upto_complete. lia.
-  - apply window_dbf_test_upto_inner_complete; assumption.
+  eapply critical_dbf_windows_upto_sound; eauto.
+  apply critical_dbf_windows_upto_complete; assumption.
 Qed.
 
 Fixpoint periodic_hyperperiod

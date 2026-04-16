@@ -12,6 +12,7 @@ From RocqSched Require Import Uniprocessor.Policies.LLF.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
+From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
 From RocqSched Require Import TaskModels.Periodic.PeriodicLLFAnalysisEntryPoints.
 From RocqSched Require Import Examples.PeriodicExamples.
@@ -31,6 +32,34 @@ Example periodic_concrete_window_dbf_test_upto_ex :
 Proof.
   vm_compute.
   reflexivity.
+Qed.
+
+Example periodic_concrete_release_point_is_critical_ex :
+  In (expected_release tasks_ex offset_ex 0 1)
+     (critical_dbf_points_upto tasks_ex offset_ex enumT_ex H_ex).
+Proof.
+  apply critical_dbf_points_upto_contains_release.
+  - simpl. tauto.
+  - unfold H_ex. lia.
+  - unfold expected_release, H_ex, tasks_ex, offset_ex.
+    simpl. lia.
+Qed.
+
+Example periodic_concrete_deadline_point_is_critical_ex :
+  In (expected_abs_deadline tasks_ex offset_ex 0 1)
+     (critical_dbf_points_upto tasks_ex offset_ex enumT_ex H_ex).
+Proof.
+  apply critical_dbf_points_upto_contains_deadline.
+  - simpl. tauto.
+  - unfold H_ex. lia.
+  - unfold expected_abs_deadline, expected_release, H_ex, tasks_ex, offset_ex.
+    simpl. lia.
+Qed.
+
+Example periodic_concrete_window_is_critical_ex :
+  In (2, 4) (critical_dbf_windows_upto tasks_ex offset_ex enumT_ex H_ex).
+Proof.
+  apply critical_dbf_windows_upto_complete; unfold H_ex; lia.
 Qed.
 
 Lemma periodic_concrete_bounded_dbf_ex :

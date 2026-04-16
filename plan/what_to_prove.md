@@ -1067,6 +1067,8 @@ Done:
 - `PeriodicConcreteAnalysis.v` packages bounded boolean checkers for concrete
   finite-horizon DBF and window-DBF obligations, intended for `vm_compute`
   driven client proofs
+- the same finite-horizon helper now exposes a conservative critical-point /
+  critical-window search space for bounded periodic window-DBF checking
 - the same module now packages a conservative finite cutoff checker for
   zero-offset infinite scalar DBF obligations
 - `PeriodicLLFPrefixCoherence.v` packages the periodic LLF finite/infinite

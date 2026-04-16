@@ -34,6 +34,8 @@ For concrete periodic task sets, the preferred downstream path is now to
 discharge finite-horizon DBF obligations through the bounded checker layer in
 `TaskModels/Periodic/PeriodicConcreteAnalysis.v`, and then feed the resulting
 bounded theorem into the existing finite EDF/LLF bridge theorems.
+That helper now exposes a conservative finite critical-point / critical-window
+enumeration for bounded `vm_compute`-driven DBF and window-DBF proofs.
 
 For infinite-time zero-offset classical DBF clients, the same helper layer now
 provides a conservative finite cutoff theorem so downstream proofs can replace
