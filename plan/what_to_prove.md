@@ -57,6 +57,9 @@
 完了済みとして扱う。次の uniprocessor analysis 側の主戦場は、
 zero-offset classical EDF corollary、infinite-time periodic EDF wrapper、
 そして LLF analytical bridge である。
+また、concrete periodic task set 向けには finite-horizon bounded DBF checker
+層を使って proof obligation を計算へ落とす方針を既存 finite bridge の上に
+載せたものとして扱う。
 
 ## Current periodic EDF wrapper direction
 
@@ -1058,6 +1061,9 @@ Done:
   the current periodic EDF idealized-analysis inventory
 - `PeriodicLLFAnalysisEntryPoints.v` packages the stable downstream import for
   periodic LLF analysis wrappers layered on top of the EDF feasibility bridge
+- `PeriodicConcreteAnalysis.v` packages bounded boolean checkers for concrete
+  finite-horizon DBF and window-DBF obligations, intended for `vm_compute`
+  driven client proofs
 - `PeriodicLLFPrefixCoherence.v` packages the periodic LLF finite/infinite
   prefix-coherence layer
 - `PeriodicLLFInfiniteBridge.v` exposes infinite-time periodic LLF no-miss /
@@ -1072,6 +1078,8 @@ Done:
 - `PeriodicInfiniteEDFExamples.v` and `PeriodicInfiniteLLFExamples.v` provide
   downstream clients for the infinite-time EDF/LLF window-DBF and classical-DBF
   wrappers
+- `PeriodicConcreteEDFExamples.v` provides downstream finite-horizon EDF/LLF
+  clients that close bounded DBF obligations through boolean checking
 - `PeriodicEDFBridgeCompat.v` retains the older unpackaged busy-prefix forms
   only as compatibility wrappers
 - `PeriodicProcessorDemandExamples.v` now includes both

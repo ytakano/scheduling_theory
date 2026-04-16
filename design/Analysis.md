@@ -30,6 +30,11 @@ window-DBF bridge as the analysis core and layer infinite-time no-miss /
 feasible / schedulable wrappers on top via prefix reuse, rather than replacing
 the existing finite theorem family.
 
+For concrete periodic task sets, the preferred downstream path is now to
+discharge finite-horizon DBF obligations through the bounded checker layer in
+`TaskModels/Periodic/PeriodicConcreteAnalysis.v`, and then feed the resulting
+bounded theorem into the existing finite EDF/LLF bridge theorems.
+
 ### Example: Busy Intervals, a Busy Window, and Busy Prefixes
 
 ```
@@ -246,6 +251,10 @@ Two packaged public boundaries are especially important:
 
 - `TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v` for the current periodic EDF processor-demand / busy-prefix line
 - `Analysis/Multicore/GlobalAnalysisEntryPoints.v` for the current multicore global-analysis line
+
+For concrete periodic analysis, `TaskModels/Periodic/PeriodicConcreteAnalysis.v`
+now complements the periodic EDF/LLF entry points with finite-horizon boolean
+DBF and window-DBF checks.
 
 The design rule is bridge-first packaging:
 

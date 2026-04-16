@@ -2,6 +2,7 @@ From RocqSched Require Export Analysis.Uniprocessor.BusyWindowSearch.
 From RocqSched Require Export Analysis.Uniprocessor.EDFProcessorDemand.
 From RocqSched Require Export TaskModels.Periodic.PeriodicWindowDemandBound.
 From RocqSched Require Export TaskModels.Periodic.PeriodicClassicDBF.
+From RocqSched Require Export TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFBridge.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFClassicalBridge.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFPrefixCoherence.

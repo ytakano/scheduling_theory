@@ -44,6 +44,7 @@ theories/Examples/PeriodicExamples.v
 theories/Examples/PeriodicInfiniteEDFExamples.v
 theories/Examples/PeriodicInfiniteLLFExamples.v
 theories/Examples/PeriodicProcessorDemandExamples.v
+theories/Examples/PeriodicConcreteEDFExamples.v
 theories/Examples/PeriodicProcessorDemandCompatExamples.v
 theories/Examples/SporadicExamples.v
 theories/Examples/RRExamples.v
@@ -102,6 +103,7 @@ theories/TaskModels/Periodic/PeriodicDemandBound.v
 theories/TaskModels/Periodic/PeriodicWindowDemandBound.v
 theories/TaskModels/Periodic/PeriodicEnumeration.v
 theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
+theories/TaskModels/Periodic/PeriodicConcreteAnalysis.v
 theories/TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicEDFBridgeCompat.v

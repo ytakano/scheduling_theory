@@ -33,6 +33,8 @@ The current organization is:
 
 `TaskModels/Periodic`
 - periodic task parameters, finite-horizon job enumeration, workload and demand bridges, EDF/LLF theorem lifts, and packaged periodic EDF analysis entry points
+- bounded concrete-analysis helpers that reduce finite-horizon DBF obligations
+  to compute-friendly boolean checks
 
 `TaskModels/Sporadic`
 - sporadic task generation, finite-horizon enumeration, workload and demand bridges, EDF/LLF theorem lifts, and periodic/sporadic bridge modules
@@ -55,6 +57,8 @@ For example, periodic EDF/LLF uses:
 - `PeriodicEDFBridgeCompat.v` only as a compatibility wrapper for older unpackaged interfaces
 - `PeriodicEDFAnalysisEntryPoints.v` as the default downstream import for the packaged periodic EDF analysis surface
 - `PeriodicLLFAnalysisEntryPoints.v` as the default downstream import for the packaged periodic LLF analysis surface
+- `PeriodicConcreteAnalysis.v` as the bounded helper layer for concrete
+  periodic DBF checking up to a finite horizon
 
 ## Public entry points
 
@@ -72,6 +76,7 @@ The main public entry points for this layer are:
 Supporting modules include:
 
 - the various `*Enumeration.v`, `*FiniteHorizon.v`, `*Workload.v`, and `*DemandBound.v` files
+- `PeriodicConcreteAnalysis.v` for bounded concrete DBF/window-DBF checkers
 - the periodic/sporadic/jitter bridge modules
 - the partitioned finite-optimality lifts for each task family
 
@@ -133,6 +138,8 @@ New task-model work should prefer bridge-first public APIs and compatibility wra
   Periodic demand-bound bridge.
 - `theories/TaskModels/Periodic/PeriodicWindowDemandBound.v`
   Periodic window-DBF bridge layer.
+- `theories/TaskModels/Periodic/PeriodicConcreteAnalysis.v`
+  Bounded concrete DBF and window-DBF checker layer for finite horizons.
 - `theories/TaskModels/Periodic/PeriodicEDFBridge.v`
   Canonical periodic EDF bridge-first theorem layer.
 - `theories/TaskModels/Periodic/PeriodicEDFBridgeCompat.v`
