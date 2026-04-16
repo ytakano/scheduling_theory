@@ -60,6 +60,9 @@ zero-offset classical EDF corollary、infinite-time periodic EDF wrapper、
 また、concrete periodic task set 向けには finite-horizon bounded DBF checker
 層を使って proof obligation を計算へ落とす方針を既存 finite bridge の上に
 載せたものとして扱う。
+さらに zero-offset scalar DBF については、infinite-time classical wrapper に
+渡す `forall t` 仮定を finite cutoff へ落とす helper を concrete-analysis 層に
+置く方針とする。
 
 ## Current periodic EDF wrapper direction
 
@@ -1064,6 +1067,8 @@ Done:
 - `PeriodicConcreteAnalysis.v` packages bounded boolean checkers for concrete
   finite-horizon DBF and window-DBF obligations, intended for `vm_compute`
   driven client proofs
+- the same module now packages a conservative finite cutoff checker for
+  zero-offset infinite scalar DBF obligations
 - `PeriodicLLFPrefixCoherence.v` packages the periodic LLF finite/infinite
   prefix-coherence layer
 - `PeriodicLLFInfiniteBridge.v` exposes infinite-time periodic LLF no-miss /
@@ -1080,6 +1085,9 @@ Done:
   wrappers
 - `PeriodicConcreteEDFExamples.v` provides downstream finite-horizon EDF/LLF
   clients that close bounded DBF obligations through boolean checking
+- `PeriodicInfiniteEDFExamples.v` and `PeriodicInfiniteLLFExamples.v` now use
+  the scalar cutoff checker to discharge the classical DBF premise by
+  computation instead of a manual `forall t` hypothesis
 - `PeriodicEDFBridgeCompat.v` retains the older unpackaged busy-prefix forms
   only as compatibility wrappers
 - `PeriodicProcessorDemandExamples.v` now includes both

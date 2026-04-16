@@ -35,6 +35,8 @@ The current organization is:
 - periodic task parameters, finite-horizon job enumeration, workload and demand bridges, EDF/LLF theorem lifts, and packaged periodic EDF analysis entry points
 - bounded concrete-analysis helpers that reduce finite-horizon DBF obligations
   to compute-friendly boolean checks
+- a zero-offset scalar DBF cutoff helper that reduces infinite classical-DBF
+  obligations to a finite computable check
 
 `TaskModels/Sporadic`
 - sporadic task generation, finite-horizon enumeration, workload and demand bridges, EDF/LLF theorem lifts, and periodic/sporadic bridge modules
@@ -59,6 +61,8 @@ For example, periodic EDF/LLF uses:
 - `PeriodicLLFAnalysisEntryPoints.v` as the default downstream import for the packaged periodic LLF analysis surface
 - `PeriodicConcreteAnalysis.v` as the bounded helper layer for concrete
   periodic DBF checking up to a finite horizon
+- the same module also hosts the finite-cutoff scalar DBF checker used by
+  infinite zero-offset classical wrappers
 
 ## Public entry points
 
@@ -77,6 +81,7 @@ Supporting modules include:
 
 - the various `*Enumeration.v`, `*FiniteHorizon.v`, `*Workload.v`, and `*DemandBound.v` files
 - `PeriodicConcreteAnalysis.v` for bounded concrete DBF/window-DBF checkers
+- finite scalar classical-DBF cutoff helpers for zero-offset periodic task sets
 - the periodic/sporadic/jitter bridge modules
 - the partitioned finite-optimality lifts for each task family
 
@@ -139,7 +144,8 @@ New task-model work should prefer bridge-first public APIs and compatibility wra
 - `theories/TaskModels/Periodic/PeriodicWindowDemandBound.v`
   Periodic window-DBF bridge layer.
 - `theories/TaskModels/Periodic/PeriodicConcreteAnalysis.v`
-  Bounded concrete DBF and window-DBF checker layer for finite horizons.
+  Bounded concrete DBF and window-DBF checker layer for finite horizons,
+  plus zero-offset scalar DBF cutoff helpers for infinite classical checks.
 - `theories/TaskModels/Periodic/PeriodicEDFBridge.v`
   Canonical periodic EDF bridge-first theorem layer.
 - `theories/TaskModels/Periodic/PeriodicEDFBridgeCompat.v`

@@ -35,6 +35,10 @@ discharge finite-horizon DBF obligations through the bounded checker layer in
 `TaskModels/Periodic/PeriodicConcreteAnalysis.v`, and then feed the resulting
 bounded theorem into the existing finite EDF/LLF bridge theorems.
 
+For infinite-time zero-offset classical DBF clients, the same helper layer now
+provides a conservative finite cutoff theorem so downstream proofs can replace
+`forall t` obligations with a finite `vm_compute` check.
+
 ### Example: Busy Intervals, a Busy Window, and Busy Prefixes
 
 ```

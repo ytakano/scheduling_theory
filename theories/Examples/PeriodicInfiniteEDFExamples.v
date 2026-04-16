@@ -17,6 +17,26 @@ Import ListNotations.
    reused, while the global codec/prefix-coherence obligations are exposed as
    hypotheses. *)
 
+Example periodic_infinite_example_dbf_test_by_cutoff :
+  dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma periodic_infinite_example_classical_dbf :
+  forall t,
+    taskset_periodic_dbf tasks_ex enumT_ex t <= t.
+Proof.
+  apply dbf_check_by_cutoff.
+  - exact enumT_ex_nodup.
+  - intros τ Hin.
+    apply tasks_ex_well_formed.
+    apply in_enumT_ex_implies_T_ex.
+    exact Hin.
+  - exact periodic_infinite_example_dbf_test_by_cutoff.
+Qed.
+
 Section InfinitePeriodicEDFExample.
 
   Variable codec_inf_ex : PeriodicCodec T_ex tasks_ex offset_ex jobs_ex.
@@ -40,10 +60,6 @@ Section InfinitePeriodicEDFExample.
 
   Hypothesis offset_zero_ex :
     forall τ, In τ enumT_ex -> offset_ex τ = 0.
-
-  Hypothesis periodic_classical_dbf_ex :
-    forall t,
-      taskset_periodic_dbf tasks_ex enumT_ex t <= t.
 
   Example periodic_infinite_example_job0_no_deadline_miss :
     ~ missed_deadline jobs_ex 1
@@ -100,7 +116,7 @@ Section InfinitePeriodicEDFExample.
     1: exact in_enumT_ex_implies_T_ex.
     1: exact offset_zero_ex.
     1: apply busy_prefix_bridge_ex.
-    1: exact periodic_classical_dbf_ex.
+    1: exact periodic_infinite_example_classical_dbf.
   Qed.
 
   Example periodic_infinite_example_job0_no_deadline_miss_by_classical_dbf :
@@ -124,7 +140,7 @@ Section InfinitePeriodicEDFExample.
       split.
       + left. reflexivity.
       + exact generated_job0_ex.
-    - exact periodic_classical_dbf_ex.
+    - exact periodic_infinite_example_classical_dbf.
   Qed.
 
 End InfinitePeriodicEDFExample.
