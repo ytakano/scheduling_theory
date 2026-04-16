@@ -46,6 +46,7 @@ theories/Examples/PeriodicProcessorDemandCompatExamples.v
 theories/Examples/SporadicExamples.v
 theories/Examples/RRExamples.v
 theories/Examples/SchedulableExamples.v
+Tutorials/EDFSchedulability.v
 theories/Foundation/Base.v
 theories/Multicore/Common/MultiCoreBase.v
 theories/Multicore/Common/ServiceFacts.v
