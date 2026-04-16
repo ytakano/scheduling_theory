@@ -228,6 +228,26 @@ Definition sched_inf_ex : Schedule :=
   generated_periodic_edf_schedule
     T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex.
 
+Example periodic_classical_dbf_test_by_cutoff_ex :
+  dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma periodic_classical_dbf_from_cutoff_ex :
+  forall t,
+    taskset_periodic_dbf tasks_ex enumT_ex t <= t.
+Proof.
+  apply dbf_check_by_cutoff.
+  - exact enumT_ex_nodup.
+  - intros τ Hin.
+    apply tasks_ex_well_formed.
+    apply enumT_ex_sound.
+    exact Hin.
+  - exact periodic_classical_dbf_test_by_cutoff_ex.
+Qed.
+
 Definition periodic_window_dbf_bound_ex : Prop :=
   forall t1 t2,
     t1 <= t2 ->
@@ -287,3 +307,46 @@ Section TutorialProof.
   Qed.
 
 End TutorialProof.
+
+Section TutorialClassicalProof.
+  Hypothesis Hbridge : generated_edf_busy_prefix_bridge_ex.
+
+  Theorem tutorial_periodic_edf_job0_no_deadline_miss_by_classical_dbf :
+    ~ missed_deadline jobs_ex 1 sched_inf_ex (job_id_of_ex 0 0).
+  Proof.
+    apply periodic_edf_no_deadline_miss_from_classical_dbf.
+    - exact tasks_ex_well_formed.
+    - exact enumT_ex_nodup.
+    - exact enumT_ex_complete.
+    - exact enumT_ex_sound.
+    - intros τ Hin. reflexivity.
+    - unfold periodic_jobset, T_ex.
+      split.
+      + left. reflexivity.
+      + exact generated_job0_ex.
+    - apply Hbridge.
+      unfold periodic_jobset, T_ex.
+      split.
+      + left. reflexivity.
+      + exact generated_job0_ex.
+    - exact periodic_classical_dbf_from_cutoff_ex.
+  Qed.
+
+  Theorem tutorial_periodic_edf_schedulable_by_classical_dbf :
+    schedulable_by_on
+      (periodic_jobset T_ex tasks_ex offset_ex jobs_ex)
+      (edf_scheduler
+         (periodic_candidates_before
+            T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex))
+      jobs_ex 1.
+  Proof.
+    eapply periodic_edf_schedulable_by_classical_dbf_on.
+    1: exact tasks_ex_well_formed.
+    1: exact enumT_ex_nodup.
+    1: exact enumT_ex_complete.
+    1: exact enumT_ex_sound.
+    1: intros τ Hin; reflexivity.
+    1: apply Hbridge.
+    1: exact periodic_classical_dbf_from_cutoff_ex.
+  Qed.
+End TutorialClassicalProof.

@@ -25,6 +25,8 @@ From RocqSched Require Export TaskModels.Periodic.PeriodicEDFInfiniteBridge.
       zero-offset classical-DBF convenience wrapper
     - `periodic_edf_schedulable_by_window_dbf_on` as the explicit
       window-DBF alias
+    - bounded finite-horizon concrete DBF/window-DBF checkers
+    - scalar cutoff helpers for infinite zero-offset classical DBF proofs
     - finite- and infinite-time zero-offset classical-DBF corollaries with
       explicit busy-prefix bridges
     - periodic EDF no-miss / feasible-schedule / schedulable-by-on wrappers

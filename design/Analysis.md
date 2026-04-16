@@ -83,8 +83,6 @@ For this window:
 - task $\tau_2$ can release at most two jobs in a window of length $5$,
   but only one of them must have its deadline within the window.
 
-Hence:
-
 #### Request Bound
 
 Request bound is an upper bound on the amount of execution that may be requested within the interval.
@@ -148,6 +146,14 @@ So the total demand bound is
 ```math
 \mathrm{DBF}_{\tau_1}(5) + \mathrm{DBF}_{\tau_2}(5) = 3.
 ```
+
+Besides the usual DBF indexed by a window length $H$, we also use a
+**window-DBF**, which fixes a concrete interval $[t_1,t_2)$.
+It measures the amount of execution that must be completed within that
+specific window for jobs whose deadlines fall in $[t_1,t_2)$.
+Hence, scalar DBF is length-based, whereas window-DBF is interval-based.
+Under regular release patterns such as zero-offset periodic task sets,
+the interval-based view often collapses to the usual scalar DBF.
 
 #### Processor Demand
 

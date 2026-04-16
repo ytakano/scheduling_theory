@@ -44,6 +44,8 @@ S (job_abs_deadline (jobs_ex j))
 
 but the public theorem itself concludes a global schedulability result.
 
+For the explicit classical-DBF convenience wrapper, the recommended proof path is now to prove a finite cutoff check by `vm_compute` and then derive the universal scalar DBF theorem with `dbf_check_by_cutoff`.
+
 ---
 
 ## 2. Import the required libraries
@@ -204,6 +206,46 @@ Definition periodic_window_dbf_bound_ex : Prop :=
 
 This is the scalable demand-side obligation consumed by the canonical infinite-time public API. The zero-offset classical-DBF wrappers remain available as explicit convenience corollaries, but the main schedulability path is now the window-DBF one.
 
+### 8.1-bis Classical scalar DBF through a finite cutoff check
+
+For the classical wrapper, do **not** hand-prove
+
+```coq
+forall t, taskset_periodic_dbf tasks_ex enumT_ex t <= t
+```
+
+directly. The intended path is:
+
+```coq
+Example periodic_classical_dbf_test_by_cutoff_ex :
+  dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma periodic_classical_dbf_from_cutoff_ex :
+  forall t,
+    taskset_periodic_dbf tasks_ex enumT_ex t <= t.
+Proof.
+  apply dbf_check_by_cutoff.
+  - exact enumT_ex_nodup.
+  - intros τ Hin.
+    apply tasks_ex_well_formed.
+    apply enumT_ex_sound.
+    exact Hin.
+  - exact periodic_classical_dbf_test_by_cutoff_ex.
+Qed.
+```
+
+This cutoff helper is currently:
+
+* scalar only,
+* zero-offset only,
+* conservative rather than minimal.
+
+It is meant to eliminate the user-facing infinite `forall t` proof obligation for concrete task sets.
+
 ### 8.2 Per-job finite busy-prefix bridge
 
 ```coq
@@ -279,6 +321,15 @@ At this point, the entire proof pattern is visible:
 4. isolate window-DBF and busy-prefix obligations,
 5. apply the canonical infinite-time EDF wrapper theorem.
 
+The tutorial file also includes the explicit classical-DBF variant:
+
+```coq
+Theorem tutorial_periodic_edf_schedulable_by_classical_dbf :
+  schedulable_by_on ...
+```
+
+which reuses `periodic_classical_dbf_from_cutoff_ex` rather than a manual universal DBF hypothesis.
+
 ---
 
 ## 11. What the user still has to prove
@@ -312,7 +363,7 @@ forall j,
     j
 ```
 
-These are the only tutorial hypotheses. Everything else is concrete and compile-checked.
+For the window-DBF path, these are the only tutorial hypotheses. For the classical path, the tutorial replaces the scalar `forall t` demand bound with a finite cutoff computation and therefore leaves only the busy-prefix bridge as a hypothesis.
 
 ---
 
@@ -341,3 +392,5 @@ This is the intended layering of the library:
 * finite generated EDF bridge remains the proof core,
 * infinite periodic EDF API is a wrapper above it,
 * downstream users import only the stable public entry points.
+
+At the moment, only the scalar classical-DBF path has a finite cutoff helper. A generic finite cutoff API for `window_dbf` remains future work.

@@ -19,6 +19,8 @@ From RocqSched Require Export TaskModels.Periodic.PeriodicLLFInfiniteBridge.
       zero-offset classical-DBF convenience wrapper
     - `periodic_llf_schedulable_by_window_dbf_on` as the explicit
       window-DBF alias
+    - bounded finite-horizon concrete DBF/window-DBF checkers
+    - scalar cutoff helpers for infinite zero-offset classical DBF proofs
     - infinite-time periodic LLF candidate/coherence interfaces
     - infinite-time generated-LLF no-miss / feasible / schedulable wrappers
     - infinite-time zero-offset classical-DBF corollaries

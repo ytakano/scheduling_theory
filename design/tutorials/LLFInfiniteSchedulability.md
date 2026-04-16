@@ -38,6 +38,8 @@ Theorem tutorial_periodic_llf_schedulable :
 
 The infinite wrapper builds a global generated LLF schedule from the released-prefix candidate source `periodic_candidates_before`. The canonical public schedulability theorem is the window-DBF wrapper, while the proof core still consumes finite-horizon bridge information.
 
+For the explicit classical-DBF convenience wrapper, the recommended proof path is now to prove a finite scalar cutoff check by `vm_compute` and then derive the universal DBF theorem with `dbf_check_by_cutoff`.
+
 ---
 
 ## 2. Import the required libraries
@@ -191,6 +193,38 @@ Definition periodic_window_dbf_bound_ex : Prop :=
 
 This is the scalable demand-side obligation consumed by the canonical infinite-time public API. The zero-offset classical-DBF wrappers remain available as explicit convenience corollaries, but the main schedulability path is now the window-DBF one.
 
+### 8.1-bis Classical scalar DBF through a finite cutoff check
+
+For the classical wrapper, the intended concrete proof is:
+
+```coq
+Example periodic_classical_dbf_test_by_cutoff_ex :
+  dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma periodic_classical_dbf_from_cutoff_ex :
+  forall t,
+    taskset_periodic_dbf tasks_ex enumT_ex t <= t.
+Proof.
+  apply dbf_check_by_cutoff.
+  - exact enumT_ex_nodup.
+  - intros τ Hin.
+    apply tasks_ex_well_formed.
+    apply enumT_ex_sound.
+    exact Hin.
+  - exact periodic_classical_dbf_test_by_cutoff_ex.
+Qed.
+```
+
+This helper is currently:
+
+* scalar only,
+* zero-offset only,
+* conservative rather than minimal.
+
 ### 8.2 Finite busy-prefix bridge for every finite horizon
 
 The LLF wrapper currently expects the following finite-horizon bridge:
@@ -269,6 +303,8 @@ At this point, the proof pattern is visible:
 4. isolate window-DBF and finite-horizon busy-prefix obligations,
 5. apply the canonical infinite-time LLF wrapper theorem.
 
+The tutorial file also includes the explicit classical-DBF LLF theorem, which uses the cutoff-derived scalar DBF lemma instead of a manual `forall t` assumption.
+
 ---
 
 ## 11. What the user still has to prove
@@ -306,7 +342,7 @@ forall H j,
       j
 ```
 
-These are the only tutorial hypotheses. Everything else is concrete and compile-checked.
+For the window-DBF path, these are the only tutorial hypotheses. For the classical path, the scalar `forall t` DBF argument is replaced by a finite cutoff computation, so only the finite-horizon EDF busy-prefix bridge remains as a hypothesis.
 
 ---
 
@@ -335,3 +371,5 @@ This is the intended layering of the library:
 * finite generated EDF/LLF bridge facts remain the proof core,
 * infinite periodic LLF API is a wrapper above them,
 * downstream users import only the stable public entry points.
+
+As in the EDF tutorial, only the scalar classical-DBF path currently has a finite cutoff helper. A generic `window_dbf` cutoff API remains future work.
