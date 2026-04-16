@@ -14,6 +14,8 @@ This document covers general Rocq proof engineering:
 This is not the place for library-specific detail.
 For stdpp, consult `STDPP_AGENT.md`.
 
+There is no `coqc`, but there is `rocq`. Use `rocq` or `make <file>.vo` for compiliation.
+
 ---
 
 ## Purpose
