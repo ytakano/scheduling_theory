@@ -77,3 +77,60 @@ Recommended proof route:
 - The concrete EDF-choice proof may still need a small helper to control candidate membership at each release time.
 - The real difficulty is not `busy_prefix_witness`; it is proving that earlier jobs are completed by the time the current window starts being relevant.
 - If the local schedule proof becomes repetitive, add one more helper lemma in the tutorial, not in `theories/`, unless it is clearly reusable outside this example.
+
+## 2026-04-16 follow-up
+
+- Added concrete normalization lemmas in `Tutorials/EDFInfiniteSchedulability.v`:
+  - `jobs_ex_task0_release`
+  - `jobs_ex_task0_deadline`
+  - `jobs_ex_task0_cost`
+  - `jobs_ex_task1_release`
+  - `jobs_ex_task1_deadline`
+  - `jobs_ex_task1_cost`
+- Added initial local definitions:
+  - `service_slot_ex`
+  - `slot_job_ex`
+- Added a reusable arithmetic helper file:
+  - `theories/TaskModels/Periodic/PeriodicArithmetic.v`
+  - registered in `_CoqProject`
+  - currently contains:
+    - `nat_div2_double`
+    - `nat_div2_succ_double`
+    - `nat_div_mul_exact`
+    - `nat_mod_mul_left`
+    - `nat_div_35q_plus_1_by_7`
+    - `nat_mod_35q_plus_1_by_35`
+    - `nat_mod_7k_by_7`
+    - `nat_mod_5k_by_5`
+
+This keeps the tutorial compiling and fixes the concrete arithmetic interface needed for the next step.
+
+What was attempted but intentionally not kept:
+- tutorial-local derived lemmas connecting `service_slot_ex` and `slot_job_ex` directly to concrete job IDs
+- an initial direct proof pass toward the no-carry-in bridge using those lemmas
+
+Why it was rolled back:
+- the arithmetic normalizers are now available, but the local schedule lemmas still need a cleaner proof shape
+- the first pass mixed arithmetic normalization and schedule reasoning too tightly
+- keeping those partially stabilized proofs in the tutorial would make the next iteration harder, not easier
+
+Current repository state after this pass:
+- `theories/TaskModels/Periodic/PeriodicArithmetic.v` compiles
+- `Tutorials/EDFInfiniteSchedulability.v` compiles
+- the bridge assumption `generated_edf_busy_prefix_no_carry_in_bridge_ex` is still not proved
+
+Updated next step:
+1. Reintroduce tutorial-local derived lemmas for:
+   - `service_slot_ex (job_id_of_ex 0 k)`
+   - `service_slot_ex (job_id_of_ex 1 k)`
+   - `slot_job_ex (5 * k)`
+   - `slot_job_ex (7 * k)` in the non-simultaneous case
+   - `slot_job_ex (35 * q + 1)` in the simultaneous case
+2. Prove exact run facts on `sched_inf_ex` from EDF candidate completeness/min-deadline reasoning.
+3. Turn run facts into completion facts using:
+   - `sched_inf_ex_valid`
+   - `service_at_release_zero`
+   - `remaining_cost_step_running_uni`
+   - `completed_monotone`
+4. Prove the infinite-schedule no-carry-in lemma first, then transfer it to `generated_periodic_edf_schedule_upto` via `sched_upto_ex_completed_iff_sched_inf_ex`.
+5. Only after those pieces are in place, finish `generated_edf_busy_prefix_no_carry_in_bridge_ex`.

@@ -1,14 +1,18 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
 From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
+From RocqSched Require Import TaskModels.Periodic.PeriodicArithmetic.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFInfiniteBridge.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
 
@@ -147,6 +151,60 @@ Proof.
   reflexivity.
 Qed.
 
+Lemma jobs_ex_task0_release :
+  forall k,
+    job_release (jobs_ex (2 * k)) = 5 * k.
+Proof.
+  intros k.
+  rewrite jobs_ex_task0.
+  reflexivity.
+Qed.
+
+Lemma jobs_ex_task0_deadline :
+  forall k,
+    job_abs_deadline (jobs_ex (2 * k)) = 5 * k + 2.
+Proof.
+  intros k.
+  rewrite jobs_ex_task0.
+  reflexivity.
+Qed.
+
+Lemma jobs_ex_task0_cost :
+  forall k,
+    job_cost (jobs_ex (2 * k)) = 1.
+Proof.
+  intros k.
+  rewrite jobs_ex_task0.
+  reflexivity.
+Qed.
+
+Lemma jobs_ex_task1_release :
+  forall k,
+    job_release (jobs_ex (S (2 * k))) = 7 * k.
+Proof.
+  intros k.
+  rewrite jobs_ex_task1.
+  reflexivity.
+Qed.
+
+Lemma jobs_ex_task1_deadline :
+  forall k,
+    job_abs_deadline (jobs_ex (S (2 * k))) = 7 * k + 3.
+Proof.
+  intros k.
+  rewrite jobs_ex_task1.
+  reflexivity.
+Qed.
+
+Lemma jobs_ex_task1_cost :
+  forall k,
+    job_cost (jobs_ex (S (2 * k))) = 1.
+Proof.
+  intros k.
+  rewrite jobs_ex_task1.
+  reflexivity.
+Qed.
+
 (* ================================================================ *)
 (* 3. A concrete global codec                                        *)
 (* ================================================================ *)
@@ -274,6 +332,24 @@ Proof.
        enumT_ex_sound
        Ht).
 Qed.
+
+Definition service_slot_ex (j : JobId) : Time :=
+  if Nat.even j then
+    5 * Nat.div2 j
+  else if Nat.eqb (Nat.div2 j mod 5) 0 then
+    7 * Nat.div2 j + 1
+  else
+    7 * Nat.div2 j.
+
+Definition slot_job_ex (t : Time) : option JobId :=
+  if Nat.eqb (t mod 5) 0 then
+    Some (job_id_of_ex 0 (t / 5))
+  else if Nat.eqb (t mod 35) 1 then
+    Some (job_id_of_ex 1 (t / 7))
+  else if Nat.eqb (t mod 7) 0 then
+    Some (job_id_of_ex 1 (t / 7))
+  else
+    None.
 
 Lemma hyperperiod_load_ex :
   hyperperiod_load tasks_ex enumT_ex 35 = 12.

@@ -102,6 +102,7 @@ theories/TaskModels/Periodic/PeriodicWorkload.v
 theories/TaskModels/Periodic/PeriodicDemandBound.v
 theories/TaskModels/Periodic/PeriodicWindowDemandBound.v
 theories/TaskModels/Periodic/PeriodicEnumeration.v
+theories/TaskModels/Periodic/PeriodicArithmetic.v
 theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicConcreteAnalysis.v
 theories/TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v
