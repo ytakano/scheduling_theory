@@ -65,13 +65,13 @@ That base is already substantial.
 
 The next work is mainly:
 
-1. stabilize and document the reusable theory and public theorem inventory
-2. stabilize and document the multicore theorem-layer public APIs
-3. turn partitioned multicore into a mature theorem layer
-4. strengthen multicore-common semantics and the reusable global theorem layers
-5. introduce OS-level operational semantics and projection discipline
-6. complete refinement on a designable OS and validate external applicability on Linux
-7. deepen idealized and delay-aware analyses on top of the current foundations
+1. close the current periodic EDF window-DBF layer with zero-offset classical corollaries
+2. add an analytical LLF theorem layer via laxity / feasibility bridges
+3. stabilize and document the multicore theorem-layer public APIs
+4. turn partitioned multicore into a mature theorem layer
+5. strengthen multicore-common semantics and the reusable global theorem layers
+6. introduce OS-level operational semantics and projection discipline
+7. complete refinement on a designable OS and validate external applicability on Linux
 
 ### Research gap and intended novelty frontier
 
@@ -103,8 +103,10 @@ The project should follow these proof-discipline rules.
   over leaving an unprovable API in place.
 - Treat helper lemmas, bridge lemmas, and witness-packaging records as
   **first-class milestones**, not as disposable temporary work.
-- Close the current **Periodic EDF** public bridge/API first, then widen to other
-  bridges and only later to cross-policy generalization.
+- Treat the current **Periodic EDF** public bridge/API as largely stabilized:
+  the next uniprocessor step is to derive zero-offset classical corollaries
+  from the existing window-DBF bridge, then widen to other policy-specific
+  analytical layers such as LLF.
 
 ### Design principle for delay modeling
 
@@ -666,6 +668,18 @@ This is the immediate follow-up packaging step after G-2a.
   import boundary
 - `PeriodicProcessorDemandCompatExamples.v` remains the legacy client for the
   unpackaged APIs
+
+### G-2c. Periodic EDF classical corollary closure
+**Status: Implemented as a bridge-first public layer**
+
+- `PeriodicClassicDBF.v` closes the zero-offset special case from window-DBF to
+  scalar DBF
+- `PeriodicEDFClassicalBridge.v` exposes the canonical public corollaries only
+  in bridge-first form
+- do not treat generated EDF alone as enough to derive `no_carry_in`
+- any future attempt to auto-supply `periodic_edf_busy_prefix_bridge` should be
+  planned as a separate theorem family with additional backlog / prefix
+  assumptions
 
 ### G-3. Supply-bound / interface theory
 **Status: Initial multicore full-supply equality layer implemented; stable analysis entry-point packaging added**

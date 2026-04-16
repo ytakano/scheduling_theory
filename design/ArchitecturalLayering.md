@@ -71,6 +71,17 @@ Primary document:
 
 The analysis layer hosts interval-based schedulability reasoning such as busy intervals, busy windows, processor demand, processor supply, interference, workload absorption, and fairness-facing packaged entry points.
 
+For uniprocessor policy analysis, this layer may also expose:
+
+- finite-horizon witness / bridge theorems
+- classical corollaries extracted from richer window-aware statements
+- policy-specific feasibility bridges such as EDF processor-demand and LLF laxity results
+
+When a classical corollary depends on a stronger schedule-local bridge
+(`no_carry_in`, backlog exclusion, or chosen busy-prefix properties), keep the
+corollary bridge-first instead of weakening the API beyond what the current
+proof layer justifies.
+
 Primary document:
 - `design/Analysis.md`
 

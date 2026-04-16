@@ -2,6 +2,7 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
+From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
@@ -171,4 +172,40 @@ Proof.
     + left. reflexivity.
     + right. reflexivity.
   - exact periodic_window_dbf_test.
+Qed.
+
+Theorem periodic_example_edf_schedulable_by_classical_dbf_generated_with_busy_prefix_bridge :
+  (forall t, taskset_periodic_dbf tasks_ex enumT_ex t <= t) ->
+  (forall j,
+    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
+    job_abs_deadline (jobs_ex j) <= H_ex /\
+    periodic_edf_busy_prefix_bridge
+      T_ex tasks_ex offset_ex jobs_ex H_ex
+      (generated_schedule
+         edf_generic_spec
+         (enum_candidates_of
+            (enum_periodic_jobs_upto
+               T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex))
+         jobs_ex)
+      j) ->
+  schedulable_by_on
+    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
+    (edf_scheduler
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
+    jobs_ex 1.
+Proof.
+  intros Hdbf_classical Hjob_bridge.
+  eapply periodic_classical_dbf_implies_generated_edf_schedulable_with_busy_prefix_bridge
+    with (enumT := enumT_ex); eauto.
+  - exact tasks_ex_well_formed.
+  - exact enumT_ex_nodup.
+  - intros τ Hτ.
+    destruct Hτ as [Hτ | Hτ]; subst τ; simpl; tauto.
+  - intros τ Hτ.
+    simpl in Hτ.
+    destruct Hτ as [Hτ | [Hτ | []]]; subst τ.
+    + left. reflexivity.
+    + right. reflexivity.
 Qed.

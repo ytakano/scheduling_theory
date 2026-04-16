@@ -54,7 +54,8 @@
 7. analysis and advanced guarantees
 
 現状では、Periodic EDF idealized-analysis inventory の stable entry-point 化は
-完了済みとして扱う。次の主戦場は `Operational / Delay / Refinement` である。
+完了済みとして扱う。次の uniprocessor analysis 側の主戦場は、
+zero-offset classical EDF corollary と LLF analytical bridge である。
 
 ## Design principle for delay-aware proofs
 
@@ -1067,8 +1068,10 @@ Done:
 Remaining:
 - busy-interval existence lemma: constructive extraction of maximal busy interval
   from any busy time point in a discrete schedule
-- construct a generic EDF witness schedule to recover the original weak
-  window-DBF APIs without an explicit schedule witness
+- keep the bridge-first classical EDF corollary as the canonical public API;
+  do not treat generated EDF alone as sufficient to derive `no_carry_in`
+- split any future `periodic_edf_busy_prefix_bridge` supply story into a
+  separate task with explicit backlog-exclusion / prefix-choice assumptions
 - utilization / dbf hooks above the aggregate layer
 - rbf / sbf style interfaces
 - policy-specific analysis wrappers

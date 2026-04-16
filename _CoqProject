@@ -21,6 +21,7 @@ theories/Analysis/Uniprocessor/RequestBound.v
 theories/Analysis/Uniprocessor/DemandBound.v
 theories/Analysis/Uniprocessor/ProcessorDemand.v
 theories/Analysis/Uniprocessor/EDFProcessorDemand.v
+theories/Analysis/Uniprocessor/LLFLaxityFeasibility.v
 theories/Analysis/Uniprocessor/ResponseTimeSearch.v
 theories/Examples/AffinityExamples.v
 theories/Examples/BusyIntervalExamples.v
@@ -97,7 +98,10 @@ theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicEDFBridgeCompat.v
+theories/TaskModels/Periodic/PeriodicClassicDBF.v
+theories/TaskModels/Periodic/PeriodicEDFClassicalBridge.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v
+theories/TaskModels/Periodic/PeriodicLLFAnalysisBridge.v
 theories/TaskModels/Periodic/PeriodicPartitionedFiniteOptimalityLift.v
 theories/TaskModels/Common/FiniteHorizonWitness.v
 theories/TaskModels/Common/WitnessCandidates.v
