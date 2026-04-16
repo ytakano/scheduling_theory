@@ -1,6 +1,7 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool Sorting.Permutation.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import TaskModels.Periodic.PeriodicReleaseLemmas.
 From RocqSched Require Import Analysis.Common.WorkloadAggregation.
 
 Import ListNotations.
@@ -95,6 +96,68 @@ Proof.
   exact (generated_implies_valid_job_of_task tasks offset jobs j
            (periodic_jobset_deadline_between_implies_generated
               T tasks offset jobs t1 t2 j Hjobset)).
+Qed.
+
+Lemma periodic_jobset_deadline_between_implies_release_eq_expected :
+  forall T tasks offset jobs t1 t2 j,
+    periodic_jobset_deadline_between T tasks offset jobs t1 t2 j ->
+    job_release (jobs j) =
+    expected_release tasks offset (job_task (jobs j)) (job_index (jobs j)).
+Proof.
+  intros T tasks offset jobs t1 t2 j Hjobset.
+  exact (generated_job_release tasks offset jobs j
+           (periodic_jobset_deadline_between_implies_generated
+              T tasks offset jobs t1 t2 j Hjobset)).
+Qed.
+
+Lemma periodic_jobset_deadline_between_implies_deadline_eq_expected :
+  forall T tasks offset jobs t1 t2 j,
+    periodic_jobset_deadline_between T tasks offset jobs t1 t2 j ->
+    job_abs_deadline (jobs j) =
+    expected_abs_deadline tasks offset (job_task (jobs j)) (job_index (jobs j)).
+Proof.
+  intros T tasks offset jobs t1 t2 j Hjobset.
+  destruct (periodic_jobset_deadline_between_implies_generated
+              T tasks offset jobs t1 t2 j Hjobset) as [_ [Hdl _]].
+  exact Hdl.
+Qed.
+
+Lemma periodic_jobset_deadline_between_same_task_same_release_implies_same_index :
+  forall T tasks offset jobs t1 t2 j1 j2,
+    well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_deadline_between T tasks offset jobs t1 t2 j1 ->
+    periodic_jobset_deadline_between T tasks offset jobs t1 t2 j2 ->
+    job_task (jobs j1) = job_task (jobs j2) ->
+    job_release (jobs j1) = job_release (jobs j2) ->
+    job_index (jobs j1) = job_index (jobs j2).
+Proof.
+  intros T tasks offset jobs t1 t2 j1 j2 Hwf Hjob1 Hjob2 Htask Hrel.
+  eapply generated_by_periodic_same_task_same_release_implies_same_index; eauto.
+  - exact (periodic_jobset_deadline_between_implies_task_in_scope
+             T tasks offset jobs t1 t2 j1 Hjob1).
+  - exact (periodic_jobset_deadline_between_implies_generated
+             T tasks offset jobs t1 t2 j1 Hjob1).
+  - exact (periodic_jobset_deadline_between_implies_generated
+             T tasks offset jobs t1 t2 j2 Hjob2).
+Qed.
+
+Lemma periodic_jobset_deadline_between_same_task_release_le_implies_index_le :
+  forall T tasks offset jobs t1 t2 j1 j2,
+    well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_deadline_between T tasks offset jobs t1 t2 j1 ->
+    periodic_jobset_deadline_between T tasks offset jobs t1 t2 j2 ->
+    job_task (jobs j1) = job_task (jobs j2) ->
+    job_release (jobs j1) <= job_release (jobs j2) ->
+    job_index (jobs j1) <= job_index (jobs j2).
+Proof.
+  intros T tasks offset jobs t1 t2 j1 j2 Hwf Hjob1 Hjob2 Htask Hrel.
+  eapply generated_by_periodic_same_task_release_le_implies_index_le; eauto.
+  - exact (periodic_jobset_deadline_between_implies_task_in_scope
+             T tasks offset jobs t1 t2 j1 Hjob1).
+  - exact (periodic_jobset_deadline_between_implies_generated
+             T tasks offset jobs t1 t2 j1 Hjob1).
+  - exact (periodic_jobset_deadline_between_implies_generated
+             T tasks offset jobs t1 t2 j2 Hjob2).
 Qed.
 
 Lemma periodic_jobset_deadline_between_implies_index_le_t2 :

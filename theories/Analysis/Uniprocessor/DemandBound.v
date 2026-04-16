@@ -81,6 +81,35 @@ Proof.
   simpl. lia.
 Qed.
 
+Lemma div_le_self :
+  forall n d,
+    0 < d ->
+    n / d <= n.
+Proof.
+  intros n d Hd.
+  pose proof (Nat.div_mod n d) as Hdiv.
+  assert (Hd' : d <> 0) by lia.
+  specialize (Hdiv Hd').
+  assert (Hmul_le : d * (n / d) <= n) by lia.
+  destruct (n / d) eqn:Hq.
+  - apply Nat.le_0_l.
+  - destruct d.
+    + lia.
+    + lia.
+Qed.
+
+Lemma div_mul_le_self :
+  forall n d,
+    0 < d ->
+    d * (n / d) <= n.
+Proof.
+  intros n d Hd.
+  pose proof (Nat.div_mod n d) as Hdiv.
+  assert (Hd' : d <> 0) by lia.
+  specialize (Hdiv Hd').
+  lia.
+Qed.
+
 (* ===== Monotonicity ===== *)
 
 (* The count S((H - d) / p) is non-decreasing in H. *)

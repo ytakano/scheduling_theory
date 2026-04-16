@@ -226,7 +226,7 @@ Proof.
   eapply periodic_edf_no_deadline_miss_from_classical_dbf; eauto.
 Qed.
 
-Theorem periodic_edf_schedulable_by_window_dbf_on :
+Theorem periodic_edf_schedulable_by_on :
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
     well_formed_periodic_tasks_on T tasks ->
@@ -259,7 +259,32 @@ Proof.
   - eapply periodic_edf_feasible_schedule_from_window_dbf; eauto.
 Qed.
 
-Theorem periodic_edf_schedulable_by_on :
+Theorem periodic_edf_schedulable_by_window_dbf_on :
+  forall T tasks offset enumT jobs
+         (codec : PeriodicCodec T tasks offset jobs),
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall j,
+      periodic_jobset T tasks offset jobs j ->
+      periodic_edf_busy_prefix_bridge
+        T tasks offset jobs (S (job_abs_deadline (jobs j)))
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs (S (job_abs_deadline (jobs j))) enumT codec)
+        j) ->
+    (forall t1 t2,
+      t1 <= t2 ->
+      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
+    schedulable_by_on
+      (periodic_jobset T tasks offset jobs)
+      (edf_scheduler (periodic_candidates_before T tasks offset jobs enumT codec))
+      jobs 1.
+Proof.
+  exact periodic_edf_schedulable_by_on.
+Qed.
+
+Theorem periodic_edf_schedulable_by_classical_dbf_on :
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
     well_formed_periodic_tasks_on T tasks ->

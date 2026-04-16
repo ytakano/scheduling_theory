@@ -13,9 +13,11 @@ From RocqSched Require Export TaskModels.Periodic.PeriodicLLFInfiniteBridge.
     - the packaged periodic EDF idealized-analysis inventory
     - periodic LLF finite-horizon optimality wrappers
     - `periodic_llf_schedulable_by_on` as the canonical infinite-time
-      zero-offset classical-DBF schedulability API
-    - `periodic_llf_schedulable_by_window_dbf_on` as the explicit lower-level
-      window-DBF schedulability variant
+      window-DBF schedulability API
+    - `periodic_llf_schedulable_by_classical_dbf_on` as the explicit
+      zero-offset classical-DBF convenience wrapper
+    - `periodic_llf_schedulable_by_window_dbf_on` as the explicit
+      window-DBF alias
     - infinite-time periodic LLF candidate/coherence interfaces
     - infinite-time generated-LLF no-miss / feasible / schedulable wrappers
     - infinite-time zero-offset classical-DBF corollaries

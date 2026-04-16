@@ -1065,10 +1065,10 @@ Done:
   both window DBF and zero-offset classical DBF assumptions
 - the canonical infinite-time public schedulability names
   `periodic_edf_schedulable_by_on` and `periodic_llf_schedulable_by_on`
-  now denote the zero-offset classical-DBF wrappers; the explicit
-  window-DBF variants live under
-  `periodic_edf_schedulable_by_window_dbf_on` and
-  `periodic_llf_schedulable_by_window_dbf_on`
+  now denote the window-DBF wrappers; the explicit zero-offset
+  classical-DBF variants live under
+  `periodic_edf_schedulable_by_classical_dbf_on` and
+  `periodic_llf_schedulable_by_classical_dbf_on`
 - `PeriodicInfiniteEDFExamples.v` and `PeriodicInfiniteLLFExamples.v` provide
   downstream clients for the infinite-time EDF/LLF window-DBF and classical-DBF
   wrappers

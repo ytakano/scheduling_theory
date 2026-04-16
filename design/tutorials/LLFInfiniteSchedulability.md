@@ -36,7 +36,7 @@ Theorem tutorial_periodic_llf_schedulable :
     jobs_ex 1.
 ```
 
-The infinite wrapper builds a global generated LLF schedule from the released-prefix candidate source `periodic_candidates_before`. The canonical public schedulability theorem is the zero-offset classical-DBF wrapper, while the proof core still consumes finite-horizon bridge information.
+The infinite wrapper builds a global generated LLF schedule from the released-prefix candidate source `periodic_candidates_before`. The canonical public schedulability theorem is the window-DBF wrapper, while the proof core still consumes finite-horizon bridge information.
 
 ---
 
@@ -180,15 +180,16 @@ internally, so only jobs released by time `t` matter to the LLF choice.
 
 The infinite LLF wrapper now leaves two analysis obligations to the user.
 
-### 8.1 Scalar classical DBF bound
+### 8.1 Window-DBF bound
 
 ```coq
-Definition periodic_classical_dbf_bound_ex : Prop :=
-  forall t,
-    taskset_periodic_dbf tasks_ex enumT_ex t <= t.
+Definition periodic_window_dbf_bound_ex : Prop :=
+  forall t1 t2,
+    t1 <= t2 ->
+    taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
 ```
 
-This is the demand-bound side consumed by the canonical infinite-time public API under the zero-offset assumption already built into the concrete model.
+This is the scalable demand-side obligation consumed by the canonical infinite-time public API. The zero-offset classical-DBF wrappers remain available as explicit convenience corollaries, but the main schedulability path is now the window-DBF one.
 
 ### 8.2 Finite busy-prefix bridge for every finite horizon
 
@@ -230,7 +231,7 @@ Theorem tutorial_periodic_llf_job0_no_deadline_miss :
 The proof uses:
 
 ```coq
-periodic_llf_no_deadline_miss_from_classical_dbf
+periodic_llf_no_deadline_miss_from_window_dbf
 ```
 
 and supplies:
@@ -238,8 +239,7 @@ and supplies:
 * the task-setup lemmas,
 * the concrete proof that `(task 0, index 0)` belongs to `periodic_jobset`,
 * the finite-horizon bridge hypothesis,
-* the zero-offset proof,
-* the scalar classical DBF hypothesis.
+* the window-DBF hypothesis.
 
 ---
 
@@ -257,8 +257,7 @@ Theorem tutorial_periodic_llf_schedulable :
     jobs_ex 1.
 Proof.
   eapply periodic_llf_schedulable_by_on; eauto.
-  - intros tau Htau_in. unfold offset_ex. reflexivity.
-  - exact Hclassical_dbf.
+  - exact Hdbf.
 Qed.
 ```
 
@@ -267,7 +266,7 @@ At this point, the proof pattern is visible:
 1. define the concrete periodic tasks,
 2. define a truly global concrete job map,
 3. prove the global codec,
-4. isolate DBF and finite-horizon busy-prefix obligations,
+4. isolate window-DBF and finite-horizon busy-prefix obligations,
 5. apply the canonical infinite-time LLF wrapper theorem.
 
 ---
@@ -276,13 +275,14 @@ At this point, the proof pattern is visible:
 
 The tutorial intentionally leaves exactly two open assumptions.
 
-### Obligation 1: scalar classical DBF bound
+### Obligation 1: window-DBF bound
 
 You must prove:
 
 ```coq
-forall t,
-  taskset_periodic_dbf tasks_ex enumT_ex t <= t
+forall t1 t2,
+  t1 <= t2 ->
+  taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1
 ```
 
 ### Obligation 2: finite busy-prefix bridge for each finite horizon

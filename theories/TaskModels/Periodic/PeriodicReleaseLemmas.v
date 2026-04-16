@@ -50,6 +50,22 @@ Proof.
   - exact Hlt_idx.
 Qed.
 
+Lemma expected_release_le_implies_index_le :
+  forall T tasks offset τ k1 k2,
+    well_formed_periodic_tasks_on T tasks ->
+    T τ ->
+    expected_release tasks offset τ k1 <=
+    expected_release tasks offset τ k2 ->
+    k1 <= k2.
+Proof.
+  intros T tasks offset τ k1 k2 Hwf Hτ Hle.
+  destruct (Nat.compare_spec k1 k2) as [Heq | Hlt | Hgt].
+  - subst k2. exact (Nat.le_refl _).
+  - lia.
+  - pose proof (expected_release_strict_mono T tasks offset τ k2 k1 Hwf Hτ Hgt) as Hrel.
+    lia.
+Qed.
+
 Lemma same_task_same_index_implies_same_expected_release :
   forall tasks offset τ1 τ2 k1 k2,
     τ1 = τ2 ->
@@ -92,4 +108,28 @@ Proof.
   rewrite <- Hrel1, <- Hrel2.
   rewrite Hrel.
   reflexivity.
+Qed.
+
+Lemma generated_by_periodic_same_task_release_le_implies_index_le :
+  forall T tasks offset jobs j1 j2,
+    well_formed_periodic_tasks_on T tasks ->
+    T (job_task (jobs j1)) ->
+    generated_by_periodic_task tasks offset jobs j1 ->
+    generated_by_periodic_task tasks offset jobs j2 ->
+    job_task (jobs j1) = job_task (jobs j2) ->
+    job_release (jobs j1) <= job_release (jobs j2) ->
+    job_index (jobs j1) <= job_index (jobs j2).
+Proof.
+  intros T tasks offset jobs j1 j2 Hwf Hτ Hgen1 Hgen2 Htask Hrel.
+  pose proof (generated_job_release tasks offset jobs j1 Hgen1) as Hrel1.
+  pose proof (generated_job_release tasks offset jobs j2 Hgen2) as Hrel2.
+  eapply expected_release_le_implies_index_le; eauto.
+  rewrite <- Hrel1.
+  replace
+    (expected_release tasks offset (job_task (jobs j1)) (job_index (jobs j2)))
+    with
+    (expected_release tasks offset (job_task (jobs j2)) (job_index (jobs j2))).
+  2:{ rewrite <- Htask. reflexivity. }
+  rewrite <- Hrel2.
+  exact Hrel.
 Qed.

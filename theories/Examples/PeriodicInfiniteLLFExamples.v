@@ -64,7 +64,7 @@ Section InfinitePeriodicLLFExample.
     - exact periodic_window_dbf_ex.
   Qed.
 
-  Example periodic_infinite_llf_example_schedulable_by_classical_dbf_on :
+  Example periodic_infinite_llf_example_schedulable_by_window_dbf_on :
     schedulable_by_on
       (periodic_jobset T_ex tasks_ex offset_ex jobs_ex)
       (llf_scheduler
@@ -73,6 +73,23 @@ Section InfinitePeriodicLLFExample.
       jobs_ex 1.
   Proof.
     eapply periodic_llf_schedulable_by_on.
+    1: exact tasks_ex_well_formed.
+    1: exact enumT_ex_nodup.
+    1: exact T_ex_in_enumT_ex.
+    1: exact in_enumT_ex_implies_T_ex.
+    1: exact busy_prefix_bridge_ex.
+    1: exact periodic_window_dbf_ex.
+  Qed.
+
+  Example periodic_infinite_llf_example_schedulable_by_classical_dbf_on :
+    schedulable_by_on
+      (periodic_jobset T_ex tasks_ex offset_ex jobs_ex)
+      (llf_scheduler
+         (periodic_candidates_before
+            T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_inf_ex))
+      jobs_ex 1.
+  Proof.
+    eapply periodic_llf_schedulable_by_classical_dbf_on.
     1: exact tasks_ex_well_formed.
     1: exact enumT_ex_nodup.
     1: exact T_ex_in_enumT_ex.
@@ -100,21 +117,6 @@ Section InfinitePeriodicLLFExample.
       + exact generated_job0_ex.
     - exact busy_prefix_bridge_ex.
     - exact periodic_classical_dbf_ex.
-  Qed.
-
-  Example periodic_infinite_llf_example_schedulable_by_window_dbf_on :
-    schedulable_by_on
-      (periodic_jobset T_ex tasks_ex offset_ex jobs_ex)
-      (llf_scheduler
-         (periodic_candidates_before
-            T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_inf_ex))
-      jobs_ex 1.
-  Proof.
-    eapply periodic_llf_schedulable_by_window_dbf_on; eauto.
-    - exact tasks_ex_well_formed.
-    - exact enumT_ex_nodup.
-    - exact T_ex_in_enumT_ex.
-    - exact in_enumT_ex_implies_T_ex.
   Qed.
 
 End InfinitePeriodicLLFExample.

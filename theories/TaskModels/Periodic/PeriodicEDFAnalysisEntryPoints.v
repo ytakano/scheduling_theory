@@ -19,9 +19,11 @@ From RocqSched Require Export TaskModels.Periodic.PeriodicEDFInfiniteBridge.
     - infinite-time periodic EDF candidate/coherence interfaces
     - infinite-time generated-EDF no-miss / feasible wrappers
     - `periodic_edf_schedulable_by_on` as the canonical infinite-time
-      zero-offset classical-DBF schedulability API
-    - `periodic_edf_schedulable_by_window_dbf_on` as the explicit lower-level
-      window-DBF schedulability variant
+      window-DBF schedulability API
+    - `periodic_edf_schedulable_by_classical_dbf_on` as the explicit
+      zero-offset classical-DBF convenience wrapper
+    - `periodic_edf_schedulable_by_window_dbf_on` as the explicit
+      window-DBF alias
     - finite- and infinite-time zero-offset classical-DBF corollaries with
       explicit busy-prefix bridges
     - periodic EDF no-miss / feasible-schedule / schedulable-by-on wrappers
