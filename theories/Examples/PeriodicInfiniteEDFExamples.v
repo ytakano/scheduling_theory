@@ -65,7 +65,7 @@ Section InfinitePeriodicEDFExample.
   Hypothesis busy_prefix_bridge_ex :
     forall j,
       periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
-      periodic_edf_busy_prefix_bridge
+      periodic_edf_busy_prefix_no_carry_in_bridge
         T_ex tasks_ex offset_ex jobs_ex
         (S (job_abs_deadline (jobs_ex j)))
         (generated_periodic_edf_schedule_upto
@@ -83,7 +83,7 @@ Section InfinitePeriodicEDFExample.
            T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_inf_ex)
         0.
   Proof.
-    apply periodic_edf_no_deadline_miss_from_window_dbf.
+    apply periodic_edf_no_deadline_miss_from_window_dbf_with_no_carry_in_bridge.
     - exact tasks_ex_well_formed.
     - exact enumT_ex_nodup.
     - exact T_ex_in_enumT_ex.
@@ -108,7 +108,7 @@ Section InfinitePeriodicEDFExample.
             T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_inf_ex))
       jobs_ex 1.
   Proof.
-    eapply periodic_edf_schedulable_by_on.
+    eapply periodic_edf_schedulable_by_on_with_no_carry_in_bridge.
     1: exact tasks_ex_well_formed.
     1: exact enumT_ex_nodup.
     1: exact T_ex_in_enumT_ex.
@@ -125,7 +125,7 @@ Section InfinitePeriodicEDFExample.
             T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_inf_ex))
       jobs_ex 1.
   Proof.
-    eapply periodic_edf_schedulable_by_classical_dbf_on.
+    eapply periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge.
     1: exact tasks_ex_well_formed.
     1: exact enumT_ex_nodup.
     1: exact T_ex_in_enumT_ex.
@@ -141,7 +141,7 @@ Section InfinitePeriodicEDFExample.
            T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_inf_ex)
         0.
   Proof.
-    apply periodic_edf_no_deadline_miss_from_classical_dbf.
+    apply periodic_edf_no_deadline_miss_from_classical_dbf_with_no_carry_in_bridge.
     - exact tasks_ex_well_formed.
     - exact enumT_ex_nodup.
     - exact T_ex_in_enumT_ex.

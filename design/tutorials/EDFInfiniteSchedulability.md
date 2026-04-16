@@ -265,13 +265,13 @@ This cutoff helper is currently:
 
 It is meant to eliminate the user-facing infinite `forall t` proof obligation for concrete task sets.
 
-### 8.2 Per-job finite busy-prefix bridge
+### 8.2 Per-job finite no-carry-in bridge
 
 ```coq
-Definition generated_edf_busy_prefix_bridge_ex : Prop :=
+Definition generated_edf_busy_prefix_no_carry_in_bridge_ex : Prop :=
   forall j,
     periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
-    periodic_edf_busy_prefix_bridge
+    periodic_edf_busy_prefix_no_carry_in_bridge
       T_ex tasks_ex offset_ex jobs_ex
       (S (job_abs_deadline (jobs_ex j)))
       (generated_periodic_edf_schedule_upto
@@ -281,12 +281,16 @@ Definition generated_edf_busy_prefix_bridge_ex : Prop :=
       j.
 ```
 
-This is the structural point of the infinite wrapper:
+This is the remaining structural point of the infinite wrapper:
 
 * the final theorem is global,
-* but the bridge is still supplied on the finite generated EDF schedule up to each job’s deadline successor.
+* but the no-carry-in bridge is still supplied on the finite generated EDF schedule up to each job’s deadline successor.
 
-The wrapper then lifts that finite information to the infinite generated EDF schedule internally.
+Unlike the older `periodic_edf_busy_prefix_bridge`, this weaker interface does
+not ask the user to prove `start_before_release` for every busy-prefix witness.
+That boundary fact is derived internally from `missed_deadline` on the
+generated EDF schedule; only the schedule-local no-carry-in argument remains
+external.
 
 ---
 
@@ -302,7 +306,7 @@ Theorem tutorial_periodic_edf_job0_no_deadline_miss :
 The proof uses:
 
 ```coq
-periodic_edf_no_deadline_miss_from_window_dbf
+periodic_edf_no_deadline_miss_from_window_dbf_with_no_carry_in_bridge
 ```
 
 and supplies:
@@ -362,7 +366,7 @@ You must prove:
 ```coq
 forall j,
   periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
-  periodic_edf_busy_prefix_bridge
+  periodic_edf_busy_prefix_no_carry_in_bridge
     T_ex tasks_ex offset_ex jobs_ex
     (S (job_abs_deadline (jobs_ex j)))
     (generated_periodic_edf_schedule_upto
@@ -372,7 +376,7 @@ forall j,
     j
 ```
 
-For both the window-DBF path and the classical path, the infinite demand-side theorem is now recovered from a finite cutoff computation. The tutorial therefore leaves only the busy-prefix bridge as a hypothesis.
+For both the window-DBF path and the classical path, the infinite demand-side theorem is now recovered from a finite cutoff computation. The tutorial therefore leaves only the finite no-carry-in bridge as a hypothesis.
 
 ---
 
