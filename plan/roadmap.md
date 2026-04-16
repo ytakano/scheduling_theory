@@ -989,6 +989,8 @@ Current packaged inventory:
   periodic LLF analysis wrappers
 - `PeriodicLLFAnalysisBridge.v` exposes LLF schedulable-by-on wrappers from
   both window-DBF and zero-offset classical DBF assumptions
+- `PeriodicLLFPrefixCoherence.v` and `PeriodicLLFInfiniteBridge.v` expose the
+  infinite-time periodic LLF candidate/coherence and schedulability wrappers
 - the bridge-first public policy remains unchanged: do not weaken these APIs by
   auto-supplying `periodic_edf_busy_prefix_bridge` or `no_carry_in`
 

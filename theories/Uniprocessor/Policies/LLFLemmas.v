@@ -101,6 +101,45 @@ Proof.
   exact Hagree.
 Qed.
 
+Lemma choose_llf_filter_ineligible :
+  forall jobs sched t candidates keep,
+    (forall j, In j candidates -> keep j = false -> ~ eligible jobs 1 sched j t) ->
+    choose_llf jobs 1 sched t candidates =
+    choose_llf jobs 1 sched t (filter keep candidates).
+Proof.
+  intros jobs sched t candidates keep Hnone.
+  unfold choose_llf, choose_min_metric.
+  f_equal.
+  induction candidates as [|j candidates IH]; simpl.
+  - reflexivity.
+  - destruct (eligibleb jobs 1 sched j t) eqn:Helig,
+             (keep j) eqn:Hkeep; simpl.
+    + rewrite Helig.
+      rewrite IH.
+      * reflexivity.
+      * intros j' Hin Hk.
+        apply Hnone.
+        right; exact Hin.
+        exact Hk.
+    + exfalso.
+      apply (Hnone j (or_introl eq_refl) Hkeep).
+      apply eligibleb_iff.
+      exact Helig.
+    + rewrite Helig.
+      rewrite IH.
+      * reflexivity.
+      * intros j' Hin Hk.
+        apply Hnone.
+        right; exact Hin.
+        exact Hk.
+    + rewrite IH.
+      * reflexivity.
+      * intros j' Hin Hk.
+        apply Hnone.
+        right; exact Hin.
+        exact Hk.
+Qed.
+
 Lemma llf_choose_agrees_before :
   forall J candidates_of
          (cand_spec : CandidateSourceSpec J candidates_of)

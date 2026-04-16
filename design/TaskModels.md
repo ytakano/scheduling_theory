@@ -46,12 +46,15 @@ Two recurring patterns matter across the task-model layer:
 - horizon-free jobset / codec interfaces that can drive infinite-time wrappers
 - bridge-first packaging for downstream theorem use
 
-For example, periodic EDF uses:
+For example, periodic EDF/LLF uses:
 
 - `PeriodicEDFBridge.v` as the canonical bridge-first public module
 - `PeriodicEDFInfiniteBridge.v` as the infinite-time wrapper over the finite core
+- `PeriodicLLFBridge.v` as the periodic LLF finite-horizon lift
+- `PeriodicLLFInfiniteBridge.v` as the infinite-time periodic LLF wrapper built on finite LLF/EDF bridges
 - `PeriodicEDFBridgeCompat.v` only as a compatibility wrapper for older unpackaged interfaces
 - `PeriodicEDFAnalysisEntryPoints.v` as the default downstream import for the packaged periodic EDF analysis surface
+- `PeriodicLLFAnalysisEntryPoints.v` as the default downstream import for the packaged periodic LLF analysis surface
 
 ## Public entry points
 

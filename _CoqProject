@@ -42,6 +42,7 @@ theories/Examples/JitteredPeriodicExamples.v
 theories/Examples/PartitionedExamples.v
 theories/Examples/PeriodicExamples.v
 theories/Examples/PeriodicInfiniteEDFExamples.v
+theories/Examples/PeriodicInfiniteLLFExamples.v
 theories/Examples/PeriodicProcessorDemandExamples.v
 theories/Examples/PeriodicProcessorDemandCompatExamples.v
 theories/Examples/SporadicExamples.v
@@ -109,6 +110,8 @@ theories/TaskModels/Periodic/PeriodicEDFPrefixCoherence.v
 theories/TaskModels/Periodic/PeriodicEDFInfiniteBridge.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v
 theories/TaskModels/Periodic/PeriodicLLFAnalysisBridge.v
+theories/TaskModels/Periodic/PeriodicLLFPrefixCoherence.v
+theories/TaskModels/Periodic/PeriodicLLFInfiniteBridge.v
 theories/TaskModels/Periodic/PeriodicLLFAnalysisEntryPoints.v
 theories/TaskModels/Periodic/PeriodicPartitionedFiniteOptimalityLift.v
 theories/TaskModels/Common/FiniteHorizonWitness.v

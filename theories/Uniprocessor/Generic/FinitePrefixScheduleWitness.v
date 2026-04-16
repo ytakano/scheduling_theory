@@ -125,3 +125,90 @@ Proof.
       apply generated_schedule_other_cpu_idle.
       exact Hc.
 Qed.
+
+Lemma scheduler_rel_agrees_with_generated_schedule_prefix :
+  forall alg candidates_of jobs sched H,
+    ChooseAgreesBefore alg jobs candidates_of ->
+    scheduler_rel
+      (single_cpu_algorithm_schedule alg candidates_of)
+      jobs 1 sched ->
+    agrees_before
+      sched
+      (generated_schedule_prefix alg candidates_of jobs H)
+      H.
+Proof.
+  intros alg candidates_of jobs sched H Hchoose Hrel.
+  induction H as [|H' IH].
+  - intros t c Hlt. lia.
+  - intros t c Hlt.
+    simpl.
+    assert (Hcase : t < H' \/ t = H') by lia.
+    destruct Hcase as [Hlt' | Heq].
+    + destruct (Nat.ltb t H') eqn:Hcmp.
+      * exact (IH t c Hlt').
+      * apply Nat.ltb_ge in Hcmp. lia.
+    + subst t.
+      destruct Hrel as [_ Hrel].
+      destruct (Hrel H') as [Hcpu0 Hidle].
+      destruct c as [|c'].
+      * rewrite Hcpu0.
+        simpl.
+        rewrite Nat.ltb_irrefl.
+        rewrite Nat.eqb_refl.
+        apply Hchoose.
+        intros t' c Hlt''.
+        apply IH.
+        exact Hlt''.
+      * rewrite Hidle by lia.
+        simpl.
+        rewrite Nat.ltb_irrefl.
+        rewrite Nat.eqb_refl.
+        destruct (Nat.eqb_spec (S c') 0); [lia | reflexivity].
+Qed.
+
+Theorem scheduler_rel_agrees_with_generated_schedule_before :
+  forall alg candidates_of jobs sched H,
+    ChooseAgreesBefore alg jobs candidates_of ->
+    scheduler_rel
+      (single_cpu_algorithm_schedule alg candidates_of)
+      jobs 1 sched ->
+    agrees_before
+      sched
+      (generated_schedule alg candidates_of jobs)
+      H.
+Proof.
+  intros alg candidates_of jobs sched H Hchoose Hrel t c Hlt.
+  rewrite <- (generated_schedule_prefix_stable
+                alg candidates_of jobs H t c Hlt).
+  apply (scheduler_rel_agrees_with_generated_schedule_prefix
+           alg candidates_of jobs sched H Hchoose Hrel t c Hlt).
+Qed.
+
+Theorem schedulable_by_on_implies_generated_schedule_feasible :
+  forall alg J
+         (candidates_of : CandidateSource)
+         jobs,
+    ChooseAgreesBefore alg jobs candidates_of ->
+    schedulable_by_on
+      J
+      (single_cpu_algorithm_schedule alg candidates_of)
+      jobs 1 ->
+    feasible_schedule_on J jobs 1
+      (generated_schedule alg candidates_of jobs).
+Proof.
+  intros alg J candidates_of jobs Hchoose [sched [Hrel [_ Hfeas]]] j Hj.
+  pose proof
+    (scheduler_rel_agrees_with_generated_schedule_before
+       alg candidates_of jobs sched
+       (job_abs_deadline (jobs j))
+       Hchoose Hrel) as Hagree.
+  unfold missed_deadline.
+  rewrite <- (agrees_before_completed
+                jobs 1 sched
+                (generated_schedule alg candidates_of jobs)
+                j
+                (job_abs_deadline (jobs j))
+                Hagree).
+  apply Hfeas.
+  exact Hj.
+Qed.

@@ -1058,6 +1058,10 @@ Done:
   the current periodic EDF idealized-analysis inventory
 - `PeriodicLLFAnalysisEntryPoints.v` packages the stable downstream import for
   periodic LLF analysis wrappers layered on top of the EDF feasibility bridge
+- `PeriodicLLFPrefixCoherence.v` packages the periodic LLF finite/infinite
+  prefix-coherence layer
+- `PeriodicLLFInfiniteBridge.v` exposes infinite-time periodic LLF no-miss /
+  feasible / schedulable wrappers via finite-horizon EDF/LLF bridges
 - `PeriodicEDFBridgeCompat.v` retains the older unpackaged busy-prefix forms
   only as compatibility wrappers
 - `PeriodicProcessorDemandExamples.v` now includes both
