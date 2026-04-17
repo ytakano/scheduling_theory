@@ -14,6 +14,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFPrefixCoherence.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFInfiniteBridge.
 
 Import ListNotations.
 
@@ -274,12 +275,8 @@ Qed.
 Lemma periodic_jobset_ex_normalize :
   forall j,
     periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
-    (exists k,
-      j = job_id_of_ex 0 k /\
-      jobs_ex j = mkJob 0 k (5 * k) 1 (5 * k + 2)) \/
-    (exists k,
-      j = job_id_of_ex 1 k /\
-      jobs_ex j = mkJob 1 k (7 * k) 1 (7 * k + 3)).
+    (exists k, j = job_id_of_ex 0 k) \/
+    (exists k, j = job_id_of_ex 1 k).
 Proof.
   intros j Hj.
   pose proof (codec_ex_complete j Hj) as Hjcodec.
@@ -288,26 +285,12 @@ Proof.
   destruct Htask as [Htask | Htask].
   - left.
     exists (job_index (jobs_ex j)).
-    split.
-    + rewrite <- Htask.
-      exact Hjcodec.
-    + assert (Hjid : j = job_id_of_ex 0 (job_index (jobs_ex j))).
-      { rewrite <- Htask. exact Hjcodec. }
-      rewrite Hjid.
-      unfold job_id_of_ex.
-      rewrite jobs_ex_task0.
-      reflexivity.
+    rewrite <- Htask.
+    exact Hjcodec.
   - right.
     exists (job_index (jobs_ex j)).
-    split.
-    + rewrite <- Htask.
-      exact Hjcodec.
-    + assert (Hjid : j = job_id_of_ex 1 (job_index (jobs_ex j))).
-      { rewrite <- Htask. exact Hjcodec. }
-      rewrite Hjid.
-      unfold job_id_of_ex.
-      rewrite jobs_ex_task1.
-      reflexivity.
+    rewrite <- Htask.
+    exact Hjcodec.
 Qed.
 
 Lemma job_release_of_task0_ex :
@@ -476,56 +459,6 @@ Proof.
   - exact enumT_ex_sound.
 Qed.
 
-Lemma generated_periodic_edf_schedule_upto_scheduler_rel_ex :
-  forall H,
-    scheduler_rel
-      (edf_scheduler
-         (enum_candidates_of
-            (enum_periodic_jobs_upto
-               T_ex tasks_ex offset_ex jobs_ex H enumT_ex
-               (periodic_finite_horizon_codec_of
-                  T_ex tasks_ex offset_ex jobs_ex H codec_ex))))
-      jobs_ex 1
-      (generated_periodic_edf_schedule_upto
-         T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex).
-Proof.
-  intro H.
-  apply generated_periodic_edf_schedule_upto_scheduler_rel.
-  - exact tasks_ex_well_formed.
-  - exact enumT_ex_complete.
-  - exact enumT_ex_sound.
-Qed.
-
-Lemma generated_edf_upto_cpu0_eq_choose_ex :
-  forall H t,
-    generated_periodic_edf_schedule_upto
-      T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex t 0 =
-    choose_edf jobs_ex 1
-      (generated_periodic_edf_schedule_upto
-         T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex)
-      t
-      (enum_periodic_jobs_upto
-         T_ex tasks_ex offset_ex jobs_ex H enumT_ex
-         (periodic_finite_horizon_codec_of
-            T_ex tasks_ex offset_ex jobs_ex H codec_ex)).
-Proof.
-  intros H t.
-  set (enumJ :=
-         enum_periodic_jobs_upto
-           T_ex tasks_ex offset_ex jobs_ex H enumT_ex
-           (periodic_finite_horizon_codec_of
-              T_ex tasks_ex offset_ex jobs_ex H codec_ex)).
-  exact
-    (single_cpu_algorithm_eq_cpu0
-       edf_generic_spec
-       (enum_candidates_of enumJ)
-       jobs_ex
-       (generated_periodic_edf_schedule_upto
-          T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex)
-       t
-       (generated_periodic_edf_schedule_upto_scheduler_rel_ex H)).
-Qed.
-
 Lemma candidate_in_generated_edf_upto_ex_normalize :
   forall H j,
     In j
@@ -533,12 +466,8 @@ Lemma candidate_in_generated_edf_upto_ex_normalize :
           T_ex tasks_ex offset_ex jobs_ex H enumT_ex
           (periodic_finite_horizon_codec_of
              T_ex tasks_ex offset_ex jobs_ex H codec_ex)) ->
-    (exists k,
-      j = job_id_of_ex 0 k /\
-      jobs_ex j = mkJob 0 k (5 * k) 1 (5 * k + 2)) \/
-    (exists k,
-      j = job_id_of_ex 1 k /\
-      jobs_ex j = mkJob 1 k (7 * k) 1 (7 * k + 3)).
+    (exists k, j = job_id_of_ex 0 k) \/
+    (exists k, j = job_id_of_ex 1 k).
 Proof.
   intros H j Hin.
   apply periodic_jobset_ex_normalize.
@@ -546,6 +475,26 @@ Proof.
   eapply enum_periodic_jobs_upto_sound.
   - exact enumT_ex_sound.
   - exact Hin.
+Qed.
+
+Lemma job_cost_of_task0_ex :
+  forall k,
+    job_cost (jobs_ex (job_id_of_ex 0 k)) = 1.
+Proof.
+  intro k.
+  unfold job_id_of_ex.
+  rewrite jobs_ex_task0.
+  reflexivity.
+Qed.
+
+Lemma job_cost_of_task1_ex :
+  forall k,
+    job_cost (jobs_ex (job_id_of_ex 1 k)) = 1.
+Proof.
+  intro k.
+  unfold job_id_of_ex.
+  rewrite jobs_ex_task1.
+  reflexivity.
 Qed.
 
 Lemma periodic_jobset_job0_ex :
@@ -628,23 +577,19 @@ Lemma task0_job_eligible_at_release_ex :
       (5 * k).
 Proof.
   intros H k Hrel.
-  split.
-  - unfold released.
-    rewrite (job_release_of_task0_ex _ _ eq_refl).
-    lia.
-  - apply not_completed_iff_service_lt_cost.
-    pose proof (job_release_of_task0_ex (job_id_of_ex 0 k) k eq_refl) as Hrelease0.
-    rewrite <- Hrelease0.
-    rewrite (service_at_release_zero
-               jobs_ex 1
-               (generated_periodic_edf_schedule_upto
-                  T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex)
-               (job_id_of_ex 0 k)).
-    + unfold job_id_of_ex.
-      rewrite jobs_ex_task0.
-      simpl.
-      lia.
-    + apply generated_periodic_edf_schedule_upto_valid_ex.
+  change (job_id_of_ex 0 k) with
+    (global_periodic_job_id_of T_ex tasks_ex offset_ex jobs_ex codec_ex 0 k).
+  replace (5 * k) with (expected_release tasks_ex offset_ex 0 k).
+  2:{ unfold expected_release, offset_ex, tasks_ex. simpl. lia. }
+  assert (Hrel' : expected_release tasks_ex offset_ex 0 k < H).
+  { unfold expected_release, offset_ex, tasks_ex. simpl. lia. }
+  eapply periodic_job_eligible_at_release_generic.
+  - exact tasks_ex_well_formed.
+  - exact enumT_ex_complete.
+  - exact enumT_ex_sound.
+  - left; reflexivity.
+  - exact Hrel'.
+  - rewrite job_cost_of_task0_ex. lia.
 Qed.
 
 Lemma task1_job_eligible_at_release_ex :
@@ -657,23 +602,19 @@ Lemma task1_job_eligible_at_release_ex :
       (7 * k).
 Proof.
   intros H k Hrel.
-  split.
-  - unfold released.
-    rewrite (job_release_of_task1_ex _ _ eq_refl).
-    lia.
-  - apply not_completed_iff_service_lt_cost.
-    pose proof (job_release_of_task1_ex (job_id_of_ex 1 k) k eq_refl) as Hrelease1.
-    rewrite <- Hrelease1.
-    rewrite (service_at_release_zero
-               jobs_ex 1
-               (generated_periodic_edf_schedule_upto
-                  T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex)
-               (job_id_of_ex 1 k)).
-    + unfold job_id_of_ex.
-      rewrite jobs_ex_task1.
-      simpl.
-      lia.
-    + apply generated_periodic_edf_schedule_upto_valid_ex.
+  change (job_id_of_ex 1 k) with
+    (global_periodic_job_id_of T_ex tasks_ex offset_ex jobs_ex codec_ex 1 k).
+  replace (7 * k) with (expected_release tasks_ex offset_ex 1 k).
+  2:{ unfold expected_release, offset_ex, tasks_ex. simpl. lia. }
+  assert (Hrel' : expected_release tasks_ex offset_ex 1 k < H).
+  { unfold expected_release, offset_ex, tasks_ex. simpl. lia. }
+  eapply periodic_job_eligible_at_release_generic.
+  - exact tasks_ex_well_formed.
+  - exact enumT_ex_complete.
+  - exact enumT_ex_sound.
+  - right; reflexivity.
+  - exact Hrel'.
+  - rewrite job_cost_of_task1_ex. lia.
 Qed.
 
 Definition sched_upto_ex (H : Time) : Schedule :=
@@ -828,7 +769,7 @@ Lemma periodic_job_has_completion_target_ex :
 Proof.
   intros j Hj.
   pose proof (periodic_jobset_ex_normalize j Hj) as Hnorm.
-  destruct Hnorm as [[k [Hjid _]] | [k [Hjid _]]].
+  destruct Hnorm as [[k Hjid] | [k Hjid]].
   - subst j.
     exists (5 * k + 1).
     constructor.
@@ -908,7 +849,7 @@ Lemma completion_target_before_current_release_ex :
 Proof.
   intros j y ty Hj Hty Hyrel.
   pose proof (periodic_jobset_ex_normalize j Hj) as Hjnorm.
-  destruct Hjnorm as [[k [Hj0 _]] | [k [Hj1 _]]].
+  destruct Hjnorm as [[k Hj0] | [k Hj1]].
   { subst j.
     rewrite (job_release_of_task0_ex (job_id_of_ex 0 k) k eq_refl) in Hyrel |- *.
     exact (completion_target_before_task0_release_ex y ty k Hty Hyrel). }
@@ -928,13 +869,15 @@ Lemma task0_scheduled_at_release_of_earlier_completion_ex :
 Proof.
   intros H k Hbound Hprev.
   unfold sched_upto_ex.
-  rewrite generated_edf_upto_cpu0_eq_choose_ex.
+  rewrite (periodic_edf_prefix_cpu0_eq_choose_top
+             T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex (5 * k)
+             tasks_ex_well_formed enumT_ex_complete enumT_ex_sound).
   apply choose_edf_unique_min.
   - apply task0_job_in_generated_edf_upto_ex. lia.
   - apply task0_job_eligible_at_release_ex. lia.
   - intros y Hin Helig Hneq.
     pose proof (candidate_in_generated_edf_upto_ex_normalize H y Hin) as Hnorm.
-    destruct Hnorm as [[k' [Hy _]] | [k' [Hy _]]].
+    destruct Hnorm as [[k' Hy] | [k' Hy]].
     + subst y.
       pose proof (eligible_after_release jobs_ex 1 (sched_upto_ex H)
                     (job_id_of_ex 0 k') (5 * k) Helig) as Hrel.
@@ -977,13 +920,15 @@ Lemma task1_scheduled_at_release_of_earlier_completion_ex :
 Proof.
   intros H k Hnc Hbound Hprev.
   unfold sched_upto_ex.
-  rewrite generated_edf_upto_cpu0_eq_choose_ex.
+  rewrite (periodic_edf_prefix_cpu0_eq_choose_top
+             T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex (7 * k)
+             tasks_ex_well_formed enumT_ex_complete enumT_ex_sound).
   apply choose_edf_unique_min.
   - apply task1_job_in_generated_edf_upto_ex. lia.
   - apply task1_job_eligible_at_release_ex. lia.
   - intros y Hin Helig Hneq.
     pose proof (candidate_in_generated_edf_upto_ex_normalize H y Hin) as Hnorm.
-    destruct Hnorm as [[k' [Hy _]] | [k' [Hy _]]].
+    destruct Hnorm as [[k' Hy] | [k' Hy]].
     + subst y.
       pose proof (eligible_after_release jobs_ex 1 (sched_upto_ex H)
                     (job_id_of_ex 0 k') (7 * k) Helig) as Hrel.
@@ -1026,13 +971,15 @@ Lemma task1_scheduled_after_collision_of_earlier_completion_ex :
 Proof.
   intros H q Hbound Hrun0 Hprev.
   unfold sched_upto_ex.
-  rewrite generated_edf_upto_cpu0_eq_choose_ex.
+  rewrite (periodic_edf_prefix_cpu0_eq_choose_top
+             T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex (35 * q + 1)
+             tasks_ex_well_formed enumT_ex_complete enumT_ex_sound).
   apply choose_edf_unique_min.
   - apply task1_job_in_generated_edf_upto_ex. lia.
   - apply task1_job_eligible_one_tick_after_collision_ex; assumption.
   - intros y Hin Helig Hneq.
     pose proof (candidate_in_generated_edf_upto_ex_normalize H y Hin) as Hnorm.
-    destruct Hnorm as [[k' [Hy _]] | [k' [Hy _]]].
+    destruct Hnorm as [[k' Hy] | [k' Hy]].
     + subst y.
       pose proof (eligible_after_release jobs_ex 1 (sched_upto_ex H)
                     (job_id_of_ex 0 k') (35 * q + 1) Helig) as Hrel.
@@ -1068,6 +1015,78 @@ Proof.
            lia.
 Qed.
 
+Lemma completed_before_task0_release_from_target_ex :
+  forall H k
+         (IHc :
+            forall y ty,
+              periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+              completion_target_ex y ty ->
+               job_release (jobs_ex y) < 5 * k ->
+               ty < H ->
+               completed jobs_ex 1 (sched_upto_ex H) y ty)
+         (Hfrontier : 5 * k < H)
+         y,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < 5 * k ->
+    completed jobs_ex 1 (sched_upto_ex H) y (5 * k).
+Proof.
+  intros H k IHc Hfrontier y Hy Hyrel.
+  destruct (periodic_job_has_completion_target_ex y Hy) as [ty Hty].
+  assert (Hty_le : ty <= 5 * k).
+  { eapply completion_target_before_task0_release_ex; eauto. }
+  assert (Hty_lt_H : ty < H) by lia.
+  pose proof (IHc y ty Hy Hty Hyrel Hty_lt_H) as Hdone.
+  eapply completed_monotone; eauto.
+Qed.
+
+Lemma completed_before_task1_release_from_target_ex :
+  forall H k
+         (IHc :
+            forall y ty,
+              periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+              completion_target_ex y ty ->
+               job_release (jobs_ex y) < 7 * k ->
+               ty < H ->
+               completed jobs_ex 1 (sched_upto_ex H) y ty)
+         (Hfrontier : 7 * k < H)
+         y,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < 7 * k ->
+    completed jobs_ex 1 (sched_upto_ex H) y (7 * k).
+Proof.
+  intros H k IHc Hfrontier y Hy Hyrel.
+  destruct (periodic_job_has_completion_target_ex y Hy) as [ty Hty].
+  assert (Hty_le : ty <= 7 * k).
+  { eapply completion_target_before_task1_release_ex; eauto. }
+  assert (Hty_lt_H : ty < H) by lia.
+  pose proof (IHc y ty Hy Hty Hyrel Hty_lt_H) as Hdone.
+  eapply completed_monotone; eauto.
+Qed.
+
+Lemma completed_before_collision_followup_from_target_ex :
+  forall H q
+         (IHc :
+            forall y ty,
+              periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+              completion_target_ex y ty ->
+               job_release (jobs_ex y) < 35 * q ->
+               ty < H ->
+               completed jobs_ex 1 (sched_upto_ex H) y ty)
+         (Hfrontier : 35 * q + 1 < H)
+         y,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < 35 * q ->
+    completed jobs_ex 1 (sched_upto_ex H) y (35 * q + 1).
+Proof.
+  intros H q IHc Hfrontier y Hy Hyrel.
+  destruct (periodic_job_has_completion_target_ex y Hy) as [ty Hty].
+  assert (Hty_le : ty <= 35 * q + 1).
+  { eapply completion_target_before_collision_followup_ex; eauto. }
+  assert (Hty_lt_H : ty < H) by lia.
+  pose proof (IHc y ty Hy Hty Hyrel Hty_lt_H) as Hdone.
+  eapply completed_monotone; eauto.
+Qed.
+
 Lemma completed_at_completion_target_ex :
   forall H j t,
     periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
@@ -1097,66 +1116,60 @@ Proof.
                   t < H ->
                   completed jobs_ex 1 (sched_upto_ex H) j t)).
     intros r IH j0 t0 Hj0 Hrel0 Htarget0 Hbound0.
-    inversion Htarget0; subst; clear Htarget0.
-    - 
+    destruct Htarget0 as [k | k Hnc | q]; subst.
+    -
       eapply task0_completed_if_scheduled_at_release_ex; [exact Hbound0|].
       apply task0_scheduled_at_release_of_earlier_completion_ex; [exact Hbound0|].
       intros y Hy Hyrel.
-      destruct (periodic_job_has_completion_target_ex y Hy) as [ty Hty].
-      assert (Hty_le : ty <= 5 * k).
-      { eapply completion_target_before_task0_release_ex; eauto. }
-      assert (Hty_lt_H : ty < H) by lia.
-      pose proof
-        (IH
-           (job_release (jobs_ex y))
-           ltac:(rewrite (job_release_of_task0_ex (job_id_of_ex 0 k) k eq_refl); exact Hyrel)
-           y ty Hy eq_refl Hty Hty_lt_H)
-        as Hdone.
-      eapply completed_monotone; eauto.
-    - 
+      eapply completed_before_task0_release_from_target_ex.
+      + intros y' ty' Hy' Hty' Hyrel' Hty_lt_H.
+        eapply IH.
+        * rewrite (job_release_of_task0_ex (job_id_of_ex 0 k) k eq_refl). exact Hyrel'.
+        * exact Hy'.
+        * reflexivity.
+        * exact Hty'.
+        * exact Hty_lt_H.
+      + lia.
+      + exact Hy.
+      + exact Hyrel.
+    -
       eapply task1_completed_if_scheduled_at_release_ex; [exact Hbound0|].
       apply task1_scheduled_at_release_of_earlier_completion_ex.
-      + match goal with
-        | Hnc_local : (forall q0, k <> 5 * q0) |- _ => exact Hnc_local
-        end.
-      + exact Hbound0.
-      + 
-      intros y Hy Hyrel.
-      destruct (periodic_job_has_completion_target_ex y Hy) as [ty Hty].
-      assert (Hty_le : ty <= 7 * k).
-      { eapply completion_target_before_task1_release_ex; eauto. }
-      assert (Hty_lt_H : ty < H) by lia.
-      pose proof
-        (IH
-           (job_release (jobs_ex y))
-           ltac:(rewrite (job_release_of_task1_ex (job_id_of_ex 1 k) k eq_refl); exact Hyrel)
-           y ty Hy eq_refl Hty Hty_lt_H)
-        as Hdone.
-      eapply completed_monotone; eauto.
-    - 
+      { exact Hnc. }
+      { exact Hbound0. }
+      {
+        intros y Hy Hyrel.
+        eapply completed_before_task1_release_from_target_ex.
+        { intros y' ty' Hy' Hty' Hyrel' Hty_lt_H.
+          eapply IH.
+          - rewrite (job_release_of_task1_ex (job_id_of_ex 1 k) k eq_refl). exact Hyrel'.
+          - exact Hy'.
+          - reflexivity.
+          - exact Hty'.
+          - exact Hty_lt_H. }
+        { lia. }
+        { exact Hy. }
+        { exact Hyrel. }
+      }
+    -
       pose proof
         (task0_scheduled_at_release_of_earlier_completion_ex
            H (7 * q)
            ltac:(lia)
            (fun y Hy Hyrel =>
-              let Hty_ex := periodic_job_has_completion_target_ex y Hy in
-              match Hty_ex with
-              | ex_intro _ ty Hty =>
-                  let Hty_le :=
-                    completion_target_before_task0_release_ex y ty (7 * q) Hty
-                      ltac:(replace (35 * q) with (5 * (7 * q)) in Hyrel by lia; exact Hyrel) in
-                  let Hty_lt_H : ty < H := ltac:(lia) in
-                  let Hdone :=
-                    IH
-                      (job_release (jobs_ex y))
-                      ltac:(
-                        rewrite (job_release_of_task1_ex (job_id_of_ex 1 (5 * q)) (5 * q) eq_refl);
-                        replace (7 * (5 * q)) with (5 * (7 * q)) by lia;
-                        replace (5 * (7 * q)) with (35 * q) in Hyrel by lia;
-                        exact Hyrel)
-                      y ty Hy eq_refl Hty Hty_lt_H in
-                  completed_monotone jobs_ex 1 (sched_upto_ex H) y ty (5 * (7 * q)) Hty_le Hdone
-              end))
+              completed_before_task0_release_from_target_ex
+                H (7 * q)
+                (fun y' ty' Hy' Hty' Hyrel' Hty_lt_H =>
+                   IH
+                     (job_release (jobs_ex y'))
+                     ltac:(
+                       rewrite (job_release_of_task1_ex (job_id_of_ex 1 (5 * q)) (5 * q) eq_refl);
+                       replace (7 * (5 * q)) with (5 * (7 * q)) by lia;
+                       exact Hyrel')
+                     y' ty' Hy' eq_refl Hty' Hty_lt_H)
+                ltac:(lia)
+                y Hy
+                ltac:(replace (35 * q) with (5 * (7 * q)) in Hyrel by lia; exact Hyrel)))
         as Hrun0'.
       assert (Hrun0 :
         sched_upto_ex H (35 * q) 0 = Some (job_id_of_ex 0 (7 * q))).
@@ -1170,20 +1183,19 @@ Proof.
       {
         apply task1_scheduled_after_collision_of_earlier_completion_ex; [exact Hbound0|exact Hrun0|].
         intros y Hy Hyrel.
-        destruct (periodic_job_has_completion_target_ex y Hy) as [ty Hty].
-        assert (Hty_le : ty <= 35 * q + 1).
-        { eapply completion_target_before_collision_followup_ex; eauto. }
-        assert (Hty_lt_H : ty < H) by lia.
-        pose proof
-          (IH
-             (job_release (jobs_ex y))
-             ltac:(
-               rewrite (job_release_of_task1_ex (job_id_of_ex 1 (5 * q)) (5 * q) eq_refl);
-               replace (7 * (5 * q)) with (35 * q) by lia;
-               exact Hyrel)
-             y ty Hy eq_refl Hty Hty_lt_H)
-          as Hdone.
-        eapply completed_monotone; eauto.
+        eapply completed_before_collision_followup_from_target_ex.
+        + intros y' ty' Hy' Hty' Hyrel' Hty_lt_H.
+          eapply IH.
+          * rewrite (job_release_of_task1_ex (job_id_of_ex 1 (5 * q)) (5 * q) eq_refl).
+            replace (7 * (5 * q)) with (35 * q) by lia.
+            exact Hyrel'.
+          * exact Hy'.
+          * exact eq_refl.
+          * exact Hty'.
+          * exact Hty_lt_H.
+        + lia.
+        + exact Hy.
+        + exact Hyrel.
       }
   }
   exact (HP j t Hj eq_refl Htarget Hbound).
@@ -1214,7 +1226,7 @@ Proof.
       ty < S (job_abs_deadline (jobs_ex j))).
     {
       pose proof (periodic_jobset_ex_normalize j Hj) as Hjnorm.
-      destruct Hjnorm as [[k [Hj0 _]] | [k [Hj1 _]]]; subst j.
+      destruct Hjnorm as [[k Hj0] | [k Hj1]]; subst j.
       - rewrite (job_release_of_task0_ex (job_id_of_ex 0 k) k eq_refl) in Hty_le.
         rewrite (job_deadline_of_task0_ex (job_id_of_ex 0 k) k eq_refl).
         lia.
