@@ -1,19 +1,14 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
-From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
-From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
-From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
-From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicArithmetic.
-From RocqSched Require Import TaskModels.Periodic.PeriodicEDFInfiniteBridge.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
 
 Import ListNotations.
@@ -282,56 +277,8 @@ Definition codec_ex : PeriodicCodec T_ex tasks_ex offset_ex jobs_ex :=
     codec_ex_complete.
 
 (* ================================================================ *)
-(* 4. The generated schedules and user obligations                   *)
+(* 4. Concrete obligations for the infinite-time wrappers           *)
 (* ================================================================ *)
-
-Definition sched_inf_ex : Schedule :=
-  generated_periodic_edf_schedule
-    T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex.
-
-Lemma sched_inf_ex_scheduler_rel :
-  scheduler_rel
-    (edf_scheduler
-       (periodic_candidates_before
-          T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex))
-    jobs_ex 1 sched_inf_ex.
-Proof.
-  unfold sched_inf_ex.
-  exact
-    (generated_periodic_edf_schedule_scheduler_rel
-       T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex).
-Qed.
-
-Lemma sched_inf_ex_valid :
-  valid_schedule jobs_ex 1 sched_inf_ex.
-Proof.
-  unfold sched_inf_ex.
-  exact
-    (generated_periodic_edf_schedule_valid
-       T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex).
-Qed.
-
-Lemma sched_upto_ex_completed_iff_sched_inf_ex :
-  forall H j t,
-    t < H ->
-    completed
-      jobs_ex 1
-      (generated_periodic_edf_schedule_upto
-         T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex)
-      j t <->
-    completed jobs_ex 1 sched_inf_ex j t.
-Proof.
-  intros H j t Ht.
-  unfold sched_inf_ex.
-  exact
-    (generated_periodic_edf_schedule_upto_completed_iff_generated_before
-       T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex
-       H j t
-       tasks_ex_well_formed
-       enumT_ex_complete
-       enumT_ex_sound
-       Ht).
-Qed.
 
 Definition service_slot_ex (j : JobId) : Time :=
   if Nat.even j then
@@ -613,89 +560,31 @@ Proof.
       exact (slot_job_ex_task1_non_simultaneous k Hk5).
 Qed.
 
-Lemma hyperperiod_load_ex :
-  hyperperiod_load tasks_ex enumT_ex 35 = 12.
+Example periodic_classical_dbf_test_by_cutoff_ex :
+  dbf_test_by_cutoff tasks_ex enumT_ex = true.
 Proof.
+  vm_compute.
   reflexivity.
-Qed.
-
-Lemma periodic_classical_dbf_upto_38_ex :
-  forall t,
-    t <= 38 ->
-    taskset_periodic_dbf tasks_ex enumT_ex t <= t.
-Proof.
-  intros t Ht.
-  do 39 (
-    destruct t as [| t];
-    [cbn; lia |]
-  ).
-  lia.
 Qed.
 
 Lemma periodic_classical_dbf_from_cutoff_ex :
   forall t,
     taskset_periodic_dbf tasks_ex enumT_ex t <= t.
 Proof.
-  intros t.
-  destruct (le_gt_dec t 38) as [Hle | Hgt].
-  - exact (periodic_classical_dbf_upto_38_ex t Hle).
-  - set (delta := t - 3).
-    set (q := delta / 35).
-    set (r := delta mod 35).
-    set (base := 3 + r).
-    assert (Hbase_ge : 3 <= base).
-    { unfold base. lia. }
-    assert (Hbase_le : base <= 38).
-    {
-      assert (Hr_lt : r < 35).
-      {
-        unfold r.
-        apply Nat.mod_upper_bound.
-        lia.
-      }
-      unfold base.
-      lia.
-    }
-    assert (Hbase_eq : t = base + q * 35).
-    {
-      unfold base, q, r, delta.
-      pose proof (Nat.div_mod (t - 3) 35) as Hdivmod.
-      assert (Hneq : 35 <> 0) by lia.
-      specialize (Hdivmod Hneq).
-      lia.
-    }
-    assert (Hbase_dbf :
-      taskset_periodic_dbf tasks_ex enumT_ex base <= base).
-    {
-      apply periodic_classical_dbf_upto_38_ex.
-      exact Hbase_le.
-    }
-    assert (Hperiodic :
-      taskset_periodic_dbf tasks_ex enumT_ex t =
-      taskset_periodic_dbf tasks_ex enumT_ex base +
-      q * hyperperiod_load tasks_ex enumT_ex 35).
-    {
-      rewrite Hbase_eq.
-      eapply (taskset_periodic_dbf_add_hyperperiod_after_deadline_n
-                tasks_ex enumT_ex base 35 q).
-      - intros τ Hin.
-        simpl in Hin.
-        destruct Hin as [Hin | [Hin | []]]; subst τ; simpl.
-        + lia.
-        + exact Hbase_ge.
-      - intros τ Hin.
-        apply tasks_ex_well_formed.
-        apply enumT_ex_sound.
-        exact Hin.
-      - intros τ Hin.
-        simpl in Hin.
-        destruct Hin as [Hin | [Hin | []]]; subst τ.
-        + exists 7. reflexivity.
-        + exists 5. reflexivity.
-    }
-    rewrite Hperiodic.
-    rewrite hyperperiod_load_ex.
-    nia.
+  apply dbf_check_by_cutoff.
+  - exact enumT_ex_nodup.
+  - intros τ Hin.
+    apply tasks_ex_well_formed.
+    apply enumT_ex_sound.
+    exact Hin.
+  - exact periodic_classical_dbf_test_by_cutoff_ex.
+Qed.
+
+Example periodic_window_dbf_test_by_cutoff_ex :
+  window_dbf_test_by_cutoff tasks_ex enumT_ex = true.
+Proof.
+  vm_compute.
+  reflexivity.
 Qed.
 
 Lemma periodic_window_dbf_from_cutoff_ex :
@@ -703,15 +592,13 @@ Lemma periodic_window_dbf_from_cutoff_ex :
     t1 <= t2 ->
     taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
 Proof.
-  intros t1 t2 Hle.
-  eapply Nat.le_trans.
-  - eapply zero_offset_taskset_window_dbf_le_classical_dbf.
-    + intros τ Hin. reflexivity.
-    + intros τ Hin.
-      apply tasks_ex_well_formed.
-      apply enumT_ex_sound.
-      exact Hin.
-  - apply periodic_classical_dbf_from_cutoff_ex.
+  apply window_dbf_check_by_cutoff.
+  - exact enumT_ex_nodup.
+  - intros τ Hin.
+    apply tasks_ex_well_formed.
+    apply enumT_ex_sound.
+    exact Hin.
+  - exact periodic_window_dbf_test_by_cutoff_ex.
 Qed.
 
 Definition periodic_window_dbf_bound_ex : Prop :=
@@ -731,8 +618,21 @@ Definition generated_edf_busy_prefix_no_carry_in_bridge_ex : Prop :=
          enumT_ex codec_ex)
       j.
 
+Record PeriodicEDFInfiniteConcreteObligations : Prop := {
+  periodic_edf_infinite_no_carry_in_bridge :
+    generated_edf_busy_prefix_no_carry_in_bridge_ex;
+  periodic_edf_infinite_window_dbf_test :
+    window_dbf_test_by_cutoff tasks_ex enumT_ex = true;
+  periodic_edf_infinite_classical_dbf_test :
+    dbf_test_by_cutoff tasks_ex enumT_ex = true
+}.
+
+Definition sched_inf_ex : Schedule :=
+  generated_periodic_edf_schedule
+    T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex.
+
 Section TutorialProof.
-  Hypothesis Hbridge : generated_edf_busy_prefix_no_carry_in_bridge_ex.
+  Hypothesis Hobl : PeriodicEDFInfiniteConcreteObligations.
 
   Theorem tutorial_periodic_edf_job0_no_deadline_miss :
     ~ missed_deadline jobs_ex 1 sched_inf_ex (job_id_of_ex 0 0).
@@ -746,7 +646,8 @@ Section TutorialProof.
       split.
       + left. reflexivity.
       + exact generated_job0_ex.
-    - apply Hbridge.
+    - apply periodic_edf_infinite_no_carry_in_bridge.
+      exact Hobl.
       unfold periodic_jobset, T_ex.
       split.
       + left. reflexivity.
@@ -767,14 +668,14 @@ Section TutorialProof.
     1: exact enumT_ex_nodup.
     1: exact enumT_ex_complete.
     1: exact enumT_ex_sound.
-    1: apply Hbridge.
+    1: apply periodic_edf_infinite_no_carry_in_bridge; exact Hobl.
     1: exact periodic_window_dbf_from_cutoff_ex.
   Qed.
 
 End TutorialProof.
 
 Section TutorialClassicalProof.
-  Hypothesis Hbridge : generated_edf_busy_prefix_no_carry_in_bridge_ex.
+  Hypothesis Hobl : PeriodicEDFInfiniteConcreteObligations.
 
   Theorem tutorial_periodic_edf_job0_no_deadline_miss_by_classical_dbf :
     ~ missed_deadline jobs_ex 1 sched_inf_ex (job_id_of_ex 0 0).
@@ -789,7 +690,8 @@ Section TutorialClassicalProof.
       split.
       + left. reflexivity.
       + exact generated_job0_ex.
-    - apply Hbridge.
+    - apply periodic_edf_infinite_no_carry_in_bridge.
+      exact Hobl.
       unfold periodic_jobset, T_ex.
       split.
       + left. reflexivity.
@@ -811,7 +713,7 @@ Section TutorialClassicalProof.
     1: exact enumT_ex_complete.
     1: exact enumT_ex_sound.
     1: intros τ Hin; reflexivity.
-    1: apply Hbridge.
+    1: apply periodic_edf_infinite_no_carry_in_bridge; exact Hobl.
     1: exact periodic_classical_dbf_from_cutoff_ex.
   Qed.
 End TutorialClassicalProof.
