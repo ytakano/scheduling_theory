@@ -110,8 +110,10 @@ Recommended proof route:
   - `slot_job_ex_task1_non_simultaneous`
   - `jobs_ex_release_le_service_slot_ex`
   - `service_slot_ex_before_deadline_ex`
+- Added one more stable forward helper:
+  - `slot_job_ex_at_service_slot`
 
-This keeps the tutorial compiling and fixes the concrete arithmetic interface needed for the next step.
+This kept the tutorial compiling and restored the concrete arithmetic interface needed for the next step.
 
 What was attempted but intentionally not kept in this round:
 - generic “soundness” lemmas tying every `slot_job_ex t = Some j` back to `service_slot_ex j = t`
@@ -129,7 +131,7 @@ Why it was rolled back:
 Current repository state after this pass:
 - `theories/TaskModels/Periodic/PeriodicArithmetic.v` compiles
 - `Tutorials/EDFInfiniteSchedulability.v` compiles
-- the attempted compatibility lemmas were fully rolled back, so there is no new tracked code beyond the last stable helper batch
+- the attempted compatibility lemmas were fully rolled back, so no reverse compatibility layer was kept
 - the concrete helper layer is partially restored, but only for:
   - all jobs being in the periodic jobset
   - task-0 service slots
@@ -140,6 +142,9 @@ Current repository state after this pass:
   - the release-to-service-slot lower bound
   - the service-slot-before-deadline bound
 - the bridge assumption `generated_edf_busy_prefix_no_carry_in_bridge_ex` is still not proved
+- the exact reverse direction
+  - `slot_job_ex t = Some j -> service_slot_ex j = t`
+  is still intentionally not kept as a tracked lemma
 
 Updated next step:
 1. Prove exact run facts on `sched_inf_ex` from EDF candidate completeness/min-deadline reasoning.
@@ -156,3 +161,32 @@ Updated next step:
    - `completed_monotone`
 4. Prove the infinite-schedule no-carry-in lemma first, then transfer it to `generated_periodic_edf_schedule_upto` via `sched_upto_ex_completed_iff_sched_inf_ex`.
 5. Only after those pieces are in place, finish `generated_edf_busy_prefix_no_carry_in_bridge_ex`.
+
+## 2026-04-17 follow-up
+
+- Kept the repository in a compiling state while testing a stronger tutorial-local schedule witness route.
+- Only the stable forward piece from that attempt was retained:
+  - `slot_job_ex_at_service_slot`
+- The stronger explicit-schedule path was not kept in tracked code because it still required a brittle reverse normalization lemma before it helped the bridge proof.
+
+What is true after this follow-up:
+- the repository still compiles
+- `slot_job_ex_at_service_slot` is now part of the tracked helper layer in `Tutorials/EDFInfiniteSchedulability.v`
+- no exact-run lemma on `sched_inf_ex` was proved in this pass
+- no completion lemma and no no-carry-in bridge lemma was proved in this pass
+
+Current tracked tutorial-local helper layer:
+- `jobs_ex_in_periodic_jobset`
+- `service_slot_ex_task0`
+- `service_slot_ex_task1`
+- `slot_job_ex_task0`
+- `slot_job_ex_task1_non_simultaneous`
+- `slot_job_ex_task1_simultaneous`
+- `jobs_ex_release_le_service_slot_ex`
+- `service_slot_ex_before_deadline_ex`
+- `slot_job_ex_at_service_slot`
+
+Updated immediate next step:
+1. Derive exact run facts on `sched_inf_ex` directly, reusing `slot_job_ex_at_service_slot` only as a normalization helper, not as part of an explicit schedule equivalence layer.
+2. Avoid introducing the reverse compatibility lemma unless it becomes strictly necessary for a completion lemma that cannot be phrased another way.
+3. Once the exact run facts are stable, derive completion-at-`service_slot_ex + 1` facts and only then return to `generated_edf_busy_prefix_no_carry_in_bridge_ex`.

@@ -574,6 +574,45 @@ Proof.
     destruct (Nat.eqb (k mod 5) 0); lia.
 Qed.
 
+Lemma slot_job_ex_at_service_slot :
+  forall j,
+    slot_job_ex (service_slot_ex j) = Some j.
+Proof.
+  intro j.
+  destruct (Nat.even j) eqn:Heven.
+  - apply Nat.even_spec in Heven.
+    destruct Heven as [k ->].
+    change (service_slot_ex (2 * k)) with (service_slot_ex (job_id_of_ex 0 k)).
+    rewrite service_slot_ex_task0.
+    apply slot_job_ex_task0.
+  - assert (Hodd : Nat.odd j = true).
+    { rewrite <- Nat.negb_even. rewrite Heven. reflexivity. }
+    apply Nat.odd_spec in Hodd.
+    destruct Hodd as [k Hk].
+    subst j.
+    replace (2 * k + 1) with (S (2 * k)) by lia.
+    change
+      (service_slot_ex (S (2 * k)))
+      with (service_slot_ex (job_id_of_ex 1 k)).
+    rewrite service_slot_ex_task1.
+    destruct (Nat.eqb (k mod 5) 0) eqn:Hk5.
+    + apply Nat.eqb_eq in Hk5.
+      assert (Hk : exists q, k = 5 * q).
+      {
+        exists (k / 5).
+        pose proof (Nat.div_mod k 5) as Hdiv.
+        specialize (Hdiv ltac:(lia)).
+        rewrite Hk5 in Hdiv.
+        lia.
+      }
+      destruct Hk as [q ->].
+      replace (7 * (5 * q) + 1) with (35 * q + 1) by lia.
+      rewrite slot_job_ex_task1_simultaneous.
+      reflexivity.
+    + apply Nat.eqb_neq in Hk5.
+      exact (slot_job_ex_task1_non_simultaneous k Hk5).
+Qed.
+
 Lemma hyperperiod_load_ex :
   hyperperiod_load tasks_ex enumT_ex 35 = 12.
 Proof.
