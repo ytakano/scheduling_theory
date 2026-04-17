@@ -57,22 +57,6 @@ Definition jobs_ex (j : JobId) : Job :=
   else
     mkJob 1 (Nat.div2 j) (7 * Nat.div2 j) 1 (7 * Nat.div2 j + 3).
 
-Lemma generated_job0_ex :
-  generated_by_periodic_task tasks_ex offset_ex jobs_ex (job_id_of_ex 0 0).
-Proof.
-  unfold generated_by_periodic_task, job_id_of_ex, jobs_ex, tasks_ex, offset_ex.
-  simpl.
-  repeat split; lia.
-Qed.
-
-Lemma generated_job1_ex :
-  generated_by_periodic_task tasks_ex offset_ex jobs_ex (job_id_of_ex 1 0).
-Proof.
-  unfold generated_by_periodic_task, job_id_of_ex, jobs_ex, tasks_ex, offset_ex.
-  simpl.
-  repeat split; lia.
-Qed.
-
 Lemma tasks_ex_well_formed :
   well_formed_periodic_tasks_on T_ex tasks_ex.
 Proof.
@@ -326,28 +310,6 @@ Proof.
       reflexivity.
 Qed.
 
-Lemma periodic_jobset_deadline_between_ex_normalize :
-  forall t1 t2 j,
-    periodic_jobset_deadline_between
-      T_ex tasks_ex offset_ex jobs_ex t1 t2 j ->
-    (exists k,
-      j = job_id_of_ex 0 k /\
-      jobs_ex j = mkJob 0 k (5 * k) 1 (5 * k + 2)) \/
-    (exists k,
-      j = job_id_of_ex 1 k /\
-      jobs_ex j = mkJob 1 k (7 * k) 1 (7 * k + 3)).
-Proof.
-  intros t1 t2 j Hj.
-  apply periodic_jobset_ex_normalize.
-  split.
-  - exact
-      (periodic_jobset_deadline_between_implies_task_in_scope
-         T_ex tasks_ex offset_ex jobs_ex t1 t2 j Hj).
-  - exact
-      (periodic_jobset_deadline_between_implies_generated
-         T_ex tasks_ex offset_ex jobs_ex t1 t2 j Hj).
-Qed.
-
 Lemma job_release_of_task0_ex :
   forall j k,
     j = job_id_of_ex 0 k ->
@@ -586,22 +548,6 @@ Proof.
   - exact Hin.
 Qed.
 
-Lemma candidate_in_generated_edf_upto_ex_periodic :
-  forall H j,
-    In j
-       (enum_periodic_jobs_upto
-          T_ex tasks_ex offset_ex jobs_ex H enumT_ex
-          (periodic_finite_horizon_codec_of
-             T_ex tasks_ex offset_ex jobs_ex H codec_ex)) ->
-    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j.
-Proof.
-  intros H j Hin.
-  eapply periodic_jobset_upto_implies_periodic_jobset.
-  eapply enum_periodic_jobs_upto_sound.
-  - exact enumT_ex_sound.
-  - exact Hin.
-Qed.
-
 Lemma periodic_jobset_job0_ex :
   forall k,
     periodic_jobset T_ex tasks_ex offset_ex jobs_ex (job_id_of_ex 0 k).
@@ -733,61 +679,6 @@ Qed.
 Definition sched_upto_ex (H : Time) : Schedule :=
   generated_periodic_edf_schedule_upto
     T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex.
-
-Definition sched_prefix_ex_at (H h : Time) : Schedule :=
-  generated_schedule_prefix
-    edf_generic_spec
-    (enum_candidates_of
-       (enum_periodic_jobs_upto
-          T_ex tasks_ex offset_ex jobs_ex H enumT_ex
-          (periodic_finite_horizon_codec_of
-             T_ex tasks_ex offset_ex jobs_ex H codec_ex)))
-    jobs_ex h.
-
-Definition sched_prefix_ex (H : Time) : Schedule :=
-  sched_prefix_ex_at H H.
-
-Lemma sched_prefix_ex_agrees_with_sched_upto_ex_before :
-  forall H t c,
-    t < H ->
-    sched_prefix_ex H t c = sched_upto_ex H t c.
-Proof.
-  intros H t c Hlt.
-  unfold sched_prefix_ex, sched_upto_ex, generated_periodic_edf_schedule_upto.
-  unfold sched_prefix_ex_at.
-  apply generated_schedule_prefix_stable.
-  exact Hlt.
-Qed.
-
-Lemma sched_prefix_ex_cpu0_agrees_with_sched_upto_ex :
-  forall H t,
-    t < H ->
-    sched_prefix_ex H t 0 = sched_upto_ex H t 0.
-Proof.
-  intros H t Hlt.
-  apply sched_prefix_ex_agrees_with_sched_upto_ex_before.
-  exact Hlt.
-Qed.
-
-Lemma sched_prefix_ex_eq_choose_at_top :
-  forall t,
-    sched_prefix_ex (S t) t 0 =
-    choose_edf jobs_ex 1
-      (sched_prefix_ex_at (S t) t)
-      t
-      (enum_periodic_jobs_upto
-         T_ex tasks_ex offset_ex jobs_ex (S t) enumT_ex
-         (periodic_finite_horizon_codec_of
-            T_ex tasks_ex offset_ex jobs_ex (S t) codec_ex)).
-Proof.
-  intro t.
-  unfold sched_prefix_ex, sched_prefix_ex_at.
-  simpl.
-  rewrite Nat.ltb_irrefl.
-  rewrite Nat.eqb_refl.
-  unfold enum_candidates_of.
-  reflexivity.
-Qed.
 
 Lemma task0_completed_if_scheduled_at_release_ex :
   forall H k,
