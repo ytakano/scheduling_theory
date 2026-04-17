@@ -232,99 +232,29 @@ Qed.
 Lemma sched_gen_ex_at_0 :
   sched_gen_ex 0 0 = Some 0.
 Proof.
-  unfold sched_gen_ex, generated_schedule.
-  simpl.
-  apply choose_edf_unique_min.
-  - rewrite enumJ_ex_is_small. simpl. auto.
-  - unfold eligible, released, completed, jobs_ex, job0_ex.
-    simpl.
-    split; [lia |].
-    intro Hcompleted.
-    simpl in Hcompleted.
-    lia.
-  - intros j' Hin Helig Hneq.
-    rewrite enumJ_ex_is_small in Hin.
-    simpl in Hin.
-    destruct Hin as [Hin | [Hin | []]]; subst j'.
-    + contradiction.
-    + unfold jobs_ex, job0_ex, job1_ex.
-      simpl.
-      lia.
+  vm_compute.
+  reflexivity.
 Qed.
 
 Lemma sched_gen_ex_at_1 :
   sched_gen_ex 1 0 = Some 1.
 Proof.
-  unfold sched_gen_ex, generated_schedule.
-  simpl.
-  apply choose_edf_unique_min.
-  - rewrite enumJ_ex_is_small. simpl. auto.
-  - unfold eligible, released, completed, jobs_ex, job1_ex.
-    simpl.
-    split; [lia |].
-    intro Hcompleted.
-    simpl in Hcompleted.
-    lia.
-  - intros j' Hin Helig Hneq.
-    rewrite enumJ_ex_is_small in Hin.
-    simpl in Hin.
-    destruct Hin as [Hin | [Hin | []]]; subst j'.
-    + exfalso.
-      unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
-      simpl in Helig.
-      destruct Helig as [_ Hnot_completed].
-      apply Hnot_completed.
-      simpl.
-      lia.
-    + contradiction.
+  vm_compute.
+  reflexivity.
 Qed.
 
 Lemma sched_gen_ex_at_2 :
   sched_gen_ex 2 0 = None.
 Proof.
-  unfold sched_gen_ex, generated_schedule.
-  simpl.
-  apply choose_edf_none_if_no_eligible.
-  intros j Hin Helig.
-  rewrite enumJ_ex_is_small in Hin.
-  simpl in Hin.
-  destruct Hin as [Hin | [Hin | []]]; subst j.
-  - unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
-    simpl in Helig.
-    destruct Helig as [_ Hnot_completed].
-    apply Hnot_completed.
-    simpl.
-    lia.
-  - unfold eligible, released, completed, jobs_ex, job1_ex in Helig.
-    simpl in Helig.
-    destruct Helig as [_ Hnot_completed].
-    apply Hnot_completed.
-    simpl.
-    lia.
+  vm_compute.
+  reflexivity.
 Qed.
 
 Lemma sched_gen_ex_at_3 :
   sched_gen_ex 3 0 = None.
 Proof.
-  unfold sched_gen_ex, generated_schedule.
-  simpl.
-  apply choose_edf_none_if_no_eligible.
-  intros j Hin Helig.
-  rewrite enumJ_ex_is_small in Hin.
-  simpl in Hin.
-  destruct Hin as [Hin | [Hin | []]]; subst j.
-  - unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
-    simpl in Helig.
-    destruct Helig as [_ Hnot_completed].
-    apply Hnot_completed.
-    simpl.
-    lia.
-  - unfold eligible, released, completed, jobs_ex, job1_ex in Helig.
-    simpl in Helig.
-    destruct Helig as [_ Hnot_completed].
-    apply Hnot_completed.
-    simpl.
-    lia.
+  vm_compute.
+  reflexivity.
 Qed.
 
 Lemma no_busy_prefix_witness_job1_ex :

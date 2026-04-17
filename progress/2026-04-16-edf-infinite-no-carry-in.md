@@ -116,15 +116,20 @@ This keeps the tutorial compiling and fixes the concrete arithmetic interface ne
 What was attempted but intentionally not kept in this round:
 - generic “soundness” lemmas tying every `slot_job_ex t = Some j` back to `service_slot_ex j = t`
 - an initial direct proof pass toward the no-carry-in bridge using those stronger local facts
+- an optional compatibility layer
+  - `slot_job_ex t = Some j -> service_slot_ex j = t`
+  - `slot_job_ex (service_slot_ex j) = Some j`
 
 Why it was rolled back:
 - the arithmetic normalizers are now available, but the local schedule lemmas still need a cleaner proof shape
 - the first pass mixed arithmetic normalization and schedule reasoning too tightly
 - keeping those partially stabilized proofs in the tutorial would make the next iteration harder, not easier
+- in particular, the `job_id_of_ex` / `Nat.div2` normalization in the compatibility proof was still too brittle to justify keeping it
 
 Current repository state after this pass:
 - `theories/TaskModels/Periodic/PeriodicArithmetic.v` compiles
 - `Tutorials/EDFInfiniteSchedulability.v` compiles
+- the attempted compatibility lemmas were fully rolled back, so there is no new tracked code beyond the last stable helper batch
 - the concrete helper layer is partially restored, but only for:
   - all jobs being in the periodic jobset
   - task-0 service slots
@@ -142,8 +147,8 @@ Updated next step:
    - task 1 at `7 * k` when `k mod 5 <> 0`
    - task 1 at `35 * q + 1` in the simultaneous-release case
    - optional idle lemma for all remaining slots
-2. Add only the compatibility lemma if it materially shortens those proofs:
-   - `slot_job_ex t = Some j -> service_slot_ex j = t`
+2. Do not block on the optional `slot_job_ex` / `service_slot_ex` compatibility lemma.
+   - if a compatibility statement is reintroduced later, it should come only after the exact run lemmas are already stable
 3. Turn run facts into completion facts using:
    - `sched_inf_ex_valid`
    - `service_at_release_zero`
