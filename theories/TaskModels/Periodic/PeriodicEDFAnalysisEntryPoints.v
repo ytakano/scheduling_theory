@@ -31,6 +31,9 @@ From RocqSched Require Export TaskModels.Periodic.PeriodicEDFInfiniteBridge.
     - finite- and infinite-time zero-offset classical-DBF corollaries with
       explicit busy-prefix or no-carry-in bridges
     - periodic EDF no-miss / feasible-schedule / schedulable-by-on wrappers
+    - finite generated-EDF wrappers that internalize
+      `start_before_release` and keep only
+      `periodic_edf_busy_prefix_no_carry_in_bridge` public
 
     Not part of this layer:
     - legacy compatibility wrappers

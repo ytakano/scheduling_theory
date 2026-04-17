@@ -205,6 +205,80 @@ Proof.
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
+(* Public finite-horizon no-miss family with an explicit busy-prefix witness
+   but only the weaker no-carry-in bridge as a schedule-local obligation. *)
+Theorem periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_no_carry_in_bridge :
+  forall T tasks offset H enumT enumJ jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched j t1 t2,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
+    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
+    periodic_jobset_upto T tasks offset jobs H j ->
+    busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 ->
+    job_abs_deadline (jobs j) <= H ->
+    periodic_edf_busy_prefix_no_carry_in_bridge T tasks offset jobs H sched j ->
+    (forall t1' t2',
+      t1' <= t2' ->
+      t2' <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1' t2' <= t2' - t1') ->
+    ~ missed_deadline jobs 1 sched j.
+Proof.
+  intros T tasks offset H enumT enumJ jobs codec sched j t1 t2
+         Hwf HnodupT HenumT_complete HenumT_sound
+         HenumJ_complete HenumJ_sound Hsched Hj Hwit Hj_H Hbridge Hdbf.
+  intro Hmiss.
+  pose proof
+    (edf_busy_prefix_start_before_release_if_missed
+       T tasks offset jobs H enumJ sched j t1 t2
+       HenumJ_complete HenumJ_sound Hsched Hj Hwit Hmiss) as Ht1rel.
+  pose proof
+    (periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in
+       T tasks offset H enumT enumJ jobs codec sched j t1 t2
+       Hwf HnodupT HenumT_sound HenumJ_complete HenumJ_sound
+       HenumT_complete Hsched Hj Hwit Ht1rel Hj_H
+       (periodic_edf_busy_prefix_no_carry_in_only
+          T tasks offset jobs H sched j Hbridge t1 t2 Hwit Ht1rel)
+       Hdbf) as Hnmiss.
+  exact (Hnmiss Hmiss).
+Qed.
+
+Theorem periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_auto_with_no_carry_in_bridge :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched j t1 t2,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    scheduler_rel
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1 sched ->
+    periodic_jobset_upto T tasks offset jobs H j ->
+    busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 ->
+    job_abs_deadline (jobs j) <= H ->
+    periodic_edf_busy_prefix_no_carry_in_bridge T tasks offset jobs H sched j ->
+    (forall t1' t2',
+      t1' <= t2' ->
+      t2' <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1' t2' <= t2' - t1') ->
+    ~ missed_deadline jobs 1 sched j.
+Proof.
+  intros T tasks offset H enumT jobs codec sched j t1 t2
+         Hwf HnodupT HenumT_complete HenumT_sound
+         Hsched Hj Hwit Hj_H Hbridge Hdbf.
+  eapply periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_no_carry_in_bridge
+    with (codec := codec)
+         (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec);
+    eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
+Qed.
+
 Theorem periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon :
   forall T tasks offset H enumT enumJ jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
@@ -317,6 +391,39 @@ Proof.
   intros j Hj.
   destruct (Hjob_bridge j Hj) as [Hj_H [t1 [t2 [Hwit Hbridge]]]].
   eapply periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_busy_prefix_bridge; eauto.
+Qed.
+
+Theorem periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon_with_no_carry_in_bridge :
+  forall T tasks offset H enumT enumJ jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
+    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
+    (forall j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      exists t1 t2,
+        busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 /\
+        periodic_edf_busy_prefix_no_carry_in_bridge T tasks offset jobs H sched j) ->
+    (forall t1 t2,
+      t1 <= t2 ->
+      t2 <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
+    feasible_schedule_on (periodic_jobset_upto T tasks offset jobs H) jobs 1 sched.
+Proof.
+  intros T tasks offset H enumT enumJ jobs codec sched
+         Hwf HnodupT HenumT_complete HenumT_sound
+         HenumJ_complete HenumJ_sound Hsched
+         Hjob_bridge Hdbf.
+  unfold feasible_schedule_on.
+  intros j Hj.
+  destruct (Hjob_bridge j Hj) as [Hj_H [t1 [t2 [Hwit Hbridge]]]].
+  eapply periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_no_carry_in_bridge; eauto.
 Qed.
 
 Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon :
@@ -497,6 +604,94 @@ Proof.
   eapply periodic_edf_optimality_on_finite_horizon_auto; eauto.
 Qed.
 
+Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_with_no_carry_in_bridge :
+  forall T T_bool tasks offset H enumT enumJ jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched,
+    (forall τ, T_bool τ = true <-> T τ) ->
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->
+    (forall x, In x enumJ -> periodic_jobset_upto T tasks offset jobs H x) ->
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched ->
+    (forall j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      exists t1 t2,
+        busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 /\
+        periodic_edf_busy_prefix_no_carry_in_bridge T tasks offset jobs H sched j) ->
+    (forall t1 t2,
+      t1 <= t2 ->
+      t2 <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
+    schedulable_by_on
+      (periodic_jobset_upto T tasks offset jobs H)
+      (edf_scheduler (enum_candidates_of enumJ))
+      jobs 1.
+Proof.
+  intros T T_bool tasks offset H enumT enumJ jobs codec sched
+         HTbool Hwf HnodupT HenumT_complete HenumT_sound
+         HenumJ_complete HenumJ_sound Hsched Hjob_bridge Hdbf.
+  assert (Hfeas :
+    feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1).
+  {
+    exists sched.
+    split.
+    - eapply single_cpu_algorithm_valid. exact Hsched.
+    - eapply periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon_with_no_carry_in_bridge; eauto.
+  }
+  eapply periodic_edf_optimality_on_finite_horizon; eauto.
+Qed.
+
+Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto_with_no_carry_in_bridge :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched,
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    scheduler_rel
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1 sched ->
+    (forall j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      exists t1 t2,
+        busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 /\
+        periodic_edf_busy_prefix_no_carry_in_bridge T tasks offset jobs H sched j) ->
+    (forall t1 t2,
+      t1 <= t2 ->
+      t2 <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
+    schedulable_by_on
+      (periodic_jobset_upto T tasks offset jobs H)
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1.
+Proof.
+  intros T tasks offset H enumT jobs codec sched
+         Hwf HnodupT HenumT_complete HenumT_sound
+         Hsched Hjob_bridge Hdbf.
+  assert (Hfeas :
+    feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1).
+  {
+    exists sched.
+    split.
+    - eapply single_cpu_algorithm_valid. exact Hsched.
+    - eapply periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon_with_no_carry_in_bridge
+        with (codec := codec)
+             (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec);
+        eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
+  }
+  eapply periodic_edf_optimality_on_finite_horizon_auto; eauto.
+Qed.
+
 (* Canonical public generated-schedule entry point for the
    schedulable-by-on family. *)
 Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge :
@@ -558,4 +753,67 @@ Proof.
   - intros j Hj.
     destruct (Hjob_bridge j Hj) as [Hj_H Hbridge].
     eapply periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_busy_prefix_bridge; eauto.
+Qed.
+
+(* Generated-schedule finite-horizon entry point with internalized
+   start-before-release and only the no-carry-in bridge exposed. *)
+Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_no_carry_in_bridge :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),
+    well_formed_periodic_tasks_on T tasks ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      periodic_edf_busy_prefix_no_carry_in_bridge
+        T tasks offset jobs H
+        (generated_schedule
+           edf_generic_spec
+           (enum_candidates_of
+              (enum_periodic_jobs_upto T tasks offset jobs H enumT codec))
+           jobs)
+        j) ->
+    (forall t1 t2,
+      t1 <= t2 ->
+      t2 <= H ->
+      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1) ->
+    schedulable_by_on
+      (periodic_jobset_upto T tasks offset jobs H)
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1.
+Proof.
+  intros T tasks offset H enumT jobs codec
+         Hwf HnodupT HenumT_complete HenumT_sound
+         Hjob_bridge Hdbf.
+  set (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec).
+  set (sched := generated_schedule edf_generic_spec (enum_candidates_of enumJ) jobs).
+  assert (Hcand_spec :
+    CandidateSourceSpec (periodic_jobset_upto T tasks offset jobs H)
+      (enum_candidates_of enumJ)).
+  { apply enum_candidates_spec.
+    - exact (enum_periodic_jobs_upto_complete T tasks offset jobs H enumT codec
+               Hwf HenumT_complete).
+    - exact (enum_periodic_jobs_upto_sound T tasks offset jobs H enumT codec
+               HenumT_sound).
+  }
+  assert (Hsched :
+    scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched).
+  {
+    unfold sched.
+    eapply generated_schedule_scheduler_rel with
+      (J := periodic_jobset_upto T tasks offset jobs H)
+      (cand_spec := Hcand_spec).
+    intros s1 s2 t Hagree.
+    eapply edf_choose_agrees_before; eauto.
+  }
+  eapply schedulable_by_on_intro with (sched := sched).
+  - exact Hsched.
+  - eapply single_cpu_algorithm_valid. exact Hsched.
+  - intros j Hj.
+    destruct (Hjob_bridge j Hj) as [Hj_H Hbridge].
+    eapply periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_no_carry_in_bridge; eauto.
 Qed.
