@@ -6,12 +6,14 @@ From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
+From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFPrefixCoherence.
 
 Import ListNotations.
 
@@ -447,6 +449,26 @@ Proof.
   destruct (collision_release_ex k m Heq) as [q [Hk _]].
   apply (Hnc q).
   exact Hk.
+Qed.
+
+Lemma task1_collision_dec_ex :
+  forall k,
+    { q : nat | k = 5 * q } +
+    { forall q, k <> 5 * q }.
+Proof.
+  intro k.
+  destruct (Nat.eq_dec (k mod 5) 0) as [Hmod | Hmod].
+  - left.
+    exists (k / 5).
+    pose proof (Nat.div_mod k 5 ltac:(lia)) as Hdiv.
+    lia.
+  - right.
+    intros q Heq.
+    apply Hmod.
+    rewrite Heq.
+    rewrite Nat.mul_comm.
+    replace ((q * 5) mod 5) with 0 by (symmetry; apply Nat.mod_mul; lia).
+    reflexivity.
 Qed.
 
 Lemma noncollision_task1_release_lt_task0_release_implies_completion_by_task0_release_ex :
