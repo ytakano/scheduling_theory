@@ -111,6 +111,7 @@ theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicEDFBridgeCompat.v
 theories/TaskModels/Periodic/PeriodicClassicDBF.v
 theories/TaskModels/Periodic/PeriodicEDFClassicalBridge.v
+theories/TaskModels/Periodic/PeriodicEDFNoCarryInSupply.v
 theories/TaskModels/Periodic/PeriodicEDFPrefixCoherence.v
 theories/TaskModels/Periodic/PeriodicEDFInfiniteBridge.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v

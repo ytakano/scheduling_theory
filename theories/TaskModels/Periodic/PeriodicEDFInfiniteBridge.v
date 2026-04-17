@@ -7,6 +7,7 @@ From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
+From RocqSched Require Import Uniprocessor.Policies.EDFLemmas.
 From RocqSched Require Import Analysis.Uniprocessor.BusyWindowSearch.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import Analysis.Uniprocessor.EDFProcessorDemand.
@@ -18,6 +19,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
 From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFPrefixCoherence.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFNoCarryInSupply.
 
 Definition generated_periodic_edf_schedule
     (T : TaskId -> Prop)
@@ -71,9 +73,72 @@ Lemma generated_periodic_edf_schedule_valid :
 Proof.
   intros T tasks offset jobs enumT codec.
   eapply single_cpu_algorithm_valid.
+    exact
+      (generated_periodic_edf_schedule_scheduler_rel
+         T tasks offset jobs enumT codec).
+Qed.
+
+Lemma generated_periodic_edf_schedule_upto_scheduler_rel :
+  forall T tasks offset jobs H enumT
+         (codec : PeriodicCodec T tasks offset jobs),
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    scheduler_rel
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto
+               T tasks offset jobs H enumT
+               (periodic_finite_horizon_codec_of T tasks offset jobs H codec))))
+      jobs 1
+      (generated_periodic_edf_schedule_upto T tasks offset jobs H enumT codec).
+Proof.
+  intros T tasks offset jobs H enumT codec
+         Hwf HenumT_complete HenumT_sound.
+  set (enumJ :=
+         enum_periodic_jobs_upto
+           T tasks offset jobs H enumT
+           (periodic_finite_horizon_codec_of T tasks offset jobs H codec)).
+  assert (Hcand_spec :
+    CandidateSourceSpec (periodic_jobset_upto T tasks offset jobs H)
+      (enum_candidates_of enumJ)).
+  {
+    apply enum_candidates_spec.
+    - exact
+        (enum_periodic_jobs_upto_complete
+           T tasks offset jobs H enumT
+           (periodic_finite_horizon_codec_of T tasks offset jobs H codec)
+           Hwf HenumT_complete).
+    - exact
+        (enum_periodic_jobs_upto_sound
+           T tasks offset jobs H enumT
+           (periodic_finite_horizon_codec_of T tasks offset jobs H codec)
+           HenumT_sound).
+  }
+  unfold generated_periodic_edf_schedule_upto.
+  eapply generated_schedule_scheduler_rel with
+    (J := periodic_jobset_upto T tasks offset jobs H)
+    (cand_spec := Hcand_spec).
+  intros s1 s2 t Hagree.
+  eapply edf_choose_agrees_before; eauto.
+Qed.
+
+Lemma generated_periodic_edf_schedule_upto_valid :
+  forall T tasks offset jobs H enumT
+         (codec : PeriodicCodec T tasks offset jobs),
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    valid_schedule jobs 1
+      (generated_periodic_edf_schedule_upto T tasks offset jobs H enumT codec).
+Proof.
+  intros T tasks offset jobs H enumT codec
+         Hwf HenumT_complete HenumT_sound.
+  eapply single_cpu_algorithm_valid.
   exact
-    (generated_periodic_edf_schedule_scheduler_rel
-       T tasks offset jobs enumT codec).
+    (generated_periodic_edf_schedule_upto_scheduler_rel
+       T tasks offset jobs H enumT codec
+       Hwf HenumT_complete HenumT_sound).
 Qed.
 
 Lemma generated_periodic_edf_schedule_upto_agrees_before_generated :

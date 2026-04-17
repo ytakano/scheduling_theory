@@ -72,7 +72,19 @@ Definition periodic_infinite_codec_canonical_ex :
 
 Section InfinitePeriodicEDFCanonicalPackageExample.
 
-  Hypothesis busy_prefix_bridge_canonical_ex :
+  Hypothesis backlog_free_canonical_ex :
+    forall j,
+      periodic_jobset T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex j ->
+      periodic_edf_backlog_free_before_release
+        T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex
+        (S (job_abs_deadline (periodic_infinite_jobs_canonical_ex j)))
+        (generated_periodic_edf_schedule_upto
+           T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex
+           (S (job_abs_deadline (periodic_infinite_jobs_canonical_ex j)))
+           enumT_ex periodic_infinite_codec_canonical_ex)
+        j.
+
+  Let busy_prefix_bridge_canonical_ex :
     forall j,
       periodic_jobset T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex j ->
       periodic_edf_busy_prefix_no_carry_in_bridge
@@ -83,6 +95,16 @@ Section InfinitePeriodicEDFCanonicalPackageExample.
            (S (job_abs_deadline (periodic_infinite_jobs_canonical_ex j)))
            enumT_ex periodic_infinite_codec_canonical_ex)
         j.
+  Proof.
+    intros j Hj.
+    eapply periodic_edf_no_carry_in_bridge_of_backlog_free.
+    - apply generated_periodic_edf_schedule_upto_valid.
+      + exact tasks_ex_well_formed.
+      + exact T_ex_in_enumT_ex.
+      + exact in_enumT_ex_implies_T_ex.
+    - apply backlog_free_canonical_ex.
+      exact Hj.
+  Qed.
 
   Definition periodic_infinite_classical_obligations_canonical_ex :
     PeriodicEDFConcreteInfiniteClassicalObligations
@@ -143,7 +165,19 @@ Section InfinitePeriodicEDFExample.
 
   Variable codec_inf_ex : PeriodicCodec T_ex tasks_ex offset_ex jobs_ex.
 
-  Hypothesis busy_prefix_bridge_ex :
+  Hypothesis backlog_free_ex :
+    forall j,
+      periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+      periodic_edf_backlog_free_before_release
+        T_ex tasks_ex offset_ex jobs_ex
+        (S (job_abs_deadline (jobs_ex j)))
+        (generated_periodic_edf_schedule_upto
+           T_ex tasks_ex offset_ex jobs_ex
+           (S (job_abs_deadline (jobs_ex j)))
+           enumT_ex codec_inf_ex)
+        j.
+
+  Let busy_prefix_bridge_ex :
     forall j,
       periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
       periodic_edf_busy_prefix_no_carry_in_bridge
@@ -154,6 +188,16 @@ Section InfinitePeriodicEDFExample.
            (S (job_abs_deadline (jobs_ex j)))
            enumT_ex codec_inf_ex)
         j.
+  Proof.
+    intros j Hj.
+    eapply periodic_edf_no_carry_in_bridge_of_backlog_free.
+    - apply generated_periodic_edf_schedule_upto_valid.
+      + exact tasks_ex_well_formed.
+      + exact T_ex_in_enumT_ex.
+      + exact in_enumT_ex_implies_T_ex.
+    - apply backlog_free_ex.
+      exact Hj.
+  Qed.
 
   Hypothesis offset_zero_ex :
     forall τ, In τ enumT_ex -> offset_ex τ = 0.

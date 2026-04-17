@@ -121,17 +121,46 @@ Definition generated_edf_busy_prefix_no_carry_in_bridge_ex : Prop :=
          enumT_ex codec_ex)
       j.
 
+Definition generated_edf_backlog_free_before_release_ex : Prop :=
+  forall j,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    periodic_edf_backlog_free_before_release
+      T_ex tasks_ex offset_ex jobs_ex
+      (S (job_abs_deadline (jobs_ex j)))
+      (generated_periodic_edf_schedule_upto
+         T_ex tasks_ex offset_ex jobs_ex
+         (S (job_abs_deadline (jobs_ex j)))
+         enumT_ex codec_ex)
+      j.
+
+Lemma generated_edf_busy_prefix_no_carry_in_bridge_of_backlog_ex :
+  generated_edf_backlog_free_before_release_ex ->
+  generated_edf_busy_prefix_no_carry_in_bridge_ex.
+Proof.
+  intros Hbacklog j Hj.
+  eapply periodic_edf_no_carry_in_bridge_of_backlog_free.
+  - apply generated_periodic_edf_schedule_upto_valid.
+    + exact tasks_ex_well_formed.
+    + exact enumT_ex_complete.
+    + exact enumT_ex_sound.
+  - apply Hbacklog.
+    exact Hj.
+Qed.
+
 Definition sched_inf_ex : Schedule :=
   generated_periodic_edf_schedule
     T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex.
 
 Section TutorialClassicalProof.
-  Hypothesis Hbridge : generated_edf_busy_prefix_no_carry_in_bridge_ex.
+  Hypothesis Hbacklog : generated_edf_backlog_free_before_release_ex.
 
   Definition tutorial_infinite_classical_obligations :
     PeriodicEDFConcreteInfiniteClassicalObligations
       T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex.
   Proof.
+    pose proof
+      (generated_edf_busy_prefix_no_carry_in_bridge_of_backlog_ex Hbacklog)
+      as Hbridge.
     refine
       {| periodic_edf_concrete_infinite_tasks_wf := tasks_ex_well_formed;
          periodic_edf_concrete_infinite_enumT_nodup := enumT_ex_nodup;
@@ -215,7 +244,7 @@ Section TutorialClassicalProof.
     1: exact enumT_ex_complete.
     1: exact enumT_ex_sound.
     1: intros τ Hin; reflexivity.
-    1: exact Hbridge.
+    1: exact (generated_edf_busy_prefix_no_carry_in_bridge_of_backlog_ex Hbacklog).
     1: exact periodic_classical_dbf_from_cutoff_ex.
   Qed.
 End TutorialClassicalProof.

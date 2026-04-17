@@ -12,6 +12,7 @@ From RocqSched Require Export TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEnumeration.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFBridge.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFClassicalBridge.
+From RocqSched Require Export TaskModels.Periodic.PeriodicEDFNoCarryInSupply.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFPrefixCoherence.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFInfiniteBridge.
 
