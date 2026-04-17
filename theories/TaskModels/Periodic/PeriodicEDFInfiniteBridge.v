@@ -1,6 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Semantics.ScheduleLemmas.SchedulePrefix.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
@@ -130,7 +131,7 @@ Lemma generated_periodic_edf_schedule_upto_valid :
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
     valid_schedule jobs 1
-      (generated_periodic_edf_schedule_upto T tasks offset jobs H enumT codec).
+    (generated_periodic_edf_schedule_upto T tasks offset jobs H enumT codec).
 Proof.
   intros T tasks offset jobs H enumT codec
          Hwf HenumT_complete HenumT_sound.
@@ -139,6 +140,88 @@ Proof.
     (generated_periodic_edf_schedule_upto_scheduler_rel
        T tasks offset jobs H enumT codec
        Hwf HenumT_complete HenumT_sound).
+Qed.
+
+Lemma periodic_edf_prefix_cpu0_eq_choose_top :
+  forall T tasks offset jobs H enumT
+         (codec : PeriodicCodec T tasks offset jobs) t,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    generated_periodic_edf_schedule_upto
+      T tasks offset jobs H enumT codec t 0 =
+    choose_edf jobs 1
+      (generated_periodic_edf_schedule_upto
+         T tasks offset jobs H enumT codec)
+      t
+      (enum_periodic_jobs_upto
+         T tasks offset jobs H enumT
+         (periodic_finite_horizon_codec_of T tasks offset jobs H codec)).
+Proof.
+  intros T tasks offset jobs H enumT codec t
+         Hwf HenumT_complete HenumT_sound.
+  set (enumJ :=
+         enum_periodic_jobs_upto
+           T tasks offset jobs H enumT
+           (periodic_finite_horizon_codec_of T tasks offset jobs H codec)).
+  exact
+    (single_cpu_algorithm_eq_cpu0
+       edf_generic_spec
+       (enum_candidates_of enumJ)
+       jobs
+       (generated_periodic_edf_schedule_upto
+          T tasks offset jobs H enumT codec)
+       t
+       (generated_periodic_edf_schedule_upto_scheduler_rel
+          T tasks offset jobs H enumT codec
+          Hwf HenumT_complete HenumT_sound)).
+Qed.
+
+Lemma periodic_job_eligible_at_release_generic :
+  forall T tasks offset jobs H enumT
+         (codec : PeriodicCodec T tasks offset jobs) τ k,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    T τ ->
+    expected_release tasks offset τ k < H ->
+    0 < job_cost (jobs (global_periodic_job_id_of T tasks offset jobs codec τ k)) ->
+    eligible jobs 1
+      (generated_periodic_edf_schedule_upto
+         T tasks offset jobs H enumT codec)
+      (global_periodic_job_id_of T tasks offset jobs codec τ k)
+      (expected_release tasks offset τ k).
+Proof.
+  intros T tasks offset jobs H enumT codec τ k
+         Hwf HenumT_complete HenumT_sound Hτ Hrel Hcost_pos.
+  split.
+  - unfold released.
+    pose proof
+      (global_periodic_job_id_of_sound T tasks offset jobs codec τ k Hτ)
+      as [Htask [Hidx Hgen]].
+    rewrite (generated_job_release tasks offset jobs _ Hgen).
+    rewrite Htask, Hidx.
+    reflexivity.
+  - apply not_completed_iff_service_lt_cost.
+    pose proof
+      (global_periodic_job_id_of_sound T tasks offset jobs codec τ k Hτ)
+      as [Htask [Hidx Hgen]].
+    assert (Hrelease :
+      job_release (jobs (global_periodic_job_id_of T tasks offset jobs codec τ k)) =
+      expected_release tasks offset τ k).
+    {
+      rewrite (generated_job_release tasks offset jobs _ Hgen).
+      rewrite Htask, Hidx.
+      reflexivity.
+    }
+    rewrite <- Hrelease.
+    rewrite (service_at_release_zero
+               jobs 1
+               (generated_periodic_edf_schedule_upto
+                  T tasks offset jobs H enumT codec)
+               (global_periodic_job_id_of T tasks offset jobs codec τ k)).
+    + exact Hcost_pos.
+    + apply generated_periodic_edf_schedule_upto_valid; assumption.
 Qed.
 
 Lemma generated_periodic_edf_schedule_upto_agrees_before_generated :

@@ -5,6 +5,7 @@ From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Analysis.Uniprocessor.BusyWindowSearch.
 From RocqSched Require Import Analysis.Uniprocessor.EDFProcessorDemand.
+From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
 
 Definition periodic_edf_backlog_free_before_release
@@ -55,4 +56,32 @@ Proof.
          jobs 1 sched j_run t 0 Hvalid ltac:(lia) Hsched)
       as Hnot_completed.
     exact (Hnot_completed Hcompleted_at_t).
+Qed.
+
+Theorem periodic_edf_backlog_free_before_release_of_earlier_completion :
+  forall T tasks offset jobs H sched j,
+    valid_schedule jobs 1 sched ->
+    periodic_jobset T tasks offset jobs j ->
+    (forall x,
+       periodic_jobset_deadline_between
+         T tasks offset jobs
+         0 (job_abs_deadline (jobs j)) x ->
+       job_release (jobs x) < job_release (jobs j) ->
+       completed jobs 1 sched x (job_release (jobs j))) ->
+    periodic_edf_backlog_free_before_release
+      T tasks offset jobs H sched j.
+Proof.
+  intros T tasks offset jobs H sched j Hvalid Hj Hdone.
+  unfold periodic_edf_backlog_free_before_release.
+  intros t1 t2 x Hwit Ht1rel Hbetween Hrel_lt.
+  apply Hdone.
+  - destruct Hbetween as [HT [Hgen [Hrel Hdl]]].
+    split.
+    + exact HT.
+    + split.
+      * exact Hgen.
+      * split.
+        -- lia.
+        -- exact Hdl.
+  - exact Hrel_lt.
 Qed.

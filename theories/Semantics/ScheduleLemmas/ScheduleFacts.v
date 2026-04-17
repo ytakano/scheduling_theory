@@ -687,6 +687,46 @@ Proof.
   lia.
 Qed.
 
+(* remaining_cost can be decomposed across an interval via service_between. *)
+Lemma remaining_cost_after_interval : forall jobs m sched j t1 t2,
+    t1 <= t2 ->
+    remaining_cost jobs m sched j t2 =
+    remaining_cost jobs m sched j t1 -
+    service_between m sched j t1 t2.
+Proof.
+  intros jobs m sched j t1 t2 Hle.
+  unfold remaining_cost, service_between.
+  pose proof (service_job_monotone m sched j t1 t2 Hle) as Hmono.
+  lia.
+Qed.
+
+(* If interval service covers the remaining cost at t1, the job is completed at t2. *)
+Lemma completed_if_service_between_covers_remaining_cost :
+  forall jobs m sched j t1 t2,
+    t1 <= t2 ->
+    remaining_cost jobs m sched j t1 <= service_between m sched j t1 t2 ->
+    completed jobs m sched j t2.
+Proof.
+  intros jobs m sched j t1 t2 Hle Hcover.
+  pose proof (remaining_cost_after_interval jobs m sched j t1 t2 Hle) as Hrem.
+  apply remaining_cost_zero_implies_completed.
+  rewrite Hrem.
+  lia.
+Qed.
+
+(* Dually, insufficient interval service implies the job is still incomplete at t2. *)
+Lemma not_completed_if_service_between_insufficient :
+  forall jobs m sched j t1 t2,
+    t1 <= t2 ->
+    service_between m sched j t1 t2 < remaining_cost jobs m sched j t1 ->
+    ~ completed jobs m sched j t2.
+Proof.
+  intros jobs m sched j t1 t2 Hle Hinsuf Hcomp.
+  pose proof (completed_implies_remaining_cost_zero jobs m sched j t2 Hcomp) as Hzero.
+  rewrite remaining_cost_after_interval with (t1 := t1) (t2 := t2) in Hzero by exact Hle.
+  lia.
+Qed.
+
 (* --- 1-step service lemma for the single-CPU case --- *)
 
 (* service_job 1 advances by 1 iff job j ran on CPU 0 at time t. *)
