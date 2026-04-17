@@ -696,6 +696,61 @@ Definition sched_upto_ex (H : Time) : Schedule :=
   generated_periodic_edf_schedule_upto
     T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex.
 
+Definition sched_prefix_ex_at (H h : Time) : Schedule :=
+  generated_schedule_prefix
+    edf_generic_spec
+    (enum_candidates_of
+       (enum_periodic_jobs_upto
+          T_ex tasks_ex offset_ex jobs_ex H enumT_ex
+          (periodic_finite_horizon_codec_of
+             T_ex tasks_ex offset_ex jobs_ex H codec_ex)))
+    jobs_ex h.
+
+Definition sched_prefix_ex (H : Time) : Schedule :=
+  sched_prefix_ex_at H H.
+
+Lemma sched_prefix_ex_agrees_with_sched_upto_ex_before :
+  forall H t c,
+    t < H ->
+    sched_prefix_ex H t c = sched_upto_ex H t c.
+Proof.
+  intros H t c Hlt.
+  unfold sched_prefix_ex, sched_upto_ex, generated_periodic_edf_schedule_upto.
+  unfold sched_prefix_ex_at.
+  apply generated_schedule_prefix_stable.
+  exact Hlt.
+Qed.
+
+Lemma sched_prefix_ex_cpu0_agrees_with_sched_upto_ex :
+  forall H t,
+    t < H ->
+    sched_prefix_ex H t 0 = sched_upto_ex H t 0.
+Proof.
+  intros H t Hlt.
+  apply sched_prefix_ex_agrees_with_sched_upto_ex_before.
+  exact Hlt.
+Qed.
+
+Lemma sched_prefix_ex_eq_choose_at_top :
+  forall t,
+    sched_prefix_ex (S t) t 0 =
+    choose_edf jobs_ex 1
+      (sched_prefix_ex_at (S t) t)
+      t
+      (enum_periodic_jobs_upto
+         T_ex tasks_ex offset_ex jobs_ex (S t) enumT_ex
+         (periodic_finite_horizon_codec_of
+            T_ex tasks_ex offset_ex jobs_ex (S t) codec_ex)).
+Proof.
+  intro t.
+  unfold sched_prefix_ex, sched_prefix_ex_at.
+  simpl.
+  rewrite Nat.ltb_irrefl.
+  rewrite Nat.eqb_refl.
+  unfold enum_candidates_of.
+  reflexivity.
+Qed.
+
 Lemma task0_completed_if_scheduled_at_release_ex :
   forall H k,
     5 * k + 1 < H ->
