@@ -33,6 +33,7 @@ The current organization is:
 
 `TaskModels/Periodic`
 - periodic task parameters, finite-horizon job enumeration, workload and demand bridges, EDF/LLF theorem lifts, and packaged periodic EDF analysis entry points
+- canonical enum-based periodic job/codec builders for concrete zero-offset instances
 - bounded concrete-analysis helpers that reduce finite-horizon DBF obligations
   to compute-friendly boolean checks
 - a zero-offset scalar DBF cutoff helper that reduces infinite classical-DBF
@@ -136,10 +137,15 @@ New task-model work should prefer bridge-first public APIs and compatibility wra
   Shared witness-to-policy finite-optimality lift.
 - `theories/TaskModels/Periodic/PeriodicTasks.v`
   Periodic task model definitions.
+- the same layer now also provides a canonical generated-job constructor used by
+  enum-based periodic concrete instances.
 - `theories/TaskModels/Periodic/PeriodicFiniteHorizon.v`
   Periodic finite-horizon infrastructure.
 - `theories/TaskModels/Periodic/PeriodicEnumeration.v`
   Periodic job enumeration.
+- `theories/TaskModels/Periodic/PeriodicCodec.v`
+  Infinite-horizon periodic codec interfaces plus enum-based builders for
+  canonical concrete periodic job families.
 - `theories/TaskModels/Periodic/PeriodicWorkload.v`
   Periodic workload bridge.
 - `theories/TaskModels/Periodic/PeriodicDemandBound.v`
