@@ -254,19 +254,20 @@ Lemma no_busy_prefix_witness_job1_ex :
   forall t1 t2,
     ~ busy_prefix_witness sched_gen_ex (job_abs_deadline job1_ex) t1 t2.
 Proof.
-  intros t1 t2 [Hcand [Ht1 Ht2]].
-  pose proof (busy_prefix_candidate_busy_interval sched_gen_ex t1 t2 Hcand) as Hbusy.
-  destruct Hbusy as [Hlt Hbusy].
+  intros t1 t2 Hwit.
+  pose proof Hwit as Hwit'.
+  destruct Hwit' as [Hcand [Ht1 Ht2]].
+  pose proof (busy_prefix_candidate_busy_interval sched_gen_ex t1 t2 Hcand) as [Hlt _].
   unfold job1_ex in Ht1, Ht2; cbn in Ht1, Ht2.
   destruct (Nat.eq_dec t1 3) as [-> | Hneq].
-  - eapply (idle_slot_not_busy_interval sched_gen_ex 3 t2 3).
+  - eapply (idle_slot_not_busy_prefix_witness sched_gen_ex (job_abs_deadline job1_ex) 3 t2 3).
     + exact (conj (Nat.le_refl 3) Hlt).
     + exact sched_gen_ex_idle_3.
-    + split; assumption.
-  - eapply (idle_slot_not_busy_interval sched_gen_ex t1 t2 2).
+    + exact Hwit.
+  - eapply (idle_slot_not_busy_prefix_witness sched_gen_ex (job_abs_deadline job1_ex) t1 t2 2).
     + lia.
     + exact sched_gen_ex_idle_2.
-    + split; assumption.
+    + exact Hwit.
 Qed.
 
 Lemma generated_edf_busy_prefix_no_carry_in_bridge_ex_proved :

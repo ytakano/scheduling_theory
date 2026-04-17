@@ -383,12 +383,11 @@ Lemma periodic_jobset_upto_ex_cases :
     j = 0 \/ j = 1.
 ```
 
-Next, it proves the generated EDF schedule at the only relevant time points. These are not obtained by `vm_compute`. Instead, the file unfolds `generated_schedule` and uses EDF choice lemmas:
+Next, it proves the generated EDF schedule at the only relevant time points. In the checked tutorial, these are small local schedule facts:
 
-* `choose_edf_unique_min` shows that EDF must pick job `0` at time `0` and job `1` at time `1`,
-* `choose_edf_none_if_no_eligible` shows that the schedule is idle at times `2` and `3`.
-
-So the local schedule facts are symbolic consequences of EDF's specification on this tiny example, not raw computation results.
+* `sched_gen_ex_at_0` and `sched_gen_ex_at_1` identify the two scheduled jobs,
+* `sched_gen_ex_at_2` and `sched_gen_ex_at_3` identify the two idle slots,
+* `sched_gen_ex_idle_2` and `sched_gen_ex_idle_3` package the idle-slot facts in the schedule-analysis vocabulary.
 
 ```coq
 Lemma sched_gen_ex_at_0 :
@@ -404,7 +403,7 @@ Lemma sched_gen_ex_at_3 :
   sched_gen_ex 3 0 = None.
 ```
 
-These local facts are enough to prove that job `1` has no covering busy-prefix witness:
+These local facts are enough to prove that job `1` has no covering busy-prefix witness. The proof now goes through the public idle-slot lemmas in `BusyIntervalLemmas` rather than by enumerating all possible `t1` cases:
 
 ```coq
 Lemma no_busy_prefix_witness_job1_ex :
@@ -450,7 +449,7 @@ Lemma generated_edf_busy_prefix_bridge_ex_proved :
 The bridge proof splits on `periodic_jobset_upto_ex_cases`.
 
 * For `j = 0`, any covering busy-prefix witness must start at `t1 = 0`; otherwise the left boundary would contradict `sched_gen_ex_at_0` or `sched_gen_ex_at_1`.
-* For `j = 1`, the bridge is vacuous because `no_busy_prefix_witness_job1_ex` rules out the existence of a covering witness.
+* For `j = 1`, the bridge is vacuous because `no_busy_prefix_witness_job1_ex` applies `idle_slot_not_busy_prefix_witness` to the idle slot at time `2` or `3`.
 
 The DBF obligation is also proved directly. Since `H_ex = 4`, every admissible pair `t1 <= t2 <= H_ex` can be discharged by bounded case analysis on `t1` and `t2`, followed by simplification and `lia`:
 

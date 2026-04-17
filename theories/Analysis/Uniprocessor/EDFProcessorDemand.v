@@ -1176,7 +1176,9 @@ Record periodic_edf_busy_prefix_bridge
 
 (* Canonical bridge for generated-EDF contradiction proofs: the proof kernel
    can derive the release-boundary property from a deadline miss, so public
-   clients only need to supply the schedule-local no-carry-in fact. *)
+   clients only need to supply the schedule-local no-carry-in fact. In
+   concrete clients, this is intended to be discharged from local idle-slot
+   facts rather than by enumerating all possible busy-prefix starts. *)
 Record periodic_edf_busy_prefix_no_carry_in_bridge
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)

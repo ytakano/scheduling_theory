@@ -85,6 +85,27 @@ Proof.
   exact (proj2 (busy_prefix_candidate_decompose sched t1 t2 Hcand)).
 Qed.
 
+Lemma idle_slot_not_busy_prefix_candidate :
+  forall sched t1 t2 t,
+    t1 <= t < t2 ->
+    ~ cpu_busy_at sched t ->
+    ~ busy_prefix_candidate sched t1 t2.
+Proof.
+  intros sched t1 t2 t Ht Hidle Hcand.
+  eapply idle_slot_not_busy_interval; eauto.
+  exact (busy_prefix_candidate_busy_interval sched t1 t2 Hcand).
+Qed.
+
+Lemma idle_slot_not_busy_prefix_witness :
+  forall sched d t1 t2 t,
+    t1 <= t < t2 ->
+    ~ cpu_busy_at sched t ->
+    ~ busy_prefix_witness sched d t1 t2.
+Proof.
+  intros sched d t1 t2 t Ht Hidle [Hcand _].
+  eapply idle_slot_not_busy_prefix_candidate; eauto.
+Qed.
+
 Lemma busy_window_candidate_decompose :
   forall sched t1 t2,
     busy_window_candidate sched t1 t2 ->

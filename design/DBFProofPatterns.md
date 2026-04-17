@@ -10,6 +10,12 @@ The target audience is library contributors who want a lightweight way to
 close concrete classical-DBF obligations without falling back to large
 `Nat.div_mod` scripts.
 
+For periodic EDF tutorials, this arithmetic layer is only one half of the proof
+pattern. The other half is schedule-local: extract one idle slot from the
+generated schedule, then use the public `BusyIntervalLemmas` facts
+`idle_slot_not_busy_prefix_candidate` or `idle_slot_not_busy_prefix_witness`
+to discharge the busy-prefix side without expanding the whole schedule.
+
 ---
 
 ## 1. Motivating example
