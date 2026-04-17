@@ -45,6 +45,7 @@ theories/Examples/PeriodicInfiniteEDFExamples.v
 theories/Examples/PeriodicInfiniteLLFExamples.v
 theories/Examples/PeriodicProcessorDemandExamples.v
 theories/Examples/PeriodicConcreteEDFExamples.v
+theories/Examples/PeriodicManyTaskEDFExamples.v
 theories/Examples/PeriodicProcessorDemandCompatExamples.v
 theories/Examples/SporadicExamples.v
 theories/Examples/RRExamples.v

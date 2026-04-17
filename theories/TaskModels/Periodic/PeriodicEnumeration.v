@@ -78,6 +78,12 @@ Proof.
              T tasks offset jobs H j Hjobset).
 Defined.
 
+Definition zero_offset_periodic_finite_horizon_codec_of
+    T tasks jobs H
+    (codec : PeriodicCodec T tasks (fun _ => 0) jobs)
+  : PeriodicFiniteHorizonCodec T tasks (fun _ => 0) jobs H :=
+  periodic_finite_horizon_codec_of T tasks (fun _ => 0) jobs H codec.
+
 (* ===== Index enumeration ===== *)
 
 (* Enumerate all k in [0, H) whose expected release is also < H. *)

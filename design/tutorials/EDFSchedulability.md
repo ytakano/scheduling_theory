@@ -508,6 +508,18 @@ Qed.
 
 This is the entire proof pattern. The public theorem acts as the final assembly point: once the concrete finite-horizon model, the codec, the EDF-generated schedule, the deadline-side condition, and the DBF-side condition are in place, the schedulability result follows.
 
+For larger concrete task sets, the repository now also exposes a packaged
+variant of this flow:
+
+* `PeriodicEDFConcreteWindowObligations`
+* `PeriodicEDFConcreteClassicalObligations`
+* `periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_from_obligations`
+* `periodic_edf_schedulable_by_classical_dbf_on_finite_horizon_generated_from_obligations`
+
+The many-task example uses the packaged route so that theorem application is
+driven by checker outputs and bridge packaging rather than by a long local
+proof script.
+
 ---
 
 ## 14. What the tutorial now proves concretely

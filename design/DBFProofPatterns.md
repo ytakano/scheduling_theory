@@ -16,6 +16,17 @@ generated schedule, then use the public `BusyIntervalLemmas` facts
 `idle_slot_not_busy_prefix_candidate` or `idle_slot_not_busy_prefix_witness`
 to discharge the busy-prefix side without expanding the whole schedule.
 
+For concrete finite-horizon generated EDF proofs, the preferred assembly point
+is now a small obligation package:
+
+* finite-horizon codec
+* bounded checker result (`window_dbf_test_upto = true` or `dbf_test_by_cutoff = true`)
+* per-job horizon/deadline fact
+* per-job no-carry-in bridge
+
+The package-facing wrappers live in the periodic EDF analysis entry points and
+let downstream examples avoid repeating the theorem-assembly boilerplate.
+
 ---
 
 ## 1. Motivating example

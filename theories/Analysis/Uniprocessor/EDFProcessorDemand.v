@@ -1256,6 +1256,18 @@ Proof.
   eapply periodic_edf_busy_prefix_no_carry_in; eauto.
 Qed.
 
+Lemma periodic_edf_busy_prefix_no_carry_in_if_release_zero :
+  forall T tasks offset jobs H sched j,
+    job_release (jobs j) = 0 ->
+    periodic_edf_busy_prefix_no_carry_in_bridge T tasks offset jobs H sched j.
+Proof.
+  intros T tasks offset jobs H sched j Hrel.
+  constructor.
+  intros t1 t2 Hwit Ht1rel t j_run Hbetween Hsched Hdeadline_between.
+  rewrite Hrel.
+  lia.
+Qed.
+
 Lemma edf_busy_prefix_start_before_release_if_missed :
   forall T tasks offset jobs H enumJ sched j t1 t2,
     (forall x, periodic_jobset_upto T tasks offset jobs H x -> In x enumJ) ->

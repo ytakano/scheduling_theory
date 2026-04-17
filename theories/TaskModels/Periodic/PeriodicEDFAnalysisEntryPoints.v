@@ -1,8 +1,13 @@
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
+From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
+From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Export Analysis.Uniprocessor.BusyWindowSearch.
 From RocqSched Require Export Analysis.Uniprocessor.EDFProcessorDemand.
 From RocqSched Require Export TaskModels.Periodic.PeriodicWindowDemandBound.
 From RocqSched Require Export TaskModels.Periodic.PeriodicClassicDBF.
 From RocqSched Require Export TaskModels.Periodic.PeriodicConcreteAnalysis.
+From RocqSched Require Export TaskModels.Periodic.PeriodicEnumeration.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFBridge.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFClassicalBridge.
 From RocqSched Require Export TaskModels.Periodic.PeriodicEDFPrefixCoherence.
@@ -43,3 +48,59 @@ From RocqSched Require Export TaskModels.Periodic.PeriodicEDFInfiniteBridge.
     - generated-EDF auto-derivation of `no_carry_in`
     - future sporadic / jittered generalizations
     - delay-aware or OS-operational analysis *)
+
+Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_from_obligations :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),
+    PeriodicEDFConcreteWindowObligations T tasks offset jobs H enumT codec ->
+    schedulable_by_on
+      (periodic_jobset_upto T tasks offset jobs H)
+      (edf_scheduler
+         (enum_candidates_of
+            (generated_periodic_edf_finite_enumJ T tasks offset jobs H enumT codec)))
+      jobs 1.
+Proof.
+  intros T tasks offset H enumT jobs codec Hobl.
+  destruct Hobl as
+      [Hwf HnodupT HenumT_complete HenumT_sound Hjob_bridge Hwindow_test].
+  eapply periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_no_carry_in_bridge.
+  - exact Hwf.
+  - exact HnodupT.
+  - exact HenumT_complete.
+  - exact HenumT_sound.
+  - exact Hjob_bridge.
+  - intros t1 t2 Hle12 Hle2H.
+    eapply window_dbf_test_upto_true_implies_bounded_window_dbf; eauto.
+Qed.
+
+Theorem periodic_edf_schedulable_by_classical_dbf_on_finite_horizon_generated_from_obligations :
+  forall T tasks jobs H enumT
+         (codec : PeriodicFiniteHorizonCodec T tasks (fun _ => 0) jobs H),
+    PeriodicEDFConcreteClassicalObligations T tasks jobs H enumT codec ->
+    schedulable_by_on
+      (periodic_jobset_upto T tasks (fun _ => 0) jobs H)
+      (edf_scheduler
+         (enum_candidates_of
+            (generated_periodic_edf_finite_enumJ
+               T tasks (fun _ => 0) jobs H enumT codec)))
+      jobs 1.
+Proof.
+  intros T tasks jobs H enumT codec Hobl.
+  destruct Hobl as [Hwindow Hdbf_test].
+  destruct Hwindow as
+      [Hwf HnodupT HenumT_complete HenumT_sound Hjob_bridge Hwindow_test].
+  eapply periodic_classical_dbf_implies_generated_edf_schedulable_with_no_carry_in_bridge.
+  - exact Hwf.
+  - exact HnodupT.
+  - exact HenumT_complete.
+  - exact HenumT_sound.
+  - intros τ Hin. reflexivity.
+  - eapply dbf_check_by_cutoff.
+    + exact HnodupT.
+    + intros τ Hin.
+      apply Hwf.
+      apply HenumT_sound.
+      exact Hin.
+    + exact Hdbf_test.
+  - exact Hjob_bridge.
+Qed.

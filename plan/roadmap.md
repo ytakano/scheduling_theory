@@ -53,6 +53,7 @@ The intended contribution is to connect, in one reusable framework:
 - request-bound / demand-bound / processor-demand foundations
 - periodic EDF processor-demand bridge layer with explicit busy-prefix / witness interfaces
 - public idle-slot lemmas that discharge busy-prefix candidates and witnesses without enumerating full schedule prefixes
+- packaged finite-horizon concrete EDF obligation records plus a many-task generated-EDF example
 - minimal operational projection slice:
   - operational state / trace skeleton
   - trace-to-schedule projection

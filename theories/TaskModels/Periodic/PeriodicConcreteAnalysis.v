@@ -1,12 +1,45 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Analysis.Uniprocessor.DemandBound.
+From RocqSched Require Import Analysis.Uniprocessor.EDFProcessorDemand.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
+From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
+From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
+From RocqSched Require Import Uniprocessor.Policies.EDF.
 
 Import ListNotations.
+
+Definition generated_periodic_edf_finite_enumJ
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (H : Time)
+    (enumT : list TaskId)
+    (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+  : list JobId :=
+  enum_periodic_jobs_upto T tasks offset jobs H enumT codec.
+
+Definition generated_periodic_edf_schedule_on_finite_horizon
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (H : Time)
+    (enumT : list TaskId)
+    (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+  : Schedule :=
+  generated_schedule
+    edf_generic_spec
+    (enum_candidates_of
+       (generated_periodic_edf_finite_enumJ T tasks offset jobs H enumT codec))
+    jobs.
 
 Definition bounded_time_points (H : Time) : list Time :=
   seq 0 (S H).
@@ -71,6 +104,35 @@ Definition window_dbf_test_upto
        let '(t1, t2) := w in
        taskset_periodic_dbf_window tasks offset enumT t1 t2 <=? t2 - t1)
     (critical_dbf_windows_upto tasks offset enumT H).
+
+Record PeriodicEDFConcreteWindowObligations
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (H : Time)
+    (enumT : list TaskId)
+    (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H) : Prop := {
+  periodic_edf_concrete_tasks_wf :
+    well_formed_periodic_tasks_on T tasks;
+  periodic_edf_concrete_enumT_nodup :
+    NoDup enumT;
+  periodic_edf_concrete_enumT_complete :
+    forall τ, T τ -> In τ enumT;
+  periodic_edf_concrete_enumT_sound :
+    forall τ, In τ enumT -> T τ;
+  periodic_edf_concrete_deadline_and_no_carry_in :
+    forall j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      periodic_edf_busy_prefix_no_carry_in_bridge
+        T tasks offset jobs H
+        (generated_periodic_edf_schedule_on_finite_horizon
+           T tasks offset jobs H enumT codec)
+        j;
+  periodic_edf_concrete_window_dbf_test :
+    window_dbf_test_upto tasks offset enumT H = true
+}.
 
 Lemma critical_dbf_points_upto_complete :
   forall tasks offset enumT H t,
@@ -323,6 +385,20 @@ Definition window_dbf_test_by_cutoff
   window_dbf_test_upto tasks (fun _ => 0) enumT
                        (zero_offset_window_dbf_cutoff_bound tasks enumT)
   && dbf_test_by_cutoff tasks enumT.
+
+Record PeriodicEDFConcreteClassicalObligations
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (jobs : JobId -> Job)
+    (H : Time)
+    (enumT : list TaskId)
+    (codec : PeriodicFiniteHorizonCodec T tasks (fun _ => 0) jobs H) : Prop := {
+  periodic_edf_concrete_window_base :
+    PeriodicEDFConcreteWindowObligations
+      T tasks (fun _ => 0) jobs H enumT codec;
+  periodic_edf_concrete_dbf_test_by_cutoff :
+    dbf_test_by_cutoff tasks enumT = true
+}.
 
 Lemma periodic_hyperperiod_positive :
   forall tasks enumT,
