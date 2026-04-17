@@ -28,6 +28,20 @@ The package-facing wrappers live in the periodic EDF analysis entry points and
 let downstream examples avoid repeating the theorem-assembly boilerplate. The
 canonical checked tutorial for this flow is now `Tutorials/EDFSchedulability.v`.
 
+For concrete infinite-time generated EDF proofs, the preferred public route is
+similar but not bridge-free:
+
+* global `PeriodicCodec`
+* bounded checker result `dbf_test_by_cutoff = true`
+* zero-offset task-set fact
+* per-job no-carry-in bridge at `S (job_abs_deadline ...)`
+
+The corresponding package wrapper is
+`periodic_edf_schedulable_by_classical_dbf_generated_from_infinite_obligations`.
+This keeps the arithmetic side concrete while leaving the finite bridge layer
+explicit. The canonical job map
+`canonical_periodic_jobs_from_enumT` should be the first choice for examples.
+
 ---
 
 ## 1. Motivating example

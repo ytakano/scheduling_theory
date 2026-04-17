@@ -1,9 +1,9 @@
 # Tutorial: A Concrete Infinite-Time EDF Schedulability Proof for a Periodic Task Set
 
-This tutorial explains, step by step, how to prove that a **concrete periodic task set** is schedulable under EDF on a **uniprocessor** using the canonical infinite-time public wrapper theorem
+This tutorial explains, step by step, how to prove that a **concrete periodic task set** is schedulable under EDF on a **uniprocessor** using the canonical infinite-time concrete package wrapper
 
 ```coq
-periodic_edf_schedulable_by_on
+periodic_edf_schedulable_by_classical_dbf_generated_from_infinite_obligations
 ```
 
 The checked Rocq code for this tutorial lives in:
@@ -18,7 +18,10 @@ The example keeps the same spirit as the finite tutorial:
 * a very small concrete model,
 * and a final theorem that is compile-checked.
 
-The main difference is that the job set is now **horizon-free**. Instead of encoding only the jobs released before some fixed `H`, we define a global periodic codec on `(task, index)` and use the infinite EDF wrapper.
+The main difference is that the job set is now **horizon-free**. Instead of
+encoding only the jobs released before some fixed `H`, we use the global
+canonical job map `canonical_periodic_jobs_from_enumT`, build the corresponding
+`PeriodicCodec`, and then apply the infinite package wrapper.
 
 ---
 
@@ -36,7 +39,11 @@ Theorem tutorial_periodic_edf_schedulable :
     jobs_ex 1.
 ```
 
-The infinite wrapper builds a global generated EDF schedule from the released-prefix candidate source `periodic_candidates_before`. The canonical public schedulability theorem now consumes a window-DBF bound, while the user still proves the EDF busy-prefix bridge on a **per-job finite horizon**
+The infinite package wrapper builds a global generated EDF schedule from the
+released-prefix candidate source `periodic_candidates_before`. It discharges the
+classical-DBF side from `dbf_test_by_cutoff = true`, but it does **not** remove
+the finite bridge layer. The user still proves the EDF no-carry-in bridge on a
+**per-job finite horizon**
 
 ```coq
 S (job_abs_deadline (jobs_ex j))
@@ -44,11 +51,12 @@ S (job_abs_deadline (jobs_ex j))
 
 but the public theorem itself concludes a global schedulability result.
 
-For the concrete zero-offset example in the checked tutorial, the demand side is now proved directly in a DBF-first style:
+For the concrete zero-offset example, the public package obligations are:
 
-* first prove the scalar classical DBF bound,
-* then derive the window DBF bound from it,
-* and leave only the finite no-carry-in bridge as an external hypothesis.
+* task well-formedness and task enumeration facts,
+* canonical global codec,
+* `dbf_test_by_cutoff = true`,
+* and the finite no-carry-in bridge as an external hypothesis.
 
 ---
 
@@ -100,29 +108,30 @@ The finite task enumeration `enumT_ex` is still needed because the analysis coun
 
 ## 4. Define an infinite family of concrete jobs
 
-The finite tutorial used only two in-scope jobs because it worked on a fixed horizon. That is no longer enough here: a `PeriodicCodec` must be total on every `(task, index)` pair.
+The finite tutorial used only the jobs released before some bounded horizon.
+That is no longer enough here: a `PeriodicCodec` must be total on every
+`(task, index)` pair.
 
-We therefore encode:
-
-* all jobs of task `0` as even job IDs,
-* all jobs of task `1` as odd job IDs.
+The preferred infinite-time route is to reuse the canonical codec helper rather
+than hand-writing a global job encoding.
 
 ```coq
-Definition job_id_of_ex (tau : TaskId) (k : nat) : JobId :=
-  match tau with
-  | 0 => 2 * k
-  | 1 => S (2 * k)
-  | _ => 0
-  end.
-
 Definition jobs_ex (j : JobId) : Job :=
-  if Nat.even j then
-    mkJob 0 (Nat.div2 j) (5 * Nat.div2 j) 1 (5 * Nat.div2 j + 2)
-  else
-    mkJob 1 (Nat.div2 j) (7 * Nat.div2 j) 1 (7 * Nat.div2 j + 3).
+  canonical_periodic_jobs_from_enumT tasks_ex offset_ex enumT_ex j.
+
+Definition codec_ex :
+  PeriodicCodec T_ex tasks_ex offset_ex jobs_ex :=
+  zero_offset_periodic_codec_of_tasks
+    T_ex tasks_ex enumT_ex
+    enumT_ex_nodup
+    T_ex_in_enumT_ex
+    in_enumT_ex_implies_T_ex
+    ltac:(vm_compute; lia).
 ```
 
-This is the key design move in the infinite tutorial. The codec is no longer “only valid below `H`.” It now canonically names every job of every in-scope task.
+This is the key design move in the current infinite tutorial. The codec is no
+longer “only valid below `H`.” It now canonically names every job of every
+in-scope task without exposing a custom encoding proof to downstream users.
 
 ---
 
@@ -139,7 +148,7 @@ These are unchanged in spirit; only the job side becomes global.
 
 ---
 
-## 6. Build a global codec
+## 6. Build the canonical global codec
 
 The global codec type is now:
 
@@ -167,7 +176,9 @@ periodic_jobset T_ex tasks_ex offset_ex jobs_ex
 
 is exactly the codec image of its own `(task, index)`.
 
-This is the main proof obligation introduced by the infinite wrapper.
+With the canonical helper, these codec obligations are discharged once and then
+reused by the package theorem. This keeps the downstream proof focused on DBF
+and the finite bridge.
 
 ---
 
@@ -361,25 +372,26 @@ Qed.
 At this point, the entire proof pattern is visible:
 
 1. define the concrete periodic tasks,
-2. define a truly global concrete job map,
-3. prove the global codec,
-4. prove the scalar DBF bound directly, derive the window-DBF obligation from it, and isolate the busy-prefix obligation,
-5. apply the canonical infinite-time EDF wrapper theorem.
+2. instantiate the canonical global job map and codec,
+3. prove `dbf_test_by_cutoff = true` or an equivalent scalar classical DBF fact,
+4. isolate the finite busy-prefix obligation,
+5. package the obligations and apply the canonical infinite-time EDF wrapper theorem.
 
-The tutorial file also includes the explicit classical-DBF variant:
+The tutorial file may also include the explicit direct classical-DBF variant:
 
 ```coq
 Theorem tutorial_periodic_edf_schedulable_by_classical_dbf :
   schedulable_by_on ...
 ```
 
-which reuses `periodic_classical_dbf_from_cutoff_ex` as the already-proved universal DBF bound.
+but this direct theorem is now the lower-level path. The preferred public route
+for concrete task sets is the package theorem above.
 
 ---
 
 ## 11. What the user still has to prove
 
-The tutorial intentionally leaves exactly one open assumption.
+The tutorial intentionally leaves exactly one non-arithmetic open assumption.
 
 ### Obligation: finite busy-prefix bridge at each job deadline
 
@@ -398,7 +410,9 @@ forall j,
     j
 ```
 
-For both the window-DBF path and the classical path, the demand-side theorem is proved directly inside the tutorial file. The tutorial therefore leaves only the finite no-carry-in bridge as a hypothesis.
+For the package route, the cutoff checker discharges the scalar classical DBF
+premise automatically. The tutorial therefore leaves only the finite
+no-carry-in bridge as a hypothesis.
 
 ---
 
@@ -415,7 +429,7 @@ The finite tutorial and the infinite tutorial have the same high-level shape, bu
 ### Infinite tutorial
 
 * job set: `periodic_jobset`
-* codec: `PeriodicCodec`
+* codec: `PeriodicCodec`, preferably from `zero_offset_periodic_codec_of_tasks`
 * scheduler candidates: released prefix `periodic_candidates_before`
 
 ### Shared proof core
@@ -426,6 +440,7 @@ This is the intended layering of the library:
 
 * finite generated EDF bridge remains the proof core,
 * infinite periodic EDF API is a wrapper above it,
+* the concrete infinite package route is not bridge-free,
 * downstream users import only the stable public entry points.
 
 At the moment, the concrete zero-offset example demonstrates a different lesson from the earlier cutoff-based version: even in the infinite-time wrapper, the core proof can stay DBF-first and avoid schedule computation and boolean checker proofs entirely. A generic-offset infinite automation layer for `window_dbf` remains future work.

@@ -31,6 +31,8 @@ From RocqSched Require Export TaskModels.Periodic.PeriodicEDFInfiniteBridge.
       window-DBF schedulability API
     - `periodic_edf_schedulable_by_classical_dbf_on` as the explicit
       zero-offset classical-DBF convenience wrapper
+    - `periodic_edf_schedulable_by_classical_dbf_generated_from_infinite_obligations`
+      as the canonical infinite-time concrete package wrapper
     - `periodic_edf_schedulable_by_window_dbf_on` as the explicit
       window-DBF alias
     - bounded finite-horizon concrete DBF/window-DBF checkers
@@ -75,6 +77,9 @@ Proof.
     eapply window_dbf_test_upto_true_implies_bounded_window_dbf; eauto.
 Qed.
 
+(** Concrete finite-horizon package wrapper for zero-offset classical DBF.
+    This theorem is the package-facing companion of the lower-level
+    finite generated-EDF classical theorem with explicit no-carry-in bridge. *)
 Theorem periodic_edf_schedulable_by_classical_dbf_on_finite_horizon_generated_from_obligations :
   forall T tasks jobs H enumT
          (codec : PeriodicFiniteHorizonCodec T tasks (fun _ => 0) jobs H),
@@ -107,6 +112,10 @@ Proof.
   - exact Hjob_bridge.
 Qed.
 
+(** Concrete infinite-time package wrapper for zero-offset classical DBF.
+    Unlike the direct infinite theorem [`periodic_edf_schedulable_by_classical_dbf_on`],
+    this wrapper discharges the scalar DBF premise from a concrete cutoff check but
+    still keeps the global codec and per-job no-carry-in bridge explicit. *)
 Theorem periodic_edf_schedulable_by_classical_dbf_generated_from_infinite_obligations :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs),

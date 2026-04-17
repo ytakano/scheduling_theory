@@ -58,6 +58,87 @@ Proof.
   - exact periodic_infinite_example_window_dbf_test_by_cutoff.
 Qed.
 
+Definition periodic_infinite_jobs_canonical_ex : JobId -> Job :=
+  canonical_periodic_jobs_from_enumT tasks_ex offset_ex enumT_ex.
+
+Definition periodic_infinite_codec_canonical_ex :
+  PeriodicCodec T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex :=
+  zero_offset_periodic_codec_of_tasks
+    T_ex tasks_ex enumT_ex
+    enumT_ex_nodup
+    T_ex_in_enumT_ex
+    in_enumT_ex_implies_T_ex
+    ltac:(vm_compute; lia).
+
+Section InfinitePeriodicEDFCanonicalPackageExample.
+
+  Hypothesis busy_prefix_bridge_canonical_ex :
+    forall j,
+      periodic_jobset T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex j ->
+      periodic_edf_busy_prefix_no_carry_in_bridge
+        T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex
+        (S (job_abs_deadline (periodic_infinite_jobs_canonical_ex j)))
+        (generated_periodic_edf_schedule_upto
+           T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex
+           (S (job_abs_deadline (periodic_infinite_jobs_canonical_ex j)))
+           enumT_ex periodic_infinite_codec_canonical_ex)
+        j.
+
+  Definition periodic_infinite_classical_obligations_canonical_ex :
+    PeriodicEDFConcreteInfiniteClassicalObligations
+      T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex
+      enumT_ex periodic_infinite_codec_canonical_ex.
+  Proof.
+    refine
+      {| periodic_edf_concrete_infinite_tasks_wf := tasks_ex_well_formed;
+         periodic_edf_concrete_infinite_enumT_nodup := enumT_ex_nodup;
+         periodic_edf_concrete_infinite_enumT_complete := T_ex_in_enumT_ex;
+         periodic_edf_concrete_infinite_enumT_sound := in_enumT_ex_implies_T_ex;
+         periodic_edf_concrete_infinite_offset_zero := _;
+         periodic_edf_concrete_infinite_no_carry_in_bridge :=
+           busy_prefix_bridge_canonical_ex;
+         periodic_edf_concrete_infinite_dbf_test_by_cutoff :=
+           periodic_infinite_example_dbf_test_by_cutoff |}.
+    intros τ _.
+    reflexivity.
+  Qed.
+
+  Example periodic_infinite_example_schedulable_by_classical_dbf_package_canonical :
+    schedulable_by_on
+      (periodic_jobset T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex)
+      (edf_scheduler
+         (periodic_candidates_before
+            T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex
+            enumT_ex periodic_infinite_codec_canonical_ex))
+      periodic_infinite_jobs_canonical_ex 1.
+  Proof.
+    apply periodic_edf_schedulable_by_classical_dbf_generated_from_infinite_obligations.
+    exact periodic_infinite_classical_obligations_canonical_ex.
+  Qed.
+
+  Example periodic_infinite_example_schedulable_by_classical_dbf_direct_canonical :
+    schedulable_by_on
+      (periodic_jobset T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex)
+      (edf_scheduler
+         (periodic_candidates_before
+            T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex
+            enumT_ex periodic_infinite_codec_canonical_ex))
+      periodic_infinite_jobs_canonical_ex 1.
+  Proof.
+    eapply periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge.
+    1: exact tasks_ex_well_formed.
+    1: exact enumT_ex_nodup.
+    1: exact T_ex_in_enumT_ex.
+    1: exact in_enumT_ex_implies_T_ex.
+    1: intros τ Hin; reflexivity.
+    1: apply busy_prefix_bridge_canonical_ex.
+    1: exact periodic_infinite_example_classical_dbf.
+  Qed.
+
+End InfinitePeriodicEDFCanonicalPackageExample.
+
+(* Lower-level direct path retained for comparison with the package route above. *)
+
 Section InfinitePeriodicEDFExample.
 
   Variable codec_inf_ex : PeriodicCodec T_ex tasks_ex offset_ex jobs_ex.
