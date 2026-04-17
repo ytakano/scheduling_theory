@@ -7,10 +7,13 @@ From RocqSched Require Import Analysis.Uniprocessor.EDFProcessorDemand.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
+From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
+From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFInfiniteBridge.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 
 Import ListNotations.
@@ -397,6 +400,35 @@ Record PeriodicEDFConcreteClassicalObligations
     PeriodicEDFConcreteWindowObligations
       T tasks (fun _ => 0) jobs H enumT codec;
   periodic_edf_concrete_dbf_test_by_cutoff :
+    dbf_test_by_cutoff tasks enumT = true
+}.
+
+Record PeriodicEDFConcreteInfiniteClassicalObligations
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs) : Prop := {
+  periodic_edf_concrete_infinite_tasks_wf :
+    well_formed_periodic_tasks_on T tasks;
+  periodic_edf_concrete_infinite_enumT_nodup :
+    NoDup enumT;
+  periodic_edf_concrete_infinite_enumT_complete :
+    forall τ, T τ -> In τ enumT;
+  periodic_edf_concrete_infinite_enumT_sound :
+    forall τ, In τ enumT -> T τ;
+  periodic_edf_concrete_infinite_offset_zero :
+    forall τ, In τ enumT -> offset τ = 0;
+  periodic_edf_concrete_infinite_no_carry_in_bridge :
+    forall j,
+      periodic_jobset T tasks offset jobs j ->
+      periodic_edf_busy_prefix_no_carry_in_bridge
+        T tasks offset jobs (S (job_abs_deadline (jobs j)))
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs (S (job_abs_deadline (jobs j))) enumT codec)
+        j;
+  periodic_edf_concrete_infinite_dbf_test_by_cutoff :
     dbf_test_by_cutoff tasks enumT = true
 }.
 

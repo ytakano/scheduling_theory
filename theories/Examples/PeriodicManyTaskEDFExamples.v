@@ -194,3 +194,49 @@ Proof.
   apply periodic_edf_schedulable_by_classical_dbf_on_finite_horizon_generated_from_obligations.
   exact many_task_classical_obligations.
 Qed.
+
+Section InfiniteManyTaskEDFExample.
+
+  Hypothesis many_task_infinite_no_carry_in_bridge :
+    forall j,
+      periodic_jobset T_many tasks_many offset_many jobs_many j ->
+      periodic_edf_busy_prefix_no_carry_in_bridge
+        T_many tasks_many offset_many jobs_many
+        (S (job_abs_deadline (jobs_many j)))
+        (generated_periodic_edf_schedule_upto
+           T_many tasks_many offset_many jobs_many
+           (S (job_abs_deadline (jobs_many j)))
+           enumT_many codec_many)
+        j.
+
+  Definition many_task_infinite_classical_obligations :
+    PeriodicEDFConcreteInfiniteClassicalObligations
+      T_many tasks_many offset_many jobs_many enumT_many codec_many.
+  Proof.
+    refine
+      {| periodic_edf_concrete_infinite_tasks_wf := tasks_many_well_formed;
+         periodic_edf_concrete_infinite_enumT_nodup := enumT_many_nodup;
+         periodic_edf_concrete_infinite_enumT_complete := T_many_in_enumT_many;
+         periodic_edf_concrete_infinite_enumT_sound := in_enumT_many_implies_T_many;
+         periodic_edf_concrete_infinite_offset_zero := _;
+         periodic_edf_concrete_infinite_no_carry_in_bridge :=
+           many_task_infinite_no_carry_in_bridge;
+         periodic_edf_concrete_infinite_dbf_test_by_cutoff :=
+           many_task_dbf_test_by_cutoff |}.
+    intros τ _.
+    reflexivity.
+  Qed.
+
+  Theorem many_task_schedulable_by_classical_package_infinite :
+    schedulable_by_on
+      (periodic_jobset T_many tasks_many offset_many jobs_many)
+      (edf_scheduler
+         (periodic_candidates_before
+            T_many tasks_many offset_many jobs_many enumT_many codec_many))
+      jobs_many 1.
+  Proof.
+    apply periodic_edf_schedulable_by_classical_dbf_generated_from_infinite_obligations.
+    exact many_task_infinite_classical_obligations.
+  Qed.
+
+End InfiniteManyTaskEDFExample.

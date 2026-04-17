@@ -1,6 +1,8 @@
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
+From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
+From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Export Analysis.Uniprocessor.BusyWindowSearch.
 From RocqSched Require Export Analysis.Uniprocessor.EDFProcessorDemand.
@@ -103,4 +105,35 @@ Proof.
       exact Hin.
     + exact Hdbf_test.
   - exact Hjob_bridge.
+Qed.
+
+Theorem periodic_edf_schedulable_by_classical_dbf_generated_from_infinite_obligations :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs),
+    PeriodicEDFConcreteInfiniteClassicalObligations
+      T tasks offset jobs enumT codec ->
+    schedulable_by_on
+      (periodic_jobset T tasks offset jobs)
+      (edf_scheduler
+         (periodic_candidates_before
+            T tasks offset jobs enumT codec))
+      jobs 1.
+Proof.
+  intros T tasks offset jobs enumT codec Hobl.
+  destruct Hobl as
+      [Hwf HnodupT HenumT_complete HenumT_sound Hoff Hjob_bridge Hdbf_test].
+  eapply periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge.
+  - exact Hwf.
+  - exact HnodupT.
+  - exact HenumT_complete.
+  - exact HenumT_sound.
+  - exact Hoff.
+  - exact Hjob_bridge.
+  - eapply dbf_check_by_cutoff.
+    + exact HnodupT.
+    + intros τ Hin.
+      apply Hwf.
+      apply HenumT_sound.
+      exact Hin.
+    + exact Hdbf_test.
 Qed.
