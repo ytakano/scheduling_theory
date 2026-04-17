@@ -465,6 +465,115 @@ Proof.
     reflexivity.
 Qed.
 
+Lemma slot_job_ex_task1_non_simultaneous :
+  forall k,
+    k mod 5 <> 0 ->
+    slot_job_ex (7 * k) = Some (job_id_of_ex 1 k).
+Proof.
+  intros k Hk.
+  unfold slot_job_ex.
+  assert (Hmod5nz : (7 * k) mod 5 <> 0).
+  {
+    remember (k mod 5) as r eqn:Hr.
+    destruct r as [|r].
+    - contradiction.
+    - assert (Hrlt : S r < 5).
+      { rewrite Hr. apply Nat.mod_upper_bound. lia. }
+      rewrite Nat.mul_mod by lia.
+      rewrite <- Hr.
+      simpl.
+      destruct r as [| [| [| [| r]]]]; simpl; try discriminate.
+      lia.
+  }
+  destruct (Nat.eqb ((7 * k) mod 5) 0) eqn:Heq5.
+  - apply Nat.eqb_eq in Heq5.
+    contradiction.
+  - assert (Hmod35neq : (7 * k) mod 35 <> 1).
+    {
+      intro Hcontra.
+      assert (Hexpr : 7 * k = 35 * ((7 * k) / 35) + 1).
+      {
+        pose proof (Nat.div_mod (7 * k) 35) as Hdiv.
+        specialize (Hdiv ltac:(lia)).
+        rewrite Hcontra in Hdiv.
+        lia.
+      }
+      assert (Hmod7 : (35 * ((7 * k) / 35) + 1) mod 7 = 0).
+      {
+        rewrite <- Hexpr.
+        rewrite <- Nat.mul_comm.
+        apply nat_mod_mul_left.
+        lia.
+      }
+      rewrite Nat.add_mod in Hmod7 by lia.
+      replace ((35 * ((7 * k) / 35)) mod 7) with 0 in Hmod7.
+      2:{
+        replace (35 * ((7 * k) / 35)) with ((5 * ((7 * k) / 35)) * 7) by lia.
+        symmetry.
+        apply nat_mod_mul_left.
+        lia.
+      }
+      simpl in Hmod7.
+      discriminate.
+    }
+    destruct (Nat.eqb ((7 * k) mod 35) 1) eqn:Heq35.
+    + apply Nat.eqb_eq in Heq35.
+      contradiction.
+    + rewrite <- Nat.mul_comm.
+      rewrite nat_mod_mul_left by lia.
+      rewrite Nat.eqb_refl.
+      rewrite nat_div_mul_exact by lia.
+      reflexivity.
+Qed.
+
+Lemma jobs_ex_release_le_service_slot_ex :
+  forall j,
+    job_release (jobs_ex j) <= service_slot_ex j.
+Proof.
+  intro j.
+  destruct (Nat.even j) eqn:Heven.
+  - apply Nat.even_spec in Heven.
+    destruct Heven as [k ->].
+    rewrite jobs_ex_task0_release.
+    change (service_slot_ex (2 * k)) with (service_slot_ex (job_id_of_ex 0 k)).
+    rewrite service_slot_ex_task0.
+    lia.
+  - assert (Hodd : Nat.odd j = true).
+    { rewrite <- Nat.negb_even. rewrite Heven. reflexivity. }
+    apply Nat.odd_spec in Hodd.
+    destruct Hodd as [k Hk].
+    subst j.
+    replace (2 * k + 1) with (S (2 * k)) by lia.
+    rewrite jobs_ex_task1_release.
+    change (service_slot_ex (S (2 * k))) with (service_slot_ex (job_id_of_ex 1 k)).
+    rewrite service_slot_ex_task1.
+    destruct (Nat.eqb (k mod 5) 0); lia.
+Qed.
+
+Lemma service_slot_ex_before_deadline_ex :
+  forall j,
+    service_slot_ex j < job_abs_deadline (jobs_ex j).
+Proof.
+  intro j.
+  destruct (Nat.even j) eqn:Heven.
+  - apply Nat.even_spec in Heven.
+    destruct Heven as [k ->].
+    change (service_slot_ex (2 * k)) with (service_slot_ex (job_id_of_ex 0 k)).
+    rewrite service_slot_ex_task0.
+    rewrite jobs_ex_task0_deadline.
+    lia.
+  - assert (Hodd : Nat.odd j = true).
+    { rewrite <- Nat.negb_even. rewrite Heven. reflexivity. }
+    apply Nat.odd_spec in Hodd.
+    destruct Hodd as [k Hk].
+    subst j.
+    replace (2 * k + 1) with (S (2 * k)) by lia.
+    rewrite jobs_ex_task1_deadline.
+    change (service_slot_ex (S (2 * k))) with (service_slot_ex (job_id_of_ex 1 k)).
+    rewrite service_slot_ex_task1.
+    destruct (Nat.eqb (k mod 5) 0); lia.
+Qed.
+
 Lemma hyperperiod_load_ex :
   hyperperiod_load tasks_ex enumT_ex 35 = 12.
 Proof.

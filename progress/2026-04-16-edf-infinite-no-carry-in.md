@@ -106,13 +106,15 @@ Recommended proof route:
   - `service_slot_ex_task1`
   - `slot_job_ex_task0`
   - `slot_job_ex_task1_simultaneous`
+- Reintroduced a second stable batch of tutorial-local helper lemmas:
+  - `slot_job_ex_task1_non_simultaneous`
+  - `jobs_ex_release_le_service_slot_ex`
+  - `service_slot_ex_before_deadline_ex`
 
 This keeps the tutorial compiling and fixes the concrete arithmetic interface needed for the next step.
 
 What was attempted but intentionally not kept in this round:
-- the non-simultaneous task-1 slot lemma `slot_job_ex (7 * k)` under `k mod 5 <> 0`
 - generic “soundness” lemmas tying every `slot_job_ex t = Some j` back to `service_slot_ex j = t`
-- early `job_release_le_service_slot_ex` / `service_slot_ex_before_deadline` lemmas
 - an initial direct proof pass toward the no-carry-in bridge using those stronger local facts
 
 Why it was rolled back:
@@ -128,21 +130,24 @@ Current repository state after this pass:
   - task-0 service slots
   - task-1 service-slot normalization
   - task-0 slot decoding
+  - non-simultaneous task-1 slot decoding at `7 * k`
   - simultaneous task-1 slot decoding at `35 * q + 1`
+  - the release-to-service-slot lower bound
+  - the service-slot-before-deadline bound
 - the bridge assumption `generated_edf_busy_prefix_no_carry_in_bridge_ex` is still not proved
 
 Updated next step:
-1. Finish the missing tutorial-local slot lemma:
-   - `slot_job_ex (7 * k) = Some (job_id_of_ex 1 k)` under `k mod 5 <> 0`
-2. Reintroduce only the derived facts that are actually needed downstream:
-   - `job_release (jobs_ex j) <= service_slot_ex j`
-   - `service_slot_ex j < job_abs_deadline (jobs_ex j)`
-   - optional `slot_job_ex` / `service_slot_ex` compatibility fact if it materially shortens the schedule proof
-3. Prove exact run facts on `sched_inf_ex` from EDF candidate completeness/min-deadline reasoning.
-4. Turn run facts into completion facts using:
+1. Prove exact run facts on `sched_inf_ex` from EDF candidate completeness/min-deadline reasoning.
+   - task 0 at `5 * k`
+   - task 1 at `7 * k` when `k mod 5 <> 0`
+   - task 1 at `35 * q + 1` in the simultaneous-release case
+   - optional idle lemma for all remaining slots
+2. Add only the compatibility lemma if it materially shortens those proofs:
+   - `slot_job_ex t = Some j -> service_slot_ex j = t`
+3. Turn run facts into completion facts using:
    - `sched_inf_ex_valid`
    - `service_at_release_zero`
    - `remaining_cost_step_running_uni`
    - `completed_monotone`
-5. Prove the infinite-schedule no-carry-in lemma first, then transfer it to `generated_periodic_edf_schedule_upto` via `sched_upto_ex_completed_iff_sched_inf_ex`.
-6. Only after those pieces are in place, finish `generated_edf_busy_prefix_no_carry_in_bridge_ex`.
+4. Prove the infinite-schedule no-carry-in lemma first, then transfer it to `generated_periodic_edf_schedule_upto` via `sched_upto_ex_completed_iff_sched_inf_ex`.
+5. Only after those pieces are in place, finish `generated_edf_busy_prefix_no_carry_in_bridge_ex`.
