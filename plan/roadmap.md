@@ -54,6 +54,10 @@ The intended contribution is to connect, in one reusable framework:
 - periodic EDF processor-demand bridge layer with explicit busy-prefix / witness interfaces
 - public idle-slot lemmas that discharge busy-prefix candidates and witnesses without enumerating full schedule prefixes
 - packaged finite-horizon concrete EDF obligation records plus a many-task generated-EDF example
+- a single canonical EDF tutorial in `Tutorials/EDFSchedulability.v`, using
+  a reusable `PeriodicCodec` specialized by
+  `zero_offset_periodic_finite_horizon_codec_of` and taking the zero-offset
+  classical DBF wrapper as the first entry point
 - minimal operational projection slice:
   - operational state / trace skeleton
   - trace-to-schedule projection

@@ -39,8 +39,8 @@ The tutorial defines:
 * three periodic tasks,
 * zero offsets,
 * a finite horizon `H_many = 5`,
-* three in-horizon jobs, one per task,
-* a default out-of-scope job.
+* a global periodic job generator `jobs_many`,
+* a finite-horizon generated EDF schedule.
 
 All task periods are larger than the horizon, so only the `0`-th job of each
 task appears in the finite-horizon job set. This keeps the example concrete
@@ -50,18 +50,31 @@ while still being a genuine many-task example.
 
 ## 3. Finite-Horizon Codec
 
-The tutorial builds a concrete `PeriodicFiniteHorizonCodec`:
+The tutorial does not hand-write a finite-horizon codec.
 
-* `job_id_many`
-* `codec_many_sound`
-* `codec_many_complete`
-* `finite_codec_many`
+Instead it follows the standard reusable route:
 
-Because each in-horizon task contributes only one job, the codec maps task IDs
-`0`, `1`, and `2` directly to job IDs `0`, `1`, and `2`.
+```coq
+Definition job_id_many : ...
+Definition codec_many :
+  PeriodicCodec T_many tasks_many offset_many jobs_many := ...
 
-This is the concrete encoding layer between periodic task releases and the
-finite job enumeration used by generated EDF.
+Definition finite_codec_many :
+  PeriodicFiniteHorizonCodec T_many tasks_many offset_many jobs_many H_many :=
+  zero_offset_periodic_finite_horizon_codec_of
+    T_many tasks_many jobs_many H_many codec_many.
+```
+
+So the proof pattern is:
+
+1. define a reusable zero-offset `PeriodicCodec`,
+2. prove its soundness and completeness globally,
+3. specialize it to the finite horizon with
+   `zero_offset_periodic_finite_horizon_codec_of`.
+
+This is the canonical many-task route. Hand-written
+`PeriodicFiniteHorizonCodec` constructions are reserved for tiny ad hoc
+examples, not for the main tutorial.
 
 ---
 
@@ -99,8 +112,10 @@ no-carry-in bridge is discharged by the generic lemma:
 periodic_edf_busy_prefix_no_carry_in_if_release_zero
 ```
 
-This is the structural side of the proof. No ad hoc job-by-job busy-prefix
-enumeration is needed.
+This is the structural side of the proof. The tutorial still discharges the
+bridge per in-horizon job, but it does so through the generic release-zero
+lemma plus the codec-derived fact that every in-horizon job has index `0`.
+No hand-written finite codec or full schedule-prefix enumeration is needed.
 
 ---
 
@@ -158,11 +173,14 @@ Qed.
 
 The intended reading order is:
 
-1. compute checker results,
-2. build the no-carry-in bridge,
-3. package the obligations,
-4. apply the classical-DBF wrapper first,
-5. fall back to the window-DBF wrapper if needed.
+1. define the reusable `PeriodicCodec`,
+2. derive `finite_codec_many` with
+   `zero_offset_periodic_finite_horizon_codec_of`,
+3. compute checker results,
+4. build the no-carry-in bridge,
+5. package the obligations,
+6. apply the classical-DBF wrapper first,
+7. fall back to the window-DBF wrapper if needed.
 
 ---
 
@@ -170,6 +188,8 @@ The intended reading order is:
 
 The tutorial establishes the repository’s standard many-task proof pattern:
 
+* define a reusable periodic codec first,
+* specialize it to the finite horizon,
 * compute DBF obligations,
 * avoid full schedule expansion,
 * discharge schedule-side obligations structurally,
