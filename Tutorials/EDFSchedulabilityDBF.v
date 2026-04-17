@@ -1,6 +1,8 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Analysis.Uniprocessor.BusyInterval.
+From RocqSched Require Import Analysis.Uniprocessor.BusyIntervalLemmas.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
@@ -230,25 +232,41 @@ Proof.
   reflexivity.
 Qed.
 
+Lemma sched_gen_ex_idle_2 :
+  ~ cpu_busy_at sched_gen_ex 2.
+Proof.
+  unfold cpu_busy_at.
+  rewrite sched_gen_ex_at_2.
+  intros [j Hj].
+  discriminate.
+Qed.
+
+Lemma sched_gen_ex_idle_3 :
+  ~ cpu_busy_at sched_gen_ex 3.
+Proof.
+  unfold cpu_busy_at.
+  rewrite sched_gen_ex_at_3.
+  intros [j Hj].
+  discriminate.
+Qed.
+
 Lemma no_busy_prefix_witness_job1_ex :
   forall t1 t2,
     ~ busy_prefix_witness sched_gen_ex (job_abs_deadline job1_ex) t1 t2.
 Proof.
-  intros t1 t2 Hwit.
-  destruct Hwit as [Hcand [Ht1 Ht2]].
-  destruct Hcand as [[Hlt Hbusy] _].
+  intros t1 t2 [Hcand [Ht1 Ht2]].
+  pose proof (busy_prefix_candidate_busy_interval sched_gen_ex t1 t2 Hcand) as Hbusy.
+  destruct Hbusy as [Hlt Hbusy].
   unfold job1_ex in Ht1, Ht2; cbn in Ht1, Ht2.
-  assert (t1 <= 3) by lia.
-  destruct t1 as [| [| [| [| t1']]]]; cbn in *.
-  - destruct (Hbusy 2) as [j Hj]; try lia.
-    rewrite sched_gen_ex_at_2 in Hj. discriminate.
-  - destruct (Hbusy 2) as [j Hj]; try lia.
-    rewrite sched_gen_ex_at_2 in Hj. discriminate.
-  - destruct (Hbusy 2) as [j Hj]; try lia.
-    rewrite sched_gen_ex_at_2 in Hj. discriminate.
-  - destruct (Hbusy 3) as [j Hj]; try lia.
-    rewrite sched_gen_ex_at_3 in Hj. discriminate.
-  - lia.
+  destruct (Nat.eq_dec t1 3) as [-> | Hneq].
+  - eapply (idle_slot_not_busy_interval sched_gen_ex 3 t2 3).
+    + exact (conj (Nat.le_refl 3) Hlt).
+    + exact sched_gen_ex_idle_3.
+    + split; assumption.
+  - eapply (idle_slot_not_busy_interval sched_gen_ex t1 t2 2).
+    + lia.
+    + exact sched_gen_ex_idle_2.
+    + split; assumption.
 Qed.
 
 Lemma generated_edf_busy_prefix_no_carry_in_bridge_ex_proved :
