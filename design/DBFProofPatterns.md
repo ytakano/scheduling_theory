@@ -25,7 +25,8 @@ is now a small obligation package:
 * per-job no-carry-in bridge
 
 The package-facing wrappers live in the periodic EDF analysis entry points and
-let downstream examples avoid repeating the theorem-assembly boilerplate.
+let downstream examples avoid repeating the theorem-assembly boilerplate. The
+canonical checked tutorial for this flow is now `Tutorials/EDFSchedulability.v`.
 
 ---
 

@@ -51,7 +51,6 @@ theories/Examples/SporadicExamples.v
 theories/Examples/RRExamples.v
 theories/Examples/SchedulableExamples.v
 Tutorials/EDFSchedulability.v
-Tutorials/EDFSchedulabilityDBF.v
 Tutorials/EDFInfiniteSchedulability.v
 Tutorials/LLFInfiniteSchedulability.v
 theories/Foundation/Base.v

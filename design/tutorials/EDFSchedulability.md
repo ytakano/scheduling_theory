@@ -1,1043 +1,180 @@
-# Tutorial: A Concrete EDF Schedulability Proof for a Periodic Task Set
+# Tutorial: Many-Task EDF Schedulability With Obligation Packages
 
-This tutorial explains, step by step, how to prove that a **concrete periodic task set** is schedulable under EDF on a **uniprocessor** using the theorem
-
-```coq
-periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
-```
-
-The checked Rocq code for this tutorial lives in:
+This note documents the checked tutorial in:
 
 * `Tutorials/EDFSchedulability.v`
 
-We intentionally use a very small example:
+There is only one EDF tutorial. It is the many-task finite-horizon tutorial,
+and it uses the package-based generated-EDF analysis flow.
 
-* two periodic tasks,
+---
+
+## 1. Goal
+
+The tutorial proves schedulability of a concrete zero-offset periodic task set
+under generated EDF on one processor over a finite horizon.
+
+It presents two theorem applications:
+
+* first choice: classical DBF package
+* fallback: window-DBF package
+
+The checked final theorems are:
+
+```coq
+Theorem tutorial_many_task_schedulable_by_classical_package_on_finite_horizon : ...
+
+Theorem tutorial_many_task_schedulable_by_window_package_on_finite_horizon : ...
+```
+
+The classical-DBF path is the preferred entry point for zero-offset concrete
+task sets.
+
+---
+
+## 2. Concrete Model
+
+The tutorial defines:
+
+* three periodic tasks,
 * zero offsets,
-* one processor,
-* a short finite horizon,
-* only one released job per task inside the horizon.
+* a finite horizon `H_many = 5`,
+* three in-horizon jobs, one per task,
+* a default out-of-scope job.
 
-This keeps the example concrete while preserving the real proof structure.
-
----
-
-## 1. What is the final goal?
-
-The final theorem proves that our concrete finite-horizon periodic job set is schedulable by EDF on one CPU. In other words, everything in this tutorial is organized around constructing the arguments required by this final statement.
-
-```coq
-Theorem tutorial_periodic_edf_schedulable :
-  schedulable_by_on
-    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
-    (edf_scheduler
-       (enum_candidates_of
-          (enum_periodic_jobs_upto
-             T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
-    jobs_ex 1.
-```
-
-A good way to read the file is therefore:
-
-1. identify this final goal,
-2. see how the concrete model is built,
-3. see how the finite-horizon jobs are encoded and enumerated,
-4. see how the generated EDF schedule is obtained,
-5. isolate the remaining analysis obligations,
-6. apply the public theorem.
+All task periods are larger than the horizon, so only the `0`-th job of each
+task appears in the finite-horizon job set. This keeps the example concrete
+while still being a genuine many-task example.
 
 ---
 
-## 2. Import the required libraries
+## 3. Finite-Horizon Codec
 
-We first import the standard library modules and the RocqSched components used by the example. These imports provide the task and job models, the finite-horizon codec infrastructure, job enumeration, the EDF policy, and the final analysis entry point.
+The tutorial builds a concrete `PeriodicFiniteHorizonCodec`:
 
-```coq
-From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
-From RocqSched Require Import Foundation.Base.
-From RocqSched Require Import Semantics.Schedule.
-From RocqSched Require Import Abstractions.Scheduler.Interface.
-From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
-From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
-From RocqSched Require Import Uniprocessor.Policies.EDF.
-From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
-From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
-From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
-From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
+* `job_id_many`
+* `codec_many_sound`
+* `codec_many_complete`
+* `finite_codec_many`
 
-Import ListNotations.
-```
+Because each in-horizon task contributes only one job, the codec maps task IDs
+`0`, `1`, and `2` directly to job IDs `0`, `1`, and `2`.
+
+This is the concrete encoding layer between periodic task releases and the
+finite job enumeration used by generated EDF.
 
 ---
 
-## 3. Define a concrete periodic task set
+## 4. Checker Results
 
-We now define a very small concrete task set. The example uses two periodic tasks with long enough periods so that, inside the finite horizon `H_ex = 4`, each task releases only one job. This is the main simplification that makes the example easy to read.
+The tutorial computes the two boolean obligations that drive the packaged flow:
 
 ```coq
-Definition task0_ex : Task := mkTask 1 5 2.
-Definition task1_ex : Task := mkTask 1 7 3.
+Example many_task_window_dbf_test :
+  window_dbf_test_upto tasks_many offset_many enumT_many H_many = true.
 
-Definition tasks_ex (tau : TaskId) : Task :=
-  match tau with
-  | 0 => task0_ex
-  | 1 => task1_ex
-  | _ => mkTask 1 100 100
-  end.
-
-Definition T_ex (tau : TaskId) : Prop := tau = 0 \/ tau = 1.
-
-Definition offset_ex (_ : TaskId) : Time := 0.
-
-Definition H_ex : Time := 4.
-
-Definition enumT_ex : list TaskId := [0; 1].
+Example many_task_dbf_test_by_cutoff :
+  dbf_test_by_cutoff tasks_many enumT_many = true.
 ```
 
-At this point, the key objects are:
+These are the computational entry points.
 
-* `tasks_ex`: the concrete task parameters,
-* `T_ex`: the predicate selecting the in-scope tasks,
-* `offset_ex`: the release offsets,
-* `H_ex`: the finite horizon,
-* `enumT_ex`: the finite enumeration of the in-scope tasks.
+* `window_dbf_test_upto = true` supports the window-DBF package
+* `dbf_test_by_cutoff = true` supports the classical-DBF package
 
 ---
 
-## 4. Define the concrete jobs
+## 5. No-Carry-In Bridge
 
-Since `H_ex = 4` and the task periods are `5` and `7`, only the first job of each task is released before the horizon. We therefore define exactly two in-scope jobs, plus a default out-of-scope job for all remaining job IDs.
+The schedule-side bridge is packaged per job in:
 
 ```coq
-Definition job0_ex : Job := mkJob 0 0 0 1 2.
-Definition job1_ex : Job := mkJob 1 0 0 1 3.
-
-Definition other_job_ex : Job := mkJob 2 0 10 1 110.
-
-Definition jobs_ex (j : JobId) : Job :=
-  match j with
-  | 0 => job0_ex
-  | 1 => job1_ex
-  | _ => other_job_ex
-  end.
+Lemma many_task_deadline_and_no_carry_in : ...
 ```
 
-The purpose of `other_job_ex` is only to make `jobs_ex` total. The actual proof concerns the two jobs `0` and `1`.
+In this tutorial, every in-horizon job has release time `0`, so the
+no-carry-in bridge is discharged by the generic lemma:
+
+```coq
+periodic_edf_busy_prefix_no_carry_in_if_release_zero
+```
+
+This is the structural side of the proof. No ad hoc job-by-job busy-prefix
+enumeration is needed.
 
 ---
 
-## 5. Show that the concrete jobs are really generated by the periodic task model
+## 6. Obligation Packages
 
-Before using the periodic analysis theorem, we must show that our concrete jobs are consistent with the periodic task definitions. This is done by proving that each in-scope job is generated by the corresponding periodic task.
+The tutorial assembles the full finite-horizon obligations into two records:
 
 ```coq
-Lemma generated_job0_ex :
-  generated_by_periodic_task tasks_ex offset_ex jobs_ex 0.
-Proof.
-  unfold generated_by_periodic_task, jobs_ex, job0_ex, tasks_ex, task0_ex, offset_ex.
-  simpl.
-  repeat split; lia.
-Qed.
+Definition many_task_window_obligations :
+  PeriodicEDFConcreteWindowObligations ...
 
-Lemma generated_job1_ex :
-  generated_by_periodic_task tasks_ex offset_ex jobs_ex 1.
-Proof.
-  unfold generated_by_periodic_task, jobs_ex, job1_ex, tasks_ex, task1_ex, offset_ex.
-  simpl.
-  repeat split; lia.
-Qed.
+Definition many_task_classical_obligations :
+  PeriodicEDFConcreteClassicalObligations ...
 ```
 
-These proofs are simple because the example is fully concrete. They are not the main analysis step; they are consistency checks between the concrete data and the periodic model.
+These packages gather:
+
+* well-formed tasks,
+* task enumeration soundness and completeness,
+* checker success,
+* per-job horizon/deadline facts,
+* per-job no-carry-in bridge facts.
+
+This is the canonical finite generated-EDF assembly point for concrete many-task
+examples.
 
 ---
 
-## 6. Show that the task set enumeration is well formed
+## 7. Final Theorem Applications
 
-The theorem also expects a finite and well-behaved task enumeration. We therefore prove:
+The tutorial applies the package-facing wrappers exported by
+`PeriodicEDFAnalysisEntryPoints`.
 
-* the in-scope tasks are well formed,
-* the task enumeration has no duplicates,
-* every in-scope task appears in the enumeration,
-* every enumerated task is in scope.
+### 7.1 First choice: classical DBF
 
 ```coq
-Lemma tasks_ex_well_formed :
-  well_formed_periodic_tasks_on T_ex tasks_ex.
+Theorem tutorial_many_task_schedulable_by_classical_package_on_finite_horizon :
+  schedulable_by_on ...
 Proof.
-  intros tau Htau.
-  destruct Htau as [-> | ->]; simpl; lia.
-Qed.
-
-Lemma enumT_ex_nodup :
-  NoDup enumT_ex.
-Proof.
-  unfold enumT_ex.
-  constructor.
-  - simpl. intros [H | []]. discriminate.
-  - constructor.
-    + simpl. tauto.
-    + constructor.
-Qed.
-
-Lemma enumT_ex_complete :
-  forall tau, T_ex tau -> In tau enumT_ex.
-Proof.
-  intros tau Htau.
-  destruct Htau as [-> | ->]; simpl; tauto.
-Qed.
-
-Lemma enumT_ex_sound :
-  forall tau, In tau enumT_ex -> T_ex tau.
-Proof.
-  intros tau Htau.
-  simpl in Htau.
-  destruct Htau as [Htau | [Htau | []]]; subst tau.
-  - left; reflexivity.
-  - right; reflexivity.
+  apply periodic_edf_schedulable_by_classical_dbf_on_finite_horizon_generated_from_obligations.
+  exact many_task_classical_obligations.
 Qed.
 ```
 
-These lemmas are again structural setup lemmas. They prepare a finite task set for later enumeration and analysis.
+### 7.2 Fallback: window DBF
+
+```coq
+Theorem tutorial_many_task_schedulable_by_window_package_on_finite_horizon :
+  schedulable_by_on ...
+Proof.
+  apply periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_from_obligations.
+  exact many_task_window_obligations.
+Qed.
+```
+
+The intended reading order is:
+
+1. compute checker results,
+2. build the no-carry-in bridge,
+3. package the obligations,
+4. apply the classical-DBF wrapper first,
+5. fall back to the window-DBF wrapper if needed.
 
 ---
 
-## 7. Build a finite-horizon codec
+## 8. Tutorial Pattern
 
-This is the central implementation device in the tutorial. The finite-horizon codec connects periodic task releases to concrete job IDs. Conceptually, it says: given a task `tau` and an index `k`, which concrete job ID represents that job inside the finite horizon?
+The tutorial establishes the repository’s standard many-task proof pattern:
 
-In this tiny example, the mapping is trivial:
+* compute DBF obligations,
+* avoid full schedule expansion,
+* discharge schedule-side obligations structurally,
+* package the concrete facts,
+* apply a generated-EDF entry point.
 
-* `(task 0, index 0)` maps to job `0`,
-* `(task 1, index 0)` maps to job `1`,
-* everything else maps to the irrelevant default job `2`.
-
-```coq
-Definition job_id_of_ex (tau : TaskId) (k : nat) : JobId :=
-  match tau, k with
-  | 0, 0 => 0
-  | 1, 0 => 1
-  | _, _ => 2
-  end.
-```
-
-### 7.1 Prove codec soundness
-
-Soundness states that whenever a task is in scope and the expected release of its `k`-th job lies before the horizon, then the codec returns a concrete job with the correct task, the correct index, and a valid periodic-generation proof.
-
-```coq
-Lemma codec_ex_sound :
-  forall tau k,
-    T_ex tau ->
-    expected_release tasks_ex offset_ex tau k < H_ex ->
-    let j := job_id_of_ex tau k in
-    job_task (jobs_ex j) = tau /\
-    job_index (jobs_ex j) = k /\
-    generated_by_periodic_task tasks_ex offset_ex jobs_ex j.
-Proof.
-  intros tau k Htau Hrel.
-  destruct Htau as [-> | ->].
-  - assert (k = 0).
-    { unfold expected_release, tasks_ex, task0_ex, offset_ex, H_ex in Hrel.
-      simpl in Hrel. lia. }
-    subst k.
-    simpl.
-    split; [reflexivity |].
-    split; [reflexivity |].
-    exact generated_job0_ex.
-  - assert (k = 0).
-    { unfold expected_release, tasks_ex, task1_ex, offset_ex, H_ex in Hrel.
-      simpl in Hrel. lia. }
-    subst k.
-    simpl.
-    split; [reflexivity |].
-    split; [reflexivity |].
-    exact generated_job1_ex.
-Qed.
-```
-
-The reason this proof is easy is the horizon choice: because `H_ex = 4`, only `k = 0` is possible for both tasks.
-
-### 7.2 Prove codec completeness
-
-Completeness goes in the opposite direction. It states that every job in the periodic finite-horizon job set is represented by the codec.
-
-```coq
-Lemma codec_ex_complete :
-  forall j,
-    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-    j = job_id_of_ex (job_task (jobs_ex j)) (job_index (jobs_ex j)).
-Proof.
-  intros j Hj.
-  destruct j as [| [| j']]; simpl; try reflexivity.
-  unfold periodic_jobset_upto, jobs_ex, other_job_ex, H_ex in Hj.
-  simpl in Hj.
-  destruct Hj as [_ [_ Hrel]].
-  lia.
-Qed.
-```
-
-With these two lemmas in place, we can package the codec:
-
-```coq
-Definition codec_ex : PeriodicFiniteHorizonCodec T_ex tasks_ex offset_ex jobs_ex H_ex :=
-  mkPeriodicFiniteHorizonCodec
-    T_ex tasks_ex offset_ex jobs_ex H_ex
-    job_id_of_ex
-    codec_ex_sound
-    codec_ex_complete.
-```
-
-This codec is what allows the library to enumerate the finite-horizon jobs from the periodic task model.
-
----
-
-## 8. Enumerate the finite-horizon jobs
-
-Now that the codec exists, we can enumerate all periodic jobs that belong to the finite horizon.
-
-```coq
-Definition enumJ_ex : list JobId :=
-  enum_periodic_jobs_upto T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex.
-```
-
-In this concrete example, the resulting list is exactly `[0; 1]`. The file includes a simple check of that fact.
-
-```coq
-Example enumJ_ex_is_small :
-  enumJ_ex = [0; 1].
-Proof.
-  reflexivity.
-Qed.
-```
-
-This is a useful checkpoint: the concrete world really contains only the two intended jobs.
-
----
-
-## 9. Generate the EDF schedule
-
-The tutorial does not manually define an operational EDF scheduler. Instead, it uses the generic EDF policy specification together with the enumerated candidate jobs to build a generated schedule.
-
-```coq
-Definition sched_gen_ex : Schedule :=
-  generated_schedule
-    edf_generic_spec
-    (enum_candidates_of enumJ_ex)
-    jobs_ex.
-```
-
-This is an important design point: the example is about using the public theorem layer, not about reimplementing EDF from scratch.
-
----
-
-## 10. State the two analysis obligations
-
-At this point, the concrete system is completely defined. The remaining work is no longer model construction but analysis. Conceptually, the tutorial still revolves around two obligations:
-
-* a window-DBF bound, and
-* a generated-EDF busy-prefix bridge.
-
-However, the checked tutorial no longer leaves these obligations open as `Hypothesis`. Instead, it proves both of them from concrete finite-horizon facts.
-
-### 10.1 The window-DBF bound
-
-This is the actual schedulability-analysis obligation. It says that, for every window `[t1, t2)`, the total periodic processor demand whose deadlines fall inside the window does not exceed the window length.
-
-```coq
-Definition periodic_window_dbf_bound_ex : Prop :=
-  forall t1 t2,
-    t1 <= t2 ->
-    t2 <= H_ex ->
-    taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
-```
-
-### 10.2 The generated EDF busy-prefix bridge
-
-This is the EDF-specific bridge obligation required by the current theorem interface. It connects the generated EDF schedule to the busy-prefix reasoning expected by the theorem.
-
-```coq
-Definition generated_edf_busy_prefix_bridge_ex : Prop :=
-  forall j,
-    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-    periodic_edf_busy_prefix_bridge
-      T_ex tasks_ex offset_ex jobs_ex H_ex
-      sched_gen_ex
-      j.
-```
-
-These two propositions are still the right interface-level summary of the analysis layer. The difference is that the checked tutorial now proves them outright.
-
----
-
-## 11. Prove the concrete helper lemmas
-
-The final theorem still expects the horizon-side deadline fact, but the bridge proof now also relies on a few tiny concrete lemmas about the in-horizon jobs and the generated schedule.
-
-First, the tutorial proves that any in-horizon job must be either `0` or `1`:
-
-```coq
-Lemma periodic_jobset_upto_ex_cases :
-  forall j,
-    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-    j = 0 \/ j = 1.
-```
-
-Next, it proves the generated EDF schedule at the only relevant time points. In the checked tutorial, these are small local schedule facts:
-
-* `sched_gen_ex_at_0` and `sched_gen_ex_at_1` identify the two scheduled jobs,
-* `sched_gen_ex_at_2` and `sched_gen_ex_at_3` identify the two idle slots,
-* `sched_gen_ex_idle_2` and `sched_gen_ex_idle_3` package the idle-slot facts in the schedule-analysis vocabulary.
-
-```coq
-Lemma sched_gen_ex_at_0 :
-  sched_gen_ex 0 0 = Some 0.
-
-Lemma sched_gen_ex_at_1 :
-  sched_gen_ex 1 0 = Some 1.
-
-Lemma sched_gen_ex_at_2 :
-  sched_gen_ex 2 0 = None.
-
-Lemma sched_gen_ex_at_3 :
-  sched_gen_ex 3 0 = None.
-```
-
-These local facts are enough to prove that job `1` has no covering busy-prefix witness. The proof now goes through the public idle-slot lemmas in `BusyIntervalLemmas` rather than by enumerating all possible `t1` cases:
-
-```coq
-Lemma no_busy_prefix_witness_job1_ex :
-  forall t1 t2,
-    ~ busy_prefix_witness sched_gen_ex (job_abs_deadline job1_ex) t1 t2.
-```
-
-The horizon-side deadline lemma remains as before:
-
-```coq
-Lemma deadlines_within_horizon_ex :
-  forall j,
-    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-    job_abs_deadline (jobs_ex j) <= H_ex.
-Proof.
-  intros j Hj.
-  destruct j as [| [| j0]].
-  - unfold H_ex. cbn. lia.
-  - unfold H_ex. cbn. lia.
-  - exfalso.
-    pose proof
-      (periodic_jobset_upto_implies_task_in_scope
-         T_ex tasks_ex offset_ex jobs_ex H_ex (S (S j0)) Hj) as Hscope.
-    unfold T_ex, jobs_ex, other_job_ex in Hscope.
-    cbn in Hscope.
-    destruct Hscope as [Hscope | Hscope]; lia.
-Qed.
-```
-
-Again, this works because the example is tiny: any supposed in-horizon job beyond `0` and `1` leads to contradiction.
-
----
-
-## 12. Prove the bridge and DBF obligations
-
-The checked tutorial no longer introduces a separate `Section` with assumptions. Instead, it proves the two analysis propositions directly.
-
-```coq
-Lemma generated_edf_busy_prefix_bridge_ex_proved :
-  generated_edf_busy_prefix_bridge_ex.
-```
-
-The bridge proof splits on `periodic_jobset_upto_ex_cases`.
-
-* For `j = 0`, any covering busy-prefix witness must start at `t1 = 0`; otherwise the left boundary would contradict `sched_gen_ex_at_0` or `sched_gen_ex_at_1`.
-* For `j = 1`, the bridge is vacuous because `no_busy_prefix_witness_job1_ex` applies `idle_slot_not_busy_prefix_witness` to the idle slot at time `2` or `3`.
-
-The DBF obligation is also proved directly. Since `H_ex = 4`, every admissible pair `t1 <= t2 <= H_ex` can be discharged by bounded case analysis on `t1` and `t2`, followed by simplification and `lia`:
-
-```coq
-Lemma periodic_window_dbf_bound_ex_proved :
-  periodic_window_dbf_bound_ex.
-Proof.
-  intros t1 t2 Hle12 Hle2H.
-  unfold H_ex in Hle2H.
-  destruct t2 as [| [| [| [| [| t2']]]]]; try lia;
-    destruct t1 as [| [| [| [| [| t1']]]]]; try lia;
-    simpl; lia.
-Qed.
-```
-
-Once both propositions are available as lemmas, the tutorial packages them with the deadline-side condition in the shape expected by the final theorem:
-
-```coq
-Lemma generated_edf_busy_prefix_bridge_and_deadline_ex :
-  forall j,
-    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-    job_abs_deadline (jobs_ex j) <= H_ex /\
-    periodic_edf_busy_prefix_bridge
-      T_ex tasks_ex offset_ex jobs_ex H_ex
-      sched_gen_ex
-      j.
-```
-
----
-
-## 13. Apply the public theorem
-
-Now the proof is straightforward: apply the public EDF schedulability theorem and supply the setup lemmas together with the proved bridge and DBF lemmas.
-
-```coq
-Theorem tutorial_periodic_edf_schedulable :
-  schedulable_by_on
-    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
-    (edf_scheduler
-       (enum_candidates_of
-          (enum_periodic_jobs_upto
-             T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
-    jobs_ex 1.
-Proof.
-  eapply
-    periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
-    with (enumT := enumT_ex).
-  - exact tasks_ex_well_formed.
-  - exact enumT_ex_nodup.
-  - exact enumT_ex_complete.
-  - exact enumT_ex_sound.
-  - exact generated_edf_busy_prefix_bridge_and_deadline_ex.
-  - exact periodic_window_dbf_bound_ex_proved.
-Qed.
-```
-
-This is the entire proof pattern. The public theorem acts as the final assembly point: once the concrete finite-horizon model, the codec, the EDF-generated schedule, the deadline-side condition, and the DBF-side condition are in place, the schedulability result follows.
-
-For larger concrete task sets, the repository now also exposes a packaged
-variant of this flow:
-
-* `PeriodicEDFConcreteWindowObligations`
-* `PeriodicEDFConcreteClassicalObligations`
-* `periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_from_obligations`
-* `periodic_edf_schedulable_by_classical_dbf_on_finite_horizon_generated_from_obligations`
-
-The many-task example uses the packaged route so that theorem application is
-driven by checker outputs and bridge packaging rather than by a long local
-proof script.
-
----
-
-## 14. What the tutorial now proves concretely
-
-The tutorial no longer leaves the two analysis propositions open.
-
-### Concrete result 1: the DBF bound
-
-The file proves:
-
-```coq
-periodic_window_dbf_bound_ex
-```
-
-It does so directly, by exploiting the tiny finite horizon `H_ex = 4` and checking all admissible windows with bounded case analysis plus `lia`.
-
-### Concrete result 2: the busy-prefix bridge
-
-The file also proves:
-
-```coq
-generated_edf_busy_prefix_bridge_ex
-```
-
-This is the theorem-specific bridge that ties the generated EDF schedule to the analysis infrastructure. In this tiny example, the proof is explicit:
-
-* `j = 0` is the only job with a non-vacuous bridge argument.
-* `j = 1` has no covering busy-prefix witness because the schedule is idle before its deadline.
-
-The conceptual lesson is unchanged: these are still the two right obligations to think about. The checked file now simply proves them outright for this concrete task set.
-
----
-
-## 15. How to understand the structure of the tutorial
-
-A useful mental model is to split the file into three layers. This is the main reason the step-by-step order is easier to read than the original presentation order.
-
-### Layer A: concrete model construction
-
-This includes:
-
-* concrete tasks,
-* concrete jobs,
-* scope predicates,
-* offsets,
-* finite horizon.
-
-### Layer B: finite-horizon infrastructure
-
-This includes:
-
-* task enumeration facts,
-* codec soundness and completeness,
-* finite-horizon job enumeration,
-* generated EDF schedule together with a few symbolic local schedule lemmas.
-
-### Layer C: analysis obligations and theorem application
-
-This includes:
-
-* the window-DBF bound,
-* the busy-prefix bridge,
-* the final theorem application.
-
-Once the file is read in this order, the role of each component becomes much clearer.
-
---
-
-## Checked Tutorial Code
-
-~~~coq
-From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
-From RocqSched Require Import Foundation.Base.
-From RocqSched Require Import Semantics.Schedule.
-From RocqSched Require Import Abstractions.Scheduler.Interface.
-From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
-From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
-From RocqSched Require Import Uniprocessor.Policies.EDF.
-From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
-From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
-From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
-From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
-
-Import ListNotations.
-
-(* ================================================================ *)
-(* 1. A concrete periodic task set                                  *)
-(* ================================================================ *)
-
-(* We choose long periods so that, inside the finite horizon H_ex = 4,
-   each task releases only one job. This keeps the example small and
-   makes the horizon-side condition immediate. *)
-
-Definition task0_ex : Task := mkTask 1 5 2.
-Definition task1_ex : Task := mkTask 1 7 3.
-
-Definition tasks_ex (tau : TaskId) : Task :=
-  match tau with
-  | 0 => task0_ex
-  | 1 => task1_ex
-  | _ => mkTask 1 100 100
-  end.
-
-Definition T_ex (tau : TaskId) : Prop := tau = 0 \/ tau = 1.
-
-Definition offset_ex (_ : TaskId) : Time := 0.
-
-Definition H_ex : Time := 4.
-
-Definition enumT_ex : list TaskId := [0; 1].
-
-(* ================================================================ *)
-(* 2. Concrete jobs                                                  *)
-(* ================================================================ *)
-
-(* Since H_ex = 4 and the periods are 5 and 7, only the first job of
-   each in-scope task is released before H_ex. *)
-
-Definition job0_ex : Job := mkJob 0 0 0 1 2.
-Definition job1_ex : Job := mkJob 1 0 0 1 3.
-
-(* A default out-of-scope job used for all other job IDs. *)
-Definition other_job_ex : Job := mkJob 2 0 10 1 110.
-
-Definition jobs_ex (j : JobId) : Job :=
-  match j with
-  | 0 => job0_ex
-  | 1 => job1_ex
-  | _ => other_job_ex
-  end.
-
-(* ================================================================ *)
-(* 3. Basic generation facts                                         *)
-(* ================================================================ *)
-
-Lemma generated_job0_ex :
-  generated_by_periodic_task tasks_ex offset_ex jobs_ex 0.
-Proof.
-  unfold generated_by_periodic_task, jobs_ex, job0_ex, tasks_ex, task0_ex, offset_ex.
-  simpl.
-  repeat split; lia.
-Qed.
-
-Lemma generated_job1_ex :
-  generated_by_periodic_task tasks_ex offset_ex jobs_ex 1.
-Proof.
-  unfold generated_by_periodic_task, jobs_ex, job1_ex, tasks_ex, task1_ex, offset_ex.
-  simpl.
-  repeat split; lia.
-Qed.
-
-Lemma tasks_ex_well_formed :
-  well_formed_periodic_tasks_on T_ex tasks_ex.
-Proof.
-  intros tau Htau.
-  destruct Htau as [-> | ->]; simpl; lia.
-Qed.
-
-Lemma enumT_ex_nodup :
-  NoDup enumT_ex.
-Proof.
-  unfold enumT_ex.
-  constructor.
-  - simpl. intros [H | []]. discriminate.
-  - constructor.
-    + simpl. tauto.
-    + constructor.
-Qed.
-
-Lemma enumT_ex_complete :
-  forall tau, T_ex tau -> In tau enumT_ex.
-Proof.
-  intros tau Htau.
-  destruct Htau as [-> | ->]; simpl; tauto.
-Qed.
-
-Lemma enumT_ex_sound :
-  forall tau, In tau enumT_ex -> T_ex tau.
-Proof.
-  intros tau Htau.
-  simpl in Htau.
-  destruct Htau as [Htau | [Htau | []]]; subst tau.
-  - left; reflexivity.
-  - right; reflexivity.
-Qed.
-
-(* ================================================================ *)
-(* 4. A concrete finite-horizon codec                                *)
-(* ================================================================ *)
-
-(* There are only two in-scope jobs inside the horizon:
-   (task 0, index 0) -> job 0
-   (task 1, index 0) -> job 1
-   everything else    -> job 2 (irrelevant default) *)
-
-Definition job_id_of_ex (tau : TaskId) (k : nat) : JobId :=
-  match tau, k with
-  | 0, 0 => 0
-  | 1, 0 => 1
-  | _, _ => 2
-  end.
-
-Lemma codec_ex_sound :
-  forall tau k,
-    T_ex tau ->
-    expected_release tasks_ex offset_ex tau k < H_ex ->
-    let j := job_id_of_ex tau k in
-    job_task (jobs_ex j) = tau /\
-    job_index (jobs_ex j) = k /\
-    generated_by_periodic_task tasks_ex offset_ex jobs_ex j.
-Proof.
-  intros tau k Htau Hrel.
-  destruct Htau as [-> | ->].
-  - assert (k = 0).
-    { unfold expected_release, tasks_ex, task0_ex, offset_ex, H_ex in Hrel.
-      simpl in Hrel. lia. }
-    subst k.
-    simpl.
-    split; [reflexivity |].
-    split; [reflexivity |].
-    exact generated_job0_ex.
-  - assert (k = 0).
-    { unfold expected_release, tasks_ex, task1_ex, offset_ex, H_ex in Hrel.
-      simpl in Hrel. lia. }
-    subst k.
-    simpl.
-    split; [reflexivity |].
-    split; [reflexivity |].
-    exact generated_job1_ex.
-Qed.
-
-Lemma codec_ex_complete :
-  forall j,
-    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-    j = job_id_of_ex (job_task (jobs_ex j)) (job_index (jobs_ex j)).
-Proof.
-  intros j Hj.
-  destruct j as [| [| j']]; simpl; try reflexivity.
-  unfold periodic_jobset_upto, jobs_ex, other_job_ex, H_ex in Hj.
-  simpl in Hj.
-  destruct Hj as [_ [_ Hrel]].
-  lia.
-Qed.
-
-Definition codec_ex : PeriodicFiniteHorizonCodec T_ex tasks_ex offset_ex jobs_ex H_ex :=
-  mkPeriodicFiniteHorizonCodec
-    T_ex tasks_ex offset_ex jobs_ex H_ex
-    job_id_of_ex
-    codec_ex_sound
-    codec_ex_complete.
-
-(* ================================================================ *)
-(* 5. The generated job list and generated EDF schedule              *)
-(* ================================================================ *)
-
-Definition enumJ_ex : list JobId :=
-  enum_periodic_jobs_upto T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex.
-
-Definition sched_gen_ex : Schedule :=
-  generated_schedule
-    edf_generic_spec
-    (enum_candidates_of enumJ_ex)
-    jobs_ex.
-
-Example enumJ_ex_is_small :
-  enumJ_ex = [0; 1].
-Proof.
-  reflexivity.
-Qed.
-
-(* ================================================================ *)
-(* 6. User obligations                                               *)
-(* ================================================================ *)
-
-Definition periodic_window_dbf_bound_ex : Prop :=
-  forall t1 t2,
-    t1 <= t2 ->
-    t2 <= H_ex ->
-    taskset_periodic_dbf_window tasks_ex offset_ex enumT_ex t1 t2 <= t2 - t1.
-
-Definition generated_edf_busy_prefix_bridge_ex : Prop :=
-  forall j,
-    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-    periodic_edf_busy_prefix_bridge
-      T_ex tasks_ex offset_ex jobs_ex H_ex
-      sched_gen_ex
-      j.
-
-Lemma periodic_jobset_upto_ex_cases :
-  forall j,
-    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-    j = 0 \/ j = 1.
-Proof.
-  intros j Hj.
-  destruct j as [| [| j']]; auto.
-  exfalso.
-  unfold periodic_jobset_upto, jobs_ex, other_job_ex, H_ex in Hj.
-  cbn in Hj.
-  destruct Hj as [_ [_ Hrel]].
-  lia.
-Qed.
-
-Lemma sched_gen_ex_at_0 :
-  sched_gen_ex 0 0 = Some 0.
-Proof.
-  unfold sched_gen_ex, generated_schedule.
-  simpl.
-  apply choose_edf_unique_min.
-  - rewrite enumJ_ex_is_small. simpl. auto.
-  - unfold eligible, released, completed, jobs_ex, job0_ex.
-    simpl.
-    split; [lia |].
-    intro Hcompleted.
-    simpl in Hcompleted.
-    lia.
-  - intros j' Hin Helig Hneq.
-    rewrite enumJ_ex_is_small in Hin.
-    simpl in Hin.
-    destruct Hin as [Hin | [Hin | []]]; subst j'.
-    + contradiction.
-    + unfold jobs_ex, job0_ex, job1_ex.
-      simpl.
-      lia.
-Qed.
-
-Lemma sched_gen_ex_at_1 :
-  sched_gen_ex 1 0 = Some 1.
-Proof.
-  unfold sched_gen_ex, generated_schedule.
-  simpl.
-  apply choose_edf_unique_min.
-  - rewrite enumJ_ex_is_small. simpl. auto.
-  - unfold eligible, released, completed, jobs_ex, job1_ex.
-    simpl.
-    split; [lia |].
-    intro Hcompleted.
-    simpl in Hcompleted.
-    lia.
-  - intros j' Hin Helig Hneq.
-    rewrite enumJ_ex_is_small in Hin.
-    simpl in Hin.
-    destruct Hin as [Hin | [Hin | []]]; subst j'.
-    + exfalso.
-      unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
-      simpl in Helig.
-      destruct Helig as [_ Hnot_completed].
-      apply Hnot_completed.
-      simpl.
-      lia.
-    + contradiction.
-Qed.
-
-Lemma sched_gen_ex_at_2 :
-  sched_gen_ex 2 0 = None.
-Proof.
-  unfold sched_gen_ex, generated_schedule.
-  simpl.
-  apply choose_edf_none_if_no_eligible.
-  intros j Hin Helig.
-  rewrite enumJ_ex_is_small in Hin.
-  simpl in Hin.
-  destruct Hin as [Hin | [Hin | []]]; subst j.
-  - unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
-    simpl in Helig.
-    destruct Helig as [_ Hnot_completed].
-    apply Hnot_completed.
-    simpl.
-    lia.
-  - unfold eligible, released, completed, jobs_ex, job1_ex in Helig.
-    simpl in Helig.
-    destruct Helig as [_ Hnot_completed].
-    apply Hnot_completed.
-    simpl.
-    lia.
-Qed.
-
-Lemma sched_gen_ex_at_3 :
-  sched_gen_ex 3 0 = None.
-Proof.
-  unfold sched_gen_ex, generated_schedule.
-  simpl.
-  apply choose_edf_none_if_no_eligible.
-  intros j Hin Helig.
-  rewrite enumJ_ex_is_small in Hin.
-  simpl in Hin.
-  destruct Hin as [Hin | [Hin | []]]; subst j.
-  - unfold eligible, released, completed, jobs_ex, job0_ex in Helig.
-    simpl in Helig.
-    destruct Helig as [_ Hnot_completed].
-    apply Hnot_completed.
-    simpl.
-    lia.
-  - unfold eligible, released, completed, jobs_ex, job1_ex in Helig.
-    simpl in Helig.
-    destruct Helig as [_ Hnot_completed].
-    apply Hnot_completed.
-    simpl.
-    lia.
-Qed.
-
-Lemma no_busy_prefix_witness_job1_ex :
-  forall t1 t2,
-    ~ busy_prefix_witness sched_gen_ex (job_abs_deadline job1_ex) t1 t2.
-Proof.
-  intros t1 t2 Hwit.
-  destruct Hwit as [Hcand [Ht1 Ht2]].
-  destruct Hcand as [[Hlt Hbusy] _].
-  unfold job1_ex in Ht1, Ht2; cbn in Ht1, Ht2.
-  assert (t1 <= 3) by lia.
-  destruct t1 as [| [| [| [| t1']]]]; cbn in *.
-  - destruct (Hbusy 2) as [j Hj]; try lia.
-    rewrite sched_gen_ex_at_2 in Hj. discriminate.
-  - destruct (Hbusy 2) as [j Hj]; try lia.
-    rewrite sched_gen_ex_at_2 in Hj. discriminate.
-  - destruct (Hbusy 2) as [j Hj]; try lia.
-    rewrite sched_gen_ex_at_2 in Hj. discriminate.
-  - destruct (Hbusy 3) as [j Hj]; try lia.
-    rewrite sched_gen_ex_at_3 in Hj. discriminate.
-  - lia.
-Qed.
-
-Lemma generated_edf_busy_prefix_bridge_ex_proved :
-  generated_edf_busy_prefix_bridge_ex.
-Proof.
-  intros j Hj.
-  destruct (periodic_jobset_upto_ex_cases j Hj) as [-> | ->].
-  - apply periodic_edf_busy_prefix_bridge_of_hypotheses.
-    + intros t1 t2 Hwit.
-      destruct Hwit as [Hcand [Ht1 Ht2]].
-      destruct Hcand as [[_ Hbusy] Hleft].
-      assert (t1 = 0).
-      { destruct Hleft as [-> | Hleft]; auto.
-        unfold job0_ex in Ht1.
-        cbn in Ht1.
-        destruct t1 as [| t1]; auto.
-        destruct t1 as [| t1].
-        - exfalso.
-          apply Hleft.
-          exists 0.
-          exact sched_gen_ex_at_0.
-        - destruct t1 as [| t1].
-          + exfalso.
-            apply Hleft.
-            exists 1.
-            exact sched_gen_ex_at_1.
-          + lia. }
-      lia.
-    + intros t1 t2 Hwit _ t j_run Hbetween Hsched _.
-      exact (Nat.le_0_l (job_release (jobs_ex j_run))).
-  - apply periodic_edf_busy_prefix_bridge_of_hypotheses.
-    + intros t1 t2 Hwit.
-      exfalso.
-      eapply no_busy_prefix_witness_job1_ex; eauto.
-    + intros t1 t2 Hwit _ t j_run Hbetween Hsched Hdl_between.
-      exfalso.
-      eapply no_busy_prefix_witness_job1_ex; eauto.
-Qed.
-
-Lemma periodic_window_dbf_bound_ex_proved :
-  periodic_window_dbf_bound_ex.
-Proof.
-  intros t1 t2 Hle12 Hle2H.
-  unfold H_ex in Hle2H.
-  destruct t2 as [| [| [| [| [| t2']]]]]; try lia;
-    destruct t1 as [| [| [| [| [| t1']]]]]; try lia;
-    simpl; lia.
-Qed.
-
-Lemma deadlines_within_horizon_ex :
-  forall j,
-    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-    job_abs_deadline (jobs_ex j) <= H_ex.
-Proof.
-  intros j Hj.
-  destruct j as [| [| j0]].
-  - unfold H_ex. cbn. lia.
-  - unfold H_ex. cbn. lia.
-  - exfalso.
-    pose proof
-      (periodic_jobset_upto_implies_task_in_scope
-         T_ex tasks_ex offset_ex jobs_ex H_ex (S (S j0)) Hj) as Hscope.
-    unfold T_ex, jobs_ex, other_job_ex in Hscope.
-    cbn in Hscope.
-    destruct Hscope as [Hscope | Hscope]; lia.
-Qed.
-
-Lemma generated_edf_busy_prefix_bridge_and_deadline_ex :
-  forall j,
-    periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex j ->
-    job_abs_deadline (jobs_ex j) <= H_ex /\
-    periodic_edf_busy_prefix_bridge
-      T_ex tasks_ex offset_ex jobs_ex H_ex
-      sched_gen_ex
-      j.
-Proof.
-  intros j Hj.
-  split.
-  - apply deadlines_within_horizon_ex; exact Hj.
-  - apply generated_edf_busy_prefix_bridge_ex_proved; exact Hj.
-Qed.
-
-Theorem tutorial_periodic_edf_schedulable :
-  schedulable_by_on
-    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
-    (edf_scheduler
-       (enum_candidates_of
-          (enum_periodic_jobs_upto
-             T_ex tasks_ex offset_ex jobs_ex H_ex enumT_ex codec_ex)))
-    jobs_ex 1.
-Proof.
-  eapply
-    periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
-    with (enumT := enumT_ex).
-  - exact tasks_ex_well_formed.
-  - exact enumT_ex_nodup.
-  - exact enumT_ex_complete.
-  - exact enumT_ex_sound.
-  - exact generated_edf_busy_prefix_bridge_and_deadline_ex.
-  - exact periodic_window_dbf_bound_ex_proved.
-Qed.
-~~~
+For zero-offset periodic task sets, the preferred entry point is the
+classical-DBF package wrapper.
