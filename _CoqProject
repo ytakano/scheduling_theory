@@ -52,7 +52,6 @@ theories/Examples/RRExamples.v
 theories/Examples/SchedulableExamples.v
 Tutorials/EDFSchedulability.v
 Tutorials/EDFInfiniteSchedulability.v
-Tutorials/LLFInfiniteSchedulability.v
 theories/Foundation/Base.v
 theories/Multicore/Common/MultiCoreBase.v
 theories/Multicore/Common/ServiceFacts.v
