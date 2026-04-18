@@ -7,9 +7,10 @@ This document describes the current operational layer.
 Its scope is:
 
 - `theories/Operational/Common/*`
-- `theories/Operational/Awkernel/*`
 
-The current implementation is a minimal operational projection slice: it records implementation-facing state and traces and explains how they project back into schedule semantics.
+The current implementation is a minimal OS-neutral operational projection
+slice: it records implementation-facing scheduler views and traces and explains
+how they project back into schedule semantics.
 
 ## Purpose of the Operational layer
 
@@ -21,7 +22,8 @@ Its role is to define:
 - small-step execution structure,
 - trace projection into semantic schedules,
 - the invariants needed to recover schedule validity from operational behavior,
-- thin Awkernel-facing wrappers over that common projection layer.
+- an OS-neutral projection boundary from concrete machine states into that
+  common scheduler view.
 
 This layer is intentionally modest. It is not yet a full OS semantics with the full range of timer, wakeup, migration, and interrupt behavior.
 
@@ -33,10 +35,15 @@ The core common operational objects are:
 - `OpTrace`
 - `op_step`
 - `execution`
+- `OSProjection`
+- `concrete_execution`
 
 The key bridge back into the semantic core is:
 
 - `project_schedule : OpTrace -> Schedule`
+
+`OpState` is not a concrete OS state. It is the proof-relevant scheduler view
+used by the common operational layer.
 
 The projection layer and its lemmas show how operational traces recover schedule-level execution facts such as running and validity when suitable structural invariants hold.
 
@@ -46,23 +53,15 @@ The projection layer and its lemmas show how operational traces recover schedule
 - `execution_projection_sound`
 - consequences such as `execution_projection_sound_implies_valid_schedule`
 
-The Awkernel wrapper layer then exposes:
-
-- `AwkernelState`
-- `AwkernelTrace`
-- `awk_project_schedule`
-- `awk_execution`
-- `awk_trace_sound`
-
-This keeps the operational common layer reusable while still providing an implementation-facing wrapper for Awkernel-oriented developments.
+Concrete OS adapters may then expose OS-specific states and traces outside
+`Operational/Common`. The current `Operational/Awkernel/MinimalProjection.v`
+module is an example of such a concrete adapter layer.
 
 ## Public entry points
 
 The stable public entry points for this layer are:
 
-- `theories/Operational/Common/Projection.v`
-- `theories/Operational/Common/ProjectionLemmas.v`
-- `theories/Operational/Awkernel/MinimalProjection.v`
+- `theories/Operational/Common/OperationalEntryPoints.v`
 
 Important supporting modules include:
 
@@ -71,18 +70,25 @@ Important supporting modules include:
 - `theories/Operational/Common/Step.v`
 - `theories/Operational/Common/Invariants.v`
 - `theories/Operational/Common/Execution.v`
+- `theories/Operational/Common/OSProjectionInterface.v`
+- `theories/Operational/Common/ConcreteExecution.v`
+- `theories/Operational/Common/Projection.v`
+- `theories/Operational/Common/ProjectionLemmas.v`
 
 ## Design boundaries
 
 This layer includes:
 
-- implementation-facing state and traces,
+- implementation-facing scheduler views and traces,
 - stepwise operational execution structure,
+- OS-neutral projection from concrete states into `OpState`,
 - projection from traces to abstract schedules,
 - operational invariants used to recover semantic schedule validity.
 
 This layer does not include:
 
+- concrete OS state definitions,
+- concrete OS adapters,
 - the definition of schedule meaning itself,
 - declarative or executable scheduler interfaces,
 - interval schedulability analysis,
@@ -95,7 +101,10 @@ Those belong respectively to:
 - `design/Analysis.md`
 - `design/Refinement.md`
 
-The key split is that `Operational` records machine-facing behavior, while `Semantics` continues to own the abstract schedule model that those traces project into.
+The key split is that `Operational` records machine-facing behavior, while
+`Semantics` continues to own the abstract schedule model that those traces
+project into. Concrete OS adapters must therefore live outside
+`Operational/Common`.
 
 ## Extension points
 
@@ -122,15 +131,23 @@ These extensions should continue to project into the same semantic schedule laye
   Structural invariants over operational states.
 - `theories/Operational/Common/Execution.v`
   Packaged stepwise execution objects.
+- `theories/Operational/Common/OSProjectionInterface.v`
+  OS-neutral projection from concrete machine state to `OpState`.
+- `theories/Operational/Common/ConcreteExecution.v`
+  Wrapper that packages projected concrete traces as common operational executions.
 - `theories/Operational/Common/Projection.v`
   Projection from operational traces to semantic schedules.
 - `theories/Operational/Common/ProjectionLemmas.v`
   Projection soundness lemmas linking operational traces to schedule validity.
 - `theories/Operational/Awkernel/MinimalProjection.v`
-  Awkernel-facing thin wrapper over the common projection slice.
+  Concrete adapter example built on top of the common projection slice.
 
 ## Summary
 
-The operational layer is the implementation-facing trace layer of the repository.
+The operational layer is the implementation-facing trace layer of the
+repository.
 
-Its current scope is deliberately minimal: define operational state and traces, project them into schedule semantics, and recover schedule validity from explicit invariants. It should not be documented as a full OS semantics before the code actually reaches that scope.
+Its current scope is deliberately minimal: define an OS-neutral operational
+scheduler view and traces, project them into schedule semantics, and recover
+schedule validity from explicit invariants. It should not be documented as a
+full OS semantics before the code actually reaches that scope.

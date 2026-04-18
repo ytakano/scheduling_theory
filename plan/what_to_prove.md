@@ -914,7 +914,15 @@ internal/helper inventory として扱うもの:
 - per-CPU current
 - runnable-job list view
 - pending reschedule requests
-- minimal Awkernel-facing state wrapper
+- concrete Awkernel adapter example
+
+予定:
+
+- `OSProjection`
+- `concrete_trace`
+- `os_to_op_trace`
+- `concrete_execution`
+- `concrete_to_execution`
 
 予定:
 
@@ -1017,12 +1025,15 @@ core schedule semantics と OS operational semantics の中間に置く。
 前段として実装済み:
 
 - operational state から abstract schedule を読む interface
-- Awkernel-facing projection wrapper
+- `OpState` / `OpTrace` / `project_schedule` as the common target
+- concrete Awkernel adapter example
 
 予定:
 
+- each concrete OS exposes an `OSProjection` into `OpState`
 - chooser/algorithm の決定が operational state machine に実装されること
 - runqueue / current / event handling が抽象選択を実現すること
+- first bridge theorem target remains `valid_schedule` for projected traces
 
 ## 12-3. bounded-delay refinement
 **Status: Planned**

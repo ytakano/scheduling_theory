@@ -91,6 +91,32 @@ Such growth should preserve the current split:
 - abstractions define the interfaces,
 - refinement states that one layer implements another.
 
+## OS-neutral operational refinement boundary
+
+Concrete multicore OS refinement should not depend on a concrete OS wrapper
+inside the common layer. Instead, each OS should provide an adapter from its
+concrete state to `OpState`.
+
+The common refinement path is:
+
+Concrete OS state
+  -> `OSProjection`
+  -> `OpTrace`
+  -> `project_schedule`
+  -> semantic `Schedule`
+
+The refinement layer may then state that the projected schedule satisfies
+validity, admissibility, placement, or scheduler-policy obligations.
+
+This operational projection boundary is distinct from
+`theories/Refinement/SchedulingAlgorithmRefinement.v`.
+The latter connects executable chooser interfaces to declarative policy specs,
+whereas the operational boundary connects concrete machine behavior to semantic
+schedules.
+
+Concrete OS-specific operational proofs should therefore live in
+`Operational/<OS>` or `Refinement/<OS>`, not inside `Operational/Common`.
+
 ## File map
 
 - `theories/Refinement/SchedulingAlgorithmRefinement.v`

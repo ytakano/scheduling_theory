@@ -62,7 +62,8 @@ The intended contribution is to connect, in one reusable framework:
   - operational state / trace skeleton
   - trace-to-schedule projection
   - initial projection soundness lemmas
-  - Awkernel-facing thin wrapper
+  - OS-neutral common projection skeleton
+  - Awkernel adapter example
 
 ### Interpretation of the current state
 
@@ -861,6 +862,9 @@ Implemented core:
 - `Operational/Common/StepLemmas.v`
 - `Operational/Common/Execution.v`
 - `Operational/Common/ProjectionLemmas.v`
+- `Operational/Common/OSProjectionInterface.v`
+- `Operational/Common/ConcreteExecution.v`
+- `Operational/Common/OperationalEntryPoints.v`
 - `Operational/Awkernel/MinimalProjection.v`
 
 What is already done:
@@ -873,9 +877,19 @@ What is already done:
 - structural operational invariants separated from trace-level soundness
 - step-preservation lemmas for the structural invariant layer
 - public `trace_stepwise` plus packaged `execution` record
+- OS-neutral projection from concrete OS state to `OpState`
+- concrete execution wrappers over projected traces
 - schedule projection
 - execution-first bridge lemmas from operational soundness to `valid_schedule`
-- Awkernel-facing thin projection wrapper over the execution-first bridge
+- canonical common import boundary for downstream refinement
+- concrete OS adapters kept outside `Operational/Common`
+
+Next immediate common-layer tasks:
+
+- add `Operational/Common/OperationalEntryPoints.v`
+- add an OS-neutral projection interface from concrete OS state to `OpState`
+- add concrete execution wrappers over the existing `execution` record
+- keep concrete OS adapters outside `Operational/Common`
 
 ### H-1. Explicit delay sources
 **Status: Not started**
@@ -960,12 +974,13 @@ What is already done:
 - abstract policy -> executable chooser pipeline exists in the current
   single-CPU theory
 - operational trace -> abstract schedule projection skeleton exists
-- Awkernel-facing naming wrapper exists for the first projection slice
+- OS-neutral projection boundary exists for the first projection slice
+- Awkernel adapter example exists outside the common layer
 
 What remains:
 
 - executable algorithm -> operational scheduler refinement
-- operational scheduler -> OS-level model refinement
+- operational scheduler -> OS-level model refinement via `OSProjection`
 - multicore refinement path
 - bounded-delay refinement theorems connecting operational delay to abstract schedules
 
