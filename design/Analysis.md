@@ -352,7 +352,8 @@ These extensions should keep the same discipline: put analysis facts in `Analysi
 - `theories/Analysis/Uniprocessor/EDFProcessorDemand.v`
   EDF-facing processor-demand wrappers and packaged busy-prefix bridges.
 - `theories/Analysis/Multicore/ProcessorSupply.v`
-  Machine-supply accounting over intervals.
+  Capacity equality and upper-bound consequences built on the common
+  machine-supply semantics.
 - `theories/Analysis/Multicore/Interference.v`
   Interference and covering-list infrastructure.
 - `theories/Analysis/Multicore/GlobalWorkloadAbsorption.v`

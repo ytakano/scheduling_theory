@@ -13,9 +13,10 @@
      They are essentially special cases of the Tier 2 lemmas (see Note).
 
    Tier 2 — generic adm lemmas (_gen suffix)
-     For arbitrary adm.  These lemmas use AdmissibleCandidateSourceSpec
-     (for busy/running) or StrongAdmissibleCandidateSourceSpec (for idle).
-     They do not require 0 < m.
+     For arbitrary adm.
+     - the busy lemma uses AdmissibleCandidateSourceSpec and still requires 0 < m
+     - the running lemma uses AdmissibleCandidateSourceSpec and does not require 0 < m
+     - the idle lemma uses StrongAdmissibleCandidateSourceSpec and does not require 0 < m
 
    Note: all_cpus_admissible is a special case of generic adm.
    For all_cpus_admissible, every eligible job is already admissible
@@ -44,8 +45,7 @@
      top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere
      top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere
 
-   Compatibility wrappers — Tier 2, generic adm (AdmissibleCandidateSourceSpec /
-             StrongAdmissibleCandidateSourceSpec; does not require 0 < m):
+   Compatibility wrappers — Tier 2, generic adm:
      top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen
      top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen
      top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere_gen
@@ -192,16 +192,19 @@ Qed.
 
 (* ===== Compatibility wrappers: Tier 2, generic adm (_gen lemmas) =====
    These lemmas work for any admissibility predicate adm.
-   - busy/running lemmas use AdmissibleCandidateSourceSpec (weaker spec).
-   - idle lemma uses StrongAdmissibleCandidateSourceSpec, which additionally
+   - the busy lemma uses AdmissibleCandidateSourceSpec (weaker spec) and still
+     requires 0 < m
+   - the running lemma uses AdmissibleCandidateSourceSpec and does not require 0 < m
+   - the idle lemma uses StrongAdmissibleCandidateSourceSpec, which additionally
      requires every candidate to be admissible somewhere — this is the
      extra obligation that makes the idle proof go through without 0 < m.
-   None of these lemmas require 0 < m. *)
+   Only the running/idle lemmas avoid a separate 0 < m premise. *)
 
 (** D-4. General version of D-2: if some J-job is admissible somewhere under
     an arbitrary adm, then at least one CPU is busy.
 
-    Uses AdmissibleCandidateSourceSpec (weaker than CandidateSourceSpec). *)
+    Uses AdmissibleCandidateSourceSpec (weaker than CandidateSourceSpec) and
+    still requires 0 < m to witness a busy CPU index. *)
 Lemma top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen :
   forall adm J spec candidates_of jobs m sched t,
     AdmissibleCandidateSourceSpec adm J candidates_of ->

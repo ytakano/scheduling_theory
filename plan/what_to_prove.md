@@ -752,6 +752,19 @@ Done:
 
 - `Analysis/Multicore/GlobalAnalysisEntryPoints.v` が stable downstream import
   を提供する
+- `Multicore/Common/ServiceFacts.v`:
+  - `total_cpu_service_at`
+  - `total_cpu_service_between`
+  - split / single-slot machine-supply lemmas
+  - `service_sum_on_cpus_monotone`
+  - `machine_full_at_implies_total_cpu_service_at_eq_m`
+- `Multicore/Common/CompletionFacts.v`:
+  - non-running eligible/admissible job から machine-full を引く標準補題
+- `Multicore/Common/RemainingCostFacts.v`:
+  - `remaining_cost_step_bounds_mc`
+  - `remaining_cost_monotone_mc`
+- `Multicore/Common/LaxityFacts.v`:
+  - `laxity_step_bounds_mc`
 - `ProcessorSupply.v`:
   - `total_cpu_service_between_eq_capacity_if_all_cpus_busy`
   - `total_cpu_service_between_le_capacity`
@@ -765,7 +778,6 @@ Done:
 
 internal/helper inventory として扱うもの:
 
-- `ProcessorSupply.v` の step/split/single-slot 補題
 - `Interference.v` の `covered_cpu_count` と list-aggregation の補助補題群
 - helper facts that only normalize list coverage or interval decomposition
 

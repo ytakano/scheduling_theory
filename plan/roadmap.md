@@ -493,9 +493,14 @@ What is already done:
 - canonical `top_m_selected_from (subset_eligible_at ...)` public theorem layer
   plus strong-spec admissibility-aware variant
 - migration-aware decomposition of `service_job` into projected per-CPU service
+- machine supply semantic definitions and basic split/single-slot lemmas in
+  `Multicore/Common/ServiceFacts.v`
 - completion / eligibility bridges over the decomposed service view
 - remaining-cost / laxity bridges over migration-aware service accounting
 - one-step change lemmas for `remaining_cost` and `laxity` under `no_duplication`
+- monotonicity and step-bound lemmas for fairness / interval clients
+- `machine_full_at` to saturated machine-supply bridge lemmas
+- explicit public downstream inventory comments for the common multicore client files
 
 What remains:
 
@@ -701,8 +706,9 @@ This is the immediate follow-up packaging step after G-2a.
 Implemented:
 
 - `Analysis/Multicore/ProcessorSupply.v` now exposes:
-  - pointwise full-machine supply equality
+  - all-cpus-busy to full-machine supply equality
   - interval full-machine supply equality
+  - interval machine-capacity upper bound
 - `Analysis/Multicore/GlobalAnalysisEntryPoints.v` now packages the stable
   downstream import path for multicore global analysis
 - `Examples/GlobalInterferenceExamples.v` now validates that the representative

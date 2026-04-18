@@ -32,6 +32,7 @@ The layer is organized into three parts.
 - multicore base views such as per-CPU projection
 - set-level running/full vocabulary for global schedules
 - service, completion, remaining-cost, and laxity facts specialized to multicore schedules
+- machine supply semantic basics and machine-full consequences for downstream clients
 - admissibility and candidate-source infrastructure
 - top-`m` metric, admissibility, and selection-boundary bridges
 
@@ -118,13 +119,16 @@ New multicore work should keep structural scheduling facts here and move interva
 - `theories/Multicore/Common/MultiCoreBase.v`
   Core multicore schedule views, projections, and set-level running/full vocabulary.
 - `theories/Multicore/Common/ServiceFacts.v`
-  Multicore service-accounting facts.
+  Multicore service-accounting facts plus machine-supply semantic basics and
+  machine-full to saturated-supply bridges.
 - `theories/Multicore/Common/CompletionFacts.v`
-  Completion facts specialized to multicore schedules.
+  Completion facts specialized to multicore schedules, including standard
+  eligible/admissible non-running to machine-full consequences.
 - `theories/Multicore/Common/RemainingCostFacts.v`
-  Remaining-cost lemmas for multicore settings.
+  Remaining-cost lemmas for multicore settings, including step-bound and
+  monotonicity facts for interval clients.
 - `theories/Multicore/Common/LaxityFacts.v`
-  Multicore laxity infrastructure.
+  Multicore laxity infrastructure, including fairness-facing step bounds.
 - `theories/Multicore/Common/Admissibility.v`
   Admissibility structure for multicore scheduling.
 - `theories/Multicore/Common/AdmissibleCandidateSource.v`
