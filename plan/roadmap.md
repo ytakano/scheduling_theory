@@ -501,6 +501,8 @@ What is already done:
 - monotonicity and step-bound lemmas for fairness / interval clients
 - `machine_full_at` to saturated machine-supply bridge lemmas
 - explicit public downstream inventory comments for the common multicore client files
+- `Multicore/Common/MulticoreSemanticsEntryPoints.v` packages the stable
+  downstream import for the policy-independent multicore semantic boundary
 
 What remains:
 

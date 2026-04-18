@@ -60,12 +60,14 @@ The main multicore-specific abstraction boundary is top-`m` scheduling:
 
 The canonical public entry points for this layer are:
 
+- `theories/Multicore/Common/MulticoreSemanticsEntryPoints.v`
 - `theories/Multicore/Global/GlobalEntryPoints.v`
 - `theories/Multicore/Partitioned/PartitionedEntryPoints.v`
 
 Important supporting modules include:
 
 - `theories/Multicore/Common/MultiCoreBase.v`
+- `theories/Multicore/Common/MulticoreSemanticsEntryPoints.v`
 - `theories/Multicore/Common/ServiceFacts.v`
 - `theories/Multicore/Common/CompletionFacts.v`
 - `theories/Multicore/Common/RemainingCostFacts.v`
@@ -118,6 +120,9 @@ New multicore work should keep structural scheduling facts here and move interva
 
 - `theories/Multicore/Common/MultiCoreBase.v`
   Core multicore schedule views, projections, and set-level running/full vocabulary.
+- `theories/Multicore/Common/MulticoreSemanticsEntryPoints.v`
+  Canonical downstream import for the policy-independent multicore semantic
+  theorem layer.
 - `theories/Multicore/Common/ServiceFacts.v`
   Multicore service-accounting facts plus machine-supply semantic basics and
   machine-full to saturated-supply bridges.

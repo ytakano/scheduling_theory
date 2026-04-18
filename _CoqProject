@@ -54,6 +54,7 @@ Tutorials/EDFSchedulability.v
 Tutorials/EDFInfiniteSchedulability.v
 theories/Foundation/Base.v
 theories/Multicore/Common/MultiCoreBase.v
+theories/Multicore/Common/MulticoreSemanticsEntryPoints.v
 theories/Multicore/Common/ServiceFacts.v
 theories/Multicore/Common/CompletionFacts.v
 theories/Multicore/Common/RemainingCostFacts.v

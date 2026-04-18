@@ -700,6 +700,8 @@ Done:
   - `top_m_selected_from`
   - `top_m_algorithm_selected_from_subset_eligible`
   - `top_m_algorithm_selected_from_subset_admissible_somewhere_strong_gen`
+- `Multicore/Common/MulticoreSemanticsEntryPoints.v` が
+  policy-independent multicore semantic boundary の stable downstream import を提供する
 - `GlobalEntryPoints.v` が stable downstream import を提供する
 - `GlobalEDF.v`:
   - `global_edf_scheduler`
