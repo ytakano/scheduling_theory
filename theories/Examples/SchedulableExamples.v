@@ -6,7 +6,7 @@ From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
-From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooser.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Common.MetricChooser.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import Uniprocessor.Policies.FIFO.
 From RocqSched Require Import Multicore.Partitioned.Partitioned.

@@ -59,6 +59,7 @@ From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Multicore.Common.TopMSchedulerBridgeFacts.
 From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
 

@@ -2,7 +2,7 @@ From Stdlib Require Import List Arith Arith.PeanoNat Lia ZArith.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Multicore.Common.TopMMetricChooser.
-From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooser.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Common.MetricChooser.
 Import ListNotations.
 
 Lemma choose_top_m_by_metric_excluded_eligible_implies_full :

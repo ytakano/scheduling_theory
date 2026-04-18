@@ -8,7 +8,7 @@ From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBrid
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.TopMMetricChooser.
-From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooser.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Common.MetricChooser.
 From RocqSched Require Import Multicore.Global.GlobalEDF.
 Import ListNotations.
 

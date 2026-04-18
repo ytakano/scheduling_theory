@@ -9,8 +9,8 @@ From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Uniprocessor.Generic.SchedulingAlgorithmCanonicalBridge.
 From RocqSched Require Import Abstractions.Scheduler.Validity.
 From RocqSched Require Import Refinement.SchedulingAlgorithmRefinement.
-From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooser.
-From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooserLemmas.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Common.MetricChooser.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Common.MetricChooserLemmas.
 From RocqSched Require Import Uniprocessor.Policies.LLF.
 Import ListNotations.
 

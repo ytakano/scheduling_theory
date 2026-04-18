@@ -8,7 +8,7 @@ From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleRestriction.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Uniprocessor.Generic.SchedulingAlgorithmCanonicalBridge.
-From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooserLemmas.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Common.MetricChooserLemmas.
 Import ListNotations.
 
 Definition trunc_sched (sched : Schedule) (H : nat) : Schedule :=

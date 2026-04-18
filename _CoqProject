@@ -8,6 +8,8 @@ theories/Abstractions/SchedulingAlgorithm/SchedulerBridge.v
 theories/Abstractions/SchedulingAlgorithm/EnumCandidates.v
 theories/Abstractions/SchedulingAlgorithm/TopMInterface.v
 theories/Abstractions/SchedulingAlgorithm/TopMSchedulerBridge.v
+theories/Abstractions/SchedulingAlgorithm/Common/MetricChooser.v
+theories/Abstractions/SchedulingAlgorithm/Common/MetricChooserLemmas.v
 theories/Analysis/Common/WorkloadAggregation.v
 theories/Analysis/Multicore/ProcessorSupply.v
 theories/Analysis/Multicore/Interference.v
@@ -65,6 +67,7 @@ theories/Multicore/Common/AffinityFacts.v
 theories/Multicore/Common/AdmissibleCandidateSource.v
 theories/Multicore/Common/TopMMetricChooser.v
 theories/Multicore/Common/TopMMetricFacts.v
+theories/Multicore/Common/TopMSchedulerBridgeFacts.v
 theories/Multicore/Common/TopMAdmissibilityBridge.v
 theories/Multicore/Common/TopMSelectionFacts.v
 theories/Multicore/Global/GlobalEDF.v

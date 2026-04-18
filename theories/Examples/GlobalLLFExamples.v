@@ -10,7 +10,7 @@ From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
 From RocqSched Require Import Multicore.Common.TopMMetricChooser.
 From RocqSched Require Import Multicore.Global.GlobalLLF.
-From RocqSched Require Import Uniprocessor.Policies.Common.MetricChooser.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Common.MetricChooser.
 Import ListNotations.
 
 Section GlobalLLFExamples.
