@@ -3,7 +3,14 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.ServiceFacts.
+From RocqSched Require Import Multicore.Common.TopMAdmissibilityBridge.
+
+(** Public downstream theorems in this file:
+    - completion/service equivalences on multicore schedules
+    - standard consequences turning eligible or admissible non-running jobs
+      into `machine_full_at` under `top_m_selected_from` *)
 
 Lemma completed_iff_service_sum_ge_cost :
   forall jobs m sched j t,
@@ -98,4 +105,30 @@ Proof.
   pose proof (valid_no_duplication_service_sum_le_cost jobs m sched j t2 Hvalid Hnd)
     as Hbound.
   lia.
+Qed.
+
+Lemma top_m_selected_from_missing_subset_eligible_implies_machine_full :
+  forall J jobs m sched t j,
+    top_m_selected_from (subset_eligible_at J jobs m sched t) m sched t ->
+    J j ->
+    eligible jobs m sched j t ->
+    ~ running m sched j t ->
+    machine_full_at m sched t.
+Proof.
+  intros J jobs m sched t j Hsel HJ Helig Hnrun.
+  eapply top_m_selected_missing_implies_machine_full; eauto.
+  exact (conj HJ Helig).
+Qed.
+
+Lemma top_m_selected_from_missing_subset_admissible_somewhere_implies_machine_full :
+  forall adm J jobs m sched t j,
+    top_m_selected_from (subset_admissible_somewhere_at adm J jobs m sched t) m sched t ->
+    J j ->
+    admissible_somewhere adm jobs m sched j t ->
+    ~ running m sched j t ->
+    machine_full_at m sched t.
+Proof.
+  intros adm J jobs m sched t j Hsel HJ Hadm Hnrun.
+  eapply top_m_selected_missing_implies_machine_full; eauto.
+  exact (conj HJ Hadm).
 Qed.

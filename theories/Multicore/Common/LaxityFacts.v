@@ -6,6 +6,10 @@ From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.ServiceFacts.
 From RocqSched Require Import Multicore.Common.RemainingCostFacts.
 
+(** Public downstream theorems in this file:
+    - exact running / not-running step lemmas for multicore laxity
+    - step-bound lemmas for fairness and bounded-waiting clients *)
+
 Lemma laxity_unfold_service_sum :
   forall jobs m sched j t,
     laxity jobs m sched j t =
@@ -44,6 +48,19 @@ Proof.
   intros jobs m sched j t Hnd Hnrun.
   rewrite !laxity_unfold.
   rewrite (remaining_cost_step_not_running_mc jobs m sched j t Hnd Hnrun).
+  rewrite Nat2Z.inj_succ.
+  lia.
+Qed.
+
+Lemma laxity_step_bounds_mc :
+  forall jobs m sched j t,
+    no_duplication m sched ->
+    (laxity jobs m sched j t - 1 <= laxity jobs m sched j (S t))%Z /\
+    (laxity jobs m sched j (S t) <= laxity jobs m sched j t)%Z.
+Proof.
+  intros jobs m sched j t Hnd.
+  pose proof (remaining_cost_step_bounds_mc jobs m sched j t Hnd) as [Hdec Hstep].
+  rewrite !laxity_unfold.
   rewrite Nat2Z.inj_succ.
   lia.
 Qed.
