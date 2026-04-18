@@ -101,7 +101,7 @@ Supplemental note:
 
 ### Multicore
 
-The multicore layer specializes the framework to common multicore semantics plus partitioned and global scheduling theorem layers. This includes reusable multicore semantic bundles and policy-generic top-`m` selection consequences when they remain independent of analysis-facing workload arguments.
+The multicore layer specializes the framework to common multicore semantics plus partitioned and global scheduling theorem layers. This includes reusable multicore semantic bundles, placement/migration invariants, and policy-generic top-`m` selection consequences when they remain independent of analysis-facing workload arguments.
 
 Primary document:
 - `design/Multicore.md`
@@ -135,7 +135,7 @@ Use these rules:
 - if it proves executable-to-spec or implementation-to-semantics relationships, place it in `Refinement`
 - if it proves interval reasoning or schedulability-analysis facts, place it in `Analysis`
 - if it is policy-specific single-CPU theory, place it in `Uniprocessor`
-- if it is multicore structure, partitioning, or global top-`m` theorem work, place it in `Multicore`
+- if it is multicore structure, partitioning, placement/migration invariants, or global top-`m` theorem work, place it in `Multicore`
 - if it defines implementation-facing states, traces, or projection invariants, place it in `Operational`
 - if it defines generated job sets from task parameters, place it in `TaskModels`
 

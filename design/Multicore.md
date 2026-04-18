@@ -31,11 +31,13 @@ The layer is organized into three parts.
 `Multicore/Common`
 - multicore base views such as per-CPU projection
 - set-level running/full vocabulary for global schedules
+- schedule-level placement invariants for admissible CPUs
 - bundled semantic validity for common multicore clients
 - service, completion, remaining-cost, and laxity facts specialized to multicore schedules
-- machine supply semantic basics and machine-full consequences for downstream clients
+- machine supply semantic basics plus machine-full / idle wrappers for downstream clients
 - admissibility and candidate-source infrastructure
-- top-`m` metric, admissibility, selection-boundary, and interval full-supply bridges
+- abstract migration facts that preserve admissibility under placement respect
+- top-`m` metric, admissibility, placement-aware, selection-boundary, and interval full-supply bridges
 
 `Multicore/Partitioned`
 - static assignment of jobs to CPUs
@@ -51,7 +53,8 @@ The layer is organized into three parts.
 The main multicore-specific abstraction boundary is top-`m` scheduling:
 
 - global selection chooses up to `m` eligible jobs,
-- admissibility and no-duplication properties ensure sound multicore scheduling structure,
+- admissibility, placement, and no-duplication properties ensure sound multicore scheduling structure,
+- selected jobs may additionally be constrained by a CPU-position-aware placement boundary,
 - the canonical public semantic boundary is a set-level statement that the
   running set is selected from a subset and any missing subset job implies a
   machine-full state,
@@ -141,16 +144,24 @@ New multicore work should keep structural scheduling facts here and move interva
   Multicore laxity infrastructure, including fairness-facing step bounds.
 - `theories/Multicore/Common/Admissibility.v`
   Admissibility structure for multicore scheduling.
+- `theories/Multicore/Common/PlacementFacts.v`
+  Schedule-level placement invariants for admissible CPUs.
+- `theories/Multicore/Common/MigrationFacts.v`
+  Abstract migration facts layered over placement respect.
 - `theories/Multicore/Common/AdmissibleCandidateSource.v`
   Candidate-source discipline and admissibility-spec layering for multicore settings.
 - `theories/Multicore/Common/AffinityFacts.v`
   Affinity-facing supporting facts.
+- `theories/Multicore/Common/RunningSetFacts.v`
+  Public wrappers connecting running/full vocabulary to machine-supply equalities.
 - `theories/Multicore/Common/TopMMetricChooser.v`
   Shared top-`m` metric-based chooser layer.
 - `theories/Multicore/Common/TopMMetricFacts.v`
   Supporting top-`m` metric facts.
 - `theories/Multicore/Common/TopMAdmissibilityBridge.v`
   Top-`m` admissibility-aware bridge layer plus the canonical set-level selection boundary.
+- `theories/Multicore/Common/TopMPlacementFacts.v`
+  Top-`m` CPU-position-aware placement boundary and schedule-respect bridge.
 - `theories/Multicore/Common/TopMSelectionFacts.v`
   Generic top-`m` selection consequences, including interval full-supply theorems.
 - `theories/Multicore/Partitioned/Partitioned.v`
@@ -171,4 +182,4 @@ New multicore work should keep structural scheduling facts here and move interva
 
 The multicore layer is the structural multicore theorem layer of the project.
 
-It packages common multicore facts plus partitioned and global scheduling developments, with top-`m` scheduling as the key global abstraction. Common now includes bundled validity and interval full-supply consequences; analysis packages contradiction and fairness clients on top of that boundary rather than feeding dependencies back into it.
+It packages common multicore facts plus partitioned and global scheduling developments, with top-`m` scheduling as the key global abstraction. Common now includes bundled validity, placement/migration invariants, machine-full wrappers, and interval full-supply consequences; analysis packages contradiction and fairness clients on top of that boundary rather than feeding dependencies back into it.
