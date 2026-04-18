@@ -3,7 +3,8 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.SchedulePrefix.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleRestriction.
-From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleTruncation.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleTruncationCore.
+From RocqSched Require Import Uniprocessor.Generic.ScheduleTruncationPreservation.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.

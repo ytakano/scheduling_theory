@@ -10,6 +10,7 @@ Its scope is:
 - `theories/Semantics/ScheduleLemmas/ScheduleFacts.v`
 - `theories/Semantics/ScheduleLemmas/SchedulePrefix.v`
 - `theories/Semantics/ScheduleLemmas/ScheduleRestriction.v`
+- `theories/Semantics/ScheduleLemmas/ScheduleTruncationCore.v`
 - `theories/Semantics/ScheduleLemmas/ScheduleTruncation.v`
 - `theories/Semantics/ScheduleLemmas/ScheduleTransform.v`
 
@@ -51,7 +52,7 @@ The schedule-lemmas files then package reusable semantic tooling:
 - reflection and basic service lemmas in `ScheduleFacts.v`
 - prefix extensionality via `agrees_before` in `SchedulePrefix.v`
 - single-CPU and subset restriction operators in `ScheduleRestriction.v`
-- finite-horizon truncation in `ScheduleTruncation.v`
+- finite-horizon truncation in `ScheduleTruncationCore.v`
 - local rewrites such as `swap_at` in `ScheduleTransform.v`
 
 Two design choices are especially important:
@@ -67,6 +68,7 @@ The stable entry points for this layer are:
 - `theories/Semantics/ScheduleLemmas/ScheduleFacts.v`
 - `theories/Semantics/ScheduleLemmas/SchedulePrefix.v`
 - `theories/Semantics/ScheduleLemmas/ScheduleRestriction.v`
+- `theories/Semantics/ScheduleLemmas/ScheduleTruncationCore.v`
 - `theories/Semantics/ScheduleLemmas/ScheduleTruncation.v`
 - `theories/Semantics/ScheduleLemmas/ScheduleTransform.v`
 
@@ -122,8 +124,10 @@ Such extensions should preserve the role of this layer as the place where schedu
   Prefix agreement and prefix-extensionality theorems.
 - `theories/Semantics/ScheduleLemmas/ScheduleRestriction.v`
   Single-CPU and job-set restriction operators and preservation lemmas.
+- `theories/Semantics/ScheduleLemmas/ScheduleTruncationCore.v`
+  Policy-neutral finite-horizon truncation operator and core prefix lemmas.
 - `theories/Semantics/ScheduleLemmas/ScheduleTruncation.v`
-  Finite-horizon truncation lemmas.
+  Compatibility wrapper that re-exports truncation core plus higher-layer preservation lemmas.
 - `theories/Semantics/ScheduleLemmas/ScheduleTransform.v`
   Local schedule rewrites used by exchange and normalization arguments.
 

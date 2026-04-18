@@ -63,6 +63,7 @@ The stable public entry points for this layer are:
 - `theories/Uniprocessor/Core/UniSchedulerInterface.v`
 - `theories/Uniprocessor/Generic/SchedulingAlgorithmCanonicalBridge.v`
 - `theories/Uniprocessor/Generic/SchedulingAlgorithmNormalization.v`
+- `theories/Uniprocessor/Generic/ScheduleTruncationPreservation.v`
 - `theories/Uniprocessor/Generic/SchedulingAlgorithmOptimalitySkeleton.v`
 - `theories/Uniprocessor/Policies/EDF.v`
 - `theories/Uniprocessor/Policies/EDFOptimality.v`
@@ -125,6 +126,8 @@ New policy work should prefer plugging into the generic pipeline rather than rep
   Generic chooser-matching predicates for single-CPU canonicality.
 - `theories/Uniprocessor/Generic/SchedulingAlgorithmNormalization.v`
   Reusable normalization interface and proof layer.
+- `theories/Uniprocessor/Generic/ScheduleTruncationPreservation.v`
+  Finite-horizon truncation preservation lemmas used by the generic optimality pipeline.
 - `theories/Uniprocessor/Generic/SchedulingAlgorithmOptimalitySkeleton.v`
   Shared finite-optimality skeleton.
 - `theories/Uniprocessor/Policies/Common/MetricChooser.v`
