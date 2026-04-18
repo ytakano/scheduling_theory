@@ -101,7 +101,7 @@ Supplemental note:
 
 ### Multicore
 
-The multicore layer specializes the framework to common multicore semantics plus partitioned and global scheduling theorem layers.
+The multicore layer specializes the framework to common multicore semantics plus partitioned and global scheduling theorem layers. This includes reusable multicore semantic bundles and policy-generic top-`m` selection consequences when they remain independent of analysis-facing workload arguments.
 
 Primary document:
 - `design/Multicore.md`

@@ -5,13 +5,13 @@ From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Analysis.Common.WorkloadAggregation.
-From RocqSched Require Import Analysis.Multicore.ProcessorSupply.
 From RocqSched Require Import Analysis.Multicore.Interference.
 From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
 From RocqSched Require Import Multicore.Common.CompletionFacts.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.ServiceFacts.
+From RocqSched Require Import Multicore.Common.ValidityFacts.
 From RocqSched Require Import Multicore.Global.GlobalEntryPoints.
 
 Import ListNotations.
@@ -32,49 +32,6 @@ Proof.
   intros jobs m sched j t Helig.
   rewrite eligible_iff_released_and_service_sum_lt_cost in Helig.
   lia.
-Qed.
-
-Lemma service_between_zero_if_not_running :
-  forall m sched j t1 t2,
-    t1 <= t2 ->
-    (forall t, t1 <= t < t2 -> ~ running m sched j t) ->
-    service_between m sched j t1 t2 = 0.
-Proof.
-  intros m sched j t1 t2 Hle Hnotrun.
-  remember (t2 - t1) as len eqn:Hlen.
-  revert t1 t2 Hle Hlen Hnotrun.
-  induction len as [|len IH]; intros t1 t2 Hle Hlen Hnotrun.
-  - assert (t1 = t2) by lia.
-    subst t2.
-    apply service_between_refl.
-  - assert (Ht1t2 : t1 < t2) by lia.
-    destruct (Nat.eq_dec t2 (S t1)) as [-> | Hneq].
-    + rewrite service_between_single_slot_eq_cpu_count.
-      destruct (Nat.eq_dec (cpu_count m sched j t1) 0) as [Hzero | Hnz].
-      * exact Hzero.
-      * exfalso.
-        apply (Hnotrun t1 ltac:(lia)).
-        apply cpu_count_nonzero_iff_executed.
-        exact Hnz.
-    + assert (Hlen' : len = t2 - S t1) by lia.
-      rewrite (service_between_split m sched j t1 (S t1) t2) by lia.
-      rewrite service_between_single_slot_eq_cpu_count.
-      assert (Hzero : cpu_count m sched j t1 = 0).
-      { destruct (Nat.eq_dec (cpu_count m sched j t1) 0) as [Hzero | Hnz];
-          [exact Hzero |].
-        exfalso.
-        apply (Hnotrun t1 ltac:(lia)).
-        apply cpu_count_nonzero_iff_executed.
-        exact Hnz.
-      }
-      rewrite Hzero.
-      rewrite (IH (S t1) t2).
-      lia.
-      * lia.
-      * exact Hlen'.
-      * intros t Hrange.
-        apply Hnotrun.
-        lia.
 Qed.
 
 Lemma nodup_app_cons_implies_nodup_app :
@@ -154,7 +111,7 @@ Proof.
     lia.
   }
   assert (Hmiss : service_between m sched j t1 t2 < job_cost (jobs j)).
-  { rewrite service_between_zero_if_not_running by (lia || exact Hnotrun).
+  { rewrite persistently_not_running_implies_service_between_zero by (lia || exact Hnotrun).
     apply (eligible_implies_positive_cost jobs m sched j t1).
     exact Helig.
   }
@@ -198,9 +155,10 @@ Lemma global_edf_not_running_admissible_job_interval_implies_workload_gap :
 Proof.
   intros adm J candidates_of jobs m sched t1 t2 j l1 l2
          Hcand Hrel Hj Hnodup Hlt Hinterval Hcover.
+  pose proof (global_edf_semantic_validity candidates_of jobs m sched Hrel) as Hsem.
   eapply covering_list_not_running_job_implies_strict_workload_gap.
-  - apply (global_edf_valid candidates_of jobs m sched Hrel).
-  - apply (global_edf_no_duplication candidates_of jobs m sched Hrel).
+  - exact (msv_valid _ _ _ Hsem).
+  - exact (msv_no_duplication _ _ _ Hsem).
   - exact Hnodup.
   - exact Hlt.
   - intros t Hrange.
@@ -226,9 +184,10 @@ Lemma global_edf_not_running_eligible_job_interval_implies_workload_gap :
 Proof.
   intros J candidates_of jobs m sched t1 t2 j l1 l2
          Hcand Hrel Hj Hnodup Hlt Hinterval Hcover.
+  pose proof (global_edf_semantic_validity candidates_of jobs m sched Hrel) as Hsem.
   eapply covering_list_not_running_job_implies_strict_workload_gap.
-  - apply (global_edf_valid candidates_of jobs m sched Hrel).
-  - apply (global_edf_no_duplication candidates_of jobs m sched Hrel).
+  - exact (msv_valid _ _ _ Hsem).
+  - exact (msv_no_duplication _ _ _ Hsem).
   - exact Hnodup.
   - exact Hlt.
   - intros t Hrange.
@@ -253,9 +212,10 @@ Lemma global_llf_not_running_admissible_job_interval_implies_workload_gap :
 Proof.
   intros adm J candidates_of jobs m sched t1 t2 j l1 l2
          Hcand Hrel Hj Hnodup Hlt Hinterval Hcover.
+  pose proof (global_llf_semantic_validity candidates_of jobs m sched Hrel) as Hsem.
   eapply covering_list_not_running_job_implies_strict_workload_gap.
-  - apply (global_llf_valid candidates_of jobs m sched Hrel).
-  - apply (global_llf_no_duplication candidates_of jobs m sched Hrel).
+  - exact (msv_valid _ _ _ Hsem).
+  - exact (msv_no_duplication _ _ _ Hsem).
   - exact Hnodup.
   - exact Hlt.
   - intros t Hrange.
@@ -282,9 +242,10 @@ Lemma global_llf_not_running_eligible_job_interval_implies_workload_gap :
 Proof.
   intros J candidates_of jobs m sched t1 t2 j l1 l2
          Hcand Hrel Hm Hj Hnodup Hlt Hinterval Hcover.
+  pose proof (global_llf_semantic_validity candidates_of jobs m sched Hrel) as Hsem.
   eapply covering_list_not_running_job_implies_strict_workload_gap.
-  - apply (global_llf_valid candidates_of jobs m sched Hrel).
-  - apply (global_llf_no_duplication candidates_of jobs m sched Hrel).
+  - exact (msv_valid _ _ _ Hsem).
+  - exact (msv_no_duplication _ _ _ Hsem).
   - exact Hnodup.
   - exact Hlt.
   - intros t Hrange.

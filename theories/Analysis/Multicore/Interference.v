@@ -3,7 +3,6 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Analysis.Common.WorkloadAggregation.
-From RocqSched Require Import Analysis.Multicore.ProcessorSupply.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.ServiceFacts.
 

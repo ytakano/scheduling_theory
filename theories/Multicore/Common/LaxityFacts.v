@@ -4,6 +4,7 @@ From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.ServiceFacts.
+From RocqSched Require Import Multicore.Common.CompletionFacts.
 From RocqSched Require Import Multicore.Common.RemainingCostFacts.
 
 (** Public downstream theorems in this file:
@@ -62,5 +63,52 @@ Proof.
   pose proof (remaining_cost_step_bounds_mc jobs m sched j t Hnd) as [Hdec Hstep].
   rewrite !laxity_unfold.
   rewrite Nat2Z.inj_succ.
+  lia.
+Qed.
+
+Lemma laxity_interval_lower_bound :
+  forall jobs m sched j t1 t2,
+    no_duplication m sched ->
+    t1 <= t2 ->
+    (laxity jobs m sched j t1 - Z.of_nat (t2 - t1)
+      <= laxity jobs m sched j t2)%Z.
+Proof.
+  intros jobs m sched j t1 t2 Hnd Hle.
+  induction Hle as [|t2 Hle IH].
+  - simpl. lia.
+  - pose proof (laxity_step_bounds_mc jobs m sched j t2 Hnd) as [Hlb _].
+    replace (Z.of_nat (S t2 - t1)) with (Z.of_nat (t2 - t1) + 1)%Z by lia.
+    lia.
+Qed.
+
+Lemma laxity_interval_upper_bound :
+  forall jobs m sched j t1 t2,
+    valid_schedule jobs m sched ->
+    no_duplication m sched ->
+    t1 <= t2 ->
+    (laxity jobs m sched j t2
+      <= laxity jobs m sched j t1
+         - Z.of_nat (t2 - t1)
+         + Z.of_nat (service_between m sched j t1 t2))%Z.
+Proof.
+  intros jobs m sched j t1 t2 Hvalid Hnd Hle.
+  pose proof (service_sum_on_cpus_monotone m sched j t1 t2 Hle) as Hmono.
+  pose proof
+    (valid_no_duplication_service_sum_le_cost jobs m sched j t1 Hvalid Hnd)
+    as Hcost_t1.
+  pose proof
+    (valid_no_duplication_service_sum_le_cost jobs m sched j t2 Hvalid Hnd)
+    as Hcost_t2.
+  rewrite !laxity_unfold_service_sum.
+  rewrite service_between_eq_sum_of_cpu_services.
+  rewrite (Nat2Z.inj_sub
+             (service_sum_on_cpus m sched j t2)
+             (service_sum_on_cpus m sched j t1)) by lia.
+  rewrite (Nat2Z.inj_sub
+             (job_cost (jobs j))
+             (service_sum_on_cpus m sched j t1)) by lia.
+  rewrite (Nat2Z.inj_sub
+             (job_cost (jobs j))
+             (service_sum_on_cpus m sched j t2)) by lia.
   lia.
 Qed.

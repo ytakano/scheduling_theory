@@ -702,12 +702,19 @@ Done:
   - `top_m_algorithm_selected_from_subset_admissible_somewhere_strong_gen`
 - `Multicore/Common/MulticoreSemanticsEntryPoints.v` が
   policy-independent multicore semantic boundary の stable downstream import を提供する
+- `Multicore/Common/ValidityFacts.v`:
+  - `multicore_semantic_validity`
+  - `top_m_algorithm_semantic_validity`
+- `Multicore/Common/TopMSelectionFacts.v`:
+  - generic interval full-supply consequences
+  - top-`m` interval wrappers for eligible / admissible clients
 - `GlobalEntryPoints.v` が stable downstream import を提供する
 - `GlobalEDF.v`:
   - `global_edf_scheduler`
   - `global_edf_valid`
   - `global_edf_idle_outside_range`
   - `global_edf_no_duplication`
+  - `global_edf_semantic_validity`
   - subset soundness / idle-if-no-eligible / busy-if-eligible
   - idle CPU exists -> eligible subset job is already running
   - `global_edf_selected_from_subset_eligible`
@@ -719,6 +726,7 @@ Done:
   - `global_llf_valid`
   - `global_llf_idle_outside_range`
   - `global_llf_no_duplication`
+  - `global_llf_semantic_validity`
   - EDF と同型の subset-aware theorem layer
   - `global_llf_selected_from_subset_eligible`
   - `global_llf_selected_from_subset_admissible_somewhere_strong_gen`
@@ -760,16 +768,23 @@ Done:
   - split / single-slot machine-supply lemmas
   - `service_sum_on_cpus_monotone`
   - `machine_full_at_implies_total_cpu_service_at_eq_m`
+  - `total_cpu_service_at_eq_num_cpus_if_all_cpus_busy`
+  - `total_cpu_service_between_eq_capacity_if_all_cpus_busy`
+  - `total_cpu_service_between_le_capacity`
+  - `persistently_not_running_implies_service_between_zero`
 - `Multicore/Common/CompletionFacts.v`:
   - non-running eligible/admissible job から machine-full を引く標準補題
 - `Multicore/Common/RemainingCostFacts.v`:
   - `remaining_cost_step_bounds_mc`
   - `remaining_cost_monotone_mc`
+  - `remaining_cost_drop_le_service_between`
+  - `remaining_cost_diff_eq_service_between`
 - `Multicore/Common/LaxityFacts.v`:
   - `laxity_step_bounds_mc`
+  - `laxity_interval_lower_bound`
+  - `laxity_interval_upper_bound`
 - `ProcessorSupply.v`:
-  - `total_cpu_service_between_eq_capacity_if_all_cpus_busy`
-  - `total_cpu_service_between_le_capacity`
+  - common machine-supply facts の analysis-facing re-export wrapper
 - `Interference.v`:
   - `total_service_between_list_covers_total_cpu_supply`
 - global EDF / LLF analysis-facing interval wrappers:
@@ -817,6 +832,8 @@ internal/helper inventory として扱うもの:
 
 - policy-specific wrapper から top-`m` policy-generic analysis hook へ持ち上げる
   範囲を見極める
+- analysis client が `global_edf_valid` / `global_llf_valid` 個別呼び出しより
+  bundled validity を主語にしやすい粒度へ揃える
 - bounded waiting / bounded tardiness を task-model-specific bridge に接続する
   ための client 定理粒度を整理する
 

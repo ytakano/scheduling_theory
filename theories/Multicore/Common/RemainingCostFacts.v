@@ -82,3 +82,36 @@ Proof.
   - pose proof (remaining_cost_step_bounds_mc jobs m sched j t2 Hnd) as [Hstep _].
     lia.
 Qed.
+
+Lemma remaining_cost_drop_le_service_between :
+  forall jobs m sched j t1 t2,
+    t1 <= t2 ->
+    remaining_cost jobs m sched j t1 -
+    remaining_cost jobs m sched j t2
+    <= service_between m sched j t1 t2.
+Proof.
+  intros jobs m sched j t1 t2 Hle.
+  rewrite !remaining_cost_eq_job_cost_minus_service_sum.
+  rewrite service_between_eq_sum_of_cpu_services.
+  pose proof (service_sum_on_cpus_monotone m sched j t1 t2 Hle) as Hmono.
+  lia.
+Qed.
+
+Lemma remaining_cost_diff_eq_service_between :
+  forall jobs m sched j t1 t2,
+    valid_schedule jobs m sched ->
+    no_duplication m sched ->
+    t1 <= t2 ->
+    remaining_cost jobs m sched j t1 -
+    remaining_cost jobs m sched j t2
+    = service_between m sched j t1 t2.
+Proof.
+  intros jobs m sched j t1 t2 Hvalid Hnd Hle.
+  rewrite !remaining_cost_eq_job_cost_minus_service_sum.
+  rewrite service_between_eq_sum_of_cpu_services.
+  pose proof
+    (valid_no_duplication_service_sum_le_cost jobs m sched j t2 Hvalid Hnd)
+    as Hle_cost_t2.
+  pose proof (service_sum_on_cpus_monotone m sched j t1 t2 Hle) as Hmono.
+  lia.
+Qed.

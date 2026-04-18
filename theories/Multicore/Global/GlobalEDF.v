@@ -55,7 +55,9 @@ From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.TopMMetricChooser.
 From RocqSched Require Import Multicore.Common.TopMAdmissibilityBridge.
 From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
-From RocqSched Require Import Analysis.Multicore.ProcessorSupply.
+From RocqSched Require Import Multicore.Common.ServiceFacts.
+From RocqSched Require Import Multicore.Common.ValidityFacts.
+From RocqSched Require Import Multicore.Common.TopMSelectionFacts.
 Import ListNotations.
 
 (* ===== EDF metric ===== *)
@@ -132,6 +134,16 @@ Proof.
   intros candidates_of jobs m sched H.
   exact (top_m_algorithm_no_duplication
            global_edf_top_m_spec candidates_of jobs m sched H).
+Qed.
+
+Lemma global_edf_semantic_validity :
+  forall candidates_of jobs m sched,
+    scheduler_rel (global_edf_scheduler candidates_of) jobs m sched ->
+    multicore_semantic_validity jobs m sched.
+Proof.
+  intros candidates_of jobs m sched Hrel.
+  exact (top_m_algorithm_semantic_validity
+           global_edf_top_m_spec candidates_of jobs m sched Hrel).
 Qed.
 
 Lemma global_edf_in_subset :
@@ -372,10 +384,10 @@ Lemma global_edf_not_running_admissible_job_interval_implies_full_supply :
     total_cpu_service_between m sched t1 t2 = m * (t2 - t1).
 Proof.
   intros adm J candidates_of jobs m sched t1 t2 j Hcand Hrel HJ Hinterval.
-  apply total_cpu_service_between_eq_capacity_if_all_cpus_busy.
-  intros t Hrange c Hc.
-  destruct (Hinterval t Hrange) as [Hadm Hnrun].
-  eapply global_edf_not_running_admissible_job_implies_all_cpus_busy; eauto.
+  exact
+    (top_m_algorithm_not_running_subset_admissible_somewhere_interval_implies_full_supply_gen
+       adm J global_edf_top_m_spec candidates_of jobs m sched t1 t2 j
+       Hcand Hrel HJ Hinterval).
 Qed.
 
 Lemma global_edf_not_running_eligible_job_interval_implies_full_supply :
@@ -389,10 +401,10 @@ Lemma global_edf_not_running_eligible_job_interval_implies_full_supply :
     total_cpu_service_between m sched t1 t2 = m * (t2 - t1).
 Proof.
   intros J candidates_of jobs m sched t1 t2 j Hcand Hrel HJ Hinterval.
-  apply total_cpu_service_between_eq_capacity_if_all_cpus_busy.
-  intros t Hrange c Hc.
-  destruct (Hinterval t Hrange) as [Helig Hnrun].
-  eapply global_edf_not_running_eligible_job_implies_all_cpus_busy; eauto.
+  exact
+    (top_m_algorithm_not_running_subset_eligible_interval_implies_full_supply
+       J global_edf_top_m_spec candidates_of jobs m sched t1 t2 j
+       Hcand Hrel HJ Hinterval).
 Qed.
 
 (* ===== Schedulability introduction ===== *)

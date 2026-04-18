@@ -2,6 +2,8 @@ From RocqSched Require Export Multicore.Common.MultiCoreBase.
 From RocqSched Require Export Multicore.Common.Admissibility.
 From RocqSched Require Export Multicore.Common.AdmissibleCandidateSource.
 From RocqSched Require Export Multicore.Common.TopMAdmissibilityBridge.
+From RocqSched Require Export Multicore.Common.ValidityFacts.
+From RocqSched Require Export Multicore.Common.TopMSelectionFacts.
 From RocqSched Require Export Multicore.Common.ServiceFacts.
 From RocqSched Require Export Multicore.Common.CompletionFacts.
 From RocqSched Require Export Multicore.Common.RemainingCostFacts.
@@ -14,8 +16,10 @@ From RocqSched Require Export Multicore.Common.LaxityFacts.
 
     Public theorem families exposed here:
     - per-CPU schedule projection and multicore running/full vocabulary
+    - bundled validity for multicore semantic clients
     - admissibility and admissibility-aware candidate-source structure
     - canonical set-level top-`m` semantic boundary theorems
+    - generic top-`m` selection consequences up to interval full supply
     - migration-aware service, completion, remaining-cost, and laxity facts
 
     Not part of this layer:

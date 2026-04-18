@@ -463,7 +463,7 @@ Planned:
 ---
 
 ## 4. Phase D: Multicore-common semantics
-**Status: Affinity layer, migration-aware service/completion/remaining-cost/laxity bridges, and top-m busy bridge strengthening implemented**
+**Status: Semantic boundary cleanup, bundled validity, and common top-`m` interval consequences implemented**
 
 Implemented core:
 
@@ -476,6 +476,8 @@ Implemented core:
 - `Multicore/Common/CompletionFacts.v`
 - `Multicore/Common/RemainingCostFacts.v`
 - `Multicore/Common/LaxityFacts.v`
+- `Multicore/Common/ValidityFacts.v`
+- `Multicore/Common/TopMSelectionFacts.v`
 
 What is already done:
 
@@ -493,12 +495,19 @@ What is already done:
 - canonical `top_m_selected_from (subset_eligible_at ...)` public theorem layer
   plus strong-spec admissibility-aware variant
 - migration-aware decomposition of `service_job` into projected per-CPU service
-- machine supply semantic definitions and basic split/single-slot lemmas in
+- machine-supply semantic definitions and basic split/single-slot lemmas in
   `Multicore/Common/ServiceFacts.v`
+- machine-supply equalities and capacity bounds now live in
+  `Multicore/Common/ServiceFacts.v`, with
+  `Analysis/Multicore/ProcessorSupply.v` reduced to an analysis-facing wrapper
 - completion / eligibility bridges over the decomposed service view
 - remaining-cost / laxity bridges over migration-aware service accounting
 - one-step change lemmas for `remaining_cost` and `laxity` under `no_duplication`
 - monotonicity and step-bound lemmas for fairness / interval clients
+- interval-level migration-aware service / remaining-cost / laxity lemmas for
+  non-running and full-supply clients
+- bundled multicore semantic validity for common downstream clients
+- common top-`m` selection consequences up to interval full supply
 - `machine_full_at` to saturated machine-supply bridge lemmas
 - explicit public downstream inventory comments for the common multicore client files
 - `Multicore/Common/MulticoreSemanticsEntryPoints.v` packages the stable
@@ -506,55 +515,72 @@ What is already done:
 
 What remains:
 
-- multicore validity beyond the current minimal base
-- stronger fairness / interference-facing lemmas under migration
-- abstractions for top-`m` and non-partitioned selection beyond the current
-  set-level boundary
-- richer affinity / candidate-source instantiation examples
-- foundations for fairness / interference reasoning on top of the current bridge layer
+- further policy-generic consolidation of EDF / LLF wrappers whose abstraction
+  boundary is stable
+- richer non-partitioned selection interfaces beyond the current top-`m`
+  semantic boundary if future clients justify them
+- additional multicore clients built on the common boundary, not new semantic
+  dependencies from Common/Global back into Analysis
+
+Design note:
+
+- Phase D should stop at reusable multicore-common semantics and invariant layers.
+- Downstream packaging of global-analysis clients, workload-absorption hooks,
+  and first fairness clients belongs to Phase G, not to Phase D.
+- Richer affinity / candidate-source examples are useful documentation polish,
+  but they are not part of the semantic completion criterion for this phase.
 
 ---
 
 ## 5. Phase E: Global / clustered scheduling
-**Status: E-1 largely stable; thin interval supply hooks now exist and next work shifts toward richer analysis clients**
+**Status: E-1 stable public theorem layer implemented; downstream analysis packaging and first fairness-facing clients now live in Phase G**
 
 ### E-1. Global scheduling
-**Status: Initial global EDF / LLF theorem layers done; stable entry-point layer largely in place**
+**Status: Stable global EDF / LLF theorem layers and canonical entry-point packaging implemented**
 
 What is already done:
 
 - `TopMSchedulerBridge.v` provides the generic top-`m` scheduler bridge
-- `TopMAdmissibilityBridge.v` provides policy-generic admissibility lemmas and
-  the canonical set-level top-`m` semantic boundary
+- `TopMAdmissibilityBridge.v` provides policy-generic admissibility lemmas
 - `GlobalEDF.v` provides:
   - `global_edf_scheduler`
   - `global_edf_valid`
   - `global_edf_idle_outside_range`
   - `global_edf_no_duplication`
   - subset-aware theorem entry points
-  - `top_m_selected_from (subset_eligible_at ...)` wrapper theorem
-  - strong-spec admissibility-aware selection wrapper
   - admissibility-aware wrappers
+  - set-level `top_m_selected_from` wrappers over the stable common boundary
 - `GlobalLLF.v` provides analogous theorem families
 - `TopMMetricFacts.v` provides reusable top-`m` metric-order facts for
   dynamic-metric policies
-- `GlobalLLF.v` now also exposes LLF-facing wrappers that connect
+- `GlobalLLF.v` also exposes LLF-facing wrappers that connect
   non-running admissible jobs to:
   - running-job laxity comparisons
   - machine-full consequences
-- `GlobalEDF.v` and `GlobalLLF.v` expose thin interval full-supply wrappers for
-  non-running eligible/admissible jobs
+- `GlobalEDF.v` and `GlobalLLF.v` expose thin semantic-validity and interval
+  full-supply wrappers over the common top-`m` theorem layer
 - `GlobalEntryPoints.v` provides the canonical downstream import path for the
-  stable global theorem inventory, including the set-level top-`m` vocabulary
+  stable global theorem inventory
 - `Examples/GlobalExamples.v` curates representative downstream clients in one
   place
 
 What remains:
 
-- connect the global theorem layer to later analysis results
-- identify which global EDF / LLF facts should be lifted to policy-generic layers
-- richer candidate-source / affinity instantiation examples
-- prepare analysis / fairness / migration-aware interference hooks
+- continue shrinking EDF / LLF wrappers down to policy-specific content where
+  compatibility allows
+- stronger global theorem families for non-partitioned selection beyond the
+  current top-`m` + admissibility boundary
+- migration-aware dynamic-metric clients built on `TopMMetricFacts.v`
+- API cleanup and naming alignment between generic bridges and policy-specific
+  wrappers
+- optional richer candidate-source / affinity examples as documentation polish,
+  but not as a blocker for semantic completion
+
+Design note:
+
+- downstream packaging into analysis-facing imports, workload-absorption hooks,
+  and first fairness clients is no longer a remaining task of Phase E
+- those tasks now belong to Phase G and are already partially implemented
 
 ### E-2. Clustered scheduling
 **Status: Not started**
@@ -563,13 +589,21 @@ Planned:
 
 - cluster-local global semantics
 - bridge between partitioned and fully global scheduling
+- stable cluster-level entry points once the common non-partitioned boundary is mature
 
 ### E-3. Global dynamic-metric policies
-**Status: Theorem inventory strengthened; analysis-facing growth remains**
+**Status: Metric-order foundation implemented; client-facing growth remains**
 
-Planned:
+Implemented:
 
-- prepare migration-aware dynamic-metric reasoning
+- `TopMMetricFacts.v` provides reusable top-`m` metric-order facts
+- LLF already serves as the first dynamic-metric global client
+
+What remains:
+
+- migration-aware dynamic-metric reasoning beyond the current LLF-facing layer
+- identify which dynamic-metric wrappers should become policy-generic public APIs
+- prepare reusable theorem shapes for future global dynamic-metric policies
 
 ---
 
@@ -707,10 +741,8 @@ This is the immediate follow-up packaging step after G-2a.
 
 Implemented:
 
-- `Analysis/Multicore/ProcessorSupply.v` now exposes:
-  - all-cpus-busy to full-machine supply equality
-  - interval full-machine supply equality
-  - interval machine-capacity upper bound
+- `Analysis/Multicore/ProcessorSupply.v` now serves as an analysis-facing
+  wrapper over `Multicore/Common/ServiceFacts.v`
 - `Analysis/Multicore/GlobalAnalysisEntryPoints.v` now packages the stable
   downstream import path for multicore global analysis
 - `Examples/GlobalInterferenceExamples.v` now validates that the representative

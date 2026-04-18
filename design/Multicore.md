@@ -31,10 +31,11 @@ The layer is organized into three parts.
 `Multicore/Common`
 - multicore base views such as per-CPU projection
 - set-level running/full vocabulary for global schedules
+- bundled semantic validity for common multicore clients
 - service, completion, remaining-cost, and laxity facts specialized to multicore schedules
 - machine supply semantic basics and machine-full consequences for downstream clients
 - admissibility and candidate-source infrastructure
-- top-`m` metric, admissibility, and selection-boundary bridges
+- top-`m` metric, admissibility, selection-boundary, and interval full-supply bridges
 
 `Multicore/Partitioned`
 - static assignment of jobs to CPUs
@@ -72,9 +73,11 @@ Important supporting modules include:
 - `theories/Multicore/Common/CompletionFacts.v`
 - `theories/Multicore/Common/RemainingCostFacts.v`
 - `theories/Multicore/Common/LaxityFacts.v`
+- `theories/Multicore/Common/ValidityFacts.v`
 - `theories/Multicore/Common/Admissibility.v`
 - `theories/Multicore/Common/AdmissibleCandidateSource.v`
 - `theories/Multicore/Common/TopMAdmissibilityBridge.v`
+- `theories/Multicore/Common/TopMSelectionFacts.v`
 - `theories/Multicore/Partitioned/Partitioned.v`
 - `theories/Multicore/Partitioned/PartitionedCompose.v`
 - `theories/Multicore/Global/GlobalEDF.v`
@@ -126,6 +129,8 @@ New multicore work should keep structural scheduling facts here and move interva
 - `theories/Multicore/Common/ServiceFacts.v`
   Multicore service-accounting facts plus machine-supply semantic basics and
   machine-full to saturated-supply bridges.
+- `theories/Multicore/Common/ValidityFacts.v`
+  Bundled semantic-validity theorem layer for policy-independent multicore clients.
 - `theories/Multicore/Common/CompletionFacts.v`
   Completion facts specialized to multicore schedules, including standard
   eligible/admissible non-running to machine-full consequences.
@@ -146,6 +151,8 @@ New multicore work should keep structural scheduling facts here and move interva
   Supporting top-`m` metric facts.
 - `theories/Multicore/Common/TopMAdmissibilityBridge.v`
   Top-`m` admissibility-aware bridge layer plus the canonical set-level selection boundary.
+- `theories/Multicore/Common/TopMSelectionFacts.v`
+  Generic top-`m` selection consequences, including interval full-supply theorems.
 - `theories/Multicore/Partitioned/Partitioned.v`
   Core partitioned schedule definitions and theorems.
 - `theories/Multicore/Partitioned/PartitionedCompose.v`
@@ -164,4 +171,4 @@ New multicore work should keep structural scheduling facts here and move interva
 
 The multicore layer is the structural multicore theorem layer of the project.
 
-It packages common multicore facts plus partitioned and global scheduling developments, with top-`m` scheduling as the key global abstraction. Analysis consequences built on top of those theorem layers should remain in `Analysis`, not be folded back into the structural multicore docs.
+It packages common multicore facts plus partitioned and global scheduling developments, with top-`m` scheduling as the key global abstraction. Common now includes bundled validity and interval full-supply consequences; analysis packages contradiction and fairness clients on top of that boundary rather than feeding dependencies back into it.

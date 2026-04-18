@@ -8,7 +8,7 @@ From RocqSched Require Import Multicore.Common.MultiCoreBase.
     - migration-aware service decomposition via
       `service_job_eq_sum_of_cpu_services` and
       `service_between_eq_sum_of_cpu_services`
-    - machine supply definitions and basic step/interval bounds
+    - machine supply definitions and semantic step/interval bounds
     - bridges from `machine_full_at` to machine supply saturation *)
 
 (* CPU-level service contributed by all CPUs at time t. *)
@@ -265,6 +265,96 @@ Proof.
     lia.
 Qed.
 
+Lemma total_cpu_service_at_eq_num_cpus_if_all_cpus_busy :
+  forall m sched t,
+    (forall c, c < m -> cpu_busy sched t c) ->
+    total_cpu_service_at m sched t = m.
+Proof.
+  induction m as [|m IH]; intros sched t Hbusy.
+  - reflexivity.
+  - simpl.
+    assert (Hbusy_tail : forall c, c < m -> cpu_busy sched t c).
+    { intros c Hc. apply Hbusy. lia. }
+    pose proof (Hbusy m ltac:(lia)) as [j Hj].
+    rewrite Hj.
+    rewrite IH by exact Hbusy_tail.
+    lia.
+Qed.
+
+Lemma total_cpu_service_between_eq_capacity_if_all_cpus_busy :
+  forall m sched t1 t2,
+    (forall t, t1 <= t < t2 -> forall c, c < m -> cpu_busy sched t c) ->
+    total_cpu_service_between m sched t1 t2 = m * (t2 - t1).
+Proof.
+  intros m sched t1 t2 Hbusy.
+  remember (t2 - t1) as len eqn:Hlen.
+  revert t1 t2 Hlen Hbusy.
+  induction len as [|len IH]; intros t1 t2 Hlen Hbusy.
+  - assert (t2 <= t1) by lia.
+    pose proof (cumulative_total_cpu_service_monotone m sched t2 t1 H) as Hmon.
+    unfold total_cpu_service_between.
+    lia.
+  - assert (Ht1t2 : t1 < t2) by lia.
+    assert (Hslot : total_cpu_service_at m sched t1 = m).
+    { apply total_cpu_service_at_eq_num_cpus_if_all_cpus_busy.
+      intros c Hc.
+      specialize (Hbusy t1 ltac:(lia)).
+      exact (Hbusy c Hc).
+    }
+    destruct (Nat.eq_dec t2 (S t1)) as [-> | Hneq'].
+    + rewrite total_cpu_service_between_single_slot.
+      rewrite Hslot.
+      assert (S len = 1) by lia.
+      lia.
+    + assert (Hlen' : len = t2 - S t1) by lia.
+      assert (Hbusy_rest :
+        forall t, S t1 <= t < t2 -> forall c, c < m -> cpu_busy sched t c).
+      { intros t Hrange c Hc.
+        specialize (Hbusy t ltac:(lia)).
+        exact (Hbusy c Hc).
+      }
+      assert (Hrest :
+        total_cpu_service_between m sched (S t1) t2 = m * len).
+      { apply IH; assumption. }
+      rewrite (total_cpu_service_between_split m sched t1 (S t1) t2) by lia.
+      rewrite total_cpu_service_between_single_slot.
+      rewrite Hslot, Hrest, Hlen'.
+      lia.
+Qed.
+
+Lemma total_cpu_service_between_le_capacity :
+  forall m sched t1 t2,
+    total_cpu_service_between m sched t1 t2 <= m * (t2 - t1).
+Proof.
+  intros m sched t1 t2.
+  remember (t2 - t1) as len eqn:Hlen.
+  revert t1 t2 Hlen.
+  induction len as [|len IH]; intros t1 t2 Hlen.
+  - assert (Hle' : t2 <= t1).
+    { destruct (Nat.le_gt_cases t2 t1) as [Hle' | Hgt]; [exact Hle' |].
+      exfalso.
+      assert (0 < t2 - t1) by lia.
+      rewrite Hlen in H.
+      lia.
+    }
+    unfold total_cpu_service_between.
+    pose proof (cumulative_total_cpu_service_monotone m sched t2 t1 Hle') as Hmon.
+    lia.
+  - destruct (Nat.eq_dec t2 t1) as [-> | Hneq].
+    + lia.
+    + destruct (Nat.eq_dec t2 (S t1)) as [-> | Hneq'].
+      * rewrite total_cpu_service_between_single_slot.
+        pose proof (total_cpu_service_at_le_num_cpus m sched t1) as Hslot.
+        assert (S len = 1) by lia.
+        lia.
+      * assert (Hlen' : len = t2 - S t1) by lia.
+        rewrite (total_cpu_service_between_split m sched t1 (S t1) t2) by lia.
+        rewrite total_cpu_service_between_single_slot.
+        pose proof (total_cpu_service_at_le_num_cpus m sched t1) as Hslot.
+        pose proof (IH (S t1) t2 Hlen') as Hrest.
+        lia.
+Qed.
+
 Lemma service_between_single_slot_eq_cpu_count :
   forall m sched j t,
     service_between m sched j t (S t) = cpu_count m sched j t.
@@ -322,6 +412,49 @@ Proof.
         assert (Hslot : cpu_count m sched j t1 <= total_cpu_service_at m sched t1).
         { apply cpu_count_le_total_cpu_service_at. }
         pose proof (IH (S t1) t2 ltac:(lia) Hlen') as Hrest.
+        lia.
+Qed.
+
+Lemma persistently_not_running_implies_service_between_zero :
+  forall m sched j t1 t2,
+    t1 <= t2 ->
+    (forall t, t1 <= t < t2 -> ~ running m sched j t) ->
+    service_between m sched j t1 t2 = 0.
+Proof.
+  intros m sched j t1 t2 Hle Hnotrun.
+  remember (t2 - t1) as len eqn:Hlen.
+  revert t1 t2 Hle Hlen Hnotrun.
+  induction len as [|len IH]; intros t1 t2 Hle Hlen Hnotrun.
+  - assert (t1 = t2) by lia.
+    subst t2.
+    apply service_between_refl.
+  - assert (Ht1t2 : t1 < t2) by lia.
+    destruct (Nat.eq_dec t2 (S t1)) as [-> | Hneq].
+    + rewrite service_between_single_slot_eq_cpu_count.
+      destruct (Nat.eq_dec (cpu_count m sched j t1) 0) as [Hzero | Hnz].
+      * exact Hzero.
+      * exfalso.
+        apply (Hnotrun t1 ltac:(lia)).
+        apply cpu_count_nonzero_iff_executed.
+        exact Hnz.
+    + assert (Hlen' : len = t2 - S t1) by lia.
+      rewrite (service_between_split m sched j t1 (S t1) t2) by lia.
+      rewrite service_between_single_slot_eq_cpu_count.
+      assert (Hzero : cpu_count m sched j t1 = 0).
+      { destruct (Nat.eq_dec (cpu_count m sched j t1) 0) as [Hz | Hnz].
+        - exact Hz.
+        - exfalso.
+          apply (Hnotrun t1 ltac:(lia)).
+          apply cpu_count_nonzero_iff_executed.
+          exact Hnz.
+      }
+      rewrite Hzero.
+      rewrite (IH (S t1) t2).
+      * lia.
+      * lia.
+      * exact Hlen'.
+      * intros t Hrange.
+        apply Hnotrun.
         lia.
 Qed.
 

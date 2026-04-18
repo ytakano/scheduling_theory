@@ -9,15 +9,12 @@ From RocqSched Require Export Multicore.Global.GlobalLLF.
 (** * Stable public entry points for the global theorem layer
 
     This file is the canonical downstream import for the reusable global
-    multicore theorem layer.
+    top-`m` policy-wrapper layer.
 
     Public theorem families exposed here:
-    - generic top-m scheduler bridge lemmas for validity, no-duplication,
-      and idle-outside-range
-    - admissibility-aware top-m bridge lemmas
-    - set-level top-m semantic boundary theorems
-    - EDF-specific thin wrappers
-    - LLF-specific thin wrappers
+    - the generic top-`m` scheduler bridge and admissibility boundary
+    - global EDF policy wrappers
+    - global LLF policy wrappers
 
     Not part of this layer:
     - analysis theorems

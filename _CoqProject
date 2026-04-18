@@ -59,12 +59,14 @@ theories/Multicore/Common/ServiceFacts.v
 theories/Multicore/Common/CompletionFacts.v
 theories/Multicore/Common/RemainingCostFacts.v
 theories/Multicore/Common/LaxityFacts.v
+theories/Multicore/Common/ValidityFacts.v
 theories/Multicore/Common/Admissibility.v
 theories/Multicore/Common/AffinityFacts.v
 theories/Multicore/Common/AdmissibleCandidateSource.v
 theories/Multicore/Common/TopMMetricChooser.v
 theories/Multicore/Common/TopMMetricFacts.v
 theories/Multicore/Common/TopMAdmissibilityBridge.v
+theories/Multicore/Common/TopMSelectionFacts.v
 theories/Multicore/Global/GlobalEDF.v
 theories/Multicore/Global/GlobalLLF.v
 theories/Multicore/Global/GlobalEntryPoints.v
