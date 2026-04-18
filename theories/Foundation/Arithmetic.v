@@ -35,6 +35,7 @@ Lemma nat_mod_mul_left :
     (a * b) mod b = 0.
 Proof.
   intros a b Hb.
-  apply Nat.mod_mul.
+  pose proof (Nat.div_mod (a * b) b ltac:(lia)) as Hdivmod.
+  rewrite Nat.div_mul in Hdivmod by lia.
   lia.
 Qed.

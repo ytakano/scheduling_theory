@@ -32,6 +32,19 @@ Proof.
       now right.
 Qed.
 
+Lemma div_ceil_minus_one_le_factor :
+  forall n p k,
+    0 < p ->
+    n <= k * p ->
+    (n + p - 1) / p <= k.
+Proof.
+  intros n p k Hp Hle.
+  pose proof (Nat.div_mod (n + p - 1) p ltac:(lia)) as Hdivmod.
+  pose proof (Nat.mod_upper_bound (n + p - 1) p ltac:(lia)) as Hmodlt.
+  assert (Hlt : n + p - 1 < (S k) * p) by lia.
+  nia.
+Qed.
+
 Lemma periodic_dbf_window_zero_offset_le_classical_count :
   forall tasks offset τ t1 t2,
     offset τ = 0 ->
@@ -112,21 +125,13 @@ Proof.
     - assert (Hk0_le_k : k0 <= k).
       {
         subst k0 p.
-        apply Nat.lt_succ_r.
-        apply (Nat.div_lt_upper_bound (t1 + task_period (tasks τ) - 1)
-                 (task_period (tasks τ)) (S k)).
-        - lia.
-        - lia.
+        eapply div_ceil_minus_one_le_factor; lia.
       }
       lia.
     - assert (Hk0_le_k : k0 <= k).
       {
         subst k0 p.
-        apply Nat.lt_succ_r.
-        apply (Nat.div_lt_upper_bound (t1 + task_period (tasks τ) - 1)
-                 (task_period (tasks τ)) (S k)).
-        - lia.
-        - lia.
+        eapply div_ceil_minus_one_le_factor; lia.
       }
       assert (Hshift :
         (k - k0) * p + d <= t2 - t1).
@@ -180,11 +185,7 @@ Proof.
         simpl in Hwin.
         destruct Hwin as [Hrel _].
         subst k0 p.
-        apply Nat.lt_succ_r.
-        apply (Nat.div_lt_upper_bound (t1 + task_period (tasks τ) - 1)
-                 (task_period (tasks τ)) (S x)).
-        -- lia.
-        -- lia.
+        eapply div_ceil_minus_one_le_factor; lia.
     + exact Hmap_incl.
   - rewrite length_seq.
     reflexivity.

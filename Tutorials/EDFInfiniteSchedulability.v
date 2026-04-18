@@ -1,5 +1,6 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool Wf_nat.
 From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Foundation.Arithmetic.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
@@ -412,7 +413,7 @@ Proof.
     apply Hmod.
     rewrite Heq.
     rewrite Nat.mul_comm.
-    replace ((q * 5) mod 5) with 0 by (symmetry; apply Nat.mod_mul; lia).
+    rewrite nat_mod_mul_left by lia.
     reflexivity.
 Qed.
 
