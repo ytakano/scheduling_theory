@@ -650,7 +650,7 @@ Done:
 - globally-runnable 関連補題
 
 ## 7-2. affinity / admissible CPU
-**Status: Generic admissibility layer done**
+**Status: Generic admissibility and placement layer done**
 
 証明済みとして扱うもの:
 
@@ -665,11 +665,18 @@ Done:
 - generic `adm` work-conserving lemmas in `TopMAdmissibilityBridge.v`
 - `running_set_at` / `machine_full_at` /
   `subset_eligible_at` / `subset_admissible_somewhere_at`
+- `schedule_respects_admissibility`
+- `running_implies_admissible_somewhere_under_respect`
+- `migrates_between`
+- `migration_respects_admissibility`
+- singleton placement confinement / no-cross-CPU-migration 補題
+- `machine_full_at <-> total_cpu_service_at = m`
+- `some_cpu_idle <-> ~ machine_full_at`
+- `TopMPlacementSpec`
+- `top_m_algorithm_respects_admissibility`
 
 残作業:
 
-- allowed-CPU / affinity invariants
-- migration 制約と接続する補題
 - richer candidate-source instantiation examples
 
 ## 7-3. multicore service / completion under migration
@@ -700,6 +707,8 @@ Done:
   - `top_m_selected_from`
   - `top_m_algorithm_selected_from_subset_eligible`
   - `top_m_algorithm_selected_from_subset_admissible_somewhere_strong_gen`
+  - `TopMPlacementSpec`
+  - `top_m_algorithm_respects_admissibility`
 - `Multicore/Common/MulticoreSemanticsEntryPoints.v` が
   policy-independent multicore semantic boundary の stable downstream import を提供する
 - `Multicore/Common/ValidityFacts.v`:

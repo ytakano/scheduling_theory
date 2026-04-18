@@ -66,11 +66,15 @@ theories/Multicore/Common/ValidityFacts.v
 theories/Multicore/Common/Admissibility.v
 theories/Multicore/Common/AffinityFacts.v
 theories/Multicore/Common/AdmissibleCandidateSource.v
+theories/Multicore/Common/PlacementFacts.v
+theories/Multicore/Common/MigrationFacts.v
 theories/Multicore/Common/TopMMetricChooser.v
 theories/Multicore/Common/TopMMetricFacts.v
 theories/Multicore/Common/TopMSchedulerBridgeFacts.v
 theories/Multicore/Common/TopMAdmissibilityBridge.v
 theories/Multicore/Common/TopMSelectionFacts.v
+theories/Multicore/Common/RunningSetFacts.v
+theories/Multicore/Common/TopMPlacementFacts.v
 theories/Multicore/Global/GlobalEDF.v
 theories/Multicore/Global/GlobalLLF.v
 theories/Multicore/Global/GlobalEntryPoints.v

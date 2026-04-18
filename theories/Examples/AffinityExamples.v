@@ -16,14 +16,19 @@
           illustrating that singleton yields strictly fewer admissible pairs.
 *)
 
-From Stdlib Require Import Arith Arith.PeanoNat.
+From Stdlib Require Import Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.AffinityFacts.
 From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
+From RocqSched Require Import Multicore.Common.PlacementFacts.
+From RocqSched Require Import Multicore.Common.MigrationFacts.
+From RocqSched Require Import Multicore.Common.TopMPlacementFacts.
 
 (* ===== H-1. 2-CPU affinity example ===== *)
 
@@ -199,4 +204,82 @@ Example candidate_source_spec_lifts_to_admissible :
 Proof.
   intros adm J candidates_of Hcand.
   exact (candidate_source_spec_to_admissible adm J candidates_of Hcand).
+Qed.
+
+(* ===== H-4. Placement / migration examples ===== *)
+
+Section PlacementExamples.
+
+  Definition assigned_cpu : JobId -> CPU := fun j => j.
+
+  Definition sched_singleton : Schedule :=
+    fun t c =>
+      match t, c with
+      | 0, 0 => Some 0
+      | 1, 0 => Some 0
+      | _, _ => None
+      end.
+
+  Example all_cpus_respect_any_schedule :
+    schedule_respects_admissibility all_cpus_admissible 2 sched_singleton.
+  Proof.
+    apply all_cpus_schedule_respects_admissibility.
+  Qed.
+
+  Example singleton_respect_assigned_cpu_example :
+    schedule_respects_admissibility (singleton_admissibility assigned_cpu) 2 sched_singleton.
+  Proof.
+    intros j t c Hlt Hrun.
+    destruct t as [|[|t'']]; destruct c as [|[|c'']]; simpl in *;
+      try discriminate; try lia.
+    - inversion Hrun; subst. reflexivity.
+    - inversion Hrun; subst. reflexivity.
+  Qed.
+
+  Example singleton_respect_confines_running_job :
+    assigned_cpu 0 = 0.
+  Proof.
+    eapply (singleton_schedule_respects_implies_assigned_cpu
+              assigned_cpu 2 sched_singleton 0 0 0).
+    - exact singleton_respect_assigned_cpu_example.
+    - lia.
+    - reflexivity.
+  Qed.
+
+  Example singleton_no_cross_cpu_migration_example :
+    forall c2,
+      c2 < 2 ->
+      sched_singleton 0 0 = Some 0 ->
+      sched_singleton 1 c2 = Some 0 ->
+      0 = c2.
+  Proof.
+    intros c2 Hlt Hrun0 Hrun1.
+    eapply (singleton_respect_prevents_cross_cpu_migration
+              assigned_cpu 2 sched_singleton 0 0 0 c2).
+    - exact singleton_respect_assigned_cpu_example.
+    - lia.
+    - exact Hlt.
+    - exact Hrun0.
+    - exact Hrun1.
+  Qed.
+
+End PlacementExamples.
+
+(* ===== H-5. Connection to TopMPlacementSpec ===== *)
+
+Example all_cpus_top_m_placement_any :
+  forall spec candidates_of,
+    TopMPlacementSpec all_cpus_admissible spec candidates_of.
+Proof.
+  exact all_cpus_top_m_placement_spec.
+Qed.
+
+Example top_m_placement_implies_schedule_respect_all_cpus :
+  forall spec candidates_of jobs m sched,
+    scheduler_rel (top_m_algorithm_schedule spec candidates_of) jobs m sched ->
+    schedule_respects_admissibility all_cpus_admissible m sched.
+Proof.
+  intros spec candidates_of jobs m sched Hrel.
+  eapply top_m_algorithm_respects_admissibility; eauto.
+  apply all_cpus_top_m_placement_spec.
 Qed.

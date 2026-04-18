@@ -463,7 +463,7 @@ Planned:
 ---
 
 ## 4. Phase D: Multicore-common semantics
-**Status: Semantic boundary cleanup, bundled validity, and common top-`m` interval consequences implemented**
+**Status: Semantic boundary cleanup, placement/migration invariants, bundled validity, and common top-`m` interval consequences implemented**
 
 Implemented core:
 
@@ -471,13 +471,17 @@ Implemented core:
 - `Admissibility.v`
 - `AffinityFacts.v`
 - `AdmissibleCandidateSource.v`
+- `PlacementFacts.v`
+- `MigrationFacts.v`
 - `TopMAdmissibilityBridge.v`
 - `Multicore/Common/ServiceFacts.v`
+- `Multicore/Common/RunningSetFacts.v`
 - `Multicore/Common/CompletionFacts.v`
 - `Multicore/Common/RemainingCostFacts.v`
 - `Multicore/Common/LaxityFacts.v`
 - `Multicore/Common/ValidityFacts.v`
 - `Multicore/Common/TopMSelectionFacts.v`
+- `Multicore/Common/TopMPlacementFacts.v`
 
 What is already done:
 
@@ -489,17 +493,24 @@ What is already done:
 - `all_cpus_admissible` and `singleton_admissibility` concrete instances
 - general `cpu_affinity` / `affinity_admissibility` / `job_has_admissible_cpu` layer
 - admissibility-aware candidate-source specs
+- schedule-level placement invariant via `schedule_respects_admissibility`
+- abstract migration facts that preserve admissibility under placement respect
 - set-level running/full vocabulary for the public top-`m` theorem boundary
 - top-`m` bridge lemmas that turn a non-running eligible/admissible job into
   an all-CPUs-busy consequence
 - canonical `top_m_selected_from (subset_eligible_at ...)` public theorem layer
   plus strong-spec admissibility-aware variant
+- top-`m` placement-aware boundary via `TopMPlacementSpec`
 - migration-aware decomposition of `service_job` into projected per-CPU service
 - machine-supply semantic definitions and basic split/single-slot lemmas in
   `Multicore/Common/ServiceFacts.v`
 - machine-supply equalities and capacity bounds now live in
   `Multicore/Common/ServiceFacts.v`, with
   `Analysis/Multicore/ProcessorSupply.v` reduced to an analysis-facing wrapper
+- public wrappers:
+  - `machine_full_at <-> total_cpu_service_at = m`
+  - `some_cpu_idle <-> ~ machine_full_at`
+  - `running_set_at_intro` / `running_set_at_elim`
 - completion / eligibility bridges over the decomposed service view
 - remaining-cost / laxity bridges over migration-aware service accounting
 - one-step change lemmas for `remaining_cost` and `laxity` under `no_duplication`
@@ -508,7 +519,7 @@ What is already done:
   non-running and full-supply clients
 - bundled multicore semantic validity for common downstream clients
 - common top-`m` selection consequences up to interval full supply
-- `machine_full_at` to saturated machine-supply bridge lemmas
+- `machine_full_at` to saturated machine-supply bridge lemmas in both directions
 - explicit public downstream inventory comments for the common multicore client files
 - `Multicore/Common/MulticoreSemanticsEntryPoints.v` packages the stable
   downstream import for the policy-independent multicore semantic boundary
@@ -519,6 +530,7 @@ What remains:
   boundary is stable
 - richer non-partitioned selection interfaces beyond the current top-`m`
   semantic boundary if future clients justify them
+- richer affinity / candidate-source instantiation examples
 - additional multicore clients built on the common boundary, not new semantic
   dependencies from Common/Global back into Analysis
 
