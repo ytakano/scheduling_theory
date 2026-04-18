@@ -20,9 +20,8 @@ Definition TaskId : Type := nat.
 Definition CPU    : Type := nat.
 Definition Time   : Type := nat.
 
-(* Task: periodic task as a generation rule for jobs.
-   Not yet used in proofs; defined here as a skeleton for future
-   periodic scheduling theory (utilization bounds, EDF optimality, etc.). *)
+(* Task: a minimal task-level parameter record shared by the later semantic,
+   task-model, and analysis layers. *)
 Record Task : Type := mkTask {
   task_cost     : nat;  (* WCET: worst-case execution time per job *)
   task_period   : nat;  (* period: minimum inter-arrival time *)
@@ -30,9 +29,8 @@ Record Task : Type := mkTask {
 }.
 
 (* Job: a concrete execution instance, optionally tied to a Task.
-   job_task / job_index are unused by current lemmas and may be
-   set to 0 for standalone jobs.  They exist so that periodic-task
-   extensions can attach identity without restructuring this record. *)
+   job_task / job_index already support the periodic, sporadic, and jittered
+   task-model layers, while still allowing standalone jobs when needed. *)
 Record Job : Type := mkJob {
   job_task         : TaskId; (* which task generated this job (0 = anonymous) *)
   job_index        : nat;    (* k-th job of that task, 0-indexed (instance number) *)

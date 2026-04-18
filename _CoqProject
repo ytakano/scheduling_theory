@@ -55,6 +55,7 @@ theories/Examples/SchedulableExamples.v
 Tutorials/EDFSchedulability.v
 Tutorials/EDFInfiniteSchedulability.v
 theories/Foundation/Base.v
+theories/Foundation/Arithmetic.v
 theories/Multicore/Common/MultiCoreBase.v
 theories/Multicore/Common/MulticoreSemanticsEntryPoints.v
 theories/Multicore/Common/ServiceFacts.v
@@ -109,7 +110,6 @@ theories/TaskModels/Periodic/PeriodicWorkload.v
 theories/TaskModels/Periodic/PeriodicDemandBound.v
 theories/TaskModels/Periodic/PeriodicWindowDemandBound.v
 theories/TaskModels/Periodic/PeriodicEnumeration.v
-theories/TaskModels/Periodic/PeriodicArithmetic.v
 theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicConcreteAnalysis.v
 theories/TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v

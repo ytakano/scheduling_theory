@@ -38,7 +38,7 @@ This is an architectural rule, not a claim that every directory forms a perfect 
 
 ### Foundation
 
-The foundation layer fixes the base scalar types, minimal task/job records, and raw schedule carrier type. It should remain a small shared vocabulary.
+The foundation layer fixes the base scalar types, minimal task/job records, raw schedule carrier type, and small task-model-independent arithmetic facts. It should remain a small shared vocabulary.
 
 Primary document:
 - `design/Foundation.md`

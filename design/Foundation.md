@@ -7,6 +7,7 @@ This document describes the foundation layer of the current RocqSched implementa
 Its scope is intentionally small and currently centers on:
 
 - `theories/Foundation/Base.v`
+- `theories/Foundation/Arithmetic.v`
 
 This layer fixes the basic scalar domains and the minimal records that later layers consume.
 
@@ -21,7 +22,8 @@ Its role is to fix:
 - the identifier types used for tasks and jobs,
 - the discrete time and CPU domains,
 - the minimal task and job records,
-- the first derived schedule shape used by later semantic developments.
+- the first derived schedule shape used by later semantic developments,
+- and a small collection of task-model-independent arithmetic lemmas over `nat`.
 
 The design goal is stability. Later layers should be able to grow without forcing churn in these base definitions.
 
@@ -65,15 +67,17 @@ These remain foundational because they only relate jobs and tasks at the data le
 
 ## Public entry points
 
-The default downstream entry point for this layer is:
+The default downstream entry points for this layer are:
 
 - `theories/Foundation/Base.v`
+- `theories/Foundation/Arithmetic.v`
 
 Clients reading the library from the bottom up should start here to learn:
 
 - the base identifiers,
 - the minimal task and job records,
-- the shared discrete-time schedule shape.
+- the shared discrete-time schedule shape,
+- and the reusable arithmetic facts that do not belong to a specific task model.
 
 ## Design boundaries
 
@@ -82,7 +86,8 @@ This layer includes:
 - base identifiers and scalar domains,
 - minimal task and job records,
 - the raw schedule carrier type,
-- simple data-facing predicates closely attached to the records.
+- simple data-facing predicates closely attached to the records,
+- small arithmetic lemmas that are independent of schedule semantics and task-generation rules.
 
 This layer does not include:
 
@@ -116,6 +121,8 @@ Any such extension should preserve the base role of this layer as a small shared
 
 - `theories/Foundation/Base.v`
   Base identifiers, task and job records, the raw `Schedule` type, and simple foundational predicates.
+- `theories/Foundation/Arithmetic.v`
+  Reusable `nat` arithmetic lemmas that do not depend on periodic, sporadic, or analysis-specific semantics.
 
 ## Summary
 
