@@ -487,8 +487,11 @@ What is already done:
 - `all_cpus_admissible` and `singleton_admissibility` concrete instances
 - general `cpu_affinity` / `affinity_admissibility` / `job_has_admissible_cpu` layer
 - admissibility-aware candidate-source specs
+- set-level running/full vocabulary for the public top-`m` theorem boundary
 - top-`m` bridge lemmas that turn a non-running eligible/admissible job into
   an all-CPUs-busy consequence
+- canonical `top_m_selected_from (subset_eligible_at ...)` public theorem layer
+  plus strong-spec admissibility-aware variant
 - migration-aware decomposition of `service_job` into projected per-CPU service
 - completion / eligibility bridges over the decomposed service view
 - remaining-cost / laxity bridges over migration-aware service accounting
@@ -498,8 +501,8 @@ What remains:
 
 - multicore validity beyond the current minimal base
 - stronger fairness / interference-facing lemmas under migration
-- abstractions for top-`m` and non-partitioned selection beyond admissibility
-- API stabilization: clarify public API vs helper lemma boundary
+- abstractions for top-`m` and non-partitioned selection beyond the current
+  set-level boundary
 - richer affinity / candidate-source instantiation examples
 - foundations for fairness / interference reasoning on top of the current bridge layer
 
@@ -514,13 +517,16 @@ What remains:
 What is already done:
 
 - `TopMSchedulerBridge.v` provides the generic top-`m` scheduler bridge
-- `TopMAdmissibilityBridge.v` provides policy-generic admissibility lemmas
+- `TopMAdmissibilityBridge.v` provides policy-generic admissibility lemmas and
+  the canonical set-level top-`m` semantic boundary
 - `GlobalEDF.v` provides:
   - `global_edf_scheduler`
   - `global_edf_valid`
   - `global_edf_idle_outside_range`
   - `global_edf_no_duplication`
   - subset-aware theorem entry points
+  - `top_m_selected_from (subset_eligible_at ...)` wrapper theorem
+  - strong-spec admissibility-aware selection wrapper
   - admissibility-aware wrappers
 - `GlobalLLF.v` provides analogous theorem families
 - `TopMMetricFacts.v` provides reusable top-`m` metric-order facts for
@@ -532,7 +538,7 @@ What is already done:
 - `GlobalEDF.v` and `GlobalLLF.v` expose thin interval full-supply wrappers for
   non-running eligible/admissible jobs
 - `GlobalEntryPoints.v` provides the canonical downstream import path for the
-  stable global theorem inventory
+  stable global theorem inventory, including the set-level top-`m` vocabulary
 - `Examples/GlobalExamples.v` curates representative downstream clients in one
   place
 
@@ -830,6 +836,7 @@ Planned:
 - migration latency
 - remote reschedule / IPI latency
 - bounded non-preemptive windows if needed
+- delay-aware operational semantics
 
 These delays should live in the operational layer, not in the core abstract schedule.
 

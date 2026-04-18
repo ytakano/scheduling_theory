@@ -257,6 +257,34 @@ Proof.
            Hcand Hrel Hm Hidle HJ Hadm).
 Qed.
 
+Lemma global_llf_selected_from_subset_eligible :
+  forall J candidates_of jobs m sched t,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    top_m_selected_from
+      (subset_eligible_at J jobs m sched t)
+      m sched t.
+Proof.
+  intros J candidates_of jobs m sched t Hcand Hrel.
+  exact (top_m_algorithm_selected_from_subset_eligible
+           J global_llf_top_m_spec candidates_of jobs m sched t
+           Hcand Hrel).
+Qed.
+
+Lemma global_llf_selected_from_subset_admissible_somewhere_strong_gen :
+  forall adm J candidates_of jobs m sched t,
+    StrongAdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (global_llf_scheduler candidates_of) jobs m sched ->
+    top_m_selected_from
+      (subset_admissible_somewhere_at adm J jobs m sched t)
+      m sched t.
+Proof.
+  intros adm J candidates_of jobs m sched t Hcand Hrel.
+  exact (top_m_algorithm_selected_from_subset_admissible_somewhere_strong_gen
+           adm J global_llf_top_m_spec candidates_of jobs m sched t
+           Hcand Hrel).
+Qed.
+
 (* ===== Admissibility wrappers: generic adm
    (LLF thin wrappers over TopMAdmissibilityBridge Tier 2)
    These lemmas work for any adm; the idle variant requires

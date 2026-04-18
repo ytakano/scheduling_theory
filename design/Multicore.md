@@ -30,9 +30,10 @@ The layer is organized into three parts.
 
 `Multicore/Common`
 - multicore base views such as per-CPU projection
+- set-level running/full vocabulary for global schedules
 - service, completion, remaining-cost, and laxity facts specialized to multicore schedules
 - admissibility and candidate-source infrastructure
-- top-`m` metric and admissibility bridges
+- top-`m` metric, admissibility, and selection-boundary bridges
 
 `Multicore/Partitioned`
 - static assignment of jobs to CPUs
@@ -49,6 +50,9 @@ The main multicore-specific abstraction boundary is top-`m` scheduling:
 
 - global selection chooses up to `m` eligible jobs,
 - admissibility and no-duplication properties ensure sound multicore scheduling structure,
+- the canonical public semantic boundary is a set-level statement that the
+  running set is selected from a subset and any missing subset job implies a
+  machine-full state,
 - policy wrappers instantiate that shared theorem layer.
 
 ## Public entry points
@@ -66,6 +70,7 @@ Important supporting modules include:
 - `theories/Multicore/Common/RemainingCostFacts.v`
 - `theories/Multicore/Common/LaxityFacts.v`
 - `theories/Multicore/Common/Admissibility.v`
+- `theories/Multicore/Common/AdmissibleCandidateSource.v`
 - `theories/Multicore/Common/TopMAdmissibilityBridge.v`
 - `theories/Multicore/Partitioned/Partitioned.v`
 - `theories/Multicore/Partitioned/PartitionedCompose.v`
@@ -111,7 +116,7 @@ New multicore work should keep structural scheduling facts here and move interva
 ## File map
 
 - `theories/Multicore/Common/MultiCoreBase.v`
-  Core multicore schedule views and projections.
+  Core multicore schedule views, projections, and set-level running/full vocabulary.
 - `theories/Multicore/Common/ServiceFacts.v`
   Multicore service-accounting facts.
 - `theories/Multicore/Common/CompletionFacts.v`
@@ -123,7 +128,7 @@ New multicore work should keep structural scheduling facts here and move interva
 - `theories/Multicore/Common/Admissibility.v`
   Admissibility structure for multicore scheduling.
 - `theories/Multicore/Common/AdmissibleCandidateSource.v`
-  Candidate-source discipline for multicore settings.
+  Candidate-source discipline and admissibility-spec layering for multicore settings.
 - `theories/Multicore/Common/AffinityFacts.v`
   Affinity-facing supporting facts.
 - `theories/Multicore/Common/TopMMetricChooser.v`
@@ -131,7 +136,7 @@ New multicore work should keep structural scheduling facts here and move interva
 - `theories/Multicore/Common/TopMMetricFacts.v`
   Supporting top-`m` metric facts.
 - `theories/Multicore/Common/TopMAdmissibilityBridge.v`
-  Top-`m` admissibility-aware bridge layer.
+  Top-`m` admissibility-aware bridge layer plus the canonical set-level selection boundary.
 - `theories/Multicore/Partitioned/Partitioned.v`
   Core partitioned schedule definitions and theorems.
 - `theories/Multicore/Partitioned/PartitionedCompose.v`
@@ -143,7 +148,8 @@ New multicore work should keep structural scheduling facts here and move interva
 - `theories/Multicore/Global/GlobalLLF.v`
   Global LLF wrapper layer over the top-`m` theorem infrastructure.
 - `theories/Multicore/Global/GlobalEntryPoints.v`
-  Canonical downstream import for the global theorem layer.
+  Canonical downstream import for the global theorem layer, including set-level
+  top-`m` selection theorems and their supporting vocabulary.
 
 ## Summary
 

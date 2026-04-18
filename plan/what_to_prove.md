@@ -663,6 +663,8 @@ Done:
 - `AdmissibleCandidateSourceSpec`
 - `StrongAdmissibleCandidateSourceSpec`
 - generic `adm` work-conserving lemmas in `TopMAdmissibilityBridge.v`
+- `running_set_at` / `machine_full_at` /
+  `subset_eligible_at` / `subset_admissible_somewhere_at`
 
 残作業:
 
@@ -694,6 +696,10 @@ Done:
   - `top_m_algorithm_no_duplication`
   - subset-aware theorem layer
 - `TopMAdmissibilityBridge.v` generic bridge
+- canonical public boundary:
+  - `top_m_selected_from`
+  - `top_m_algorithm_selected_from_subset_eligible`
+  - `top_m_algorithm_selected_from_subset_admissible_somewhere_strong_gen`
 - `GlobalEntryPoints.v` が stable downstream import を提供する
 - `GlobalEDF.v`:
   - `global_edf_scheduler`
@@ -702,6 +708,8 @@ Done:
   - `global_edf_no_duplication`
   - subset soundness / idle-if-no-eligible / busy-if-eligible
   - idle CPU exists -> eligible subset job is already running
+  - `global_edf_selected_from_subset_eligible`
+  - `global_edf_selected_from_subset_admissible_somewhere_strong_gen`
   - admissibility-aware wrappers
   - `schedulable_by_on` intro lemma
 - `GlobalLLF.v`:
@@ -710,6 +718,8 @@ Done:
   - `global_llf_idle_outside_range`
   - `global_llf_no_duplication`
   - EDF と同型の subset-aware theorem layer
+  - `global_llf_selected_from_subset_eligible`
+  - `global_llf_selected_from_subset_admissible_somewhere_strong_gen`
   - admissibility-aware wrappers
   - non-running admissible job から running jobs の laxity 上界を引く wrapper
   - non-running eligible job から machine-full を引く LLF 固有 wrapper
@@ -718,6 +728,7 @@ Done:
   - 非選出 eligible candidate の metric は全 chosen job 以上
 - `Examples/GlobalExamples.v` が canonical example inventory を提供する
 - curated examples は次を 1 箇所から辿れる
+  - set-level top-`m` selection boundary
   - admissibility-aware running example
   - global LLF の dynamic-metric theorem client
   - migration preserves global service

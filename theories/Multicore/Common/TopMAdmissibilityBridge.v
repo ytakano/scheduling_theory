@@ -3,7 +3,9 @@
 
    This file provides the generic busy/idle/running lemmas for top-m
    schedulers, parameterised by an admissibility predicate adm and a
-   CandidateSourceSpec variant.  It has two tiers:
+   CandidateSourceSpec variant.  It also exposes the canonical set-level
+   public boundary saying that the running set is selected from a subset and
+   that any missing subset job implies a machine-full state.  It has two tiers:
 
    Tier 1 — all_cpus_admissible specialisations
      For the standard case where every CPU is admissible for every job.
@@ -27,16 +29,22 @@
 
    Contents
    --------
-   Helper lemmas:
+   Internal helper lemmas:
      top_m_algorithm_scheduled_job_in_candidates
      top_m_algorithm_in_admissible_subset
 
-   Tier 1 — all_cpus_admissible (CandidateSourceSpec, requires 0 < m):
+   Public set-level semantic boundary:
+     top_m_selected_from
+     top_m_algorithm_selected_from_subset_eligible
+     top_m_algorithm_selected_from_subset_admissible_somewhere_strong_gen
+
+   Compatibility wrappers — Tier 1, all_cpus_admissible
+   (CandidateSourceSpec, requires 0 < m):
      top_m_algorithm_all_cpus_idle_if_no_subset_admissible_somewhere
      top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere
      top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere
 
-   Tier 2 — generic adm (AdmissibleCandidateSourceSpec /
+   Compatibility wrappers — Tier 2, generic adm (AdmissibleCandidateSourceSpec /
              StrongAdmissibleCandidateSourceSpec; does not require 0 < m):
      top_m_algorithm_some_cpu_busy_if_subset_admissible_somewhere_gen
      top_m_algorithm_running_if_some_cpu_idle_and_subset_admissible_somewhere_gen
@@ -54,7 +62,7 @@ From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
 
-(* ===== Helper lemmas ===== *)
+(* ===== Internal helper lemmas ===== *)
 
 (** H-1. If a job is running on some CPU c < m, it was in the candidate list.
 
@@ -94,7 +102,7 @@ Proof.
   eapply top_m_algorithm_scheduled_job_in_candidates; eauto.
 Qed.
 
-(* ===== Tier 1: all_cpus_admissible specialisations =====
+(* ===== Compatibility wrappers: Tier 1, all_cpus_admissible =====
    The three lemmas below are the all_cpus_admissible-specific entry points.
    They accept the plain CandidateSourceSpec and carry an explicit 0 < m
    premise.  Use the _gen variants (Tier 2, below) when working with a
@@ -182,7 +190,7 @@ Proof.
     exists c. split; assumption.
 Qed.
 
-(* ===== Tier 2: generic adm (_gen lemmas) =====
+(* ===== Compatibility wrappers: Tier 2, generic adm (_gen lemmas) =====
    These lemmas work for any admissibility predicate adm.
    - busy/running lemmas use AdmissibleCandidateSourceSpec (weaker spec).
    - idle lemma uses StrongAdmissibleCandidateSourceSpec, which additionally
@@ -344,4 +352,58 @@ Proof.
     pose proof (Hcandadm jobs m sched t j Hincand) as Hadm.
     exact (Hnone j Hj Hadm).
   - reflexivity.
+Qed.
+
+(* ===== Public set-level semantic boundary ===== *)
+
+Record top_m_selected_from
+    (S : JobId -> Prop)
+    (m : nat) (sched : Schedule) (t : Time) : Prop := {
+  top_m_selected_running_subset :
+    forall j, running_set_at m sched t j -> S j;
+  top_m_selected_missing_implies_machine_full :
+    forall j, S j -> ~ running_set_at m sched t j -> machine_full_at m sched t
+}.
+
+Lemma top_m_algorithm_selected_from_subset_eligible :
+  forall J spec candidates_of jobs m sched t,
+    CandidateSourceSpec J candidates_of ->
+    scheduler_rel (top_m_algorithm_schedule spec candidates_of) jobs m sched ->
+    top_m_selected_from
+      (subset_eligible_at J jobs m sched t)
+      m sched t.
+Proof.
+  intros J spec candidates_of jobs m sched t Hcand Hrel.
+  constructor.
+  - intros j [c [Hlt Hsome]].
+    split.
+    + eapply top_m_algorithm_in_subset; eauto.
+    + pose proof (top_m_algorithm_valid spec candidates_of jobs m sched Hrel) as Hvalid.
+      exact (Hvalid j t c Hlt Hsome).
+  - intros j [HJ Helig] Hnrun c Hc.
+    eapply top_m_algorithm_not_running_subset_eligible_implies_all_cpus_busy; eauto.
+Qed.
+
+Lemma top_m_algorithm_selected_from_subset_admissible_somewhere_strong_gen :
+  forall adm J spec candidates_of jobs m sched t,
+    StrongAdmissibleCandidateSourceSpec adm J candidates_of ->
+    scheduler_rel (top_m_algorithm_schedule spec candidates_of) jobs m sched ->
+    top_m_selected_from
+      (subset_admissible_somewhere_at adm J jobs m sched t)
+      m sched t.
+Proof.
+  intros adm J spec candidates_of jobs m sched t Hcand Hrel.
+  destruct Hcand as [Hbase Hsomewhere].
+  constructor.
+  - intros j Hrun.
+    split.
+    + destruct Hrun as [c [Hlt Hsome]].
+      eapply top_m_algorithm_in_admissible_subset; eauto.
+    + destruct Hrun as [c [Hlt Hsome]].
+      pose proof
+        (top_m_algorithm_scheduled_job_in_candidates
+           spec candidates_of jobs m sched t c j Hrel Hlt Hsome) as Hincand.
+      exact (Hsomewhere jobs m sched t j Hincand).
+  - intros j [HJ Hadm] Hnrun c Hc.
+    eapply top_m_algorithm_not_running_subset_admissible_somewhere_implies_all_cpus_busy_gen; eauto.
 Qed.

@@ -46,6 +46,14 @@ Definition all_cpus_idle (m : nat) (sched : Schedule) (t : Time) : Prop :=
 Definition some_cpu_idle (m : nat) (sched : Schedule) (t : Time) : Prop :=
   exists c, c < m /\ cpu_idle sched t c.
 
+Definition running_set_at
+    (m : nat) (sched : Schedule) (t : Time) : JobId -> Prop :=
+  fun j => running m sched j t.
+
+Definition machine_full_at
+    (m : nat) (sched : Schedule) (t : Time) : Prop :=
+  forall c, c < m -> cpu_busy sched t c.
+
 Definition globally_runnable
     (jobs : JobId -> Job) (m : nat) (sched : Schedule) (t : Time) : Prop :=
   exists j, eligible jobs m sched j t.
@@ -58,6 +66,19 @@ Definition runnable_on_cpu
     (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) (c : CPU) : Prop :=
   c < m /\ adm j c /\ eligible jobs m sched j t.
+
+Definition subset_eligible_at
+    (J : JobId -> Prop)
+    (jobs : JobId -> Job) (m : nat) (sched : Schedule) (t : Time)
+    : JobId -> Prop :=
+  fun j => J j /\ eligible jobs m sched j t.
+
+Definition subset_admissible_somewhere_at
+    (adm : admissible_cpu)
+    (J : JobId -> Prop)
+    (jobs : JobId -> Job) (m : nat) (sched : Schedule) (t : Time)
+    : JobId -> Prop :=
+  fun j => J j /\ exists c, runnable_on_cpu adm jobs m sched j t c.
 
 (* ===== A. cpu_schedule basic lemmas ===== *)
 
@@ -167,6 +188,27 @@ Proof.
     destruct (sched t c) as [j|] eqn:E.
     + exfalso. apply Hnot. exists j. reflexivity.
     + reflexivity.
+Qed.
+
+Lemma running_set_at_iff :
+  forall m sched t j,
+    running_set_at m sched t j <-> running m sched j t.
+Proof.
+  intros m sched t j.
+  unfold running_set_at.
+  tauto.
+Qed.
+
+Lemma machine_full_at_implies_not_some_cpu_idle :
+  forall m sched t,
+    machine_full_at m sched t ->
+    ~ some_cpu_idle m sched t.
+Proof.
+  intros m sched t Hfull [c [Hlt Hid]].
+  unfold machine_full_at, cpu_busy, cpu_idle in *.
+  specialize (Hfull c Hlt).
+  destruct Hfull as [j Hrun].
+  rewrite Hid in Hrun. discriminate.
 Qed.
 
 Lemma all_cpus_idle_implies_not_running :

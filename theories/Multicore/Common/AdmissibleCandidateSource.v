@@ -1,22 +1,28 @@
 (* AdmissibleCandidateSource.v
    Admissibility-aware candidate source specification.
 
-   This file defines AdmissibleCandidateSourceSpec, a derived record that
-   extends the existing CandidateSourceSpec with an explicit admissibility
-   condition in the completeness field.  The standard CandidateSourceSpec
-   requires that every eligible job in the subset J is a candidate;
-   AdmissibleCandidateSourceSpec requires only that every eligible AND
-   admissible-somewhere job in J is a candidate.
+   This file fixes the dependency direction between the public candidate-source
+   interfaces used by the multicore top-m theorem layer.
 
-   This weaker (more preconditioned) completeness clause is designed for
-   future affinity-aware multicore schedulers where the candidate list may
-   be restricted to jobs admissible on the available CPUs.
+   Public boundary hierarchy
+   -------------------------
+   CandidateSourceSpec
+     Canonical subset/eligibility-facing boundary.
 
-   Bridge lemmas
-   -------------
-   candidate_source_spec_to_admissible       : CandidateSourceSpec -> AdmissibleCandidateSourceSpec adm
-   singleton_admissibility_candidate_specialization :
-     CandidateSourceSpec -> AdmissibleCandidateSourceSpec (singleton_admissibility assign)
+   AdmissibleCandidateSourceSpec
+     Weaker completeness: only subset jobs that are both eligible and
+     admissible somewhere must appear in the candidate list.
+
+   StrongAdmissibleCandidateSourceSpec
+     Extends AdmissibleCandidateSourceSpec with the reverse direction needed
+     to conclude that every running candidate is admissible somewhere.
+
+   As a consequence:
+   - CandidateSourceSpec always weakens to AdmissibleCandidateSourceSpec.
+   - StrongAdmissibleCandidateSourceSpec projects to AdmissibleCandidateSourceSpec.
+   - A generic theorem of the form
+       top_m_selected_from (subset_admissible_somewhere_at ...)
+     requires the strong spec, not just the admissible one.
 
    Note: this file lives in Multicore/Common/ (not Abstractions/) because
    AdmissibleCandidateSourceSpec depends on admissible_cpu and
@@ -83,6 +89,14 @@ Proof.
   - exact Hext.
 Qed.
 
+Lemma candidate_source_spec_weaken_to_admissible :
+  forall adm (J : JobId -> Prop) (candidates_of : CandidateSource),
+    CandidateSourceSpec J candidates_of ->
+    AdmissibleCandidateSourceSpec adm J candidates_of.
+Proof.
+  exact candidate_source_spec_to_admissible.
+Qed.
+
 (** C-2. Specialisation for singleton_admissibility (used in Partitioned
     connection lemmas): direct corollary of C-1. *)
 Lemma singleton_admissibility_candidate_specialization :
@@ -120,4 +134,12 @@ Lemma strong_admissible_base_proj :
 Proof.
   intros adm J candidates_of H.
   exact (strong_admissible_base _ _ _ H).
+Qed.
+
+Lemma strong_admissible_candidate_source_base :
+  forall adm J candidates_of,
+    StrongAdmissibleCandidateSourceSpec adm J candidates_of ->
+    AdmissibleCandidateSourceSpec adm J candidates_of.
+Proof.
+  exact strong_admissible_base_proj.
 Qed.
