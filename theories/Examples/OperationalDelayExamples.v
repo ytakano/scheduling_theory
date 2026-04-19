@@ -19,6 +19,8 @@ From RocqSched Require Import Operational.Common.OSProjectionInterface.
 From RocqSched Require Import Operational.Common.ConcreteExecution.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
+From RocqSched Require Import Operational.Common.OSCausalityContract.
+From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
 From RocqSched Require Import Refinement.BoundedDelayRefinement.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
@@ -525,6 +527,26 @@ Section OperationalDelayExamples.
          Hlt
          eq_refl) as Hneed.
     exact Hneed.
+  Qed.
+
+  Definition handle_resched_local_causality_contract :
+    os_local_scheduling_causality_contract handle_resched_local_adapter_contract.
+  Proof.
+    apply os_local_multicore_adapter_contract_to_causality_contract.
+  Defined.
+
+  Example handle_resched_causality_sets_need_resched :
+    op_need_resched
+      (os_to_op_state
+         (osl_to_os_projection handle_resched_projection)
+         (lce_trace handle_resched_labeled_concrete_execution 1))
+      0 = true.
+  Proof.
+    exact (lcsc_handle_sets_need_resched
+             handle_resched_local_causality_contract
+             0 0
+             (Nat.lt_0_succ 0)
+             eq_refl).
   Qed.
 
   Example idle_labeled_execution_respects_admissibility :

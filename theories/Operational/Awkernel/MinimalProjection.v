@@ -10,6 +10,8 @@ From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
+From RocqSched Require Import Operational.Common.OSCausalityContract.
+From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.ProjectionInvariants.
@@ -60,6 +62,12 @@ Definition awk_local_labeled_concrete_multicore_projection_sound :=
 
 Definition awk_local_adapter_contract :=
   @os_local_multicore_adapter_contract AwkernelState.
+
+Definition awk_labeled_concrete_scheduling_causality_contract :=
+  @labeled_concrete_scheduling_causality_contract AwkernelState.
+
+Definition awk_local_scheduling_causality_contract :=
+  @os_local_scheduling_causality_contract AwkernelState.
 
 Definition awk_adapter_contract :=
   @os_multicore_adapter_contract AwkernelState.

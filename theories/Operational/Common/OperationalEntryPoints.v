@@ -15,6 +15,8 @@ From RocqSched Require Export Operational.Common.OSProjectionInterface.
 From RocqSched Require Export Operational.Common.ConcreteExecution.
 From RocqSched Require Export Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Export Operational.Common.OSAdapterContract.
+From RocqSched Require Export Operational.Common.OSCausalityContract.
+From RocqSched Require Export Refinement.OSCausalityTheorem.
 From RocqSched Require Export Refinement.OSRefinementTheorem.
 
 (** * Stable public entry point for OS-neutral operational projection
@@ -34,6 +36,7 @@ From RocqSched Require Export Refinement.OSRefinementTheorem.
     - projection from operational traces to semantic schedules
     - local adapter-facing projection contracts
     - canonical adapter-facing contract records
+    - scheduling-causality contracts over projected executions
     - projection soundness lemmas
     - multicore validity and placement bridge lemmas
     - OS-neutral refinement wrappers from adapter contracts

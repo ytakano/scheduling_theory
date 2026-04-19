@@ -14,6 +14,8 @@ From RocqSched Require Import Operational.Common.LabeledExecution.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
+From RocqSched Require Import Operational.Common.OSCausalityContract.
+From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
@@ -1085,6 +1087,86 @@ Section OperationalProjectionExamples.
       with (jobs := op_example_jobs) (ex := complete_labeled_concrete_execution) (t := 1) (j := 0).
     - exact complete_local_labeled_concrete_sound.
     - reflexivity.
+  Qed.
+
+  Definition example_local_causality_contract :
+    labeled_concrete_scheduling_causality_contract
+      op_example_long_jobs
+      1
+      example_labeled_concrete_execution :=
+    local_labeled_concrete_projection_sound_to_causality_contract
+      example_concrete_state
+      example_projection
+      op_example_long_jobs
+      1
+      example_labeled_concrete_execution
+      example_local_labeled_concrete_sound.
+
+  Example dispatch_causality_sets_current :
+    op_current
+      (os_to_op_state
+         (osl_to_os_projection example_projection)
+         (lce_trace example_labeled_concrete_execution 1))
+      0 = Some 0.
+  Proof.
+    exact (lcsc_dispatch_sets_current
+             example_local_causality_contract
+             0 0 0
+             (Nat.lt_0_succ 0)
+             eq_refl).
+  Qed.
+
+  Definition wakeup_local_causality_contract :
+    labeled_concrete_scheduling_causality_contract
+      op_example_jobs
+      1
+      wakeup_labeled_concrete_execution :=
+    local_labeled_concrete_projection_sound_to_causality_contract
+      nat
+      wakeup_projection
+      op_example_jobs
+      1
+      wakeup_labeled_concrete_execution
+      wakeup_local_labeled_concrete_sound.
+
+  Example wakeup_causality_makes_job_visible :
+    In 0
+       (op_runnable
+          (os_to_op_state
+             (osl_to_os_projection wakeup_projection)
+             (lce_trace wakeup_labeled_concrete_execution 1))).
+  Proof.
+    exact (lcsc_wakeup_visible
+             wakeup_local_causality_contract
+             0 0
+             eq_refl).
+  Qed.
+
+  Definition complete_local_causality_contract :
+    labeled_concrete_scheduling_causality_contract
+      op_example_jobs
+      1
+      complete_labeled_concrete_execution :=
+    local_labeled_concrete_projection_sound_to_causality_contract
+      example_concrete_state
+      complete_projection
+      op_example_jobs
+      1
+      complete_labeled_concrete_execution
+      complete_local_labeled_concrete_sound.
+
+  Example complete_causality_clears_dispatch_target :
+    op_dispatch_target
+      (os_to_op_state
+         (osl_to_os_projection complete_projection)
+         (lce_trace complete_labeled_concrete_execution 2))
+      0 <> Some 0.
+  Proof.
+    exact (lcsc_complete_clears_dispatch_target
+             complete_local_causality_contract
+             1 0 0
+             (Nat.lt_0_succ 0)
+             eq_refl).
   Qed.
 
   Lemma one_cpu_execution_sound :
