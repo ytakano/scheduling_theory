@@ -352,6 +352,8 @@ Section OperationalDelayExamples.
         exact Hrun.
       + intros t c j Hlt Hdispatch.
         discriminate.
+      + intros t j Hwakeup.
+        destruct t; simpl in Hwakeup; discriminate.
       + intros t c j Hlt Hprev Hnext.
         simpl in Hprev.
         discriminate.
@@ -365,6 +367,8 @@ Section OperationalDelayExamples.
         destruct t; simpl in Hchoose; discriminate.
       + intros t c j Hlt Hdispatch.
         discriminate.
+      + intros t j Hcomplete.
+        destruct t; simpl in Hcomplete; discriminate.
       + intros t c old new Hlt Hpreempt.
         discriminate.
       + intros t c old new Hlt Hpreempt.
@@ -452,6 +456,8 @@ Section OperationalDelayExamples.
         * left. exact Hrun.
       + intros t c j Hlt Hdispatch.
         destruct t; simpl in Hdispatch; discriminate.
+      + intros t j Hwakeup.
+        destruct t; simpl in Hwakeup; discriminate.
       + intros t c j Hlt Hprev Hnext.
         simpl in Hprev.
         discriminate.
@@ -471,6 +477,8 @@ Section OperationalDelayExamples.
         destruct t; simpl in Hchoose; discriminate.
       + intros t c j Hlt Hdispatch.
         destruct t; simpl in Hdispatch; discriminate.
+      + intros t j Hcomplete.
+        destruct t; simpl in Hcomplete; discriminate.
       + intros t c old new Hlt Hpreempt.
         destruct t; simpl in Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt.

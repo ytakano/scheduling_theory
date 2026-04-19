@@ -105,6 +105,17 @@ Proof.
   exact (llcps_request_sets_need_resched Hlocal t c Hlt Hreq).
 Qed.
 
+Lemma local_labeled_concrete_projection_sound_wakeup_implies_released :
+  forall CState (P : OSLabeledProjection CState) jobs m
+         (ex : labeled_concrete_execution P m) t j
+         (Hlocal : local_labeled_concrete_projection_sound jobs m ex),
+    os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvWakeup j ->
+    released jobs j (S t).
+Proof.
+  intros CState P jobs m ex t j Hlocal Hwakeup.
+  exact (llcps_wakeup_release Hlocal t j Hwakeup).
+Qed.
+
 Lemma local_labeled_concrete_projection_sound_handle_sets_need_resched :
   forall CState (P : OSLabeledProjection CState) jobs m
          (ex : labeled_concrete_execution P m) t c
@@ -145,6 +156,35 @@ Lemma local_labeled_concrete_projection_sound_choose_from_runnable :
 Proof.
   intros CState P jobs m ex t c j Hlocal Hlt Hchoose.
   exact (llcps_choose_from_runnable Hlocal t c j Hlt Hchoose).
+Qed.
+
+Lemma local_labeled_concrete_projection_sound_complete_implies_completed :
+  forall CState (P : OSLabeledProjection CState) jobs m
+         (ex : labeled_concrete_execution P m) t j
+         (Hlocal : local_labeled_concrete_projection_sound jobs m ex),
+    os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvComplete j ->
+    completed
+      jobs
+      m
+      (project_schedule (osl_to_op_trace P (lce_trace ex)))
+      j (S t).
+Proof.
+  intros CState P jobs m ex t j Hlocal Hcomplete.
+  exact (llcps_complete_sets_completed Hlocal t j Hcomplete).
+Qed.
+
+Lemma os_local_multicore_adapter_contract_wakeup_implies_released :
+  forall CState (P : OSLabeledProjection CState) jobs adm m
+         (C : os_local_multicore_adapter_contract P jobs adm m) t j,
+    os_step_label P (lce_trace (olac_execution C) t) (lce_trace (olac_execution C) (S t)) =
+    EvWakeup j ->
+    released jobs j (S t).
+Proof.
+  intros CState P jobs adm m C t j Hwakeup.
+  eapply local_labeled_concrete_projection_sound_wakeup_implies_released
+    with (jobs := jobs) (ex := olac_execution C) (t := t) (j := j).
+  - exact (llcmps_projection_sound (olac_sound C)).
+  - exact Hwakeup.
 Qed.
 
 Lemma os_local_multicore_adapter_contract_handle_sets_need_resched :
@@ -199,6 +239,32 @@ Proof.
   - exact (llcmps_projection_sound (olac_sound C)).
   - exact Hlt.
   - exact Hchoose.
+Qed.
+
+Lemma os_local_multicore_adapter_contract_complete_implies_completed :
+  forall CState (P : OSLabeledProjection CState) jobs adm m
+         (C : os_local_multicore_adapter_contract P jobs adm m) t j,
+    os_step_label P (lce_trace (olac_execution C) t) (lce_trace (olac_execution C) (S t)) =
+    EvComplete j ->
+    completed
+      jobs
+      m
+      (project_schedule
+         (lex_trace
+            (concrete_to_labeled_execution (olac_execution C))))
+      j (S t).
+Proof.
+  intros CState P jobs adm m C t j Hcomplete.
+  change
+    (completed
+       jobs
+       m
+       (project_schedule (osl_to_op_trace P (lce_trace (olac_execution C))))
+       j (S t)).
+  eapply local_labeled_concrete_projection_sound_complete_implies_completed
+    with (jobs := jobs) (ex := olac_execution C) (t := t) (j := j).
+  - exact (llcmps_projection_sound (olac_sound C)).
+  - exact Hcomplete.
 Qed.
 
 Lemma labeled_concrete_projection_sound_to_labeled_execution :

@@ -57,6 +57,10 @@ Record local_labeled_concrete_projection_sound
         c < m ->
         os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvDispatch c j ->
         released jobs j (S t);
+    llcps_wakeup_release :
+      forall t j,
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvWakeup j ->
+        released jobs j (S t);
     llcps_persistent_completion :
       forall t c j,
         c < m ->
@@ -108,6 +112,14 @@ Record local_labeled_concrete_projection_sound
             m
             (project_schedule (osl_to_op_trace P (lce_trace ex)))
             j (S t);
+    llcps_complete_sets_completed :
+      forall t j,
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvComplete j ->
+        completed
+          jobs
+          m
+          (project_schedule (osl_to_op_trace P (lce_trace ex)))
+          j (S t);
     llcps_preempt_release :
       forall t c old new,
         c < m ->
@@ -169,6 +181,8 @@ Arguments llcps_current_origin
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments llcps_dispatch_release
   {CState P jobs m ex} _ _ _ _ _.
+Arguments llcps_wakeup_release
+  {CState P jobs m ex} _ _ _.
 Arguments llcps_persistent_completion
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments llcps_request_sets_need_resched
@@ -181,6 +195,8 @@ Arguments llcps_choose_from_runnable
   {CState P jobs m ex} _ _ _ _ _.
 Arguments llcps_dispatch_completion
   {CState P jobs m ex} _ _ _ _ _.
+Arguments llcps_complete_sets_completed
+  {CState P jobs m ex} _ _ _.
 Arguments llcps_preempt_release
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments llcps_preempt_completion

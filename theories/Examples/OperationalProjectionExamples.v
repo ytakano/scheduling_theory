@@ -65,7 +65,7 @@ Section OperationalProjectionExamples.
       constructor.
       + simpl. reflexivity.
       + reflexivity.
-    - exists (EvComplete 0).
+    - exists (EvBlock 0).
       constructor.
       exists 0. reflexivity.
     - exists EvStutter.
@@ -222,7 +222,7 @@ Section OperationalProjectionExamples.
       (fun s s' =>
          match s, s' with
          | 0, 1 => EvDispatch 0 0
-         | 1, _ => EvComplete 0
+         | 1, _ => EvBlock 0
          | _, _ => EvStutter
          end).
 
@@ -339,6 +339,150 @@ Section OperationalProjectionExamples.
       True
       choose_concrete_stepwise
       choose_concrete_struct_inv.
+
+  Definition wakeup_state0 : OpState :=
+    mkOpState (fun _ => None) [] (fun _ => false) (fun _ => None).
+
+  Definition wakeup_state1 : OpState :=
+    add_runnable 0 wakeup_state0.
+
+  Definition wakeup_projection : OSLabeledProjection nat :=
+    mkOSLabeledProjection
+      nat
+      (mkOSProjection nat (fun n => if Nat.eqb n 0 then wakeup_state0 else wakeup_state1))
+      (fun s s' =>
+         match s, s' with
+         | 0, 1 => EvWakeup 0
+         | _, _ => EvStutter
+         end).
+
+  Definition wakeup_concrete_trace : concrete_trace nat :=
+    fun t => if Nat.eqb t 0 then 0 else 1.
+
+  Lemma wakeup_concrete_stepwise :
+    forall t,
+      op_step
+        (os_to_op_state (osl_to_os_projection wakeup_projection) (wakeup_concrete_trace t))
+        (os_step_label wakeup_projection
+           (wakeup_concrete_trace t)
+           (wakeup_concrete_trace (S t)))
+        (os_to_op_state
+           (osl_to_os_projection wakeup_projection)
+           (wakeup_concrete_trace (S t))).
+  Proof.
+    intros [|t']; simpl.
+    - constructor.
+    - constructor.
+  Qed.
+
+  Lemma wakeup_concrete_struct_inv :
+    forall t,
+      op_struct_inv
+        1
+        (os_to_op_state (osl_to_os_projection wakeup_projection) (wakeup_concrete_trace t)).
+  Proof.
+    intros [|t']; simpl.
+    - constructor.
+      + intros j c1 c2 Hlt1 Hlt2 Hrun1 _.
+        simpl in Hrun1.
+        discriminate.
+      + constructor.
+      + intros c j Hcur Hin.
+        simpl in Hcur.
+        discriminate.
+      + intros j c1 c2 Hlt1 Hlt2 Ht1 _.
+        simpl in Ht1.
+        discriminate.
+      + intros c j Hlt Ht.
+        simpl in Ht.
+        discriminate.
+    - constructor.
+      + intros j c1 c2 Hlt1 Hlt2 Hrun1 _.
+        simpl in Hrun1.
+        discriminate.
+      + constructor.
+        * simpl. tauto.
+        * constructor.
+      + intros c j Hcur Hin.
+        simpl in Hcur.
+        discriminate.
+      + intros j c1 c2 Hlt1 Hlt2 Ht1 _.
+        simpl in Ht1.
+        discriminate.
+      + intros c j Hlt Ht.
+        simpl in Ht.
+        discriminate.
+  Qed.
+
+  Definition wakeup_labeled_concrete_execution :
+      @labeled_concrete_execution nat wakeup_projection 1 :=
+    @mkLabeledConcreteExecution
+      nat
+      wakeup_projection
+      1
+      wakeup_concrete_trace
+      True
+      wakeup_concrete_stepwise
+      wakeup_concrete_struct_inv.
+
+  Definition complete_projection : OSLabeledProjection nat :=
+    mkOSLabeledProjection
+      nat
+      (mkOSProjection nat example_projection_state)
+      (fun s s' =>
+         match s, s' with
+         | 0, 1 => EvDispatch 0 0
+         | 1, _ => EvComplete 0
+         | _, _ => EvStutter
+         end).
+
+  Lemma complete_concrete_stepwise :
+    forall t,
+      op_step
+        (os_to_op_state (osl_to_os_projection complete_projection) (example_concrete_trace t))
+        (os_step_label complete_projection
+           (example_concrete_trace t)
+           (example_concrete_trace (S t)))
+        (os_to_op_state
+           (osl_to_os_projection complete_projection)
+           (example_concrete_trace (S t))).
+  Proof.
+    intros [|[|t]]; simpl.
+    - constructor.
+      + reflexivity.
+      + reflexivity.
+    - constructor.
+      exists 0. reflexivity.
+    - constructor.
+  Qed.
+
+  Lemma complete_concrete_struct_inv :
+    forall t,
+      op_struct_inv
+        1
+        (os_to_op_state
+           (osl_to_os_projection complete_projection)
+           (example_concrete_trace t)).
+  Proof.
+    intros [|[|t]]; simpl.
+    - change (op_struct_inv 1 (one_cpu_trace 0)).
+      apply one_cpu_state_struct_inv.
+    - change (op_struct_inv 1 (one_cpu_trace 1)).
+      apply one_cpu_state_struct_inv.
+    - change (op_struct_inv 1 (one_cpu_trace (S (S t)))).
+      apply one_cpu_state_struct_inv.
+  Qed.
+
+  Definition complete_labeled_concrete_execution :
+      @labeled_concrete_execution example_concrete_state complete_projection 1 :=
+    @mkLabeledConcreteExecution
+      example_concrete_state
+      complete_projection
+      1
+      example_concrete_trace
+      True
+      complete_concrete_stepwise
+      complete_concrete_struct_inv.
 
   Lemma example_concrete_stepwise :
     forall t,
@@ -466,6 +610,8 @@ Section OperationalProjectionExamples.
           discriminate.
         * simpl in Hdispatch.
           discriminate.
+    - intros t j Hwakeup.
+      destruct t as [|[|t'']]; simpl in Hwakeup; inversion Hwakeup.
     - intros t c j Hlt Hprev Hnext.
       assert (c = 0) by lia.
       subst c.
@@ -527,6 +673,8 @@ Section OperationalProjectionExamples.
           discriminate.
         * simpl in Hdispatch.
           discriminate.
+    - intros t j Hcomplete.
+      destruct t as [|[|t'']]; simpl in Hcomplete; inversion Hcomplete.
     - intros t c old new Hlt Hpreempt.
       destruct t as [|t'].
       + simpl in Hpreempt.
@@ -683,6 +831,10 @@ Section OperationalProjectionExamples.
       + discriminate.
     - intros t c j Hlt Hdispatch.
       destruct t; simpl in Hdispatch; discriminate.
+    - intros t j Hwakeup.
+      destruct t as [|t']; simpl in Hwakeup.
+      + inversion Hwakeup.
+      + discriminate.
     - intros t c j Hlt Hprev Hnext.
       destruct t; simpl in Hprev, Hnext; discriminate.
     - intros t c Hlt Hreq.
@@ -701,6 +853,8 @@ Section OperationalProjectionExamples.
       + discriminate.
     - intros t c j Hlt Hdispatch.
       destruct t; simpl in Hdispatch; discriminate.
+    - intros t j Hcomplete.
+      destruct t as [|[|t'']]; simpl in Hcomplete; inversion Hcomplete.
     - intros t c old new Hlt Hpreempt.
       destruct t as [|t']; simpl in Hpreempt; discriminate.
     - intros t c old new Hlt Hpreempt.
@@ -734,6 +888,202 @@ Section OperationalProjectionExamples.
            (c := 0) (j := 0).
     - exact choose_local_labeled_concrete_sound.
     - lia.
+    - reflexivity.
+  Qed.
+
+  Lemma wakeup_local_labeled_concrete_sound :
+    local_labeled_concrete_projection_sound
+      op_example_jobs
+      1
+      wakeup_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
+    - intros [|t'] c j Hlt Hrun; simpl in *.
+      + discriminate.
+      + discriminate.
+    - intros t c j Hlt Hdispatch.
+      destruct t; simpl in Hdispatch; discriminate.
+    - intros t j Hwakeup.
+      destruct t as [|t']; simpl in Hwakeup.
+      + inversion Hwakeup; subst.
+        unfold released, op_example_jobs, op_example_job.
+        simpl.
+        lia.
+      + discriminate.
+    - intros t c j Hlt Hprev Hnext.
+      destruct t; simpl in Hprev, Hnext; discriminate.
+    - intros t c Hlt Hreq.
+      destruct t; simpl in Hreq; discriminate.
+    - intros t c Hlt Hhandle.
+      destruct t; simpl in Hhandle; discriminate.
+    - intros t c j Hlt Hchoose.
+      destruct t; simpl in Hchoose; discriminate.
+    - intros t c j Hlt Hchoose.
+      destruct t; simpl in Hchoose; discriminate.
+    - intros t c j Hlt Hdispatch.
+      destruct t; simpl in Hdispatch; discriminate.
+    - intros t j Hcomplete.
+      destruct t as [|[|t'']]; simpl in Hcomplete; inversion Hcomplete.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t']; simpl in Hpreempt; discriminate.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t']; simpl in Hpreempt; discriminate.
+  Qed.
+
+  Example wakeup_local_contract_implies_released :
+    released op_example_jobs 0 1.
+  Proof.
+    eapply local_labeled_concrete_projection_sound_wakeup_implies_released
+      with (jobs := op_example_jobs) (ex := wakeup_labeled_concrete_execution) (t := 0) (j := 0).
+    - exact wakeup_local_labeled_concrete_sound.
+    - reflexivity.
+  Qed.
+
+  Lemma complete_local_labeled_concrete_sound :
+    local_labeled_concrete_projection_sound
+      op_example_jobs
+      1
+      complete_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
+    - intros [|[|t']] c j Hlt Hrun; simpl in *.
+      + assert (c = 0) by lia.
+        subst c.
+        inversion Hrun; subst.
+        right. left. reflexivity.
+      + destruct (Nat.eqb c 0); discriminate.
+      + left. exact Hrun.
+    - intros t c j Hlt Hdispatch.
+      destruct t as [|t'].
+      + inversion Hdispatch; subst.
+        unfold released, op_example_jobs, op_example_job.
+        simpl.
+        lia.
+      + destruct t' as [|t''].
+        * simpl in Hdispatch.
+          discriminate.
+        * simpl in Hdispatch.
+          discriminate.
+    - intros t j Hwakeup.
+      destruct t as [|[|t'']]; simpl in Hwakeup; inversion Hwakeup.
+    - intros t c j Hlt Hprev Hnext.
+      assert (c = 0) by lia.
+      subst c.
+      destruct t as [|t'].
+      + simpl in Hnext.
+        discriminate.
+      + destruct t' as [|t''].
+        * unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hprev, Hnext.
+          simpl in Hprev, Hnext.
+          discriminate.
+        * unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hprev, Hnext.
+          simpl in Hprev, Hnext.
+          discriminate.
+    - intros t c Hlt Hreq.
+      destruct t as [|t'].
+      + simpl in Hreq.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hreq.
+          discriminate.
+        * simpl in Hreq.
+          discriminate.
+    - intros t c Hlt Hhandle.
+      destruct t as [|t'].
+      + simpl in Hhandle.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hhandle.
+          discriminate.
+        * simpl in Hhandle.
+          discriminate.
+    - intros t c j Hlt Hchoose.
+      destruct t as [|t'].
+      + simpl in Hchoose.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hchoose.
+          discriminate.
+        * simpl in Hchoose.
+          discriminate.
+    - intros t c j Hlt Hchoose.
+      destruct t as [|t'].
+      + simpl in Hchoose.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hchoose.
+          discriminate.
+        * simpl in Hchoose.
+          discriminate.
+    - intros t c j Hlt Hdispatch.
+      destruct t as [|t'].
+      + inversion Hdispatch; subst.
+        unfold completed, service_job, cpu_count, runs_on, project_schedule,
+               op_example_jobs, op_example_job.
+        simpl.
+        lia.
+      + destruct t' as [|t''].
+        * simpl in Hdispatch.
+          discriminate.
+        * simpl in Hdispatch.
+          discriminate.
+    - intros t j Hcomplete.
+      destruct t as [|t'].
+      + simpl in Hcomplete.
+        discriminate.
+      + destruct t' as [|t''].
+        * inversion Hcomplete; subst.
+          unfold completed, service_job, cpu_count, runs_on, project_schedule,
+                 op_example_jobs, op_example_job.
+          simpl.
+          lia.
+        * simpl in Hcomplete.
+          discriminate.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t'].
+      + simpl in Hpreempt.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hpreempt.
+          discriminate.
+        * simpl in Hpreempt.
+          discriminate.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t'].
+      + simpl in Hpreempt.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hpreempt.
+          discriminate.
+        * simpl in Hpreempt.
+          discriminate.
+  Qed.
+
+  Example complete_local_contract_implies_completed :
+    completed
+      op_example_jobs
+      1
+      (project_schedule
+         (lex_trace
+            (concrete_to_labeled_execution complete_labeled_concrete_execution)))
+      0
+      2.
+  Proof.
+    eapply local_labeled_concrete_projection_sound_complete_implies_completed
+      with (jobs := op_example_jobs) (ex := complete_labeled_concrete_execution) (t := 1) (j := 0).
+    - exact complete_local_labeled_concrete_sound.
     - reflexivity.
   Qed.
 
