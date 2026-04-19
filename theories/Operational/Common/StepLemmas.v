@@ -92,7 +92,7 @@ Definition op_step_sound_pre (st : OpState) (ev : OpEvent) : Prop :=
 Definition op_step_range_pre (m : nat) (ev : OpEvent) : Prop :=
   match ev with
   | EvRequestResched c => c < m
-  | EvRecvIPI c => c < m
+  | EvHandleResched c => c < m
   | EvChoose c _ => c < m
   | EvDispatch c _ => c < m
   | EvPreempt c _ _ => c < m

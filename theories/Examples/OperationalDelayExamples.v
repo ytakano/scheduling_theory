@@ -2,6 +2,7 @@ From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Multicore.Common.Admissibility.
+From RocqSched Require Import Multicore.Common.PlacementFacts.
 From RocqSched Require Import Multicore.Common.ValidityFacts.
 From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.Trace.
@@ -63,10 +64,10 @@ Section OperationalDelayExamples.
     fun t => default_event_delay_sources (lex_event idle_labeled_execution t).
 
   Lemma idle_labeled_execution_sound :
-    execution_projection_sound
+    labeled_execution_projection_sound
       delay_example_jobs
       1
-      (labeled_to_execution idle_labeled_execution).
+      idle_labeled_execution.
   Proof.
     constructor.
     - intros t c j Hlt Hrun.
@@ -90,8 +91,8 @@ Section OperationalDelayExamples.
       (valid_schedule
          delay_example_jobs
          1
-         (project_schedule (ex_trace (labeled_to_execution idle_labeled_execution)))).
-    eapply execution_projection_sound_implies_valid_schedule.
+         (project_schedule (lex_trace idle_labeled_execution))).
+    eapply labeled_execution_projection_sound_implies_valid_schedule.
     exact idle_labeled_execution_sound.
   Qed.
 
@@ -185,11 +186,11 @@ Section OperationalDelayExamples.
   Qed.
 
   Lemma idle_multicore_projection_sound :
-    execution_multicore_projection_sound
+    labeled_execution_multicore_projection_sound
       delay_example_jobs
       all_cpus_admissible
       1
-      (labeled_to_execution idle_labeled_execution).
+      idle_labeled_execution.
   Proof.
     constructor.
     - exact idle_labeled_execution_sound.
@@ -214,9 +215,26 @@ Section OperationalDelayExamples.
       (multicore_semantic_validity
          delay_example_jobs
          1
-         (project_schedule (ex_trace (labeled_to_execution idle_labeled_execution)))).
-    apply execution_multicore_projection_sound_implies_semantic_validity
+         (project_schedule (lex_trace idle_labeled_execution))).
+    apply labeled_execution_multicore_projection_sound_implies_semantic_validity
       with (adm := all_cpus_admissible).
+    exact idle_multicore_projection_sound.
+  Qed.
+
+  Example idle_labeled_execution_respects_admissibility :
+    schedule_respects_admissibility
+      all_cpus_admissible
+      1
+      idle_actual_schedule.
+  Proof.
+    unfold idle_actual_schedule.
+    change
+      (schedule_respects_admissibility
+         all_cpus_admissible
+         1
+         (project_schedule (lex_trace idle_labeled_execution))).
+    eapply labeled_execution_multicore_projection_sound_implies_placement
+      with (jobs := delay_example_jobs).
     exact idle_multicore_projection_sound.
   Qed.
 
@@ -254,7 +272,7 @@ Section OperationalDelayExamples.
       0.
   Proof.
     refine
-      (mkBoundedDelayProjectionRefinement
+      (mk_bounded_delay_projection_refinement
          delay_example_jobs
          all_cpus_admissible
          1

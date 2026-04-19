@@ -7,6 +7,7 @@ From RocqSched Require Import Operational.Common.Trace.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.Invariants.
 From RocqSched Require Import Operational.Common.Execution.
+From RocqSched Require Import Operational.Common.LabeledExecution.
 
 Record projectable_trace
     (jobs : JobId -> Job) (m : nat) (tr : OpTrace) : Prop := mkProjectableTrace {
@@ -37,6 +38,21 @@ Record execution_projection_sound
         c < m ->
         op_current (ex_trace ex t) c = Some j ->
         ~ completed jobs m (project_schedule (ex_trace ex)) j t;
+  }.
+
+Record labeled_execution_projection_sound
+    (jobs : JobId -> Job) (m : nat) (ex : labeled_execution m) : Prop :=
+  mkLabeledExecutionProjectionSound {
+    leps_release_sound :
+      forall t c j,
+        c < m ->
+        op_current (lex_trace ex t) c = Some j ->
+        released jobs j t;
+    leps_completion_sound :
+      forall t c j,
+        c < m ->
+        op_current (lex_trace ex t) c = Some j ->
+        ~ completed jobs m (project_schedule (lex_trace ex)) j t;
   }.
 
 Lemma current_implies_projected_running :
@@ -116,4 +132,43 @@ Lemma projectable_trace_implies_valid_schedule :
 Proof.
   intros jobs m tr Hproj j t c Hlt Hrun.
   eapply projected_slot_eligible; eauto.
+Qed.
+
+Lemma labeled_execution_projection_sound_to_execution :
+  forall jobs m (ex : labeled_execution m),
+    labeled_execution_projection_sound jobs m ex ->
+    execution_projection_sound jobs m (labeled_to_execution ex).
+Proof.
+  intros jobs m ex Hsound.
+  constructor.
+  - intros t c j Hlt Hrun.
+    exact (leps_release_sound _ _ _ Hsound t c j Hlt Hrun).
+  - intros t c j Hlt Hrun.
+    exact (leps_completion_sound _ _ _ Hsound t c j Hlt Hrun).
+Qed.
+
+Lemma labeled_execution_projection_sound_implies_projectable :
+  forall jobs m (ex : labeled_execution m),
+    labeled_execution_projection_sound jobs m ex ->
+    projectable_trace jobs m (lex_trace ex).
+Proof.
+  intros jobs m ex Hsound.
+  refine (mkProjectableTrace jobs m (lex_trace ex) _ _ _).
+  - intros t.
+    exact (osi_no_dup _ _ (lex_struct_inv ex t)).
+  - intros t c j Hlt Hrun.
+    exact (leps_release_sound _ _ _ Hsound t c j Hlt Hrun).
+  - intros t c j Hlt Hrun.
+    exact (leps_completion_sound _ _ _ Hsound t c j Hlt Hrun).
+Qed.
+
+Lemma labeled_execution_projection_sound_implies_valid_schedule :
+  forall jobs m (ex : labeled_execution m),
+    labeled_execution_projection_sound jobs m ex ->
+    valid_schedule jobs m (project_schedule (lex_trace ex)).
+Proof.
+  intros jobs m ex Hsound.
+  apply projectable_trace_implies_valid_schedule.
+  apply labeled_execution_projection_sound_implies_projectable.
+  exact Hsound.
 Qed.

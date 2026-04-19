@@ -8,6 +8,7 @@ From RocqSched Require Import Multicore.Common.ValidityFacts.
 From RocqSched Require Import Operational.Common.Trace.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.Execution.
+From RocqSched Require Import Operational.Common.LabeledExecution.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.ProjectionInvariants.
 
@@ -94,6 +95,19 @@ Record execution_multicore_projection_sound
     forall t, op_respects_admissibility adm m (ex_trace ex t)
 }.
 
+Record labeled_execution_multicore_projection_sound
+    (jobs : JobId -> Job)
+    (adm : admissible_cpu)
+    (m : nat)
+    (ex : labeled_execution m) : Prop := {
+  lemps_projection_sound :
+    labeled_execution_projection_sound jobs m ex;
+  lemps_idle_outside :
+    forall t, op_idle_outside_range m (lex_trace ex t);
+  lemps_placement :
+    forall t, op_respects_admissibility adm m (lex_trace ex t)
+}.
+
 Lemma execution_multicore_projection_sound_implies_semantic_validity :
   forall jobs adm m ex,
     execution_multicore_projection_sound jobs adm m ex ->
@@ -114,4 +128,47 @@ Proof.
   intros jobs adm m ex Hsound.
   apply op_respects_admissibility_projected.
   exact (emps_placement _ _ _ _ Hsound).
+Qed.
+
+Lemma labeled_execution_multicore_projection_sound_to_execution :
+  forall jobs adm m (ex : labeled_execution m),
+    labeled_execution_multicore_projection_sound jobs adm m ex ->
+    execution_multicore_projection_sound jobs adm m (labeled_to_execution ex).
+Proof.
+  intros jobs adm m ex Hsound.
+  constructor.
+  - apply labeled_execution_projection_sound_to_execution.
+    exact (lemps_projection_sound _ _ _ _ Hsound).
+  - exact (lemps_idle_outside _ _ _ _ Hsound).
+  - exact (lemps_placement _ _ _ _ Hsound).
+Qed.
+
+Lemma labeled_execution_multicore_projection_sound_implies_semantic_validity :
+  forall jobs adm m (ex : labeled_execution m),
+    labeled_execution_multicore_projection_sound jobs adm m ex ->
+    multicore_semantic_validity jobs m (project_schedule (lex_trace ex)).
+Proof.
+  intros jobs adm m ex Hsound.
+  change
+    (multicore_semantic_validity
+       jobs m (project_schedule (ex_trace (labeled_to_execution ex)))).
+  apply execution_multicore_projection_sound_implies_semantic_validity
+    with (adm := adm).
+  apply labeled_execution_multicore_projection_sound_to_execution.
+  exact Hsound.
+Qed.
+
+Lemma labeled_execution_multicore_projection_sound_implies_placement :
+  forall jobs adm m (ex : labeled_execution m),
+    labeled_execution_multicore_projection_sound jobs adm m ex ->
+    schedule_respects_admissibility adm m (project_schedule (lex_trace ex)).
+Proof.
+  intros jobs adm m ex Hsound.
+  change
+    (schedule_respects_admissibility
+       adm m (project_schedule (ex_trace (labeled_to_execution ex)))).
+  eapply execution_multicore_projection_sound_implies_placement
+    with (jobs := jobs).
+  apply labeled_execution_multicore_projection_sound_to_execution.
+  exact Hsound.
 Qed.

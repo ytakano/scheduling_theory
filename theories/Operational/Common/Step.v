@@ -8,7 +8,7 @@ Inductive OpEvent : Type :=
 | EvBlock (j : JobId)
 | EvComplete (j : JobId)
 | EvRequestResched (c : CPU)
-| EvRecvIPI (c : CPU)
+| EvHandleResched (c : CPU)
 | EvChoose (c : CPU) (j : JobId)
 | EvDispatch (c : CPU) (j : JobId)
 | EvPreempt (c : CPU) (old new : JobId)
@@ -121,9 +121,9 @@ Inductive op_step : OpState -> OpEvent -> OpState -> Prop :=
 | step_request_resched :
     forall st c,
       op_step st (EvRequestResched c) (set_need_resched c true st)
-| step_recv_ipi :
+| step_handle_resched :
     forall st c,
-      op_step st (EvRecvIPI c) (set_need_resched c true st)
+      op_step st (EvHandleResched c) (set_need_resched c true st)
 | step_choose :
     forall st c j,
       In j (op_runnable st) ->

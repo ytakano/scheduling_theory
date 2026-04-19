@@ -170,6 +170,84 @@ Arguments bdr_delay_bounds {m} _.
 Arguments bdr_delay_sources {m} _ _.
 Arguments bdr_delta {m} _.
 
+Definition mk_bounded_delay_projection_refinement
+    (jobs : JobId -> Job)
+    (adm : admissible_cpu)
+    (m : nat)
+    (ex : labeled_execution m)
+    (ideal : Schedule)
+    (delay_bounds : op_delay_bounds)
+    (delay_sources : DelayTrace)
+    (delta : nat)
+    (Hactual :
+      labeled_execution_multicore_projection_sound jobs adm m ex)
+    (Hideal :
+      multicore_semantic_validity jobs m ideal)
+    (Hsources :
+      forall t src,
+        In src (default_event_delay_sources (lex_event ex t)) ->
+        In src (delay_sources t))
+    (Hbudget :
+      forall t,
+        delay_budget_le delay_bounds delay_sources 0 t delta)
+    (Hlag :
+      service_lag_le
+        m
+        ideal
+        (labeled_actual_schedule ex)
+        delta)
+    : bounded_delay_projection_refinement
+        jobs adm m ex ideal delay_bounds delay_sources delta :=
+  mkBoundedDelayProjectionRefinement
+    jobs adm m ex ideal delay_bounds delay_sources delta
+    (labeled_execution_multicore_projection_sound_to_execution
+       jobs adm m ex Hactual)
+    Hideal
+    Hsources
+    Hbudget
+    Hlag.
+
+Definition mk_bounded_delay_top_m_projection_refinement
+    (spec : GenericTopMSchedulingAlgorithm)
+    (candidates_of : CandidateSource)
+    (jobs : JobId -> Job)
+    (adm : admissible_cpu)
+    (m : nat)
+    (ex : labeled_execution m)
+    (ideal : Schedule)
+    (delay_bounds : op_delay_bounds)
+    (delay_sources : DelayTrace)
+    (delta : nat)
+    (Hactual :
+      labeled_execution_multicore_projection_sound jobs adm m ex)
+    (Hideal :
+      scheduler_rel
+        (top_m_algorithm_schedule spec candidates_of)
+        jobs m ideal)
+    (Hsources :
+      forall t src,
+        In src (default_event_delay_sources (lex_event ex t)) ->
+        In src (delay_sources t))
+    (Hbudget :
+      forall t,
+        delay_budget_le delay_bounds delay_sources 0 t delta)
+    (Hlag :
+      service_lag_le
+        m
+        ideal
+        (labeled_actual_schedule ex)
+        delta)
+    : bounded_delay_top_m_projection_refinement
+        spec candidates_of jobs adm m ex ideal delay_bounds delay_sources delta :=
+  mkBoundedDelayTopMProjectionRefinement
+    spec candidates_of jobs adm m ex ideal delay_bounds delay_sources delta
+    (labeled_execution_multicore_projection_sound_to_execution
+       jobs adm m ex Hactual)
+    Hideal
+    Hsources
+    Hbudget
+    Hlag.
+
 Lemma bounded_delay_projection_refinement_actual_semantic_validity :
   forall jobs adm m ex ideal delay_bounds delay_sources delta,
     bounded_delay_projection_refinement
