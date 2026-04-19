@@ -47,15 +47,25 @@ used by the common operational layer.
 
 The projection layer and its lemmas show how operational traces recover schedule-level execution facts such as running and validity when suitable structural invariants hold.
 
-`ProjectionLemmas.v` packages the current soundness boundary:
+`ProjectionLemmas.v` packages the current validity boundary:
 
 - `projectable_trace`
 - `execution_projection_sound`
 - consequences such as `execution_projection_sound_implies_valid_schedule`
 
+`ProjectionInvariants.v` and `ProjectionMulticoreValidity.v` extend that
+boundary with the multicore-common bridge:
+
+- operational range / placement invariants on `OpState`
+- step-preservation lemmas for those invariants
+- bundled execution-level soundness for multicore projection
+- consequences such as projected `no_duplication`,
+  `schedule_respects_admissibility`, and `multicore_semantic_validity`
+
 Concrete OS adapters may then expose OS-specific states and traces outside
 `Operational/Common`. The current `Operational/Awkernel/MinimalProjection.v`
-module is an example of such a concrete adapter layer.
+and `Operational/Awkernel/MulticoreProjection.v` modules are examples of such
+concrete adapter layers.
 
 ## Public entry points
 
@@ -139,8 +149,15 @@ These extensions should continue to project into the same semantic schedule laye
   Projection from operational traces to semantic schedules.
 - `theories/Operational/Common/ProjectionLemmas.v`
   Projection soundness lemmas linking operational traces to schedule validity.
+- `theories/Operational/Common/ProjectionInvariants.v`
+  Operational range / placement invariants used by the multicore bridge.
+- `theories/Operational/Common/ProjectionMulticoreValidity.v`
+  Trace- and execution-level bridge lemmas from operational projection to
+  `Multicore/Common`.
 - `theories/Operational/Awkernel/MinimalProjection.v`
   Concrete adapter example built on top of the common projection slice.
+- `theories/Operational/Awkernel/MulticoreProjection.v`
+  Thin Awkernel-facing entry point for the multicore projection bridge.
 
 ## Summary
 
@@ -149,5 +166,6 @@ repository.
 
 Its current scope is deliberately minimal: define an OS-neutral operational
 scheduler view and traces, project them into schedule semantics, and recover
-schedule validity from explicit invariants. It should not be documented as a
-full OS semantics before the code actually reaches that scope.
+schedule validity, no-duplication, range-idleness, and placement facts from
+explicit invariants. It should not be documented as a full OS semantics before
+the code actually reaches that scope.

@@ -3,6 +3,8 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Common.Invariants.
+From RocqSched Require Import Operational.Common.ProjectionInvariants.
+From RocqSched Require Import Multicore.Common.MultiCoreBase.
 Import ListNotations.
 
 Lemma remove_job_in :
@@ -210,4 +212,93 @@ Proof.
   - apply set_need_resched_preserves_struct_inv; assumption.
   - eapply dispatch_preserves_struct_inv; eauto using Hdispatch_lt.
   - exact Hinv.
+Qed.
+
+Definition op_step_range_pre (m : nat) (ev : OpEvent) : Prop :=
+  match ev with
+  | EvDispatch c _ => c < m
+  | EvResched c => c < m
+  | _ => True
+  end.
+
+Definition op_step_placement_pre
+    (adm : admissible_cpu) (m : nat) (st : OpState) (ev : OpEvent) : Prop :=
+  match ev with
+  | EvDispatch c j => c < m /\ adm j c
+  | _ => True
+  end.
+
+Lemma op_step_preserves_idle_outside_range :
+  forall m st ev st',
+    op_idle_outside_range m st ->
+    op_step_range_pre m ev ->
+    op_step st ev st' ->
+    op_idle_outside_range m st'.
+Proof.
+  intros m st ev st' Hid Hpre Hstep c Hge.
+  inversion Hstep; subst; clear Hstep; simpl.
+  - exact (Hid c Hge).
+  - destruct (op_current st c) as [j'|] eqn:Hcur; simpl.
+    + pose proof (Hid c Hge) as Hnone.
+      rewrite Hcur in Hnone.
+      discriminate.
+    + reflexivity.
+  - destruct (op_current st c) as [j'|] eqn:Hcur; simpl.
+    + pose proof (Hid c Hge) as Hnone.
+      rewrite Hcur in Hnone.
+      discriminate.
+    + reflexivity.
+  - exact (Hid c Hge).
+  - simpl in Hpre.
+    destruct (Nat.eqb c c0) eqn:Ecc.
+    + apply Nat.eqb_eq in Ecc. subst c.
+      exfalso. lia.
+    + exact (Hid c Hge).
+  - exact (Hid c Hge).
+Qed.
+
+Lemma op_step_preserves_admissibility :
+  forall adm m st ev st',
+    op_respects_admissibility adm m st ->
+    op_step_placement_pre adm m st ev ->
+    op_step st ev st' ->
+    op_respects_admissibility adm m st'.
+Proof.
+  intros adm m st ev st' Hadm Hpre Hstep c j Hlt Hcur.
+  inversion Hstep; subst; clear Hstep; simpl in Hcur.
+  - eapply Hadm; eauto.
+  - destruct (op_current st c) as [j'|] eqn:Hc; try discriminate.
+    destruct (Nat.eqb j' j0) eqn:Ej; try discriminate.
+    inversion Hcur; subst. eapply Hadm; eauto.
+  - destruct (op_current st c) as [j'|] eqn:Hc; try discriminate.
+    destruct (Nat.eqb j' j0) eqn:Ej; try discriminate.
+    inversion Hcur; subst. eapply Hadm; eauto.
+  - eapply Hadm; eauto.
+  - destruct Hpre as [Hdispatch_lt Hdispatch_adm].
+    destruct (Nat.eqb c c0) eqn:Ecc.
+    + apply Nat.eqb_eq in Ecc. subst c.
+      inversion Hcur; subst.
+      exact Hdispatch_adm.
+    + eapply Hadm; eauto.
+  - eapply Hadm; eauto.
+Qed.
+
+Lemma op_step_preserves_multicore_projection_inv :
+  forall adm m st ev st',
+    op_multicore_projection_inv adm m st ->
+    op_step_sound_pre st ev ->
+    op_step_range_pre m ev ->
+    op_step_placement_pre adm m st ev ->
+    op_step st ev st' ->
+    op_multicore_projection_inv adm m st'.
+Proof.
+  intros adm m st ev st' Hinv Hsound Hrange Hplace Hstep.
+  destruct Hinv as [Hstruct Hidle Hadm].
+  constructor.
+  - eapply op_step_preserves_struct_inv; eauto.
+    intros c j Heq.
+    subst ev.
+    exact Hrange.
+  - eapply op_step_preserves_idle_outside_range; eauto.
+  - eapply op_step_preserves_admissibility; eauto.
 Qed.

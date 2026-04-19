@@ -97,10 +97,14 @@ theories/Operational/Common/Invariants.v
 theories/Operational/Common/StepLemmas.v
 theories/Operational/Common/Execution.v
 theories/Operational/Common/ProjectionLemmas.v
+theories/Operational/Common/ProjectionInvariants.v
+theories/Operational/Common/ProjectionMulticoreValidity.v
 theories/Operational/Common/OSProjectionInterface.v
 theories/Operational/Common/ConcreteExecution.v
 theories/Operational/Common/OperationalEntryPoints.v
 theories/Operational/Awkernel/MinimalProjection.v
+theories/Operational/Awkernel/MulticoreProjection.v
+theories/Examples/OperationalMulticoreProjectionExamples.v
 theories/Semantics/Schedule.v
 theories/Semantics/ScheduleLemmas/ScheduleFacts.v
 theories/Semantics/ScheduleLemmas/SchedulePrefix.v

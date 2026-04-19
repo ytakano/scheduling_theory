@@ -21,6 +21,7 @@
 - periodic / sporadic / jittered-periodic task generation の初期層
 - Periodic EDF idealized-analysis の stable entry-point
 - minimal operational projection slice
+- operational-to-multicore validity bridge
 
 したがって、このファイルでは
 「証明すべきこと」を単なる未来の一覧ではなく、
@@ -945,6 +946,11 @@ internal/helper inventory として扱うもの:
 - `trace_stepwise`
 - `execution`
 - execution-first projection soundness bridge
+- `op_idle_outside_range`
+- `op_respects_admissibility`
+- `op_multicore_projection_inv`
+- execution-to-`multicore_semantic_validity` bridge
+- execution-to-placement bridge
 
 予定:
 

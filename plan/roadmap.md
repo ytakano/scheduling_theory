@@ -62,8 +62,9 @@ The intended contribution is to connect, in one reusable framework:
   - operational state / trace skeleton
   - trace-to-schedule projection
   - initial projection soundness lemmas
+  - multicore validity / placement bridge
   - OS-neutral common projection skeleton
-  - Awkernel adapter example
+  - Awkernel adapter example and thin multicore wrapper
 
 ### Interpretation of the current state
 
@@ -881,6 +882,10 @@ What is already done:
 - concrete execution wrappers over projected traces
 - schedule projection
 - execution-first bridge lemmas from operational soundness to `valid_schedule`
+- operational range / placement invariants for projected multicore schedules
+- step-preservation lemmas for the multicore projection invariant layer
+- public bridge lemmas from projected executions to
+  `multicore_semantic_validity` and placement
 - canonical common import boundary for downstream refinement
 - concrete OS adapters kept outside `Operational/Common`
 

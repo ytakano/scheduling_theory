@@ -6,6 +6,8 @@ From RocqSched Require Export Operational.Common.StepLemmas.
 From RocqSched Require Export Operational.Common.Execution.
 From RocqSched Require Export Operational.Common.Projection.
 From RocqSched Require Export Operational.Common.ProjectionLemmas.
+From RocqSched Require Export Operational.Common.ProjectionInvariants.
+From RocqSched Require Export Operational.Common.ProjectionMulticoreValidity.
 From RocqSched Require Export Operational.Common.OSProjectionInterface.
 From RocqSched Require Export Operational.Common.ConcreteExecution.
 
@@ -23,6 +25,7 @@ From RocqSched Require Export Operational.Common.ConcreteExecution.
     - OS-neutral projection from concrete traces to operational traces
     - projection from operational traces to semantic schedules
     - projection soundness lemmas
+    - multicore validity and placement bridge lemmas
 
     Not part of this layer:
     - concrete OS-specific state definitions

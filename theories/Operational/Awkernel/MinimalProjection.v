@@ -7,6 +7,11 @@ From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.Invariants.
 From RocqSched Require Import Operational.Common.Execution.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
+From RocqSched Require Import Operational.Common.ProjectionInvariants.
+From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
+From RocqSched Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Multicore.Common.PlacementFacts.
+From RocqSched Require Import Multicore.Common.ValidityFacts.
 Import ListNotations.
 
 Record AwkernelState : Type := mkAwkernelState {
@@ -29,6 +34,13 @@ Definition awk_project_schedule (tr : AwkernelTrace) : Schedule :=
 Definition awk_projected_running
     (m : nat) (tr : AwkernelTrace) (j : JobId) (t : Time) : Prop :=
   projected_running m (awk_to_op_trace tr) j t.
+
+Definition awk_idle_outside_range (m : nat) (st : AwkernelState) : Prop :=
+  op_idle_outside_range m (awk_to_op_state st).
+
+Definition awk_respects_admissibility
+    (adm : admissible_cpu) (m : nat) (st : AwkernelState) : Prop :=
+  op_respects_admissibility adm m (awk_to_op_state st).
 
 Record awk_execution (m : nat) : Type := mkAwkExecution {
   awk_ex_trace : AwkernelTrace;
@@ -53,6 +65,13 @@ Definition awk_to_execution {m} (ex : awk_execution m) : execution m :=
 Definition awk_trace_sound
     (jobs : JobId -> Job) (m : nat) (ex : awk_execution m) : Prop :=
   execution_projection_sound jobs m (awk_to_execution ex).
+
+Definition awk_multicore_projection_sound
+    (jobs : JobId -> Job)
+    (adm : admissible_cpu)
+    (m : nat)
+    (ex : awk_execution m) : Prop :=
+  execution_multicore_projection_sound jobs adm m (awk_to_execution ex).
 
 Lemma awk_project_schedule_eq :
   forall tr t c,
@@ -83,5 +102,31 @@ Proof.
   change (valid_schedule jobs m
             (project_schedule (ex_trace (awk_to_execution ex)))).
   apply execution_projection_sound_implies_valid_schedule.
+  exact Hsound.
+Qed.
+
+Lemma awk_multicore_projection_sound_implies_semantic_validity :
+  forall jobs adm m ex,
+    awk_multicore_projection_sound jobs adm m ex ->
+    multicore_semantic_validity jobs m (awk_project_schedule (awk_ex_trace ex)).
+Proof.
+  intros jobs adm m ex Hsound.
+  unfold awk_multicore_projection_sound in Hsound.
+  change (multicore_semantic_validity jobs m
+            (project_schedule (ex_trace (awk_to_execution ex)))).
+  eapply execution_multicore_projection_sound_implies_semantic_validity.
+  exact Hsound.
+Qed.
+
+Lemma awk_multicore_projection_sound_implies_placement :
+  forall jobs adm m ex,
+    awk_multicore_projection_sound jobs adm m ex ->
+    schedule_respects_admissibility adm m (awk_project_schedule (awk_ex_trace ex)).
+Proof.
+  intros jobs adm m ex Hsound.
+  unfold awk_multicore_projection_sound in Hsound.
+  change (schedule_respects_admissibility adm m
+            (project_schedule (ex_trace (awk_to_execution ex)))).
+  eapply execution_multicore_projection_sound_implies_placement.
   exact Hsound.
 Qed.

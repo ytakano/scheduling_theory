@@ -104,9 +104,16 @@ Concrete OS state
   -> `OpTrace`
   -> `project_schedule`
   -> semantic `Schedule`
+  -> `multicore_semantic_validity`
+  -> placement / admissibility obligations
 
 The refinement layer may then state that the projected schedule satisfies
 validity, admissibility, placement, or scheduler-policy obligations.
+
+The current common operational bridge now exposes that path through:
+
+- `Operational/Common/ProjectionMulticoreValidity.v`
+- `Operational/Awkernel/MulticoreProjection.v`
 
 This operational projection boundary is distinct from
 `theories/Refinement/SchedulingAlgorithmRefinement.v`.
