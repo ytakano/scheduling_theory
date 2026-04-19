@@ -374,6 +374,7 @@ reuse, and maintain.
 ## Compilation
 
 There is **no Rocq compiler in this environment**.
+Do **not** try to compile Rocq files directly on the host.
 **Compile Rocq files by Docker** as follows.
 
 ```
@@ -383,3 +384,15 @@ docker exec docker-scheduling_theory-1 zsh -lc 'cd /scheduling_theory && make -j
 ```
 docker exec docker-scheduling_theory-1 zsh -lc 'cd /scheduling_theory && make <file>.vo'
 ```
+
+## Git commits
+
+When committing changes in `scheduling_theory/`, use a detailed commit message.
+
+The subject should summarize the semantic or structural change.
+The body should explain:
+- what changed,
+- which abstraction layer it affects,
+- and why the change was needed.
+
+Do not use a subject-only commit message for nontrivial theory changes.
