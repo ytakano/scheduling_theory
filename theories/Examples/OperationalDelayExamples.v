@@ -102,6 +102,12 @@ Section OperationalDelayExamples.
     reflexivity.
   Qed.
 
+  Example preempt_event_uses_dispatch_delay_source :
+    default_event_delay_sources (EvPreempt 0 0 1) = [DelayDispatch].
+  Proof.
+    reflexivity.
+  Qed.
+
   Definition timer_heavy_bounds : op_delay_bounds :=
     mkOpDelayBounds 0 0 2 0 0 0.
 

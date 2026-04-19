@@ -8,6 +8,9 @@ From RocqSched Require Import Operational.Common.Trace.
 From RocqSched Require Import Operational.Common.Invariants.
 From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Common.Execution.
+From RocqSched Require Import Operational.Common.ConcreteExecution.
+From RocqSched Require Import Operational.Common.LabeledExecution.
+From RocqSched Require Import Operational.Common.OSProjectionInterface.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 Import ListNotations.
@@ -24,13 +27,7 @@ Section OperationalProjectionExamples.
     mkOpState (fun _ => None) [0] (fun _ => true) (fun c => if Nat.eqb c 0 then Some 0 else None).
 
   Definition one_cpu_state1 : OpState :=
-    clear_need_resched 0
-      (clear_dispatch_target 0
-         (mkOpState
-            (fun c => if Nat.eqb c 0 then Some 0 else op_current one_cpu_state0 c)
-            (remove_job 0 (op_runnable one_cpu_state0))
-            (op_need_resched one_cpu_state0)
-            (op_dispatch_target one_cpu_state0))).
+    dispatch_on_cpu 0 0 one_cpu_state0.
 
   Definition one_cpu_state2 : OpState :=
     clear_current_and_request 0 one_cpu_state1.
@@ -168,6 +165,125 @@ Section OperationalProjectionExamples.
 
   Definition one_cpu_execution : execution 1 :=
     mkExecution 1 one_cpu_trace True one_cpu_trace_stepwise one_cpu_state_struct_inv.
+
+  Definition preempt_state0 : OpState :=
+    mkOpState
+      (fun c => if Nat.eqb c 0 then Some 0 else None)
+      [1]
+      (fun c => if Nat.eqb c 0 then true else false)
+      (fun c => if Nat.eqb c 0 then Some 1 else None).
+
+  Definition preempt_state1 : OpState :=
+    preempt_on_cpu 0 0 1 preempt_state0.
+
+  Example preempt_state_switches_running_job :
+    op_current preempt_state1 0 = Some 1.
+  Proof.
+    reflexivity.
+  Qed.
+
+  Example preempt_state_requeues_old_job :
+    op_runnable preempt_state1 = [0].
+  Proof.
+    reflexivity.
+  Qed.
+
+  Example preempt_step_is_available :
+    op_step preempt_state0 (EvPreempt 0 0 1) preempt_state1.
+  Proof.
+    constructor.
+    - reflexivity.
+    - intros c' Hcur.
+      destruct (Nat.eqb c' 0) eqn:Ec'; [apply Nat.eqb_eq in Ec'; exact Ec'|].
+      simpl in Hcur.
+      rewrite Ec' in Hcur.
+      discriminate.
+    - reflexivity.
+    - discriminate.
+  Qed.
+
+  Definition example_concrete_state : Type := nat.
+
+  Definition example_projection_state (n : nat) : OpState :=
+    match n with
+    | 0 => one_cpu_state0
+    | 1 => one_cpu_state1
+    | _ => one_cpu_state2
+    end.
+
+  Definition example_projection : OSLabeledProjection example_concrete_state :=
+    mkOSLabeledProjection
+      example_concrete_state
+      (mkOSProjection example_concrete_state example_projection_state)
+      (fun s s' =>
+         match s, s' with
+         | 0, 1 => EvDispatch 0 0
+         | 1, _ => EvComplete 0
+         | _, _ => EvTick
+         end).
+
+  Definition example_concrete_trace : concrete_trace example_concrete_state :=
+    fun t =>
+      match t with
+      | 0 => 0
+      | 1 => 1
+      | _ => 2
+      end.
+
+  Lemma example_concrete_stepwise :
+    forall t,
+      op_step
+        (os_to_op_state (osl_to_os_projection example_projection) (example_concrete_trace t))
+        (os_step_label example_projection
+           (example_concrete_trace t)
+           (example_concrete_trace (S t)))
+        (os_to_op_state
+           (osl_to_os_projection example_projection)
+           (example_concrete_trace (S t))).
+  Proof.
+    intros [|[|t]]; simpl.
+    - constructor.
+      + reflexivity.
+      + reflexivity.
+    - constructor.
+      exists 0. reflexivity.
+    - constructor.
+  Qed.
+
+  Lemma example_concrete_struct_inv :
+    forall t,
+      op_struct_inv
+        1
+        (os_to_op_state
+           (osl_to_os_projection example_projection)
+           (example_concrete_trace t)).
+  Proof.
+    intros [|[|t]]; simpl.
+    - change (op_struct_inv 1 (one_cpu_trace 0)).
+      apply one_cpu_state_struct_inv.
+    - change (op_struct_inv 1 (one_cpu_trace 1)).
+      apply one_cpu_state_struct_inv.
+    - change (op_struct_inv 1 (one_cpu_trace (S (S t)))).
+      apply one_cpu_state_struct_inv.
+  Qed.
+
+  Definition example_labeled_concrete_execution :
+      @labeled_concrete_execution example_concrete_state example_projection 1 :=
+    @mkLabeledConcreteExecution
+      example_concrete_state
+      example_projection
+      1
+      example_concrete_trace
+      True
+      example_concrete_stepwise
+      example_concrete_struct_inv.
+
+  Example concrete_projection_exposes_dispatch_label :
+    lex_event (concrete_to_labeled_execution example_labeled_concrete_execution) 0 =
+    EvDispatch 0 0.
+  Proof.
+    reflexivity.
+  Qed.
 
   Lemma one_cpu_execution_sound :
     execution_projection_sound op_example_long_jobs 1 one_cpu_execution.

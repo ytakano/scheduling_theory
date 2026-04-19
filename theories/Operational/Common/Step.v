@@ -11,6 +11,7 @@ Inductive OpEvent : Type :=
 | EvRecvIPI (c : CPU)
 | EvChoose (c : CPU) (j : JobId)
 | EvDispatch (c : CPU) (j : JobId)
+| EvPreempt (c : CPU) (old new : JobId)
 | EvTick.
 
 Definition add_runnable (j : JobId) (st : OpState) : OpState :=
@@ -71,6 +72,25 @@ Definition set_dispatch_target (c : CPU) (oj : option JobId) (st : OpState) : Op
 Definition clear_dispatch_target (c : CPU) (st : OpState) : OpState :=
   set_dispatch_target c None st.
 
+Definition dispatch_on_cpu (c : CPU) (j : JobId) (st : OpState) : OpState :=
+  clear_need_resched c
+    (clear_dispatch_target c
+       (mkOpState
+          (fun c' => if Nat.eqb c' c then Some j else op_current st c')
+          (remove_job j (op_runnable st))
+          (op_need_resched st)
+          (op_dispatch_target st))).
+
+Definition preempt_on_cpu
+    (c : CPU) (old new : JobId) (st : OpState) : OpState :=
+  clear_need_resched c
+    (clear_dispatch_target c
+       (mkOpState
+          (fun c' => if Nat.eqb c' c then Some new else op_current st c')
+          (old :: remove_job new (op_runnable st))
+          (op_need_resched st)
+          (op_dispatch_target st))).
+
 Definition clear_current_and_request (j : JobId) (st : OpState) : OpState :=
   mkOpState
     (fun c =>
@@ -114,14 +134,14 @@ Inductive op_step : OpState -> OpEvent -> OpState -> Prop :=
     forall st c j,
       op_dispatch_target st c = Some j ->
       op_current st c = None ->
-      op_step st (EvDispatch c j)
-        (clear_need_resched c
-           (clear_dispatch_target c
-              (mkOpState
-                 (fun c' => if Nat.eqb c' c then Some j else op_current st c')
-                 (remove_job j (op_runnable st))
-                 (op_need_resched st)
-                 (op_dispatch_target st))))
+      op_step st (EvDispatch c j) (dispatch_on_cpu c j st)
+| step_preempt :
+    forall st c old new,
+      op_current st c = Some old ->
+      (forall c', op_current st c' = Some old -> c' = c) ->
+      op_dispatch_target st c = Some new ->
+      old <> new ->
+      op_step st (EvPreempt c old new) (preempt_on_cpu c old new st)
 | step_tick :
     forall st,
       op_step st EvTick st.

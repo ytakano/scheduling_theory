@@ -95,6 +95,7 @@ Definition op_step_range_pre (m : nat) (ev : OpEvent) : Prop :=
   | EvRecvIPI c => c < m
   | EvChoose c _ => c < m
   | EvDispatch c _ => c < m
+  | EvPreempt c _ _ => c < m
   | _ => True
   end.
 
@@ -102,6 +103,7 @@ Definition op_step_placement_pre
     (adm : admissible_cpu) (m : nat) (st : OpState) (ev : OpEvent) : Prop :=
   match ev with
   | EvDispatch c j => c < m /\ adm j c
+  | EvPreempt c _ j => c < m /\ adm j c
   | _ => True
   end.
 
@@ -299,6 +301,88 @@ Proof.
       apply remove_job_preserves_member; assumption.
 Qed.
 
+Lemma preempt_preserves_struct_inv :
+  forall m st c old new,
+    op_struct_inv m st ->
+    op_current st c = Some old ->
+    (forall c', op_current st c' = Some old -> c' = c) ->
+    op_dispatch_target st c = Some new ->
+    old <> new ->
+    c < m ->
+    op_struct_inv m (preempt_on_cpu c old new st).
+Proof.
+  intros m st c old new Hinv Hcurrent Hunique Htarget Hneq Hltc.
+  destruct Hinv as [Hdup Hnodup Hsep Hdispatchdup Hdispatchrun].
+  assert (Hold_notin : ~ In old (op_runnable st)).
+  { eapply Hsep; eauto. }
+  assert (Hnew_in : In new (op_runnable st)).
+  { eapply Hdispatchrun; eauto. }
+  constructor.
+  - intros j c1 c2 Hlt1 Hlt2 Hcur1 Hcur2.
+    simpl in Hcur1, Hcur2.
+    destruct (Nat.eqb c1 c) eqn:Ec1, (Nat.eqb c2 c) eqn:Ec2.
+    + apply Nat.eqb_eq in Ec1.
+      apply Nat.eqb_eq in Ec2.
+      lia.
+    + apply Nat.eqb_eq in Ec1.
+      apply Nat.eqb_neq in Ec2.
+      subst c1.
+      inversion Hcur1; subst j.
+      exfalso.
+      eapply Hsep; eauto.
+    + apply Nat.eqb_neq in Ec1.
+      apply Nat.eqb_eq in Ec2.
+      subst c2.
+      inversion Hcur2; subst j.
+      exfalso.
+      eapply Hsep; eauto.
+    + eapply Hdup; eauto.
+  - simpl.
+    constructor.
+    + intros Hin.
+      apply remove_job_in in Hin as [Hin' _].
+      contradiction.
+    + apply remove_job_preserves_NoDup.
+      exact Hnodup.
+  - intros c' j Hcur Hin.
+    simpl in Hcur.
+    destruct (Nat.eqb c' c) eqn:Ecc.
+    + apply Nat.eqb_eq in Ecc.
+      subst c'.
+      inversion Hcur; subst j.
+      destruct Hin as [Heq_old | Hin_new].
+      * contradiction.
+      * exact (remove_job_not_in new (op_runnable st) Hin_new).
+    + apply Nat.eqb_neq in Ecc.
+      destruct Hin as [Heq_old | Hin_new].
+      * subst j.
+        exfalso.
+        pose proof (Hunique c' Hcur) as Heqcc.
+        contradiction.
+      * apply remove_job_in in Hin_new as [Hin_old _].
+        eapply (Hsep c' j Hcur).
+        exact Hin_old.
+  - intros j c1 c2 Hlt1 Hlt2 Ht1 Ht2.
+    simpl in Ht1, Ht2.
+    destruct (Nat.eqb c1 c) eqn:Ec1, (Nat.eqb c2 c) eqn:Ec2; try discriminate.
+    eapply Hdispatchdup; eauto.
+  - intros c' j Hlt' Ht.
+    simpl in Ht.
+    destruct (Nat.eqb c' c) eqn:Ecc.
+    + discriminate.
+    + assert (Hin_old : In j (op_runnable st)).
+      { eapply Hdispatchrun; eauto. }
+      assert (j <> new).
+      { intros Heq.
+        subst j.
+        apply Nat.eqb_neq in Ecc.
+        pose proof (Hdispatchdup new c c' Hltc Hlt' Htarget Ht) as Heqcc.
+        lia.
+      }
+      right.
+      apply remove_job_preserves_member; assumption.
+Qed.
+
 Lemma op_step_preserves_struct_inv :
   forall m st ev st',
     op_struct_inv m st ->
@@ -317,6 +401,7 @@ Proof.
   - apply set_need_resched_preserves_struct_inv; assumption.
   - eapply choose_preserves_struct_inv; eauto.
   - eapply dispatch_preserves_struct_inv; eauto.
+  - eapply preempt_preserves_struct_inv; eauto.
   - exact Hinv.
 Qed.
 
@@ -349,6 +434,12 @@ Proof.
       simpl in Hpre.
       lia.
     + exact (Hid c Hge).
+  - destruct (Nat.eqb c c0) eqn:Ecc.
+    + apply Nat.eqb_eq in Ecc. subst c.
+      exfalso.
+      simpl in Hpre.
+      lia.
+    + exact (Hid c Hge).
   - exact (Hid c Hge).
 Qed.
 
@@ -371,6 +462,12 @@ Proof.
   - eapply Hadm; eauto.
   - eapply Hadm; eauto.
   - eapply Hadm; eauto.
+  - destruct Hpre as [Hdispatch_lt Hdispatch_adm].
+    destruct (Nat.eqb c c0) eqn:Ecc.
+    + apply Nat.eqb_eq in Ecc. subst c.
+      inversion Hcur; subst.
+      exact Hdispatch_adm.
+    + eapply Hadm; eauto.
   - destruct Hpre as [Hdispatch_lt Hdispatch_adm].
     destruct (Nat.eqb c c0) eqn:Ecc.
     + apply Nat.eqb_eq in Ecc. subst c.

@@ -6,6 +6,8 @@ From RocqSched Require Import Operational.Common.Trace.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.Invariants.
 From RocqSched Require Import Operational.Common.Execution.
+From RocqSched Require Import Operational.Common.Step.
+From RocqSched Require Import Operational.Common.OSProjectionInterface.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.ProjectionInvariants.
 From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
@@ -32,6 +34,14 @@ Definition AwkernelTrace : Type := Time -> AwkernelState.
 
 Definition awk_to_op_trace (tr : AwkernelTrace) : OpTrace :=
   fun t => awk_to_op_state (tr t).
+
+Definition awk_projection : OSProjection AwkernelState :=
+  mkOSProjection AwkernelState awk_to_op_state.
+
+Definition awk_labeled_projection
+    (labeler : AwkernelState -> AwkernelState -> OpEvent)
+    : OSLabeledProjection AwkernelState :=
+  mkOSLabeledProjection AwkernelState awk_projection labeler.
 
 Definition awk_project_schedule (tr : AwkernelTrace) : Schedule :=
   project_schedule (awk_to_op_trace tr).

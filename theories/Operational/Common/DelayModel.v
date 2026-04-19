@@ -34,6 +34,7 @@ Definition delay_bound_of
 Definition default_event_delay_sources (ev : OpEvent) : list op_delay_source :=
   match ev with
   | EvDispatch _ _ => [DelayDispatch]
+  | EvPreempt _ _ _ => [DelayDispatch]
   | EvWakeup _ => [DelayWakeup]
   | EvRequestResched _ => []
   | EvRecvIPI _ => [DelayIPI]
