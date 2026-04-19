@@ -1,3 +1,33 @@
+# Rocq specialist guidance
+
+You are in scheduling_theory/.
+
+Primary responsibility:
+- abstract state
+- events
+- step relations
+- invariants
+- refinement obligations
+- proof skeletons
+- minimal public interfaces
+
+What to optimize for:
+- fewer observables
+- smaller common-layer interfaces
+- stable proof-facing abstractions
+
+Required output structure:
+1. Semantic assumptions
+2. Required observable events
+3. Interface delta
+4. Proof obligations
+5. Risks for the Rust design
+
+Rules:
+- Do not require runtime-specific detail unless it is truly necessary for the proof story.
+- Prefer proof obligations that downstream adapters can discharge outside the common layer.
+- When design wording matters, coordinate with design/ language but keep the theory primary.
+
 # Repository Guidelines
 
 ## Purpose
@@ -340,3 +370,16 @@ Favor structure over patching.
 A good change in this repository should make the next theorem,
 the next refinement step, or the next task-model extension easier to understand,
 reuse, and maintain.
+
+## Compilation
+
+There is **no Rocq compiler in this environment**.
+**Compile Rocq files by Docker** as follows.
+
+```
+docker exec docker-scheduling_theory-1 zsh -lc 'cd /scheduling_theory && make -j2'
+```
+
+```
+docker exec docker-scheduling_theory-1 zsh -lc 'cd /scheduling_theory && make <file>.vo'
+```
