@@ -16,6 +16,7 @@ From RocqSched Require Import Operational.Common.DelayModel.
 From RocqSched Require Import Operational.Common.DelayBudget.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
 From RocqSched Require Import Operational.Common.ConcreteExecution.
+From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
 From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
 From RocqSched Require Import Refinement.BoundedDelayRefinement.
@@ -274,6 +275,58 @@ Section OperationalDelayExamples.
       discriminate.
   Qed.
 
+  Lemma idle_local_concrete_multicore_projection_sound :
+    local_labeled_concrete_multicore_projection_sound
+      delay_example_jobs
+      all_cpus_admissible
+      1
+      idle_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - constructor.
+      + intros c j Hlt Hrun.
+        simpl in Hrun.
+        discriminate.
+      + intros c j Hlt Hrun.
+        simpl in Hrun.
+        discriminate.
+      + intros t c j Hlt Hrun.
+        left.
+        exact Hrun.
+      + intros t c j Hlt Hdispatch.
+        discriminate.
+      + intros t c j Hlt Hprev Hnext.
+        simpl in Hprev.
+        discriminate.
+      + intros t c j Hlt Hdispatch.
+        discriminate.
+      + intros t c old new Hlt Hpreempt.
+        discriminate.
+      + intros t c old new Hlt Hpreempt.
+        discriminate.
+    - intros t.
+      intros c Hge.
+      reflexivity.
+    - intros t c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
+  Qed.
+
+  Definition idle_local_adapter_contract :
+    os_local_multicore_adapter_contract
+      idle_projection
+      delay_example_jobs
+      all_cpus_admissible
+      1 :=
+    @mkOSLocalMulticoreAdapterContract
+      unit
+      idle_projection
+      delay_example_jobs
+      all_cpus_admissible
+      1
+      idle_labeled_concrete_execution
+      idle_local_concrete_multicore_projection_sound.
+
   Definition idle_concrete_adapter_contract :
     os_multicore_adapter_contract
       idle_projection
@@ -299,6 +352,18 @@ Section OperationalDelayExamples.
                (oac_execution idle_concrete_adapter_contract)))).
   Proof.
     apply os_multicore_adapter_contract_implies_semantic_validity.
+  Qed.
+
+  Example local_adapter_contract_yields_semantic_validity :
+    multicore_semantic_validity
+      delay_example_jobs
+      1
+      (project_schedule
+         (lex_trace
+            (concrete_to_labeled_execution
+               (olac_execution idle_local_adapter_contract)))).
+  Proof.
+    apply os_local_multicore_adapter_contract_implies_semantic_validity.
   Qed.
 
   Example idle_labeled_execution_respects_admissibility :

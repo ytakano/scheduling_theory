@@ -12,6 +12,7 @@ From RocqSched Require Import Operational.Common.Execution.
 From RocqSched Require Import Operational.Common.ConcreteExecution.
 From RocqSched Require Import Operational.Common.LabeledExecution.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
+From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
@@ -328,6 +329,82 @@ Section OperationalProjectionExamples.
           discriminate.
   Qed.
 
+  Lemma example_local_labeled_concrete_sound :
+    local_labeled_concrete_projection_sound
+      op_example_long_jobs
+      1
+      example_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
+    - intros [|[|t']] c j Hlt Hrun; simpl in *.
+      + assert (c = 0) by lia.
+        subst c.
+        inversion Hrun; subst.
+        right. left. reflexivity.
+      + destruct (Nat.eqb c 0); discriminate.
+      + left. exact Hrun.
+    - intros t c j Hlt Hdispatch.
+      destruct t as [|t'].
+      + inversion Hdispatch; subst.
+        unfold released, op_example_long_jobs, op_example_long_job.
+        simpl.
+        lia.
+      + destruct t' as [|t''].
+        * simpl in Hdispatch.
+          discriminate.
+        * simpl in Hdispatch.
+          discriminate.
+    - intros t c j Hlt Hprev Hnext.
+      assert (c = 0) by lia.
+      subst c.
+      destruct t as [|t'].
+      + simpl in Hnext.
+        discriminate.
+      + destruct t' as [|t''].
+        * unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hprev, Hnext.
+          simpl in Hprev, Hnext.
+          discriminate.
+        * unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hprev, Hnext.
+          simpl in Hprev, Hnext.
+          discriminate.
+    - intros t c j Hlt Hdispatch.
+      destruct t as [|t'].
+      + inversion Hdispatch; subst.
+        unfold completed, service_job, cpu_count, runs_on, project_schedule,
+               op_example_long_jobs, op_example_long_job.
+        simpl.
+        lia.
+      + destruct t' as [|t''].
+        * simpl in Hdispatch.
+          discriminate.
+        * simpl in Hdispatch.
+          discriminate.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t'].
+      + simpl in Hpreempt.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hpreempt.
+          discriminate.
+        * simpl in Hpreempt.
+          discriminate.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t'].
+      + simpl in Hpreempt.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hpreempt.
+          discriminate.
+        * simpl in Hpreempt.
+          discriminate.
+  Qed.
+
   Lemma example_labeled_concrete_multicore_sound :
     labeled_concrete_multicore_projection_sound
       op_example_long_jobs
@@ -360,6 +437,53 @@ Section OperationalProjectionExamples.
         destruct (Nat.eqb c 0); discriminate.
   Qed.
 
+  Lemma example_local_labeled_concrete_multicore_sound :
+    local_labeled_concrete_multicore_projection_sound
+      op_example_long_jobs
+      all_cpus_admissible
+      1
+      example_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - exact example_local_labeled_concrete_sound.
+    - intros [|[|t']] c Hge; simpl.
+      + destruct (Nat.eqb c 0) eqn:Ec0.
+        * apply Nat.eqb_eq in Ec0. lia.
+        * reflexivity.
+      + destruct (Nat.eqb c 0) eqn:Ec0.
+        * apply Nat.eqb_eq in Ec0. lia.
+        * reflexivity.
+      + destruct (Nat.eqb c 0) eqn:Ec0.
+        * apply Nat.eqb_eq in Ec0. lia.
+        * reflexivity.
+    - intros [|[|t']] c j Hlt Hrun.
+      + simpl in Hrun.
+        discriminate.
+      + simpl in Hrun.
+        assert (c = 0) by lia.
+        subst c.
+        inversion Hrun; subst.
+        unfold all_cpus_admissible.
+        exact I.
+      + simpl in Hrun.
+        destruct (Nat.eqb c 0); discriminate.
+  Qed.
+
+  Definition example_local_adapter_contract :
+    os_local_multicore_adapter_contract
+      example_projection
+      op_example_long_jobs
+      all_cpus_admissible
+      1 :=
+    @mkOSLocalMulticoreAdapterContract
+      example_concrete_state
+      example_projection
+      op_example_long_jobs
+      all_cpus_admissible
+      1
+      example_labeled_concrete_execution
+      example_local_labeled_concrete_multicore_sound.
+
   Definition example_adapter_contract :
     os_multicore_adapter_contract
       example_projection
@@ -385,6 +509,18 @@ Section OperationalProjectionExamples.
                (oac_execution example_adapter_contract)))).
   Proof.
     apply os_multicore_adapter_contract_implies_valid_schedule.
+  Qed.
+
+  Example local_adapter_contract_yields_valid_schedule :
+    valid_schedule
+      op_example_long_jobs
+      1
+      (project_schedule
+         (lex_trace
+            (concrete_to_labeled_execution
+               (olac_execution example_local_adapter_contract)))).
+  Proof.
+    apply os_local_multicore_adapter_contract_implies_valid_schedule.
   Qed.
 
   Lemma one_cpu_execution_sound :

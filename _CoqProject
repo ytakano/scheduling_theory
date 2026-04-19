@@ -104,6 +104,7 @@ theories/Operational/Common/ProjectionInvariants.v
 theories/Operational/Common/ProjectionMulticoreValidity.v
 theories/Operational/Common/OSProjectionInterface.v
 theories/Operational/Common/ConcreteExecution.v
+theories/Operational/Common/OSLocalAdapterContract.v
 theories/Operational/Common/OSAdapterContract.v
 theories/Operational/Common/OperationalEntryPoints.v
 theories/Operational/Awkernel/MinimalProjection.v

@@ -1,6 +1,7 @@
-From Stdlib Require Import List.
+From Stdlib Require Import List Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
@@ -17,9 +18,76 @@ From RocqSched Require Import Operational.Common.DelayBudget.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
+From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
 From RocqSched Require Import Refinement.BoundedDelayRefinement.
 Import ListNotations.
+
+Lemma local_labeled_concrete_projection_sound_to_global :
+  forall CState (P : OSLabeledProjection CState) jobs m
+         (ex : labeled_concrete_execution P m),
+    local_labeled_concrete_projection_sound jobs m ex ->
+    labeled_concrete_projection_sound jobs m ex.
+Proof.
+  intros CState P jobs m ex Hlocal.
+  constructor.
+  - intros t.
+    induction t as [|t IH]; intros c j Hlt Hrun.
+    + exact (llcps_init_release Hlocal c j Hlt Hrun).
+    + destruct (llcps_current_origin Hlocal t c j Hlt Hrun) as [Hprev | [Hdispatch | Hpreempt]].
+      * unfold released in *.
+        specialize (IH c j Hlt Hprev).
+        lia.
+      * exact (llcps_dispatch_release Hlocal t c j Hlt Hdispatch).
+      * destruct Hpreempt as [old Hpreempt].
+        exact (llcps_preempt_release Hlocal t c old j Hlt Hpreempt).
+  - intros t.
+    induction t as [|t IH]; intros c j Hlt Hrun.
+    + exact (llcps_init_completion Hlocal c j Hlt Hrun).
+    + destruct (llcps_current_origin Hlocal t c j Hlt Hrun) as [Hprev | [Hdispatch | Hpreempt]].
+      * exact (llcps_persistent_completion Hlocal t c j Hlt Hprev Hrun).
+      * exact (llcps_dispatch_completion Hlocal t c j Hlt Hdispatch).
+      * destruct Hpreempt as [old Hpreempt].
+        exact (llcps_preempt_completion Hlocal t c old j Hlt Hpreempt).
+Qed.
+
+Lemma local_labeled_concrete_multicore_projection_sound_to_global :
+  forall CState (P : OSLabeledProjection CState) jobs adm m
+         (ex : labeled_concrete_execution P m),
+    local_labeled_concrete_multicore_projection_sound jobs adm m ex ->
+    labeled_concrete_multicore_projection_sound jobs adm m ex.
+Proof.
+  intros CState P jobs adm m ex Hlocal.
+  constructor.
+  - apply local_labeled_concrete_projection_sound_to_global.
+    exact (llcmps_projection_sound Hlocal).
+  - exact (llcmps_idle_outside Hlocal).
+  - exact (llcmps_placement Hlocal).
+Qed.
+
+Definition os_local_multicore_adapter_contract_to_global
+    {CState : Type}
+    {P : OSLabeledProjection CState}
+    {jobs : JobId -> Job}
+    {adm : admissible_cpu}
+    {m : nat}
+    (C : os_local_multicore_adapter_contract P jobs adm m)
+  : os_multicore_adapter_contract P jobs adm m :=
+  @mkOSMulticoreAdapterContract
+    CState
+    P
+    jobs
+    adm
+    m
+    (olac_execution C)
+    (local_labeled_concrete_multicore_projection_sound_to_global
+       CState
+       P
+       jobs
+       adm
+       m
+       (olac_execution C)
+       (olac_sound C)).
 
 Lemma labeled_concrete_projection_sound_to_labeled_execution :
   forall CState (P : OSLabeledProjection CState) jobs m
@@ -221,6 +289,27 @@ Proof.
   exact Hsound.
 Qed.
 
+Lemma os_local_multicore_adapter_contract_implies_valid_schedule :
+  forall CState (P : OSLabeledProjection CState) jobs adm m
+         (C : os_local_multicore_adapter_contract P jobs adm m),
+    valid_schedule
+      jobs
+      m
+      (project_schedule
+         (lex_trace (concrete_to_labeled_execution (olac_execution C)))).
+Proof.
+  intros CState P jobs adm m C.
+  change
+    (valid_schedule
+       jobs
+       m
+       (project_schedule
+          (lex_trace
+             (concrete_to_labeled_execution
+                (oac_execution (os_local_multicore_adapter_contract_to_global C)))))).
+  apply os_multicore_adapter_contract_implies_valid_schedule.
+Qed.
+
 Lemma os_multicore_adapter_contract_implies_semantic_validity :
   forall CState (P : OSLabeledProjection CState) jobs adm m
          (C : os_multicore_adapter_contract P jobs adm m),
@@ -236,6 +325,27 @@ Proof.
   exact Hsound.
 Qed.
 
+Lemma os_local_multicore_adapter_contract_implies_semantic_validity :
+  forall CState (P : OSLabeledProjection CState) jobs adm m
+         (C : os_local_multicore_adapter_contract P jobs adm m),
+    multicore_semantic_validity
+      jobs
+      m
+      (project_schedule
+         (lex_trace (concrete_to_labeled_execution (olac_execution C)))).
+Proof.
+  intros CState P jobs adm m C.
+  change
+    (multicore_semantic_validity
+       jobs
+       m
+       (project_schedule
+          (lex_trace
+             (concrete_to_labeled_execution
+                (oac_execution (os_local_multicore_adapter_contract_to_global C)))))).
+  apply os_multicore_adapter_contract_implies_semantic_validity.
+Qed.
+
 Lemma os_multicore_adapter_contract_implies_placement :
   forall CState (P : OSLabeledProjection CState) jobs adm m
          (C : os_multicore_adapter_contract P jobs adm m),
@@ -249,6 +359,27 @@ Proof.
   apply labeled_concrete_multicore_projection_sound_implies_placement
     with (jobs := jobs).
   exact Hsound.
+Qed.
+
+Lemma os_local_multicore_adapter_contract_implies_placement :
+  forall CState (P : OSLabeledProjection CState) jobs adm m
+         (C : os_local_multicore_adapter_contract P jobs adm m),
+    schedule_respects_admissibility
+      adm
+      m
+      (project_schedule
+         (lex_trace (concrete_to_labeled_execution (olac_execution C)))).
+Proof.
+  intros CState P jobs adm m C.
+  change
+    (schedule_respects_admissibility
+       adm
+       m
+       (project_schedule
+          (lex_trace
+             (concrete_to_labeled_execution
+                (oac_execution (os_local_multicore_adapter_contract_to_global C)))))).
+  apply os_multicore_adapter_contract_implies_placement.
 Qed.
 
 Lemma os_delay_adapter_contract_implies_bounded_delay_refinement :

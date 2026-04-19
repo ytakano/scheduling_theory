@@ -13,6 +13,7 @@ From RocqSched Require Export Operational.Common.ProjectionInvariants.
 From RocqSched Require Export Operational.Common.ProjectionMulticoreValidity.
 From RocqSched Require Export Operational.Common.OSProjectionInterface.
 From RocqSched Require Export Operational.Common.ConcreteExecution.
+From RocqSched Require Export Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Export Operational.Common.OSAdapterContract.
 From RocqSched Require Export Refinement.OSRefinementTheorem.
 
@@ -31,6 +32,7 @@ From RocqSched Require Export Refinement.OSRefinementTheorem.
     - delay-source classification and cumulative delay budgets
     - OS-neutral projection from concrete traces to operational traces
     - projection from operational traces to semantic schedules
+    - local adapter-facing projection contracts
     - canonical adapter-facing contract records
     - projection soundness lemmas
     - multicore validity and placement bridge lemmas

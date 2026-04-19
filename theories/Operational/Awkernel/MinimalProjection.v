@@ -8,6 +8,7 @@ From RocqSched Require Import Operational.Common.Invariants.
 From RocqSched Require Import Operational.Common.Execution.
 From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
+From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
@@ -50,6 +51,15 @@ Definition awk_labeled_concrete_projection_sound :=
 
 Definition awk_labeled_concrete_multicore_projection_sound :=
   @labeled_concrete_multicore_projection_sound AwkernelState.
+
+Definition awk_local_labeled_concrete_projection_sound :=
+  @local_labeled_concrete_projection_sound AwkernelState.
+
+Definition awk_local_labeled_concrete_multicore_projection_sound :=
+  @local_labeled_concrete_multicore_projection_sound AwkernelState.
+
+Definition awk_local_adapter_contract :=
+  @os_local_multicore_adapter_contract AwkernelState.
 
 Definition awk_adapter_contract :=
   @os_multicore_adapter_contract AwkernelState.
