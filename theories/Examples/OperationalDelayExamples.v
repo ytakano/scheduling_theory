@@ -20,7 +20,9 @@ From RocqSched Require Import Operational.Common.ConcreteExecution.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
 From RocqSched Require Import Operational.Common.OSCausalityContract.
+From RocqSched Require Import Operational.Common.OSSchedulerViewContract.
 From RocqSched Require Import Refinement.OSCausalityTheorem.
+From RocqSched Require Import Refinement.OSSchedulerViewTheorem.
 From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
 From RocqSched Require Import Refinement.BoundedDelayRefinement.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
@@ -349,11 +351,19 @@ Section OperationalDelayExamples.
       + intros c j Hlt Hrun.
         simpl in Hrun.
         discriminate.
+      + intros j Hin.
+        simpl in Hin.
+        contradiction.
+      + intros j Hin.
+        simpl in Hin.
+        contradiction.
       + intros t c j Hlt Hrun.
         left.
         exact Hrun.
       + intros t c j Hlt Hdispatch.
         discriminate.
+      + intros t j Hwakeup.
+        destruct t; simpl in Hwakeup; discriminate.
       + intros t j Hwakeup.
         destruct t; simpl in Hwakeup; discriminate.
       + intros t c j Hlt Hprev Hnext.
@@ -369,8 +379,16 @@ Section OperationalDelayExamples.
         destruct t; simpl in Hchoose; discriminate.
       + intros t c j Hlt Hdispatch.
         discriminate.
+      + intros t c j Hblock.
+        destruct t; simpl in Hblock; discriminate.
+      + intros t j Hblock.
+        destruct t; simpl in Hblock; discriminate.
+      + intros t c j Hlt Hblock.
+        destruct t; simpl in Hblock; discriminate.
       + intros t j Hcomplete.
         destruct t; simpl in Hcomplete; discriminate.
+      + intros t c old new Hlt Hpreempt.
+        discriminate.
       + intros t c old new Hlt Hpreempt.
         discriminate.
       + intros t c old new Hlt Hpreempt.
@@ -452,12 +470,20 @@ Section OperationalDelayExamples.
       + intros c j Hlt Hrun.
         simpl in Hrun.
         discriminate.
+      + intros j Hin.
+        simpl in Hin.
+        contradiction.
+      + intros j Hin.
+        simpl in Hin.
+        contradiction.
       + intros [|t'] c j Hlt Hrun.
         * simpl in Hrun.
           discriminate.
         * left. exact Hrun.
       + intros t c j Hlt Hdispatch.
         destruct t; simpl in Hdispatch; discriminate.
+      + intros t j Hwakeup.
+        destruct t; simpl in Hwakeup; discriminate.
       + intros t j Hwakeup.
         destruct t; simpl in Hwakeup; discriminate.
       + intros t c j Hlt Hprev Hnext.
@@ -479,8 +505,16 @@ Section OperationalDelayExamples.
         destruct t; simpl in Hchoose; discriminate.
       + intros t c j Hlt Hdispatch.
         destruct t; simpl in Hdispatch; discriminate.
+      + intros t c j Hblock.
+        destruct t; simpl in Hblock; discriminate.
+      + intros t j Hblock.
+        destruct t; simpl in Hblock; discriminate.
+      + intros t c j Hlt Hblock.
+        destruct t; simpl in Hblock; discriminate.
       + intros t j Hcomplete.
         destruct t; simpl in Hcomplete; discriminate.
+      + intros t c old new Hlt Hpreempt.
+        destruct t; simpl in Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt.
         destruct t; simpl in Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt.

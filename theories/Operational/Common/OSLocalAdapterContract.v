@@ -39,6 +39,22 @@ Record local_labeled_concrete_projection_sound
             m
             (project_schedule (osl_to_op_trace P (lce_trace ex)))
             j 0;
+    llcps_init_runnable_release :
+      forall j,
+        In j
+           (op_runnable
+              (os_to_op_state (osl_to_os_projection P) (lce_trace ex 0))) ->
+        released jobs j 0;
+    llcps_init_runnable_completion :
+      forall j,
+        In j
+           (op_runnable
+              (os_to_op_state (osl_to_os_projection P) (lce_trace ex 0))) ->
+        ~ completed
+            jobs
+            m
+            (project_schedule (osl_to_op_trace P (lce_trace ex)))
+            j 0;
     llcps_current_origin :
       forall t c j,
         c < m ->
@@ -61,6 +77,14 @@ Record local_labeled_concrete_projection_sound
       forall t j,
         os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvWakeup j ->
         released jobs j (S t);
+    llcps_wakeup_completion :
+      forall t j,
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvWakeup j ->
+        ~ completed
+            jobs
+            m
+            (project_schedule (osl_to_op_trace P (lce_trace ex)))
+            j (S t);
     llcps_persistent_completion :
       forall t c j,
         c < m ->
@@ -112,6 +136,25 @@ Record local_labeled_concrete_projection_sound
             m
             (project_schedule (osl_to_op_trace P (lce_trace ex)))
             j (S t);
+    llcps_block_clears_current :
+      forall t c j,
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvBlock j ->
+        op_current
+          (os_to_op_state (osl_to_os_projection P) (lce_trace ex (S t)))
+          c <> Some j;
+    llcps_block_clears_runnable :
+      forall t j,
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvBlock j ->
+        ~ In j
+             (op_runnable
+                (os_to_op_state (osl_to_os_projection P) (lce_trace ex (S t))));
+    llcps_block_clears_dispatch_target :
+      forall t c j,
+        c < m ->
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvBlock j ->
+        op_dispatch_target
+          (os_to_op_state (osl_to_os_projection P) (lce_trace ex (S t)))
+          c <> Some j;
     llcps_complete_sets_completed :
       forall t j,
         os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvComplete j ->
@@ -136,6 +179,16 @@ Record local_labeled_concrete_projection_sound
             m
             (project_schedule (osl_to_op_trace P (lce_trace ex)))
             new (S t);
+    llcps_preempt_old_completion :
+      forall t c old new,
+        c < m ->
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) =
+        EvPreempt c old new ->
+        ~ completed
+            jobs
+            m
+            (project_schedule (osl_to_op_trace P (lce_trace ex)))
+            old (S t);
   }.
 
 Record local_labeled_concrete_multicore_projection_sound
@@ -177,11 +230,17 @@ Arguments llcps_init_release
   {CState P jobs m ex} _ _ _ _ _.
 Arguments llcps_init_completion
   {CState P jobs m ex} _ _ _ _ _.
+Arguments llcps_init_runnable_release
+  {CState P jobs m ex} _ _ _.
+Arguments llcps_init_runnable_completion
+  {CState P jobs m ex} _ _ _.
 Arguments llcps_current_origin
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments llcps_dispatch_release
   {CState P jobs m ex} _ _ _ _ _.
 Arguments llcps_wakeup_release
+  {CState P jobs m ex} _ _ _.
+Arguments llcps_wakeup_completion
   {CState P jobs m ex} _ _ _.
 Arguments llcps_persistent_completion
   {CState P jobs m ex} _ _ _ _ _ _.
@@ -195,11 +254,19 @@ Arguments llcps_choose_from_runnable
   {CState P jobs m ex} _ _ _ _ _.
 Arguments llcps_dispatch_completion
   {CState P jobs m ex} _ _ _ _ _.
+Arguments llcps_block_clears_current
+  {CState P jobs m ex} _ _ _ _ _.
+Arguments llcps_block_clears_runnable
+  {CState P jobs m ex} _ _ _ _.
+Arguments llcps_block_clears_dispatch_target
+  {CState P jobs m ex} _ _ _ _ _.
 Arguments llcps_complete_sets_completed
   {CState P jobs m ex} _ _ _.
 Arguments llcps_preempt_release
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments llcps_preempt_completion
+  {CState P jobs m ex} _ _ _ _ _ _.
+Arguments llcps_preempt_old_completion
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments llcmps_projection_sound
   {CState P jobs adm m ex} _.

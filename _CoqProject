@@ -107,12 +107,14 @@ theories/Operational/Common/ConcreteExecution.v
 theories/Operational/Common/OSLocalAdapterContract.v
 theories/Operational/Common/OSAdapterContract.v
 theories/Operational/Common/OSCausalityContract.v
+theories/Operational/Common/OSSchedulerViewContract.v
 theories/Operational/Common/OperationalEntryPoints.v
 theories/Operational/Awkernel/MinimalProjection.v
 theories/Operational/Awkernel/MulticoreProjection.v
 theories/Examples/OperationalMulticoreProjectionExamples.v
 theories/Refinement/BoundedDelayRefinement.v
 theories/Refinement/OSCausalityTheorem.v
+theories/Refinement/OSSchedulerViewTheorem.v
 theories/Refinement/OSRefinementTheorem.v
 theories/Examples/OperationalDelayExamples.v
 theories/Semantics/Schedule.v
