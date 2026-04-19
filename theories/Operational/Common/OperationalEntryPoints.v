@@ -13,6 +13,8 @@ From RocqSched Require Export Operational.Common.ProjectionInvariants.
 From RocqSched Require Export Operational.Common.ProjectionMulticoreValidity.
 From RocqSched Require Export Operational.Common.OSProjectionInterface.
 From RocqSched Require Export Operational.Common.ConcreteExecution.
+From RocqSched Require Export Operational.Common.OSAdapterContract.
+From RocqSched Require Export Refinement.OSRefinementTheorem.
 
 (** * Stable public entry point for OS-neutral operational projection
 
@@ -29,8 +31,10 @@ From RocqSched Require Export Operational.Common.ConcreteExecution.
     - delay-source classification and cumulative delay budgets
     - OS-neutral projection from concrete traces to operational traces
     - projection from operational traces to semantic schedules
+    - canonical adapter-facing contract records
     - projection soundness lemmas
     - multicore validity and placement bridge lemmas
+    - OS-neutral refinement wrappers from adapter contracts
 
     Not part of this layer:
     - concrete OS-specific state definitions

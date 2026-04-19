@@ -104,11 +104,13 @@ theories/Operational/Common/ProjectionInvariants.v
 theories/Operational/Common/ProjectionMulticoreValidity.v
 theories/Operational/Common/OSProjectionInterface.v
 theories/Operational/Common/ConcreteExecution.v
+theories/Operational/Common/OSAdapterContract.v
 theories/Operational/Common/OperationalEntryPoints.v
 theories/Operational/Awkernel/MinimalProjection.v
 theories/Operational/Awkernel/MulticoreProjection.v
 theories/Examples/OperationalMulticoreProjectionExamples.v
 theories/Refinement/BoundedDelayRefinement.v
+theories/Refinement/OSRefinementTheorem.v
 theories/Examples/OperationalDelayExamples.v
 theories/Semantics/Schedule.v
 theories/Semantics/ScheduleLemmas/ScheduleFacts.v

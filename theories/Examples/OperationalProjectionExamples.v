@@ -2,6 +2,7 @@ From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
+From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.ServiceFacts.
 From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.Trace.
@@ -11,8 +12,10 @@ From RocqSched Require Import Operational.Common.Execution.
 From RocqSched Require Import Operational.Common.ConcreteExecution.
 From RocqSched Require Import Operational.Common.LabeledExecution.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
+From RocqSched Require Import Operational.Common.OSAdapterContract.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
+From RocqSched Require Import Refinement.OSRefinementTheorem.
 Import ListNotations.
 
 Section OperationalProjectionExamples.
@@ -283,6 +286,105 @@ Section OperationalProjectionExamples.
     EvDispatch 0 0.
   Proof.
     reflexivity.
+  Qed.
+
+  Lemma example_labeled_concrete_sound :
+    labeled_concrete_projection_sound
+      op_example_long_jobs
+      1
+      example_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - intros t c j Hlt Hrun.
+      destruct t as [|t'].
+      + simpl in Hrun. discriminate.
+      + destruct t' as [|t''].
+        * assert (c = 0) by lia.
+          subst c.
+          inversion Hrun; subst.
+          unfold released, op_example_long_jobs, op_example_long_job.
+          simpl.
+          lia.
+        * assert (c = 0) by lia.
+          subst c.
+          unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hrun.
+          simpl in Hrun.
+          discriminate.
+    - intros t c j Hlt Hrun.
+      destruct t as [|t'].
+      + simpl in Hrun. discriminate.
+      + destruct t' as [|t''].
+        * assert (c = 0) by lia.
+          subst c.
+          inversion Hrun; subst.
+          unfold completed, service_job, cpu_count, runs_on, project_schedule,
+                 op_example_long_jobs, op_example_long_job.
+          simpl.
+          lia.
+        * assert (c = 0) by lia.
+          subst c.
+          unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hrun.
+          simpl in Hrun.
+          discriminate.
+  Qed.
+
+  Lemma example_labeled_concrete_multicore_sound :
+    labeled_concrete_multicore_projection_sound
+      op_example_long_jobs
+      all_cpus_admissible
+      1
+      example_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - exact example_labeled_concrete_sound.
+    - intros [|[|t']] c Hge; simpl.
+      + destruct (Nat.eqb c 0) eqn:Ec0.
+        * apply Nat.eqb_eq in Ec0. lia.
+        * reflexivity.
+      + destruct (Nat.eqb c 0) eqn:Ec0.
+        * apply Nat.eqb_eq in Ec0. lia.
+        * reflexivity.
+      + destruct (Nat.eqb c 0) eqn:Ec0.
+        * apply Nat.eqb_eq in Ec0. lia.
+        * reflexivity.
+    - intros [|[|t']] c j Hlt Hrun.
+      + simpl in Hrun.
+        discriminate.
+      + simpl in Hrun.
+        assert (c = 0) by lia.
+        subst c.
+        inversion Hrun; subst.
+        unfold all_cpus_admissible.
+        exact I.
+      + simpl in Hrun.
+        destruct (Nat.eqb c 0); discriminate.
+  Qed.
+
+  Definition example_adapter_contract :
+    os_multicore_adapter_contract
+      example_projection
+      op_example_long_jobs
+      all_cpus_admissible
+      1 :=
+    @mkOSMulticoreAdapterContract
+      example_concrete_state
+      example_projection
+      op_example_long_jobs
+      all_cpus_admissible
+      1
+      example_labeled_concrete_execution
+      example_labeled_concrete_multicore_sound.
+
+  Example adapter_contract_yields_valid_schedule :
+    valid_schedule
+      op_example_long_jobs
+      1
+      (project_schedule
+         (lex_trace
+            (concrete_to_labeled_execution
+               (oac_execution example_adapter_contract)))).
+  Proof.
+    apply os_multicore_adapter_contract_implies_valid_schedule.
   Qed.
 
   Lemma one_cpu_execution_sound :

@@ -14,8 +14,12 @@ From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.LabeledExecution.
 From RocqSched Require Import Operational.Common.DelayModel.
 From RocqSched Require Import Operational.Common.DelayBudget.
+From RocqSched Require Import Operational.Common.OSProjectionInterface.
+From RocqSched Require Import Operational.Common.ConcreteExecution.
+From RocqSched Require Import Operational.Common.OSAdapterContract.
 From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
 From RocqSched Require Import Refinement.BoundedDelayRefinement.
+From RocqSched Require Import Refinement.OSRefinementTheorem.
 Import ListNotations.
 
 Section OperationalDelayExamples.
@@ -56,6 +60,26 @@ Section OperationalDelayExamples.
       True
       (fun _ => step_tick _)
       idle_state_struct_inv.
+
+  Definition idle_projection : OSLabeledProjection unit :=
+    mkOSLabeledProjection
+      unit
+      (mkOSProjection unit (fun _ => idle_state))
+      (fun _ _ => EvTick).
+
+  Definition idle_concrete_trace : concrete_trace unit :=
+    fun _ => tt.
+
+  Definition idle_labeled_concrete_execution :
+      @labeled_concrete_execution unit idle_projection 1 :=
+    @mkLabeledConcreteExecution
+      unit
+      idle_projection
+      1
+      idle_concrete_trace
+      True
+      (fun _ => step_tick _)
+      (fun _ => idle_state_struct_inv 0).
 
   Definition idle_actual_schedule : Schedule :=
     labeled_actual_schedule idle_labeled_execution.
@@ -221,6 +245,56 @@ Section OperationalDelayExamples.
     exact idle_multicore_projection_sound.
   Qed.
 
+  Lemma idle_concrete_multicore_projection_sound :
+    labeled_concrete_multicore_projection_sound
+      delay_example_jobs
+      all_cpus_admissible
+      1
+      idle_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - constructor.
+      + intros t c j Hlt Hrun.
+        simpl in Hrun.
+        discriminate.
+      + intros t c j Hlt Hrun.
+        simpl in Hrun.
+        discriminate.
+    - intros t.
+      intros c Hge.
+      reflexivity.
+    - intros t c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
+  Qed.
+
+  Definition idle_concrete_adapter_contract :
+    os_multicore_adapter_contract
+      idle_projection
+      delay_example_jobs
+      all_cpus_admissible
+      1 :=
+    @mkOSMulticoreAdapterContract
+      unit
+      idle_projection
+      delay_example_jobs
+      all_cpus_admissible
+      1
+      idle_labeled_concrete_execution
+      idle_concrete_multicore_projection_sound.
+
+  Example concrete_adapter_contract_yields_semantic_validity :
+    multicore_semantic_validity
+      delay_example_jobs
+      1
+      (project_schedule
+         (lex_trace
+            (concrete_to_labeled_execution
+               (oac_execution idle_concrete_adapter_contract)))).
+  Proof.
+    apply os_multicore_adapter_contract_implies_semantic_validity.
+  Qed.
+
   Example idle_labeled_execution_respects_admissibility :
     schedule_respects_admissibility
       all_cpus_admissible
@@ -287,6 +361,43 @@ Section OperationalDelayExamples.
          idle_zero_budget_within_delta
          idle_service_lag_zero).
   Defined.
+
+  Definition idle_delay_adapter_contract :
+    os_delay_adapter_contract
+      idle_projection
+      delay_example_jobs
+      all_cpus_admissible
+      1 :=
+    @mkOSDelayAdapterContract
+      unit
+      idle_projection
+      delay_example_jobs
+      all_cpus_admissible
+      1
+      idle_concrete_adapter_contract
+      idle_actual_schedule
+      zero_delay_bounds
+      idle_delay_sources
+      0
+      idle_actual_semantic_validity
+      idle_default_delay_sources_covered
+      idle_zero_budget_within_delta
+      idle_service_lag_zero.
+
+  Example delay_adapter_contract_yields_projection_refinement :
+    bounded_delay_projection_refinement
+      delay_example_jobs
+      all_cpus_admissible
+      1
+      (concrete_to_labeled_execution
+         (oac_execution (odac_base idle_delay_adapter_contract)))
+      (odac_ideal_schedule idle_delay_adapter_contract)
+      (odac_delay_bounds idle_delay_adapter_contract)
+      (odac_delay_sources idle_delay_adapter_contract)
+      (odac_delta idle_delay_adapter_contract).
+  Proof.
+    apply os_delay_adapter_contract_implies_bounded_delay_refinement.
+  Qed.
 
   Example idle_projection_refinement_actual_valid :
     multicore_semantic_validity

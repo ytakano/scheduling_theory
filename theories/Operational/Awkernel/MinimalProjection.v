@@ -8,6 +8,8 @@ From RocqSched Require Import Operational.Common.Invariants.
 From RocqSched Require Import Operational.Common.Execution.
 From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
+From RocqSched Require Import Operational.Common.OSAdapterContract.
+From RocqSched Require Import Refinement.OSRefinementTheorem.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.ProjectionInvariants.
 From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
@@ -42,6 +44,18 @@ Definition awk_labeled_projection
     (labeler : AwkernelState -> AwkernelState -> OpEvent)
     : OSLabeledProjection AwkernelState :=
   mkOSLabeledProjection AwkernelState awk_projection labeler.
+
+Definition awk_labeled_concrete_projection_sound :=
+  @labeled_concrete_projection_sound AwkernelState.
+
+Definition awk_labeled_concrete_multicore_projection_sound :=
+  @labeled_concrete_multicore_projection_sound AwkernelState.
+
+Definition awk_adapter_contract :=
+  @os_multicore_adapter_contract AwkernelState.
+
+Definition awk_delay_adapter_contract :=
+  @os_delay_adapter_contract AwkernelState.
 
 Definition awk_project_schedule (tr : AwkernelTrace) : Schedule :=
   project_schedule (awk_to_op_trace tr).
