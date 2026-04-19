@@ -67,7 +67,7 @@ Section OperationalProjectionExamples.
     - exists (EvComplete 0).
       constructor.
       exists 0. reflexivity.
-    - exists EvTick.
+    - exists EvStutter.
       constructor.
   Qed.
 
@@ -222,7 +222,7 @@ Section OperationalProjectionExamples.
          match s, s' with
          | 0, 1 => EvDispatch 0 0
          | 1, _ => EvComplete 0
-         | _, _ => EvTick
+         | _, _ => EvStutter
          end).
 
   Definition example_concrete_trace : concrete_trace example_concrete_state :=

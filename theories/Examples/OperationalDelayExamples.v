@@ -56,16 +56,16 @@ Section OperationalDelayExamples.
     mkLabeledExecution
       1
       idle_trace
-      (fun _ => EvTick)
+      (fun _ => EvStutter)
       True
-      (fun _ => step_tick _)
+      (fun _ => step_stutter _)
       idle_state_struct_inv.
 
   Definition idle_projection : OSLabeledProjection unit :=
     mkOSLabeledProjection
       unit
       (mkOSProjection unit (fun _ => idle_state))
-      (fun _ _ => EvTick).
+      (fun _ _ => EvStutter).
 
   Definition idle_concrete_trace : concrete_trace unit :=
     fun _ => tt.
@@ -78,7 +78,7 @@ Section OperationalDelayExamples.
       1
       idle_concrete_trace
       True
-      (fun _ => step_tick _)
+      (fun _ => step_stutter _)
       (fun _ => idle_state_struct_inv 0).
 
   Definition idle_actual_schedule : Schedule :=
@@ -122,7 +122,13 @@ Section OperationalDelayExamples.
 
   Example labeled_execution_default_delay_source :
     default_event_delay_sources (lex_event idle_labeled_execution 0) =
-    [DelayTimer].
+    [].
+  Proof.
+    reflexivity.
+  Qed.
+
+  Example tick_event_uses_timer_delay_source :
+    default_event_delay_sources EvTick = [DelayTimer].
   Proof.
     reflexivity.
   Qed.

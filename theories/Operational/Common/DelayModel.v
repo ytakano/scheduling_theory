@@ -39,6 +39,7 @@ Definition default_event_delay_sources (ev : OpEvent) : list op_delay_source :=
   | EvRequestResched _ => []
   | EvHandleResched _ => [DelayIPI]
   | EvChoose _ _ => []
+  | EvStutter => []
   | EvTick => [DelayTimer]
   | EvBlock _ => []
   | EvComplete _ => []

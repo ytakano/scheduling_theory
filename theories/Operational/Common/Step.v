@@ -12,6 +12,7 @@ Inductive OpEvent : Type :=
 | EvChoose (c : CPU) (j : JobId)
 | EvDispatch (c : CPU) (j : JobId)
 | EvPreempt (c : CPU) (old new : JobId)
+| EvStutter
 | EvTick.
 
 Definition add_runnable (j : JobId) (st : OpState) : OpState :=
@@ -142,6 +143,9 @@ Inductive op_step : OpState -> OpEvent -> OpState -> Prop :=
       op_dispatch_target st c = Some new ->
       old <> new ->
       op_step st (EvPreempt c old new) (preempt_on_cpu c old new st)
+| step_stutter :
+    forall st,
+      op_step st EvStutter st
 | step_tick :
     forall st,
       op_step st EvTick st.

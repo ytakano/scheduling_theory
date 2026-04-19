@@ -403,6 +403,7 @@ Proof.
   - eapply dispatch_preserves_struct_inv; eauto.
   - eapply preempt_preserves_struct_inv; eauto.
   - exact Hinv.
+  - exact Hinv.
 Qed.
 
 Lemma op_step_preserves_idle_outside_range :
@@ -441,6 +442,7 @@ Proof.
       lia.
     + exact (Hid c Hge).
   - exact (Hid c Hge).
+  - exact (Hid c Hge).
 Qed.
 
 Lemma op_step_preserves_admissibility :
@@ -474,6 +476,7 @@ Proof.
       inversion Hcur; subst.
       exact Hdispatch_adm.
     + eapply Hadm; eauto.
+  - eapply Hadm; eauto.
   - eapply Hadm; eauto.
 Qed.
 

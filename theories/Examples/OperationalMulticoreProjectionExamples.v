@@ -155,7 +155,7 @@ Section OperationalMulticoreProjectionExamples.
   Qed.
 
   Definition awk_execution_ex : awk_execution 2 :=
-    mkAwkExecution 2 awk_trace True (fun _ => ex_intro _ EvTick (step_tick _)) awk_struct_inv.
+    mkAwkExecution 2 awk_trace True (fun _ => ex_intro _ EvStutter (step_stutter _)) awk_struct_inv.
 
   Lemma awk_execution_projection_sound :
     awk_multicore_projection_sound mc_jobs even_odd_admissibility 2 awk_execution_ex.
