@@ -21,14 +21,16 @@ Section OperationalProjectionExamples.
   Definition op_example_long_jobs (_ : JobId) : Job := op_example_long_job.
 
   Definition one_cpu_state0 : OpState :=
-    mkOpState (fun _ => None) [0] (fun _ => true).
+    mkOpState (fun _ => None) [0] (fun _ => true) (fun c => if Nat.eqb c 0 then Some 0 else None).
 
   Definition one_cpu_state1 : OpState :=
     clear_need_resched 0
-      (mkOpState
-         (fun c => if Nat.eqb c 0 then Some 0 else op_current one_cpu_state0 c)
-         (remove_job 0 (op_runnable one_cpu_state0))
-         (op_need_resched one_cpu_state0)).
+      (clear_dispatch_target 0
+         (mkOpState
+            (fun c => if Nat.eqb c 0 then Some 0 else op_current one_cpu_state0 c)
+            (remove_job 0 (op_runnable one_cpu_state0))
+            (op_need_resched one_cpu_state0)
+            (op_dispatch_target one_cpu_state0))).
 
   Definition one_cpu_state2 : OpState :=
     clear_current_and_request 0 one_cpu_state1.
@@ -60,10 +62,11 @@ Section OperationalProjectionExamples.
     intros [|[|t]].
     - exists (EvDispatch 0 0).
       constructor.
-      + simpl. left. reflexivity.
+      + simpl. reflexivity.
       + reflexivity.
     - exists (EvComplete 0).
       constructor.
+      exists 0. reflexivity.
     - exists EvTick.
       constructor.
   Qed.
@@ -75,7 +78,8 @@ Section OperationalProjectionExamples.
          else if Nat.eqb c 1 then Some 1
               else None)
       []
-      (fun _ => false).
+      (fun _ => false)
+      (fun _ => None).
 
   Lemma two_cpu_trace_no_dup_state :
     forall t, op_no_duplication 2 (two_cpu_trace t).
@@ -104,35 +108,62 @@ Section OperationalProjectionExamples.
     intros [|[|t']].
     - constructor.
       + intros j c1 c2 Hlt1 Hlt2 Hrun1 _.
-        lia.
+        simpl in Hrun1.
+        discriminate.
       + constructor.
         * simpl. tauto.
         * constructor.
-      + intros c j Hlt Hcur Hin.
+      + intros c j Hcur Hin.
         simpl in Hcur. discriminate.
+      + intros j c1 c2 Hlt1 Hlt2 Ht1 _.
+        assert (c1 = 0) by lia.
+        subst c1.
+        simpl in Ht1.
+        inversion Ht1; subst.
+        lia.
+      + intros c j Hlt Ht.
+        assert (c = 0) by lia.
+        subst c.
+        simpl in Ht.
+        inversion Ht; subst.
+        simpl. left. reflexivity.
     - constructor.
       + intros j c1 c2 Hlt1 Hlt2 Hrun1 Hrun2.
         assert (c1 = 0) by lia.
         assert (c2 = 0) by lia.
         subst c1 c2. reflexivity.
       + constructor.
-      + intros c j Hlt Hcur Hin.
-        assert (c = 0) by lia.
-        subst c.
+      + intros c j Hcur Hin.
         simpl in Hcur.
+        destruct (Nat.eqb c 0) eqn:Ec; try discriminate.
         inversion Hcur; subst.
         simpl in Hin.
         contradiction.
+      + intros j c1 c2 Hlt1 Hlt2 Ht1 _.
+        unfold one_cpu_state1, one_cpu_state0 in Ht1.
+        simpl in Ht1.
+        exfalso.
+        destruct (Nat.eqb c1 0); discriminate.
+      + intros c j Hlt Ht.
+        unfold one_cpu_state1, one_cpu_state0 in Ht.
+        simpl in Ht.
+        destruct (Nat.eqb c 0); discriminate.
     - constructor.
       + intros j c1 c2 Hlt1 Hlt2 Hrun1 _.
         lia.
       + constructor.
-      + intros c j Hlt Hcur Hin.
-        assert (c = 0) by lia.
-        subst c.
+      + intros c j Hcur Hin.
         unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hcur.
         simpl in Hcur.
-        discriminate.
+        destruct (Nat.eqb c 0); discriminate.
+      + intros j c1 c2 Hlt1 Hlt2 Ht1 _.
+        unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Ht1.
+        simpl in Ht1.
+        destruct (Nat.eqb c1 0); discriminate.
+      + intros c j Hlt Ht.
+        unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Ht.
+        simpl in Ht.
+        destruct (Nat.eqb c 0); discriminate.
   Qed.
 
   Definition one_cpu_execution : execution 1 :=

@@ -9,6 +9,7 @@ Record OpState : Type := mkOpState {
   op_current : CPU -> option JobId;
   op_runnable : list JobId;
   op_need_resched : CPU -> bool;
+  op_dispatch_target : CPU -> option JobId;
 }.
 
 Definition op_current_job (st : OpState) (c : CPU) : option JobId :=
@@ -16,6 +17,9 @@ Definition op_current_job (st : OpState) (c : CPU) : option JobId :=
 
 Definition op_job_running (st : OpState) (j : JobId) : Prop :=
   exists c, op_current st c = Some j.
+
+Definition op_job_dispatch_pending (st : OpState) (j : JobId) : Prop :=
+  exists c, op_dispatch_target st c = Some j.
 
 Definition op_runnable_set_like (st : OpState) : Prop :=
   NoDup (op_runnable st).

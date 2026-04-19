@@ -37,10 +37,11 @@ Section OperationalMulticoreProjectionExamples.
          else if Nat.eqb c 1 then Some 1
               else None)
       []
-      (fun _ => false).
+      (fun _ => false)
+      (fun _ => None).
 
   Definition mc_idle_state : OpState :=
-    mkOpState (fun _ => None) [] (fun _ => false).
+    mkOpState (fun _ => None) [] (fun _ => false) (fun _ => None).
 
   Definition mc_trace (t : Time) : OpState :=
     match t with
@@ -129,7 +130,7 @@ Section OperationalMulticoreProjectionExamples.
   Qed.
 
   Definition awk_state : AwkernelState :=
-    mkAwkernelState (fun _ => None) [] (fun _ => false).
+    mkAwkernelState (fun _ => None) [] (fun _ => false) (fun _ => None).
 
   Definition awk_trace (_ : Time) : AwkernelState := awk_state.
 
@@ -138,13 +139,19 @@ Section OperationalMulticoreProjectionExamples.
   Proof.
     intros t.
     constructor.
-    - intros j c1 c2 Hlt1 Hlt2 Hrun1 Hrun2.
-      simpl in Hrun1.
-      discriminate.
-    - constructor.
-    - intros c j Hlt Hrun Hin.
+      - intros j c1 c2 Hlt1 Hlt2 Hrun1 Hrun2.
+        simpl in Hrun1.
+        discriminate.
+      - constructor.
+    - intros c j Hrun Hin.
       simpl in Hin.
       contradiction.
+      - intros j c1 c2 Hlt1 Hlt2 Ht1 Ht2.
+        simpl in Ht1.
+        discriminate.
+      - intros c j Hlt Ht.
+        simpl in Ht.
+        discriminate.
   Qed.
 
   Definition awk_execution_ex : awk_execution 2 :=

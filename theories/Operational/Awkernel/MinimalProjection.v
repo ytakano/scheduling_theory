@@ -18,10 +18,15 @@ Record AwkernelState : Type := mkAwkernelState {
   awk_current : CPU -> option JobId;
   awk_runnable : list JobId;
   awk_need_resched : CPU -> bool;
+  awk_dispatch_target : CPU -> option JobId;
 }.
 
 Definition awk_to_op_state (st : AwkernelState) : OpState :=
-  mkOpState (awk_current st) (awk_runnable st) (awk_need_resched st).
+  mkOpState
+    (awk_current st)
+    (awk_runnable st)
+    (awk_need_resched st)
+    (awk_dispatch_target st).
 
 Definition AwkernelTrace : Type := Time -> AwkernelState.
 

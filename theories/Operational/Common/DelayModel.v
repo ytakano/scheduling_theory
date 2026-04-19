@@ -35,7 +35,9 @@ Definition default_event_delay_sources (ev : OpEvent) : list op_delay_source :=
   match ev with
   | EvDispatch _ _ => [DelayDispatch]
   | EvWakeup _ => [DelayWakeup]
-  | EvResched _ => [DelayIPI]
+  | EvRequestResched _ => []
+  | EvRecvIPI _ => [DelayIPI]
+  | EvChoose _ _ => []
   | EvTick => [DelayTimer]
   | EvBlock _ => []
   | EvComplete _ => []

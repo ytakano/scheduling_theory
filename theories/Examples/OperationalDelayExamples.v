@@ -23,7 +23,7 @@ Section OperationalDelayExamples.
   Definition delay_example_jobs (_ : JobId) : Job := delay_example_job.
 
   Definition idle_state : OpState :=
-    mkOpState (fun _ => None) [] (fun _ => false).
+    mkOpState (fun _ => None) [] (fun _ => false) (fun _ => None).
 
   Definition idle_trace (_ : Time) : OpState := idle_state.
 
@@ -36,8 +36,14 @@ Section OperationalDelayExamples.
       simpl in Hrun1.
       discriminate.
     - constructor.
-    - intros c j Hlt Hcur Hin.
+    - intros c j Hcur Hin.
       simpl in Hcur.
+      discriminate.
+    - intros j c1 c2 Hlt1 Hlt2 Ht1 _.
+      simpl in Ht1.
+      discriminate.
+    - intros c j Hlt Ht.
+      simpl in Ht.
       discriminate.
   Qed.
 
