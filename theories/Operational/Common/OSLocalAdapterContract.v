@@ -1,3 +1,5 @@
+From Stdlib Require Import List.
+Import ListNotations.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
@@ -69,6 +71,34 @@ Record local_labeled_concrete_projection_sound
             m
             (project_schedule (osl_to_op_trace P (lce_trace ex)))
             j (S t);
+    llcps_request_sets_need_resched :
+      forall t c,
+        c < m ->
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvRequestResched c ->
+        op_need_resched
+          (os_to_op_state (osl_to_os_projection P) (lce_trace ex (S t)))
+          c = true;
+    llcps_handle_sets_need_resched :
+      forall t c,
+        c < m ->
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvHandleResched c ->
+        op_need_resched
+          (os_to_op_state (osl_to_os_projection P) (lce_trace ex (S t)))
+          c = true;
+    llcps_choose_sets_dispatch_target :
+      forall t c j,
+        c < m ->
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvChoose c j ->
+        op_dispatch_target
+          (os_to_op_state (osl_to_os_projection P) (lce_trace ex (S t)))
+          c = Some j;
+    llcps_choose_from_runnable :
+      forall t c j,
+        c < m ->
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvChoose c j ->
+        In j
+           (op_runnable
+              (os_to_op_state (osl_to_os_projection P) (lce_trace ex t)));
     llcps_dispatch_completion :
       forall t c j,
         c < m ->
@@ -141,6 +171,14 @@ Arguments llcps_dispatch_release
   {CState P jobs m ex} _ _ _ _ _.
 Arguments llcps_persistent_completion
   {CState P jobs m ex} _ _ _ _ _ _.
+Arguments llcps_request_sets_need_resched
+  {CState P jobs m ex} _ _ _ _.
+Arguments llcps_handle_sets_need_resched
+  {CState P jobs m ex} _ _ _ _.
+Arguments llcps_choose_sets_dispatch_target
+  {CState P jobs m ex} _ _ _ _ _.
+Arguments llcps_choose_from_runnable
+  {CState P jobs m ex} _ _ _ _ _.
 Arguments llcps_dispatch_completion
   {CState P jobs m ex} _ _ _ _ _.
 Arguments llcps_preempt_release

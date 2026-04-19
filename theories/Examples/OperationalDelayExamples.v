@@ -8,6 +8,7 @@ From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.Trace.
 From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Common.Invariants.
+From RocqSched Require Import Operational.Common.StepLemmas.
 From RocqSched Require Import Operational.Common.Execution.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
@@ -71,6 +72,56 @@ Section OperationalDelayExamples.
   Definition idle_concrete_trace : concrete_trace unit :=
     fun _ => tt.
 
+  Definition handle_resched_state0 : OpState :=
+    mkOpState (fun _ => None) [] (fun _ => false) (fun _ => None).
+
+  Definition handle_resched_state1 : OpState :=
+    set_need_resched 0 true handle_resched_state0.
+
+  Definition handle_resched_projection : OSLabeledProjection nat :=
+    mkOSLabeledProjection
+      nat
+      (mkOSProjection nat (fun n => if Nat.eqb n 0 then handle_resched_state0 else handle_resched_state1))
+      (fun s s' =>
+         match s, s' with
+         | 0, 1 => EvHandleResched 0
+         | _, _ => EvStutter
+         end).
+
+  Definition handle_resched_trace : concrete_trace nat :=
+    fun t => if Nat.eqb t 0 then 0 else 1.
+
+  Lemma handle_resched_state1_struct_inv :
+    op_struct_inv 1 handle_resched_state1.
+  Proof.
+    unfold handle_resched_state1.
+    apply set_need_resched_preserves_struct_inv.
+    exact (idle_state_struct_inv 0).
+  Qed.
+
+  Definition handle_resched_labeled_concrete_execution :
+      @labeled_concrete_execution nat handle_resched_projection 1 :=
+    @mkLabeledConcreteExecution
+      nat
+      handle_resched_projection
+      1
+      handle_resched_trace
+      True
+      (fun t =>
+         match t with
+         | 0 =>
+             step_handle_resched _ _
+         | _ =>
+             step_stutter _
+         end)
+      (fun t =>
+         match t with
+         | 0 =>
+             idle_state_struct_inv 0
+         | _ =>
+             handle_resched_state1_struct_inv
+         end).
+
   Definition idle_labeled_concrete_execution :
       @labeled_concrete_execution unit idle_projection 1 :=
     @mkLabeledConcreteExecution
@@ -130,6 +181,12 @@ Section OperationalDelayExamples.
 
   Example tick_event_uses_timer_delay_source :
     default_event_delay_sources EvTick = [DelayTimer].
+  Proof.
+    reflexivity.
+  Qed.
+
+  Example handle_resched_event_uses_ipi_delay_source :
+    default_event_delay_sources (EvHandleResched 0) = [DelayIPI].
   Proof.
     reflexivity.
   Qed.
@@ -298,6 +355,14 @@ Section OperationalDelayExamples.
       + intros t c j Hlt Hprev Hnext.
         simpl in Hprev.
         discriminate.
+      + intros t c Hlt Hreq.
+        destruct t; simpl in Hreq; discriminate.
+      + intros t c Hlt Hhandle.
+        destruct t; simpl in Hhandle; discriminate.
+      + intros t c j Hlt Hchoose.
+        destruct t; simpl in Hchoose; discriminate.
+      + intros t c j Hlt Hchoose.
+        destruct t; simpl in Hchoose; discriminate.
       + intros t c j Hlt Hdispatch.
         discriminate.
       + intros t c old new Hlt Hpreempt.
@@ -364,6 +429,94 @@ Section OperationalDelayExamples.
                (olac_execution idle_local_adapter_contract)))).
   Proof.
     apply os_local_multicore_adapter_contract_implies_semantic_validity.
+  Qed.
+
+  Lemma handle_resched_local_concrete_multicore_projection_sound :
+    local_labeled_concrete_multicore_projection_sound
+      delay_example_jobs
+      all_cpus_admissible
+      1
+      handle_resched_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - constructor.
+      + intros c j Hlt Hrun.
+        simpl in Hrun.
+        discriminate.
+      + intros c j Hlt Hrun.
+        simpl in Hrun.
+        discriminate.
+      + intros [|t'] c j Hlt Hrun.
+        * simpl in Hrun.
+          discriminate.
+        * left. exact Hrun.
+      + intros t c j Hlt Hdispatch.
+        destruct t; simpl in Hdispatch; discriminate.
+      + intros t c j Hlt Hprev Hnext.
+        simpl in Hprev.
+        discriminate.
+      + intros [|t'] c Hlt Hreq.
+        * simpl in Hreq.
+          discriminate.
+        * simpl in Hreq.
+          discriminate.
+      + intros [|t'] c Hlt Hhandle.
+        * inversion Hhandle; subst.
+          reflexivity.
+        * simpl in Hhandle.
+          discriminate.
+      + intros t c j Hlt Hchoose.
+        destruct t; simpl in Hchoose; discriminate.
+      + intros t c j Hlt Hchoose.
+        destruct t; simpl in Hchoose; discriminate.
+      + intros t c j Hlt Hdispatch.
+        destruct t; simpl in Hdispatch; discriminate.
+      + intros t c old new Hlt Hpreempt.
+        destruct t; simpl in Hpreempt; discriminate.
+      + intros t c old new Hlt Hpreempt.
+        destruct t; simpl in Hpreempt; discriminate.
+    - intros t c Hge.
+      destruct t; reflexivity.
+    - intros t c j Hlt Hrun.
+      destruct t; simpl in Hrun; discriminate.
+  Qed.
+
+  Definition handle_resched_local_adapter_contract :
+    os_local_multicore_adapter_contract
+      handle_resched_projection
+      delay_example_jobs
+      all_cpus_admissible
+      1 :=
+    @mkOSLocalMulticoreAdapterContract
+      nat
+      handle_resched_projection
+      delay_example_jobs
+      all_cpus_admissible
+      1
+      handle_resched_labeled_concrete_execution
+      handle_resched_local_concrete_multicore_projection_sound.
+
+  Example handle_resched_local_contract_sets_need_resched :
+    op_need_resched
+      (os_to_op_state
+         (osl_to_os_projection handle_resched_projection)
+         (lce_trace handle_resched_labeled_concrete_execution 1))
+      0 = true.
+  Proof.
+    assert (0 < 1) as Hlt by lia.
+    pose proof
+      (@os_local_multicore_adapter_contract_handle_sets_need_resched
+         nat
+         handle_resched_projection
+         delay_example_jobs
+         all_cpus_admissible
+         1
+         handle_resched_local_adapter_contract
+         0
+         0
+         Hlt
+         eq_refl) as Hneed.
+    exact Hneed.
   Qed.
 
   Example idle_labeled_execution_respects_admissibility :

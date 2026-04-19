@@ -10,9 +10,11 @@ From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.PlacementFacts.
 From RocqSched Require Import Multicore.Common.ValidityFacts.
+From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
 From RocqSched Require Import Operational.Common.ConcreteExecution.
 From RocqSched Require Import Operational.Common.LabeledExecution.
+From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Common.DelayModel.
 From RocqSched Require Import Operational.Common.DelayBudget.
 From RocqSched Require Import Operational.Common.Projection.
@@ -88,6 +90,116 @@ Definition os_local_multicore_adapter_contract_to_global
        m
        (olac_execution C)
        (olac_sound C)).
+
+Lemma local_labeled_concrete_projection_sound_request_sets_need_resched :
+  forall CState (P : OSLabeledProjection CState) jobs m
+         (ex : labeled_concrete_execution P m) t c
+         (Hlocal : local_labeled_concrete_projection_sound jobs m ex),
+    c < m ->
+    os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvRequestResched c ->
+    op_need_resched
+      (os_to_op_state (osl_to_os_projection P) (lce_trace ex (S t)))
+      c = true.
+Proof.
+  intros CState P jobs m ex t c Hlocal Hlt Hreq.
+  exact (llcps_request_sets_need_resched Hlocal t c Hlt Hreq).
+Qed.
+
+Lemma local_labeled_concrete_projection_sound_handle_sets_need_resched :
+  forall CState (P : OSLabeledProjection CState) jobs m
+         (ex : labeled_concrete_execution P m) t c
+         (Hlocal : local_labeled_concrete_projection_sound jobs m ex),
+    c < m ->
+    os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvHandleResched c ->
+    op_need_resched
+      (os_to_op_state (osl_to_os_projection P) (lce_trace ex (S t)))
+      c = true.
+Proof.
+  intros CState P jobs m ex t c Hlocal Hlt Hhandle.
+  exact (llcps_handle_sets_need_resched Hlocal t c Hlt Hhandle).
+Qed.
+
+Lemma local_labeled_concrete_projection_sound_choose_sets_dispatch_target :
+  forall CState (P : OSLabeledProjection CState) jobs m
+         (ex : labeled_concrete_execution P m) t c j
+         (Hlocal : local_labeled_concrete_projection_sound jobs m ex),
+    c < m ->
+    os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvChoose c j ->
+    op_dispatch_target
+      (os_to_op_state (osl_to_os_projection P) (lce_trace ex (S t)))
+      c = Some j.
+Proof.
+  intros CState P jobs m ex t c j Hlocal Hlt Hchoose.
+  exact (llcps_choose_sets_dispatch_target Hlocal t c j Hlt Hchoose).
+Qed.
+
+Lemma local_labeled_concrete_projection_sound_choose_from_runnable :
+  forall CState (P : OSLabeledProjection CState) jobs m
+         (ex : labeled_concrete_execution P m) t c j
+         (Hlocal : local_labeled_concrete_projection_sound jobs m ex),
+    c < m ->
+    os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvChoose c j ->
+    In j
+       (op_runnable
+          (os_to_op_state (osl_to_os_projection P) (lce_trace ex t))).
+Proof.
+  intros CState P jobs m ex t c j Hlocal Hlt Hchoose.
+  exact (llcps_choose_from_runnable Hlocal t c j Hlt Hchoose).
+Qed.
+
+Lemma os_local_multicore_adapter_contract_handle_sets_need_resched :
+  forall CState (P : OSLabeledProjection CState) jobs adm m
+         (C : os_local_multicore_adapter_contract P jobs adm m) t c,
+    c < m ->
+    os_step_label P (lce_trace (olac_execution C) t) (lce_trace (olac_execution C) (S t)) =
+    EvHandleResched c ->
+    op_need_resched
+      (os_to_op_state (osl_to_os_projection P) (lce_trace (olac_execution C) (S t)))
+      c = true.
+Proof.
+  intros CState P jobs adm m C t c Hlt Hhandle.
+  eapply local_labeled_concrete_projection_sound_handle_sets_need_resched
+    with (jobs := jobs) (ex := olac_execution C) (t := t) (c := c).
+  - exact (llcmps_projection_sound (olac_sound C)).
+  - exact Hlt.
+  - exact Hhandle.
+Qed.
+
+Lemma os_local_multicore_adapter_contract_choose_sets_dispatch_target :
+  forall CState (P : OSLabeledProjection CState) jobs adm m
+         (C : os_local_multicore_adapter_contract P jobs adm m) t c j,
+    c < m ->
+    os_step_label P (lce_trace (olac_execution C) t) (lce_trace (olac_execution C) (S t)) =
+    EvChoose c j ->
+    op_dispatch_target
+      (os_to_op_state (osl_to_os_projection P) (lce_trace (olac_execution C) (S t)))
+      c = Some j.
+Proof.
+  intros CState P jobs adm m C t c j Hlt Hchoose.
+  eapply local_labeled_concrete_projection_sound_choose_sets_dispatch_target
+    with (jobs := jobs) (ex := olac_execution C) (t := t) (c := c) (j := j).
+  - exact (llcmps_projection_sound (olac_sound C)).
+  - exact Hlt.
+  - exact Hchoose.
+Qed.
+
+Lemma os_local_multicore_adapter_contract_choose_from_runnable :
+  forall CState (P : OSLabeledProjection CState) jobs adm m
+         (C : os_local_multicore_adapter_contract P jobs adm m) t c j,
+    c < m ->
+    os_step_label P (lce_trace (olac_execution C) t) (lce_trace (olac_execution C) (S t)) =
+    EvChoose c j ->
+    In j
+       (op_runnable
+          (os_to_op_state (osl_to_os_projection P) (lce_trace (olac_execution C) t))).
+Proof.
+  intros CState P jobs adm m C t c j Hlt Hchoose.
+  eapply local_labeled_concrete_projection_sound_choose_from_runnable
+    with (jobs := jobs) (ex := olac_execution C) (t := t) (c := c) (j := j).
+  - exact (llcmps_projection_sound (olac_sound C)).
+  - exact Hlt.
+  - exact Hchoose.
+Qed.
 
 Lemma labeled_concrete_projection_sound_to_labeled_execution :
   forall CState (P : OSLabeledProjection CState) jobs m

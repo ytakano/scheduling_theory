@@ -234,6 +234,112 @@ Section OperationalProjectionExamples.
       | _ => 2
       end.
 
+  Definition choose_state0 : OpState :=
+    mkOpState (fun _ => None) [0] (fun _ => false) (fun _ => None).
+
+  Definition choose_state1 : OpState :=
+    set_dispatch_target 0 (Some 0) choose_state0.
+
+  Definition choose_trace (t : Time) : OpState :=
+    match t with
+    | 0 => choose_state0
+    | _ => choose_state1
+    end.
+
+  Definition choose_projection : OSLabeledProjection nat :=
+    mkOSLabeledProjection
+      nat
+      (mkOSProjection nat (fun n => if Nat.eqb n 0 then choose_state0 else choose_state1))
+      (fun s s' =>
+         match s, s' with
+         | 0, 1 => EvChoose 0 0
+         | _, _ => EvStutter
+         end).
+
+  Definition choose_concrete_trace : concrete_trace nat :=
+    fun t => if Nat.eqb t 0 then 0 else 1.
+
+  Lemma choose_concrete_stepwise :
+    forall t,
+      op_step
+        (os_to_op_state (osl_to_os_projection choose_projection) (choose_concrete_trace t))
+        (os_step_label choose_projection
+           (choose_concrete_trace t)
+           (choose_concrete_trace (S t)))
+        (os_to_op_state
+           (osl_to_os_projection choose_projection)
+           (choose_concrete_trace (S t))).
+  Proof.
+    intros [|t']; simpl.
+    - constructor.
+      + simpl. left. reflexivity.
+      + reflexivity.
+      + intros [c' Hpending].
+        simpl in Hpending.
+        destruct c'; discriminate.
+    - constructor.
+  Qed.
+
+  Lemma choose_concrete_struct_inv :
+    forall t,
+      op_struct_inv
+        1
+        (os_to_op_state (osl_to_os_projection choose_projection) (choose_concrete_trace t)).
+  Proof.
+    intros [|t']; simpl.
+    - constructor.
+      + intros j c1 c2 Hlt1 Hlt2 Hrun1 _.
+        simpl in Hrun1.
+        discriminate.
+      + constructor.
+        * simpl. tauto.
+        * constructor.
+      + intros c j Hcur Hin.
+        simpl in Hcur.
+        discriminate.
+      + intros j c1 c2 Hlt1 Hlt2 Ht1 _.
+        assert (c1 = 0) by lia.
+        subst c1.
+        simpl in Ht1.
+        discriminate.
+      + intros c j Hlt Ht.
+        simpl in Ht.
+        discriminate.
+    - constructor.
+      + intros j c1 c2 Hlt1 Hlt2 Hrun1 _.
+        simpl in Hrun1.
+        discriminate.
+      + constructor.
+        * simpl. tauto.
+        * constructor.
+      + intros c j Hcur Hin.
+        simpl in Hcur.
+        discriminate.
+      + intros j c1 c2 Hlt1 Hlt2 Ht1 _.
+        assert (c1 = 0) by lia.
+        subst c1.
+        simpl in Ht1.
+        inversion Ht1; subst.
+        lia.
+      + intros c j Hlt Ht.
+        assert (c = 0) by lia.
+        subst c.
+        simpl in Ht.
+        inversion Ht; subst.
+        simpl. left. reflexivity.
+  Qed.
+
+  Definition choose_labeled_concrete_execution :
+      @labeled_concrete_execution nat choose_projection 1 :=
+    @mkLabeledConcreteExecution
+      nat
+      choose_projection
+      1
+      choose_concrete_trace
+      True
+      choose_concrete_stepwise
+      choose_concrete_struct_inv.
+
   Lemma example_concrete_stepwise :
     forall t,
       op_step
@@ -372,6 +478,42 @@ Section OperationalProjectionExamples.
           discriminate.
         * unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hprev, Hnext.
           simpl in Hprev, Hnext.
+          discriminate.
+    - intros t c Hlt Hreq.
+      destruct t as [|t'].
+      + simpl in Hreq.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hreq.
+          discriminate.
+        * simpl in Hreq.
+          discriminate.
+    - intros t c Hlt Hhandle.
+      destruct t as [|t'].
+      + simpl in Hhandle.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hhandle.
+          discriminate.
+        * simpl in Hhandle.
+          discriminate.
+    - intros t c j Hlt Hchoose.
+      destruct t as [|t'].
+      + simpl in Hchoose.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hchoose.
+          discriminate.
+        * simpl in Hchoose.
+          discriminate.
+    - intros t c j Hlt Hchoose.
+      destruct t as [|t'].
+      + simpl in Hchoose.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hchoose.
+          discriminate.
+        * simpl in Hchoose.
           discriminate.
     - intros t c j Hlt Hdispatch.
       destruct t as [|t'].
@@ -521,6 +663,78 @@ Section OperationalProjectionExamples.
                (olac_execution example_local_adapter_contract)))).
   Proof.
     apply os_local_multicore_adapter_contract_implies_valid_schedule.
+  Qed.
+
+  Lemma choose_local_labeled_concrete_sound :
+    local_labeled_concrete_projection_sound
+      op_example_jobs
+      1
+      choose_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
+    - intros [|t'] c j Hlt Hrun; simpl in *.
+      + discriminate.
+      + discriminate.
+    - intros t c j Hlt Hdispatch.
+      destruct t; simpl in Hdispatch; discriminate.
+    - intros t c j Hlt Hprev Hnext.
+      destruct t; simpl in Hprev, Hnext; discriminate.
+    - intros t c Hlt Hreq.
+      destruct t; simpl in Hreq; discriminate.
+    - intros t c Hlt Hhandle.
+      destruct t; simpl in Hhandle; discriminate.
+    - intros t c j Hlt Hchoose.
+      destruct t as [|t']; simpl in Hchoose.
+      + inversion Hchoose; subst.
+        reflexivity.
+      + discriminate.
+    - intros t c j Hlt Hchoose.
+      destruct t as [|t']; simpl in Hchoose.
+      + inversion Hchoose; subst.
+        simpl. left. reflexivity.
+      + discriminate.
+    - intros t c j Hlt Hdispatch.
+      destruct t; simpl in Hdispatch; discriminate.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t']; simpl in Hpreempt; discriminate.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t']; simpl in Hpreempt; discriminate.
+  Qed.
+
+  Example choose_local_contract_sets_dispatch_target :
+    op_dispatch_target
+      (os_to_op_state
+         (osl_to_os_projection choose_projection)
+         (lce_trace choose_labeled_concrete_execution 1))
+      0 = Some 0.
+  Proof.
+    eapply local_labeled_concrete_projection_sound_choose_sets_dispatch_target
+      with (jobs := op_example_jobs) (ex := choose_labeled_concrete_execution) (t := 0)
+           (c := 0) (j := 0).
+    - exact choose_local_labeled_concrete_sound.
+    - lia.
+    - reflexivity.
+  Qed.
+
+  Example choose_local_contract_uses_runnable_job :
+    In 0
+       (op_runnable
+          (os_to_op_state
+             (osl_to_os_projection choose_projection)
+             (lce_trace choose_labeled_concrete_execution 0))).
+  Proof.
+    eapply local_labeled_concrete_projection_sound_choose_from_runnable
+      with (jobs := op_example_jobs) (ex := choose_labeled_concrete_execution) (t := 0)
+           (c := 0) (j := 0).
+    - exact choose_local_labeled_concrete_sound.
+    - lia.
+    - reflexivity.
   Qed.
 
   Lemma one_cpu_execution_sound :
