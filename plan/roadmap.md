@@ -65,6 +65,11 @@ The intended contribution is to connect, in one reusable framework:
   - multicore validity / placement bridge
   - OS-neutral common projection skeleton
   - Awkernel adapter example and thin multicore wrapper
+- delay-aware operational obligation boundary:
+  - event-labeled execution packaging
+  - common delay-source classification
+  - cumulative delay-budget accounting
+  - service-lag-based bounded-delay refinement packaging
 
 ### Interpretation of the current state
 
@@ -80,7 +85,8 @@ The next work is mainly:
 5. turn partitioned multicore into a mature theorem layer
 6. strengthen multicore-common semantics and the reusable global theorem layers
 7. introduce OS-level operational semantics and projection discipline
-8. complete refinement on a designable OS and validate external applicability on Linux
+8. introduce delay-aware operational obligations for multicore refinement
+9. complete refinement on a designable OS and validate external applicability on Linux
 
 ### Research gap and intended novelty frontier
 
@@ -897,9 +903,23 @@ Next immediate common-layer tasks:
 - keep concrete OS adapters outside `Operational/Common`
 
 ### H-1. Explicit delay sources
-**Status: Not started**
+**Status: Partially done at the common-layer boundary**
 
-Planned:
+Implemented core:
+
+- `LabeledExecution.v`
+- `DelayModel.v`
+- `DelayBudget.v`
+- `OperationalDelayExamples.v`
+
+What is already done:
+
+- event-labeled execution is exposed in the common operational layer
+- common delay-source vocabulary is defined
+- cumulative delay-budget accounting and split/monotonicity lemmas are exposed
+- delay remains outside the core `Schedule` semantics
+
+What remains:
 
 - dispatch / context-switch overhead
 - timer latency
@@ -920,12 +940,13 @@ Implemented core:
 - isolate machine / OS state from policy semantics with a dedicated projection layer
 - separate structural invariants from release/completion trace obligations
 - package the public operational interface around `trace_stepwise` and `execution`
+- add labeled executions and delay-budget interfaces without changing `Schedule`
 
 What remains:
 
 - define what it means for the projection to lag behind ideal decisions
-- isolate machine / OS delay from policy semantics
-- extend the current execution-first bridge with richer delay and refinement obligations
+- connect common delay budgets to downstream adapter-specific proofs
+- extend the current execution-first bridge with richer delay and top-`m` refinement obligations
 
 ---
 
@@ -981,13 +1002,14 @@ What is already done:
 - operational trace -> abstract schedule projection skeleton exists
 - OS-neutral projection boundary exists for the first projection slice
 - Awkernel adapter example exists outside the common layer
+- common bounded-delay refinement packaging exists for labeled operational executions
 
 What remains:
 
 - executable algorithm -> operational scheduler refinement
 - operational scheduler -> OS-level model refinement via `OSProjection`
 - multicore refinement path
-- bounded-delay refinement theorems connecting operational delay to abstract schedules
+- adapter- and OS-specific bounded-delay refinement theorems connecting operational delay to abstract schedules
 
 ### J-1. Awkernel-first refinement completion
 **Status: In progress at the projection-wrapper level**

@@ -7,8 +7,14 @@ This document describes the current refinement layer of the repository.
 Its present scope is:
 
 - `theories/Refinement/SchedulingAlgorithmRefinement.v`
+- `theories/Refinement/BoundedDelayRefinement.v`
 
 The layer is intentionally narrow at the moment. It captures the bridge from executable local scheduling algorithms to abstract policy specifications and schedule-level admission facts.
+
+It now also includes the first common bounded-delay refinement boundary for
+operational multicore work. That boundary still stops short of any
+OS-specific theorem and keeps ideal schedule semantics separate from delay
+accounting.
 
 ## Purpose of the Refinement layer
 
@@ -41,12 +47,15 @@ The current guarantee boundary is therefore:
 
 - refinement connects executable local choice to declarative policy-respecting schedules
 - the bridge is phrased at the schedule-admission level, not as a schedulability theorem
+- bounded-delay refinement connects labeled operational execution to an ideal
+  semantic schedule through cumulative delay budgets and service lag
 
 ## Public entry points
 
 The stable entry point for this layer is:
 
 - `theories/Refinement/SchedulingAlgorithmRefinement.v`
+- `theories/Refinement/BoundedDelayRefinement.v`
 
 Downstream users should treat this file as the current default import for:
 
@@ -61,6 +70,8 @@ This layer includes:
 - executable-to-spec refinement statements,
 - the inheritance of declarative policy properties by schedules induced from executable choosers,
 - schedule-level bridge theorems that rely on the abstraction layer interfaces.
+- service-lag-based bounded-delay interfaces between operational executions and
+  ideal schedules
 
 This layer does not include:
 
@@ -101,14 +112,18 @@ The common refinement path is:
 
 Concrete OS state
   -> `OSProjection`
-  -> `OpTrace`
+  -> `OpTrace` / `labeled_execution`
+  -> delay source trace
+  -> cumulative delay budget
   -> `project_schedule`
   -> semantic `Schedule`
+  -> service-lag obligation
   -> `multicore_semantic_validity`
   -> placement / admissibility obligations
 
 The refinement layer may then state that the projected schedule satisfies
-validity, admissibility, placement, or scheduler-policy obligations.
+validity, admissibility, placement, bounded-delay, or scheduler-policy
+obligations.
 
 The current common operational bridge now exposes that path through:
 
@@ -128,6 +143,9 @@ Concrete OS-specific operational proofs should therefore live in
 
 - `theories/Refinement/SchedulingAlgorithmRefinement.v`
   The current refinement boundary: `algorithm_refines_spec` and the induced schedule-respects-spec theorems.
+- `theories/Refinement/BoundedDelayRefinement.v`
+  The common delay-aware refinement boundary: `service_lag_le` and the
+  packaging record for labeled executions, delay budgets, and ideal schedules.
 
 ## Summary
 

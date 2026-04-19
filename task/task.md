@@ -1,154 +1,509 @@
-design/Foundation.md は現状の theories/Foundation/Base.v / Arithmetic.v の範囲をおおむね正しく説明している。
- 
- ただし、実装コメントや定義と比べると、文書としては数点の抜け漏れがある。
- 
- 抜けている／薄い点
- 
- 1. Schedule が CPU 数を内包しないこと
- 
- Base.v の Schedule は次である。
- 
- Definition Schedule : Type := Time -> CPU -> option JobId.
- 
- つまり、m : nat のような CPU 数は Schedule 型には入っていない。
- 有限CPU範囲 c < m や valid_schedule jobs m sched は上位層で扱う。
- 
- Foundation.md には「multicore-capable」とあるが、CPU boundedness は Foundation では保証しないという点を明記した方がよい。
- 
- 2. Job の job_task = 0 慣習
- 
- 実装コメントでは job_task に
- 
- (* which task generated this job (0 = anonymous) *)
- 
- という慣習がある。
- 
- Foundation.md は job_task を列挙しているだけで、standalone job / anonymous job を 0 で表す現在の慣習を説明していない。
- 
- 3. job_index の意味
- 
- 実装では job_index は
- 
- (* k-th job of that task, 0-indexed (instance number) *)
- 
- である。
- 
- Foundation.md では job_index の存在は書いてあるが、0-indexed instance number であることは抜けている。
- 周期・sporadic・jittered task model で使うので、追記した方がよい。
- 
- 4. valid_jobs の意味が薄い
- 
- 実装では
- 
- Definition valid_jobs (jobs : JobId -> Job) : Prop :=
-   forall j, 0 < job_cost (jobs j).
- 
- であり、すべての job が正の cost を持つという述語である。
- 
- さらにコメントでは、zero-cost job は t = 0 で即 completed になるため ready/eligible 論理で注意が必要、と説明している。
- 
- Foundation.md は valid_jobs を名前として挙げているだけなので、最低限
- 
- * valid_jobs は positive job cost を要求する
- * zero-cost job は Foundation では許されるが、valid_jobs で除外される
- * positivity は record invariant ではなく述語で表す
- 
- を明記すべきである。
- 
- 5. pre_release が「waiting」ではないこと
- 
- 実装コメントでは、pre_release は
- 
- t < job_release (jobs j)
- 
- であり、ready queue 上の waiting とは違う、と明示している。
- 
- Foundation.md では pre_release の名前だけなので、“not yet released” であり “waiting in ready queue” ではないと書くと誤解が減る。
- 
- 6. valid_job_of_task の正確な中身
- 
- Foundation.md は「job と task を data level で関係づける」と書いているが、実装上の中身は次の2条件だけである。
- 
- job_abs_deadline (jobs j) =
-   job_release (jobs j) + task_relative_deadline (tasks τ)
- /\
- job_cost (jobs j) <= task_cost (tasks τ)
- 
- したがって、文書にも
- 
- * absolute deadline = release + relative deadline
- * job cost <= task WCET
- * release pattern は含まない
- * job_index の一意性は含まない
- * period spacing は含まない
- 
- を明記した方がよい。
- 
- 7. Task record 自体には positivity invariant がないこと
- 
- Task は
- 
- task_cost : nat
- task_period : nat
- task_relative_deadline : nat
- 
- だけであり、0 < task_period や 0 < task_cost は record には入っていない。
- 
- Foundation.md には「minimal」とあるので方向性は合っているが、period/cost/deadline の妥当性は task-model 層の述語で扱うと追記するとよい。
- 
- 8. DAG 拡張方針の具体性
- 
- Foundation.md には DAG-aware execution units への拡張余地は書かれている。
- ただし、実装コメントにはより具体的に
- 
- * Task
- * Job
- * Node
- 
- の3層化、および将来の Schedule が
- 
- Time -> CPU -> option NodeId
- 
- または
- 
- Time -> CPU -> option (JobId * NodeId)
- 
- へ移る可能性が書かれている。
- 
- これは Foundation の将来互換性に関わるので、文書にも入れてよい。
- 
- 9. Arithmetic.v の具体的な公開補題名
- 
- Foundation.md は arithmetic lemmas とだけ書いているが、現状の公開補題は次の4つである。
- 
- nat_div2_double
- nat_div2_succ_double
- nat_div_mul_exact
- nat_mod_mul_left
- 
- 設計文書として網羅性を上げるなら、File map か Core concepts に列挙するとよい。
- 
- 逆に、問題なさそうな点
- 
- 以下は現状実装と整合している。
- 
- * Foundation の対象が Base.v と Arithmetic.v に限定されている点
- * JobId / TaskId / CPU / Time がすべて nat である点
- * Task / Job が最小 record である点
- * Schedule が multicore 形状である点
- * eligible / ready / completed / valid_schedule を Foundation に入れない設計
- * periodic / sporadic / jittered generation を Foundation に入れない設計
- * operational trace や refinement を Foundation に入れない設計
- 
- 推奨TODO
- 
- design/Foundation.md に次の追記を行うのがよい。
- 
- 1. Schedule は raw carrier であり、CPU 数 m や c < m は上位層の責務である、と追記する。
- 2. Job の job_task = 0 anonymous convention と job_index の 0-indexed instance number を追記する。
- 3. valid_jobs の定義を positive cost invariant として明記する。
- 4. pre_release は ready-queue waiting ではない、と明記する。
- 5. valid_job_of_task の2条件と、含まない条件を明記する。
- 6. Task record 自体は positivity を保証しない、と明記する。
- 7. DAG 拡張方針を Task / Job / Node の3層として具体化する。
- 8. Arithmetic.v の4補題名を列挙する。
+## Update 2026-04-20
+
+このタスクで意図していた common-layer の導入は、現時点で次まで実装済みである。
+
+- `LabeledExecution.v`
+- `DelayModel.v`
+- `DelayBudget.v`
+- `BoundedDelayRefinement.v`
+- `OperationalDelayExamples.v`
+- `_CoqProject` / `OperationalEntryPoints.v`
+
+さらに今回の更新で、次を追加した。
+
+- `DelayTrace`, `cumulative_delay`, `delay_budget_le`
+- `cumulative_delay_zero_len`, `cumulative_delay_split`, `delay_budget_monotone_delta`
+- `service_distance_le`
+- `bounded_delay_projection_refinement`
+- `bounded_delay_top_m_projection_refinement`
+- actual / ideal semantic validity extraction lemmas
+- `service_distance_zero_implies_service_eq`
+
+したがって、この文書の「追加するファイル」「未着手」という表現は一部 stale であり、
+残タスクは common boundary の新設ではなく、adapter / Awkernel / end-to-end
+refinement 側の obligation を満たすことである。
+
+次にいきなり
+
+> `project_schedule` が ideal top-`m` schedule から高々 δ だけ遅れる
+
+という本定理を証明しに行くのは早い。実装上の次タスクは、より小さく切って、**Operational 層に delay-aware obligation の共通インターフェースを導入すること**である。
+
+理由は次の通りである。
+
+* 前回予定していた `Operational -> project_schedule -> multicore_semantic_validity / placement` の橋は、実装上すでに入っている。
+
+  * `ProjectionInvariants.v`
+  * `ProjectionMulticoreValidity.v`
+  * `StepLemmas.v`
+  * `OperationalEntryPoints.v`
+  * `Awkernel/MinimalProjection.v`
+* 一方で、delay 関連はまだ未着手である。
+
+  * delay source の型がない
+  * event-labeled trace がない
+  * delay budget の累積定義がない
+  * actual schedule と ideal schedule の lag relation がない
+  * top-`m` ideal schedule と operational projection を比較する refinement record がない
+* 現在の `trace_stepwise` は `forall t, exists ev, ...` なので、**どの event が起きたかを後から delay accounting に使えない**。bounded-delay に進むには、まず event を trace に露出する必要がある。
+
+研究方針としても、OS-like operational semantics に timer / wakeup / migration / IPI を入れて multicore scheduler refinement へ接続する方向は、このプロジェクトの太い新規性に合っている。既存手法では global EDF / top-`m` / migration correctness を concrete multicore scheduler まで end-to-end に接続する部分が薄い、という整理とも一致する。 また、OS 割込み・wakeup・migration を含む scheduler semantics は、multicore refinement の研究軸として有力である。
+
+---
+
+## 次に行うべきタスク
+
+### Phase H-1a / H-2b / J-0
+
+**Delay-aware operational obligation boundary の導入**
+
+目的は、次の形の境界を作ることである。
+
+```text
+Operational labeled execution
+  -> delay source trace
+  -> cumulative delay budget
+  -> project_schedule actual
+  -> ideal top-m schedule
+  -> bounded service lag / bounded projection lag
+```
+
+ここではまだ Awkernel の具体 scheduler 実装まで降りない。まず共通層で、後続の Awkernel refinement が満たすべき obligation の形を固定する。
+
+---
+
+## 重要な設計判断
+
+### 1. `Schedule` に delay を埋め込まない
+
+これは既存 roadmap の方針通りでよい。`Schedule` は理想化された semantic core として残し、delay は `Operational` / `Refinement` 側に置くべきである。
+
+### 2. CPU ごとの pointwise equality ではなく service lag を主関係にする
+
+global top-`m` では CPU の割当順序や migration があるため、
+
+```text
+actual t c = ideal t c
+```
+
+のような CPU-wise 比較は強すぎる。まずは job 単位の service 比較にするのがよい。
+
+中心定義は次の形がよい。
+
+```coq
+Definition service_lag_le
+    (m : nat) (ideal actual : Schedule) (delta : nat) : Prop :=
+  forall j t,
+    service_job m ideal j t <=
+    service_job m actual j (t + delta).
+```
+
+これは「actual は ideal に対して高々 `delta` だけ service 上遅れる」という意味である。
+
+### 3. `OpEvent` をすぐ拡張しすぎない
+
+`OpEvent` に `EvIPI` や `EvMigrate` を直接足すと、既存の `op_step` 証明が広く壊れる可能性がある。最初は side-channel として delay source trace を置くのが安全である。
+
+---
+
+## 実装対象ファイル
+
+追加するファイル:
+
+* `theories/Operational/Common/LabeledExecution.v`
+* `theories/Operational/Common/DelayModel.v`
+* `theories/Operational/Common/DelayBudget.v`
+* `theories/Refinement/BoundedDelayRefinement.v`
+* `theories/Examples/OperationalDelayExamples.v`
+
+更新するファイル:
+
+* `_CoqProject`
+* `theories/Operational/Common/OperationalEntryPoints.v`
+* `design/Operational.md`
+* `design/Refinement.md`
+* `plan/roadmap.md`
+* `plan/what_to_prove.md`
+
+---
+
+## 実装 Plan
+
+### 1. event-labeled execution を追加する
+
+現在の `execution` は event を existential に隠している。delay accounting では event 種別が必要なので、既存 `execution` は壊さず、別 record を追加する。
+
+対象:
+
+* `theories/Operational/Common/LabeledExecution.v`
+
+```coq
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Operational.Common.State.
+From RocqSched Require Import Operational.Common.Trace.
+From RocqSched Require Import Operational.Common.Step.
+From RocqSched Require Import Operational.Common.Invariants.
+From RocqSched Require Import Operational.Common.Execution.
+
+Record labeled_execution (m : nat) : Type := mkLabeledExecution {
+  lex_trace : OpTrace;
+  lex_event : Time -> OpEvent;
+  lex_init : Prop;
+  lex_stepwise :
+    forall t, op_step (lex_trace t) (lex_event t) (lex_trace (S t));
+  lex_struct_inv :
+    forall t, op_struct_inv m (lex_trace t);
+}.
+
+Definition labeled_to_execution
+    {m : nat} (ex : labeled_execution m) : execution m :=
+  mkExecution
+    m
+    (lex_trace ex)
+    (lex_init ex)
+    (fun t => ex_intro _ (lex_event ex t) (lex_stepwise ex t))
+    (lex_struct_inv ex).
+
+Lemma labeled_to_execution_trace_eq :
+  forall m (ex : labeled_execution m) t,
+    ex_trace (labeled_to_execution ex) t = lex_trace ex t.
+Proof.
+  reflexivity.
+Qed.
+```
+
+完了条件は、既存の `execution_multicore_projection_sound` が `labeled_to_execution ex` にそのまま使えることである。
+
+---
+
+### 2. delay source の分類を追加する
+
+対象:
+
+* `theories/Operational/Common/DelayModel.v`
+
+```coq
+From Stdlib Require Import List Arith Lia.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Operational.Common.Step.
+Import ListNotations.
+
+Inductive op_delay_source : Type :=
+| DelayDispatch
+| DelayWakeup
+| DelayTimer
+| DelayMigration
+| DelayIPI
+| DelayNonpreemptive.
+
+Record op_delay_bounds : Type := mkOpDelayBounds {
+  odb_dispatch : nat;
+  odb_wakeup : nat;
+  odb_timer : nat;
+  odb_migration : nat;
+  odb_ipi : nat;
+  odb_nonpreemptive : nat;
+}.
+
+Definition delay_bound_of
+    (B : op_delay_bounds) (src : op_delay_source) : nat :=
+  match src with
+  | DelayDispatch => odb_dispatch B
+  | DelayWakeup => odb_wakeup B
+  | DelayTimer => odb_timer B
+  | DelayMigration => odb_migration B
+  | DelayIPI => odb_ipi B
+  | DelayNonpreemptive => odb_nonpreemptive B
+  end.
+
+Definition default_event_delay_sources (ev : OpEvent) : list op_delay_source :=
+  match ev with
+  | EvDispatch _ _ => [DelayDispatch]
+  | EvWakeup _ => [DelayWakeup]
+  | EvResched _ => [DelayIPI]
+  | EvTick => [DelayTimer]
+  | EvBlock _ => []
+  | EvComplete _ => []
+  end.
+```
+
+ここでは migration を `OpEvent` に直接入れず、後続で extra delay source として足せるようにしておく。
+
+---
+
+### 3. delay budget の累積補題を作る
+
+対象:
+
+* `theories/Operational/Common/DelayBudget.v`
+
+```coq
+From Stdlib Require Import List Arith Lia.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Operational.Common.DelayModel.
+Import ListNotations.
+
+Definition DelayTrace : Type := Time -> list op_delay_source.
+
+Fixpoint sum_delay_sources
+    (B : op_delay_bounds) (xs : list op_delay_source) : nat :=
+  match xs with
+  | [] => 0
+  | x :: xs' => delay_bound_of B x + sum_delay_sources B xs'
+  end.
+
+Fixpoint cumulative_delay_from
+    (B : op_delay_bounds) (dt : DelayTrace)
+    (start len : nat) : nat :=
+  match len with
+  | 0 => 0
+  | S len' =>
+      sum_delay_sources B (dt start)
+      + cumulative_delay_from B dt (S start) len'
+  end.
+
+Definition cumulative_delay
+    (B : op_delay_bounds) (dt : DelayTrace)
+    (t1 t2 : Time) : nat :=
+  cumulative_delay_from B dt t1 (t2 - t1).
+
+Definition delay_budget_le
+    (B : op_delay_bounds) (dt : DelayTrace)
+    (t1 t2 delta : Time) : Prop :=
+  cumulative_delay B dt t1 t2 <= delta.
+```
+
+最初に証明すべき補題:
+
+```coq
+Lemma cumulative_delay_zero_len :
+  forall B dt t,
+    cumulative_delay B dt t t = 0.
+
+Lemma delay_budget_monotone_delta :
+  forall B dt t1 t2 d1 d2,
+    delay_budget_le B dt t1 t2 d1 ->
+    d1 <= d2 ->
+    delay_budget_le B dt t1 t2 d2.
+
+Lemma cumulative_delay_split :
+  forall B dt t1 t2 t3,
+    t1 <= t2 ->
+    t2 <= t3 ->
+    cumulative_delay B dt t1 t3 =
+    cumulative_delay B dt t1 t2 +
+    cumulative_delay B dt t2 t3.
+```
+
+---
+
+### 4. bounded lag relation を Refinement 層に置く
+
+対象:
+
+* `theories/Refinement/BoundedDelayRefinement.v`
+
+ここで初めて actual projected schedule と ideal top-`m` schedule を比較する。
+
+```coq
+From Stdlib Require Import Arith Lia.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
+From RocqSched Require Import Multicore.Common.ValidityFacts.
+From RocqSched Require Import Operational.Common.Execution.
+From RocqSched Require Import Operational.Common.Projection.
+From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
+
+Definition service_lag_le
+    (m : nat) (ideal actual : Schedule) (delta : nat) : Prop :=
+  forall j t,
+    service_job m ideal j t <=
+    service_job m actual j (t + delta).
+
+Definition service_distance_le
+    (m : nat) (s1 s2 : Schedule) (delta : nat) : Prop :=
+  service_lag_le m s1 s2 delta /\
+  service_lag_le m s2 s1 delta.
+
+Record bounded_delay_projection_refinement
+    (jobs : JobId -> Job)
+    (m : nat)
+    (ideal actual : Schedule)
+    (delta : nat) : Prop := {
+  bdpr_ideal_valid :
+    multicore_semantic_validity jobs m ideal;
+  bdpr_actual_valid :
+    multicore_semantic_validity jobs m actual;
+  bdpr_service_lag :
+    service_lag_le m ideal actual delta;
+}.
+```
+
+次に top-`m` ideal schedule との接続を置く。
+
+```coq
+Record bounded_delay_top_m_projection_refinement
+    (spec : GenericTopMSchedulingAlgorithm)
+    (candidates_of : CandidateSource)
+    (jobs : JobId -> Job)
+    (adm : admissible_cpu)
+    (m : nat)
+    (ex : execution m)
+    (ideal : Schedule)
+    (delta : nat) : Prop := {
+  bdtmpr_actual_sound :
+    execution_multicore_projection_sound jobs adm m ex;
+
+  bdtmpr_ideal_top_m :
+    scheduler_rel
+      (top_m_algorithm_schedule spec candidates_of)
+      jobs m ideal;
+
+  bdtmpr_bounded :
+    bounded_delay_projection_refinement
+      jobs m ideal (project_schedule (ex_trace ex)) delta;
+}.
+```
+
+最初の public theorem は、強い解析定理ではなく、境界を取り出す theorem でよい。
+
+```coq
+Lemma bounded_delay_top_m_actual_semantic_validity :
+  forall spec candidates_of jobs adm m ex ideal delta,
+    bounded_delay_top_m_projection_refinement
+      spec candidates_of jobs adm m ex ideal delta ->
+    multicore_semantic_validity
+      jobs m (project_schedule (ex_trace ex)).
+
+Lemma bounded_delay_top_m_ideal_semantic_validity :
+  forall spec candidates_of jobs adm m ex ideal delta,
+    bounded_delay_top_m_projection_refinement
+      spec candidates_of jobs adm m ex ideal delta ->
+    multicore_semantic_validity jobs m ideal.
+
+Lemma service_lag_monotone_delta :
+  forall m ideal actual d1 d2,
+    service_lag_le m ideal actual d1 ->
+    d1 <= d2 ->
+    service_lag_le m ideal actual d2.
+```
+
+---
+
+### 5. zero-delay special case を弱い形で入れる
+
+「zero-delay なら CPU-wise exact schedule equality」と言うのは強すぎる。global scheduling では CPU permutation や migration があるためである。
+
+最初は service equality までにするのがよい。
+
+```coq
+Lemma service_distance_zero_implies_service_eq :
+  forall m s1 s2,
+    service_distance_le m s1 s2 0 ->
+    forall j t,
+      service_job m s1 j t = service_job m s2 j t.
+```
+
+後で CPU-wise equality が必要なら、別途
+
+```text
+same running set at every time
+```
+
+を追加すればよい。
+
+---
+
+### 6. 小さい example を追加する
+
+対象:
+
+* `theories/Examples/OperationalDelayExamples.v`
+
+入れる例:
+
+* delay source の合計
+* zero delay budget
+* dispatch delay だけを持つ trace
+* `service_lag_le` の単調性
+* `bounded_delay_projection_refinement` の最小例
+
+---
+
+## TODO リスト
+
+* [ ] `Operational/Common/LabeledExecution.v` を追加する
+* [ ] `labeled_execution` を定義する
+* [ ] `labeled_to_execution` を定義する
+* [ ] `Operational/Common/DelayModel.v` を追加する
+* [ ] `op_delay_source` を定義する
+* [ ] `op_delay_bounds` を定義する
+* [ ] `default_event_delay_sources` を定義する
+* [ ] `Operational/Common/DelayBudget.v` を追加する
+* [ ] `DelayTrace` を定義する
+* [ ] `cumulative_delay` を定義する
+* [ ] `delay_budget_monotone_delta` を証明する
+* [ ] `cumulative_delay_split` を証明する
+* [ ] `Refinement/BoundedDelayRefinement.v` を追加する
+* [ ] `service_lag_le` を定義する
+* [ ] `bounded_delay_projection_refinement` を定義する
+* [ ] `bounded_delay_top_m_projection_refinement` を定義する
+* [ ] actual / ideal semantic validity の取り出し lemma を証明する
+* [ ] `service_lag_monotone_delta` を証明する
+* [ ] `service_distance_zero_implies_service_eq` を証明する
+* [ ] `Examples/OperationalDelayExamples.v` を追加する
+* [ ] `_CoqProject` を更新する
+* [ ] `OperationalEntryPoints.v` を更新する
+* [ ] `roadmap.md` / `what_to_prove.md` の古い immediate task 表記を同期する
+* [ ] `design/Operational.md` / `design/Refinement.md` に delay boundary を追記する
+
+---
+
+## 完了条件
+
+このタスクは、少なくとも次の定義と補題が通った時点で完了である。
+
+```coq
+labeled_to_execution :
+  forall {m}, labeled_execution m -> execution m.
+
+cumulative_delay_split :
+  forall B dt t1 t2 t3,
+    t1 <= t2 ->
+    t2 <= t3 ->
+    cumulative_delay B dt t1 t3 =
+    cumulative_delay B dt t1 t2 +
+    cumulative_delay B dt t2 t3.
+
+service_lag_monotone_delta :
+  forall m ideal actual d1 d2,
+    service_lag_le m ideal actual d1 ->
+    d1 <= d2 ->
+    service_lag_le m ideal actual d2.
+
+bounded_delay_top_m_actual_semantic_validity :
+  forall spec candidates_of jobs adm m ex ideal delta,
+    bounded_delay_top_m_projection_refinement
+      spec candidates_of jobs adm m ex ideal delta ->
+    multicore_semantic_validity
+      jobs m (project_schedule (ex_trace ex)).
+```
+
+---
+
+## 次の次に進むこと
+
+この boundary ができた後で、初めて次に進むべきである。
+
+```text
+Awkernel scheduler behavior
+  -> labeled operational execution
+  -> delay source trace
+  -> delay budget <= δ
+  -> bounded_delay_top_m_projection_refinement
+```
+
+つまり、今回の次タスクは **bounded-delay refinement theorem の本体**ではなく、**bounded-delay refinement theorem を述べるための共通 obligation interface** である。

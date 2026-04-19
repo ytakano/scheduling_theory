@@ -4,6 +4,9 @@ From RocqSched Require Export Operational.Common.Step.
 From RocqSched Require Export Operational.Common.Invariants.
 From RocqSched Require Export Operational.Common.StepLemmas.
 From RocqSched Require Export Operational.Common.Execution.
+From RocqSched Require Export Operational.Common.LabeledExecution.
+From RocqSched Require Export Operational.Common.DelayModel.
+From RocqSched Require Export Operational.Common.DelayBudget.
 From RocqSched Require Export Operational.Common.Projection.
 From RocqSched Require Export Operational.Common.ProjectionLemmas.
 From RocqSched Require Export Operational.Common.ProjectionInvariants.
@@ -22,6 +25,8 @@ From RocqSched Require Export Operational.Common.ConcreteExecution.
     - small-step operational skeleton
     - structural invariants
     - execution packaging
+    - event-labeled execution packaging
+    - delay-source classification and cumulative delay budgets
     - OS-neutral projection from concrete traces to operational traces
     - projection from operational traces to semantic schedules
     - projection soundness lemmas

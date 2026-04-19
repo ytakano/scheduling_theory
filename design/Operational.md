@@ -12,6 +12,11 @@ The current implementation is a minimal OS-neutral operational projection
 slice: it records implementation-facing scheduler views and traces and explains
 how they project back into schedule semantics.
 
+The common operational layer now also exposes a delay-aware obligation
+boundary: event-labeled executions, delay-source classification, and
+cumulative delay budgets. This supports later refinement work without turning
+`Operational/Common` into a full concrete OS semantics.
+
 ## Purpose of the Operational layer
 
 The operational layer exists to model implementation-facing scheduler state without replacing the abstract schedule semantics.
@@ -27,6 +32,19 @@ Its role is to define:
 
 This layer is intentionally modest. It is not yet a full OS semantics with the full range of timer, wakeup, migration, and interrupt behavior.
 
+The new delay-aware surface only exposes the minimum common observables needed
+for accounting:
+
+- wakeup
+- dispatch
+- reschedule request / IPI-facing reschedule signal
+- timer tick
+
+Migration, concrete interrupt routing, and non-preemptive runtime details
+remain outside the common event interface. Downstream adapters may enrich
+delay-source classification without changing `OpEvent` or the semantic
+definition of `Schedule`.
+
 ## Core concepts and guarantees
 
 The core common operational objects are:
@@ -35,6 +53,9 @@ The core common operational objects are:
 - `OpTrace`
 - `op_step`
 - `execution`
+- `labeled_execution`
+- `op_delay_source`
+- `cumulative_delay_budget`
 - `OSProjection`
 - `concrete_execution`
 
@@ -141,6 +162,12 @@ These extensions should continue to project into the same semantic schedule laye
   Structural invariants over operational states.
 - `theories/Operational/Common/Execution.v`
   Packaged stepwise execution objects.
+- `theories/Operational/Common/LabeledExecution.v`
+  Packaged executions with per-step observable events.
+- `theories/Operational/Common/DelayModel.v`
+  Common delay-source vocabulary and default event classification.
+- `theories/Operational/Common/DelayBudget.v`
+  Cumulative delay-budget accounting lemmas over delay-source traces.
 - `theories/Operational/Common/OSProjectionInterface.v`
   OS-neutral projection from concrete machine state to `OpState`.
 - `theories/Operational/Common/ConcreteExecution.v`

@@ -84,6 +84,21 @@ zero-offset classical EDF corollary、infinite-time periodic EDF wrapper、
 
 この整理により、zero-delay idealization を特殊化として回収しやすくする。
 
+## Current common delay-aware refinement boundary
+
+Operational multicore refinement の次の中間目標は、本定理を直接証明する
+ことではなく、共通層で次の obligation boundary を固定することである。
+
+- `labeled_execution` による event-visible operational execution
+- delay source trace への分類
+- cumulative delay budget
+- `project_schedule` された actual schedule
+- ideal top-`m` schedule
+- `service_lag_le` による bounded service lag
+
+この段階では、Awkernel 固有の scheduler semantics や migration 実装は
+共通層に入れない。
+
 ---
 
 # Lv.0: Common schedule semantics
@@ -960,9 +975,18 @@ internal/helper inventory として扱うもの:
 - execution-first bridge に delay/refinement obligation を積む
 
 ## 10-3. explicit operational delay sources
-**Status: Not started**
+**Status: Common-layer boundary done, downstream enrichment pending**
 
-予定:
+実装済み:
+
+- `labeled_execution`
+- `op_delay_source`
+- `op_delay_bounds`
+- `default_event_delay_sources`
+- `DelayTrace`
+- cumulative delay budget / split / monotonicity lemmas
+
+残作業:
 
 - dispatch / context-switch overhead
 - timer latency
@@ -979,31 +1003,39 @@ internal/helper inventory として扱うもの:
 ---
 
 # Lv.11: Delay / overhead model
-**Status: Not started**
+**Status: Common accounting layer in progress**
 
 この層は analysis のための補助概念であり、
 core schedule semantics と OS operational semantics の中間に置く。
 
 ## 11-1. delay taxonomy
-**Status: Not started**
+**Status: Common vocabulary done**
 
-定義候補:
+実装済み:
 
-- release jitter bound
 - blocking bound
 - dispatch overhead bound
 - timer latency bound
 - wakeup latency bound
 - migration latency bound
 
-## 11-2. delay accounting lemmas
-**Status: Not started**
+残作業:
 
-予定:
+- release jitter / blocking との統合
+- adapter-specific delay-source enrichment
+
+## 11-2. delay accounting lemmas
+**Status: Initial common lemmas done**
+
+実装済み:
 
 - delay budget の単調性
 - より大きい bound への monotonicity
-- zero-delay simplification
+- zero-length / interval split
+
+残作業:
+
+- zero-delay simplification を theorem inventory として整理する
 - independent delay sources の加法的合成条件
 
 ## 11-3. abstract/operational consistency lemmas
@@ -1042,13 +1074,22 @@ core schedule semantics と OS operational semantics の中間に置く。
 - first bridge theorem target remains `valid_schedule` for projected traces
 
 ## 12-3. bounded-delay refinement
-**Status: Planned**
+**Status: Common packaging done, adapter theorems planned**
 
-予定:
+実装済み:
+
+- `service_lag_le`
+- `service_distance_le`
+- `bounded_delay_projection_refinement`
+- `bounded_delay_top_m_projection_refinement`
+- actual / ideal semantic validity extraction lemmas
+- zero-delay service equality lemma
+
+残作業:
 
 - operational scheduler が ideal abstract schedule から高々 δ だけ遅れる
 - dispatch / wakeup / timer / migration delay を合成した lag bound
-- zero-delay case では exact refinement に落ちること
+- adapter-specific proofs that discharge the bounded-delay obligations
 
 ## 12-4. partitioned refinement
 **Status: Planned**
