@@ -1,11 +1,18 @@
-From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.Scheduler.Validity.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Common.MetricChooser.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.ServiceFacts.
+From RocqSched Require Import Multicore.Common.TopMMetricChooser.
 From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.Trace.
 From RocqSched Require Import Operational.Common.Invariants.
@@ -22,11 +29,14 @@ From RocqSched Require Import Operational.Common.OSSchedulerViewContract.
 From RocqSched Require Import Operational.Common.OSHandoffContract.
 From RocqSched Require Import Operational.Common.OSCandidateSourceContract.
 From RocqSched Require Import Operational.Common.OSAdmissibleCandidateSourceContract.
+From RocqSched Require Import Operational.Common.OSSchedulerRelationContract.
 From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Refinement.OSSchedulerViewTheorem.
 From RocqSched Require Import Refinement.OSHandoffTheorem.
 From RocqSched Require Import Refinement.OSCandidateSourceTheorem.
 From RocqSched Require Import Refinement.OSAdmissibleCandidateSourceTheorem.
+From RocqSched Require Import Refinement.OSSchedulerRelationTheorem.
+From RocqSched Require Import Refinement.SchedulingAlgorithmRefinement.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
@@ -1254,6 +1264,162 @@ Section OperationalProjectionExamples.
     eapply os_local_strong_admissible_candidate_source_adapter_contract_candidate_somewhere
       with (C := choose_strong_admissible_candidate_adapter_contract).
     simpl. left. reflexivity.
+  Qed.
+
+  Definition example_scheduler_candidates : CandidateSource :=
+    fun _ _ _ t =>
+      match t with
+      | 0 => []
+      | 1 => [0]
+      | _ => []
+      end.
+
+  Definition example_metric_algorithm : GenericSchedulingAlgorithm :=
+    mkGenericSchedulingAlgorithm
+      (fun jobs m sched t candidates =>
+         choose_min_metric (fun _ => 0%Z) jobs m sched t candidates)
+      (fun jobs m sched t candidates j Hchoose =>
+         choose_min_metric_eligible (fun _ => 0%Z) jobs m sched t candidates j Hchoose)
+      (fun jobs m sched t candidates Hex =>
+         choose_min_metric_some_if_exists (fun _ => 0%Z) jobs m sched t candidates Hex)
+      (fun jobs m sched t candidates Hnone =>
+         choose_min_metric_none_if_no_eligible (fun _ => 0%Z) jobs m sched t candidates Hnone)
+      (fun jobs m sched t candidates j Hchoose =>
+         choose_min_metric_in_candidates (fun _ => 0%Z) jobs m sched t candidates j Hchoose).
+
+  Lemma example_single_cpu_scheduler_relation_contract :
+    labeled_concrete_single_cpu_scheduler_relation_contract
+      op_example_long_jobs
+      example_metric_algorithm
+      example_scheduler_candidates
+      example_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - intros [|[|t']]; reflexivity.
+    - intros [|[|t']] c Hc; simpl.
+      + destruct c; [lia|reflexivity].
+      + destruct c; [lia|reflexivity].
+      + destruct c; [lia|reflexivity].
+  Qed.
+
+  Example example_single_cpu_scheduler_relation :
+    scheduler_rel
+      (single_cpu_algorithm_schedule
+         example_metric_algorithm
+         example_scheduler_candidates)
+      op_example_long_jobs
+      1
+      (project_schedule
+         (osl_to_op_trace example_projection
+            (lce_trace example_labeled_concrete_execution))).
+  Proof.
+    eapply labeled_concrete_single_cpu_scheduler_relation_contract_implies_scheduler_rel.
+    exact example_single_cpu_scheduler_relation_contract.
+  Qed.
+
+  Example example_single_cpu_scheduler_relation_respects_trivial_policy :
+    respects_algorithm_spec_at_with
+      (fun _ _ _ _ _ _ => True)
+      op_example_long_jobs
+      example_scheduler_candidates
+      (project_schedule
+         (osl_to_op_trace example_projection
+            (lce_trace example_labeled_concrete_execution)))
+      1.
+  Proof.
+    eapply single_cpu_algorithm_schedule_respects_algorithm_spec_at_with.
+    - intros jobs m sched t candidates. exact I.
+    - exact example_single_cpu_scheduler_relation.
+  Qed.
+
+  Definition idle_top_m_state : OpState :=
+    mkOpState (fun _ => None) [] (fun _ => false) (fun _ => None).
+
+  Definition idle_top_m_projection : OSLabeledProjection nat :=
+    mkOSLabeledProjection
+      nat
+      (mkOSProjection nat (fun _ => idle_top_m_state))
+      (fun _ _ => EvStutter).
+
+  Definition idle_top_m_trace : concrete_trace nat := fun _ => 0.
+
+  Lemma idle_top_m_stepwise :
+    forall t,
+      op_step
+        (os_to_op_state (osl_to_os_projection idle_top_m_projection) (idle_top_m_trace t))
+        (os_step_label idle_top_m_projection
+           (idle_top_m_trace t)
+           (idle_top_m_trace (S t)))
+        (os_to_op_state
+           (osl_to_os_projection idle_top_m_projection)
+           (idle_top_m_trace (S t))).
+  Proof.
+    intros t.
+    constructor.
+  Qed.
+
+  Lemma idle_top_m_struct_inv :
+    forall t,
+      op_struct_inv
+        2
+        (os_to_op_state
+           (osl_to_os_projection idle_top_m_projection)
+           (idle_top_m_trace t)).
+  Proof.
+    intro t.
+    constructor.
+    - intros j c1 c2 Hlt1 Hlt2 Hrun1 _.
+      discriminate.
+    - constructor.
+    - intros c j Hcur Hin.
+      discriminate.
+    - intros j c1 c2 Hlt1 Hlt2 Ht1 _.
+      discriminate.
+    - intros c j Hlt Ht.
+      discriminate.
+  Qed.
+
+  Definition idle_top_m_execution :
+      @labeled_concrete_execution nat idle_top_m_projection 2 :=
+    @mkLabeledConcreteExecution
+      nat
+      idle_top_m_projection
+      2
+      idle_top_m_trace
+      True
+      idle_top_m_stepwise
+      idle_top_m_struct_inv.
+
+  Definition empty_candidate_source : CandidateSource :=
+    fun _ _ _ _ => [].
+
+  Definition idle_top_m_algorithm : GenericTopMSchedulingAlgorithm :=
+    make_metric_top_m_algorithm (fun _ _ => 0%Z).
+
+  Lemma idle_top_m_scheduler_relation_contract :
+    labeled_concrete_top_m_scheduler_relation_contract
+      op_example_jobs
+      2
+      idle_top_m_algorithm
+      empty_candidate_source
+      idle_top_m_execution.
+  Proof.
+    constructor.
+    intros t c.
+    destruct c as [|[|c']]; reflexivity.
+  Qed.
+
+  Example idle_top_m_scheduler_relation :
+    scheduler_rel
+      (top_m_algorithm_schedule idle_top_m_algorithm empty_candidate_source)
+      op_example_jobs
+      2
+      (project_schedule
+         (osl_to_op_trace idle_top_m_projection
+            (lce_trace idle_top_m_execution))).
+  Proof.
+    eapply labeled_concrete_top_m_scheduler_relation_contract_implies_scheduler_rel.
+    exact idle_top_m_scheduler_relation_contract.
   Qed.
 
   Example choose_handoff_preserves_dispatch_target_under_stutter :
