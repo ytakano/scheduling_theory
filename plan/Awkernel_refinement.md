@@ -141,11 +141,13 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
 
 ## Next Tasks
 
-1. QEMU 上で Awkernel の dedicated scheduler/interrupt core から最小 trace を取得し、
-   1 CPU の baseline path
+1. QEMU 上で Awkernel を 2 CPU で起動し、CPU 0 を dedicated
+   scheduler/interrupt witness source、CPU 1 を最初の task-execution
+   witness sourceとした最小 trace を取得する。
+   proof-facing baseline path は cross-core の
    `EvWakeup -> EvChoose -> EvDispatch -> EvComplete` と `EvStutter`
    を witness できる concrete observation 列を固定する
-2. Linux KVM 上でも同じ baseline path を取得し、同じ
+2. Linux KVM 上でも同じ 2 CPU runtime baseline path を取得し、同じ
    `OSProjection` / `OSLabeledProjection` に通せることを確認する
 3. 2 つの trace source それぞれについて local adapter contract の
    instance を構成し、Awkernel adapter が backend 固有の capture method を
@@ -186,10 +188,11 @@ concrete state-and-step 列であり、少なくとも次の proof-facing view �
 preemption, timer-driven wakeup, migration, raw IPI detail も初回 trace slice には
 含めない。
 
-この 1 CPU baseline は Awkernel の full topology を表すものではない。
+この baseline witness は 2 CPU runtime 上で取得し、CPU 0 の scheduler-side
+slice と CPU 1 の execution-side slice を組み合わせた cross-core witness として使う。
 Awkernel 自体は 2 CPU 以上を対象とし、1 CPU は interrupt/scheduler 専用、
 他 CPU は async/await task 実行用である。
-したがって、1 CPU baseline は common interface を最初に validate する
+したがって、この baseline は common interface を最初に validate する
 minimal witness slice であり、scheduler-core / worker-core interaction の
 refinement witness は次段で追加する。
 
