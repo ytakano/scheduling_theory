@@ -6,7 +6,9 @@ From RocqSched Require Import Operational.Common.Trace.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.Invariants.
 From RocqSched Require Import Operational.Common.Execution.
+From RocqSched Require Import Operational.Common.LabeledExecution.
 From RocqSched Require Import Operational.Common.Step.
+From RocqSched Require Import Operational.Common.ConcreteExecution.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
@@ -243,4 +245,107 @@ Proof.
             (project_schedule (ex_trace (awk_to_execution ex)))).
   eapply execution_multicore_projection_sound_implies_placement.
   exact Hsound.
+Qed.
+
+Lemma awk_local_adapter_contract_implies_valid_schedule :
+  forall (P : OSLabeledProjection AwkernelState) jobs adm m
+         (C : awk_local_adapter_contract P jobs adm m),
+    valid_schedule
+      jobs
+      m
+      (project_schedule
+         (lex_trace (concrete_to_labeled_execution (olac_execution C)))).
+Proof.
+  intros P jobs adm m C.
+  apply os_local_multicore_adapter_contract_implies_valid_schedule.
+Qed.
+
+Lemma awk_local_adapter_contract_implies_semantic_validity :
+  forall (P : OSLabeledProjection AwkernelState) jobs adm m
+         (C : awk_local_adapter_contract P jobs adm m),
+    multicore_semantic_validity
+      jobs
+      m
+      (project_schedule
+         (lex_trace (concrete_to_labeled_execution (olac_execution C)))).
+Proof.
+  intros P jobs adm m C.
+  apply os_local_multicore_adapter_contract_implies_semantic_validity.
+Qed.
+
+Lemma awk_local_adapter_contract_implies_placement :
+  forall (P : OSLabeledProjection AwkernelState) jobs adm m
+         (C : awk_local_adapter_contract P jobs adm m),
+    schedule_respects_admissibility
+      adm
+      m
+      (project_schedule
+         (lex_trace (concrete_to_labeled_execution (olac_execution C)))).
+Proof.
+  intros P jobs adm m C.
+  apply os_local_multicore_adapter_contract_implies_placement.
+Qed.
+
+Lemma awk_local_adapter_contract_handle_sets_need_resched :
+  forall (P : OSLabeledProjection AwkernelState) jobs adm m
+         (C : awk_local_adapter_contract P jobs adm m) t c,
+    c < m ->
+    os_step_label P (lce_trace (olac_execution C) t)
+      (lce_trace (olac_execution C) (S t)) = EvHandleResched c ->
+    op_need_resched
+      (os_to_op_state (osl_to_os_projection P) (lce_trace (olac_execution C) (S t)))
+      c = true.
+Proof.
+  intros P jobs adm m C t c Hlt Hhandle.
+  eapply os_local_multicore_adapter_contract_handle_sets_need_resched.
+  - exact Hlt.
+  - exact Hhandle.
+Qed.
+
+Lemma awk_local_adapter_contract_choose_sets_dispatch_target :
+  forall (P : OSLabeledProjection AwkernelState) jobs adm m
+         (C : awk_local_adapter_contract P jobs adm m) t c j,
+    c < m ->
+    os_step_label P (lce_trace (olac_execution C) t)
+      (lce_trace (olac_execution C) (S t)) = EvChoose c j ->
+    op_dispatch_target
+      (os_to_op_state (osl_to_os_projection P) (lce_trace (olac_execution C) (S t)))
+      c = Some j.
+Proof.
+  intros P jobs adm m C t c j Hlt Hchoose.
+  eapply os_local_multicore_adapter_contract_choose_sets_dispatch_target.
+  - exact Hlt.
+  - exact Hchoose.
+Qed.
+
+Lemma awk_local_adapter_contract_dispatch_clears_need_resched :
+  forall (P : OSLabeledProjection AwkernelState) jobs adm m
+         (C : awk_local_adapter_contract P jobs adm m) t c j,
+    c < m ->
+    os_step_label P (lce_trace (olac_execution C) t)
+      (lce_trace (olac_execution C) (S t)) = EvDispatch c j ->
+    op_need_resched
+      (os_to_op_state (osl_to_os_projection P) (lce_trace (olac_execution C) (S t)))
+      c = false.
+Proof.
+  intros P jobs adm m C t c j Hlt Hdispatch.
+  eapply os_local_multicore_adapter_contract_dispatch_clears_need_resched.
+  - exact Hlt.
+  - exact Hdispatch.
+Qed.
+
+Lemma awk_local_adapter_contract_block_clears_dispatch_target :
+  forall (P : OSLabeledProjection AwkernelState) jobs adm m
+         (C : awk_local_adapter_contract P jobs adm m) t c j,
+    c < m ->
+    os_step_label P (lce_trace (olac_execution C) t)
+      (lce_trace (olac_execution C) (S t)) = EvBlock j ->
+    op_dispatch_target
+      (os_to_op_state (osl_to_os_projection P) (lce_trace (olac_execution C) (S t)))
+      c <> Some j.
+Proof.
+  intros P jobs adm m C t c j Hlt Hblock.
+  eapply os_local_multicore_adapter_contract_block_clears_dispatch_target.
+  - exact Hlt.
+  - exact Hblock.
 Qed.
