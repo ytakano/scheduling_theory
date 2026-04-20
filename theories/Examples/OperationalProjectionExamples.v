@@ -18,8 +18,10 @@ From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
 From RocqSched Require Import Operational.Common.OSCausalityContract.
 From RocqSched Require Import Operational.Common.OSSchedulerViewContract.
+From RocqSched Require Import Operational.Common.OSHandoffContract.
 From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Refinement.OSSchedulerViewTheorem.
+From RocqSched Require Import Refinement.OSHandoffTheorem.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
@@ -986,6 +988,69 @@ Section OperationalProjectionExamples.
     - reflexivity.
   Qed.
 
+  Lemma choose_local_labeled_concrete_multicore_sound :
+    local_labeled_concrete_multicore_projection_sound
+      op_example_jobs
+      all_cpus_admissible
+      1
+      choose_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - exact choose_local_labeled_concrete_sound.
+    - intros [|t'] c Hge; simpl.
+      + destruct (Nat.eqb c 0) eqn:Ec0.
+        * apply Nat.eqb_eq in Ec0. lia.
+        * reflexivity.
+      + destruct (Nat.eqb c 0) eqn:Ec0.
+        * apply Nat.eqb_eq in Ec0. lia.
+        * reflexivity.
+    - intros [|t'] c j Hlt Hrun.
+      + simpl in Hrun. discriminate.
+      + simpl in Hrun. discriminate.
+  Qed.
+
+  Definition choose_local_adapter_contract :
+    os_local_multicore_adapter_contract
+      choose_projection
+      op_example_jobs
+      all_cpus_admissible
+      1 :=
+    @mkOSLocalMulticoreAdapterContract
+      nat
+      choose_projection
+      op_example_jobs
+      all_cpus_admissible
+      1
+      choose_labeled_concrete_execution
+      choose_local_labeled_concrete_multicore_sound.
+
+  Example choose_handoff_preserves_dispatch_target_under_stutter :
+    op_dispatch_target
+      (os_to_op_state
+         (osl_to_os_projection choose_projection)
+         (lce_trace choose_labeled_concrete_execution 2))
+      0 = Some 0.
+  Proof.
+    assert (0 < 1) as Hlt by lia.
+    pose proof
+      (@os_local_multicore_adapter_contract_dispatch_target_preserved
+         nat
+         choose_projection
+         op_example_jobs
+         all_cpus_admissible
+         1
+         choose_local_adapter_contract
+         1
+         0
+         0
+         Hlt
+         eq_refl) as Hpres.
+    simpl in Hpres.
+    apply Hpres.
+    simpl.
+    tauto.
+  Qed.
+
   Lemma wakeup_local_labeled_concrete_sound :
     local_labeled_concrete_projection_sound
       op_example_jobs
@@ -1258,6 +1323,144 @@ Section OperationalProjectionExamples.
       with (jobs := op_example_jobs) (ex := complete_labeled_concrete_execution) (t := 1) (j := 0).
     - exact complete_local_labeled_concrete_sound.
     - reflexivity.
+  Qed.
+
+  Lemma complete_local_labeled_concrete_multicore_sound :
+    local_labeled_concrete_multicore_projection_sound
+      op_example_jobs
+      all_cpus_admissible
+      1
+      complete_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - exact complete_local_labeled_concrete_sound.
+    - intros [|[|t']] c Hge; simpl.
+      + destruct (Nat.eqb c 0) eqn:Ec0.
+        * apply Nat.eqb_eq in Ec0. lia.
+        * reflexivity.
+      + destruct (Nat.eqb c 0) eqn:Ec0.
+        * apply Nat.eqb_eq in Ec0. lia.
+        * reflexivity.
+      + destruct (Nat.eqb c 0) eqn:Ec0.
+        * apply Nat.eqb_eq in Ec0. lia.
+        * reflexivity.
+    - intros [|[|t']] c j Hlt Hrun; simpl in *.
+      + discriminate.
+      + assert (c = 0) by lia.
+        subst c.
+        inversion Hrun; subst.
+        unfold all_cpus_admissible.
+        exact I.
+      + destruct c; simpl in Hrun.
+        * discriminate.
+        * lia.
+  Qed.
+
+  Definition complete_local_adapter_contract :
+    os_local_multicore_adapter_contract
+      complete_projection
+      op_example_jobs
+      all_cpus_admissible
+      1 :=
+    @mkOSLocalMulticoreAdapterContract
+      example_concrete_state
+      complete_projection
+      op_example_jobs
+      all_cpus_admissible
+      1
+      complete_labeled_concrete_execution
+      complete_local_labeled_concrete_multicore_sound.
+
+  Example dispatch_handoff_clears_need_resched :
+    op_need_resched
+      (os_to_op_state
+         (osl_to_os_projection example_projection)
+         (lce_trace example_labeled_concrete_execution 1))
+      0 = false.
+  Proof.
+    assert (0 < 1) as Hlt by lia.
+    exact
+      (@os_local_multicore_adapter_contract_dispatch_clears_need_resched
+         example_concrete_state
+         example_projection
+         op_example_long_jobs
+         all_cpus_admissible
+         1
+         example_local_adapter_contract
+         0
+         0
+         0
+         Hlt
+         eq_refl).
+  Qed.
+
+  Example dispatch_handoff_consumes_dispatch_target :
+    op_dispatch_target
+      (os_to_op_state
+         (osl_to_os_projection example_projection)
+         (lce_trace example_labeled_concrete_execution 1))
+      0 = None.
+  Proof.
+    assert (0 < 1) as Hlt by lia.
+    exact
+      (@os_local_multicore_adapter_contract_dispatch_consumes_dispatch_target
+         example_concrete_state
+         example_projection
+         op_example_long_jobs
+         all_cpus_admissible
+         1
+         example_local_adapter_contract
+         0
+         0
+         0
+         Hlt
+         eq_refl).
+  Qed.
+
+  Example block_handoff_clears_dispatch_target :
+    op_dispatch_target
+      (os_to_op_state
+         (osl_to_os_projection example_projection)
+         (lce_trace example_labeled_concrete_execution 2))
+      0 <> Some 0.
+  Proof.
+    assert (0 < 1) as Hlt by lia.
+    exact
+      (@os_local_multicore_adapter_contract_block_clears_dispatch_target
+         example_concrete_state
+         example_projection
+         op_example_long_jobs
+         all_cpus_admissible
+         1
+         example_local_adapter_contract
+         1
+         0
+         0
+         Hlt
+         eq_refl).
+  Qed.
+
+  Example complete_handoff_clears_dispatch_target :
+    op_dispatch_target
+      (os_to_op_state
+         (osl_to_os_projection complete_projection)
+         (lce_trace complete_labeled_concrete_execution 2))
+      0 <> Some 0.
+  Proof.
+    assert (0 < 1) as Hlt by lia.
+    exact
+      (@os_local_multicore_adapter_contract_complete_clears_dispatch_target
+         example_concrete_state
+         complete_projection
+         op_example_jobs
+         all_cpus_admissible
+         1
+         complete_local_adapter_contract
+         1
+         0
+         0
+         Hlt
+         eq_refl).
   Qed.
 
   Definition example_local_causality_contract :

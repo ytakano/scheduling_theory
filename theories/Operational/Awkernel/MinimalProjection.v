@@ -12,8 +12,10 @@ From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
 From RocqSched Require Import Operational.Common.OSCausalityContract.
 From RocqSched Require Import Operational.Common.OSSchedulerViewContract.
+From RocqSched Require Import Operational.Common.OSHandoffContract.
 From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Refinement.OSSchedulerViewTheorem.
+From RocqSched Require Import Refinement.OSHandoffTheorem.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.ProjectionInvariants.
@@ -76,6 +78,12 @@ Definition awk_labeled_concrete_scheduler_view_contract :=
 
 Definition awk_local_scheduler_view_contract :=
   @os_local_scheduler_view_contract AwkernelState.
+
+Definition awk_labeled_concrete_scheduler_handoff_contract :=
+  @labeled_concrete_scheduler_handoff_contract AwkernelState.
+
+Definition awk_local_scheduler_handoff_contract :=
+  @os_local_scheduler_handoff_contract AwkernelState.
 
 Definition awk_adapter_contract :=
   @os_multicore_adapter_contract AwkernelState.

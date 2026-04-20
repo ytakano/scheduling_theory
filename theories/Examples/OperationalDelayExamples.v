@@ -21,8 +21,10 @@ From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
 From RocqSched Require Import Operational.Common.OSCausalityContract.
 From RocqSched Require Import Operational.Common.OSSchedulerViewContract.
+From RocqSched Require Import Operational.Common.OSHandoffContract.
 From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Refinement.OSSchedulerViewTheorem.
+From RocqSched Require Import Refinement.OSHandoffTheorem.
 From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
 From RocqSched Require Import Refinement.BoundedDelayRefinement.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
@@ -581,6 +583,35 @@ Section OperationalDelayExamples.
              0 0
              (Nat.lt_0_succ 0)
              eq_refl).
+  Qed.
+
+  Definition handle_resched_local_handoff_contract :=
+    os_local_scheduler_handoff_contract handle_resched_local_adapter_contract.
+
+  Example handle_resched_handoff_preserves_need_resched_under_stutter :
+    op_need_resched
+      (os_to_op_state
+         (osl_to_os_projection handle_resched_projection)
+         (lce_trace handle_resched_labeled_concrete_execution 2))
+      0 = true.
+  Proof.
+    assert (0 < 1) as Hlt by lia.
+    pose proof
+      (@os_local_multicore_adapter_contract_need_resched_preserved
+         nat
+         handle_resched_projection
+         delay_example_jobs
+         all_cpus_admissible
+         1
+         handle_resched_local_adapter_contract
+         1
+         0
+         Hlt
+         eq_refl) as Hpres.
+    simpl in Hpres.
+    apply Hpres.
+    simpl.
+    tauto.
   Qed.
 
   Example idle_labeled_execution_respects_admissibility :
