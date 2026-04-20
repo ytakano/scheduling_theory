@@ -116,6 +116,7 @@ theories/Operational/Common/OSAlgorithmAdapterContract.v
 theories/Operational/Common/OSDelayAdapterContract.v
 theories/Operational/Common/OperationalEntryPoints.v
 theories/Operational/Awkernel/MinimalProjection.v
+theories/Operational/Awkernel/BaselineTrace.v
 theories/Operational/Awkernel/MulticoreProjection.v
 theories/Examples/OperationalMulticoreProjectionExamples.v
 theories/Refinement/BoundedDelayRefinement.v
