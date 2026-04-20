@@ -2,6 +2,7 @@ From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Multicore.Common.MultiCoreBase.
 From RocqSched Require Import Multicore.Common.Admissibility.
 From RocqSched Require Import Multicore.Common.ServiceFacts.
@@ -19,9 +20,11 @@ From RocqSched Require Import Operational.Common.OSAdapterContract.
 From RocqSched Require Import Operational.Common.OSCausalityContract.
 From RocqSched Require Import Operational.Common.OSSchedulerViewContract.
 From RocqSched Require Import Operational.Common.OSHandoffContract.
+From RocqSched Require Import Operational.Common.OSCandidateSourceContract.
 From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Refinement.OSSchedulerViewTheorem.
 From RocqSched Require Import Refinement.OSHandoffTheorem.
+From RocqSched Require Import Refinement.OSCandidateSourceTheorem.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
@@ -1023,6 +1026,87 @@ Section OperationalProjectionExamples.
       1
       choose_labeled_concrete_execution
       choose_local_labeled_concrete_multicore_sound.
+
+  Definition choose_example_candidates : CandidateSource :=
+    fun _ _ _ t => if Nat.eqb t 0 then [0] else [0].
+
+  Lemma choose_candidate_source_contract :
+    labeled_concrete_candidate_source_contract
+      op_example_jobs
+      1
+      choose_example_candidates
+      choose_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - intros [|t'] j Hin; simpl in *.
+      + destruct Hin as [Hin | []].
+        subst j.
+        right. left. simpl. left. reflexivity.
+      + destruct Hin as [Hin | []].
+        subst j.
+        right. right.
+        exists 0. split; [lia|reflexivity].
+    - intros [|t'] c j Hlt Hcur; simpl in *; discriminate.
+    - intros [|t'] j Hin; simpl in *.
+      + destruct Hin as [-> | []].
+        simpl. left. reflexivity.
+      + destruct Hin as [-> | []].
+        simpl. left. reflexivity.
+    - intros [|t'] c j Hlt Htarget; simpl in *.
+      + discriminate.
+      + assert (c = 0) by lia.
+        subst c.
+        inversion Htarget; subst.
+        simpl. left. reflexivity.
+    - intros s1 s2 [|t'] Hprefix; reflexivity.
+  Qed.
+
+  Definition choose_candidate_adapter_contract :
+    os_local_candidate_source_adapter_contract
+      choose_projection
+      choose_example_candidates
+      op_example_jobs
+      all_cpus_admissible
+      1 :=
+    @mkOSLocalCandidateSourceAdapterContract
+      nat
+      choose_projection
+      choose_example_candidates
+      op_example_jobs
+      all_cpus_admissible
+      1
+      choose_local_adapter_contract
+      choose_candidate_source_contract.
+
+  Example choose_candidate_contract_choose_event_is_in_candidates :
+    In 0
+       (projected_candidate_list
+          op_example_jobs
+          1
+          choose_labeled_concrete_execution
+          choose_example_candidates
+          0).
+  Proof.
+    eapply os_local_candidate_source_adapter_contract_choose_in_candidates
+      with (C := choose_candidate_adapter_contract) (c := 0).
+    - lia.
+    - reflexivity.
+  Qed.
+
+  Example choose_candidate_contract_candidates_are_eligible :
+    eligible
+      op_example_jobs
+      1
+      (project_schedule
+         (osl_to_op_trace choose_projection
+            (lce_trace choose_labeled_concrete_execution)))
+      0
+      0.
+  Proof.
+    eapply os_local_candidate_source_adapter_contract_candidate_implies_eligible
+      with (C := choose_candidate_adapter_contract).
+    simpl. left. reflexivity.
+  Qed.
 
   Example choose_handoff_preserves_dispatch_target_under_stutter :
     op_dispatch_target
