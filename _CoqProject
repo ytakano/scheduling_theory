@@ -110,6 +110,7 @@ theories/Operational/Common/OSCausalityContract.v
 theories/Operational/Common/OSSchedulerViewContract.v
 theories/Operational/Common/OSHandoffContract.v
 theories/Operational/Common/OSCandidateSourceContract.v
+theories/Operational/Common/OSAdmissibleCandidateSourceContract.v
 theories/Operational/Common/OperationalEntryPoints.v
 theories/Operational/Awkernel/MinimalProjection.v
 theories/Operational/Awkernel/MulticoreProjection.v
@@ -119,6 +120,7 @@ theories/Refinement/OSCausalityTheorem.v
 theories/Refinement/OSSchedulerViewTheorem.v
 theories/Refinement/OSHandoffTheorem.v
 theories/Refinement/OSCandidateSourceTheorem.v
+theories/Refinement/OSAdmissibleCandidateSourceTheorem.v
 theories/Refinement/OSRefinementTheorem.v
 theories/Examples/OperationalDelayExamples.v
 theories/Semantics/Schedule.v

@@ -19,10 +19,12 @@ From RocqSched Require Export Operational.Common.OSCausalityContract.
 From RocqSched Require Export Operational.Common.OSSchedulerViewContract.
 From RocqSched Require Export Operational.Common.OSHandoffContract.
 From RocqSched Require Export Operational.Common.OSCandidateSourceContract.
+From RocqSched Require Export Operational.Common.OSAdmissibleCandidateSourceContract.
 From RocqSched Require Export Refinement.OSCausalityTheorem.
 From RocqSched Require Export Refinement.OSSchedulerViewTheorem.
 From RocqSched Require Export Refinement.OSHandoffTheorem.
 From RocqSched Require Export Refinement.OSCandidateSourceTheorem.
+From RocqSched Require Export Refinement.OSAdmissibleCandidateSourceTheorem.
 From RocqSched Require Export Refinement.OSRefinementTheorem.
 
 (** * Stable public entry point for OS-neutral operational projection
@@ -46,6 +48,7 @@ From RocqSched Require Export Refinement.OSRefinementTheorem.
     - scheduler-visible job contracts over projected executions
     - scheduler-handoff contracts over projected executions
     - candidate-source contracts over projected executions
+    - admissibility-aware candidate-source contracts over projected executions
     - projection soundness lemmas
     - multicore validity and placement bridge lemmas
     - OS-neutral refinement wrappers from adapter contracts

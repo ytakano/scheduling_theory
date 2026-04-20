@@ -14,10 +14,12 @@ From RocqSched Require Import Operational.Common.OSCausalityContract.
 From RocqSched Require Import Operational.Common.OSSchedulerViewContract.
 From RocqSched Require Import Operational.Common.OSHandoffContract.
 From RocqSched Require Import Operational.Common.OSCandidateSourceContract.
+From RocqSched Require Import Operational.Common.OSAdmissibleCandidateSourceContract.
 From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Refinement.OSSchedulerViewTheorem.
 From RocqSched Require Import Refinement.OSHandoffTheorem.
 From RocqSched Require Import Refinement.OSCandidateSourceTheorem.
+From RocqSched Require Import Refinement.OSAdmissibleCandidateSourceTheorem.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.ProjectionInvariants.
@@ -92,6 +94,18 @@ Definition awk_labeled_concrete_candidate_source_contract :=
 
 Definition awk_local_candidate_source_adapter_contract :=
   @os_local_candidate_source_adapter_contract AwkernelState.
+
+Definition awk_labeled_concrete_admissible_candidate_source_contract :=
+  @labeled_concrete_admissible_candidate_source_contract AwkernelState.
+
+Definition awk_labeled_concrete_strong_admissible_candidate_source_contract :=
+  @labeled_concrete_strong_admissible_candidate_source_contract AwkernelState.
+
+Definition awk_local_admissible_candidate_source_adapter_contract :=
+  @os_local_admissible_candidate_source_adapter_contract AwkernelState.
+
+Definition awk_local_strong_admissible_candidate_source_adapter_contract :=
+  @os_local_strong_admissible_candidate_source_adapter_contract AwkernelState.
 
 Definition awk_adapter_contract :=
   @os_multicore_adapter_contract AwkernelState.

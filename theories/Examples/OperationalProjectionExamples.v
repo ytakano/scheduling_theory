@@ -21,10 +21,12 @@ From RocqSched Require Import Operational.Common.OSCausalityContract.
 From RocqSched Require Import Operational.Common.OSSchedulerViewContract.
 From RocqSched Require Import Operational.Common.OSHandoffContract.
 From RocqSched Require Import Operational.Common.OSCandidateSourceContract.
+From RocqSched Require Import Operational.Common.OSAdmissibleCandidateSourceContract.
 From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Refinement.OSSchedulerViewTheorem.
 From RocqSched Require Import Refinement.OSHandoffTheorem.
 From RocqSched Require Import Refinement.OSCandidateSourceTheorem.
+From RocqSched Require Import Refinement.OSAdmissibleCandidateSourceTheorem.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
@@ -1078,6 +1080,128 @@ Section OperationalProjectionExamples.
       choose_local_adapter_contract
       choose_candidate_source_contract.
 
+  Definition choose_candidate_subset (j : JobId) : Prop := j = 0.
+
+  Lemma choose_admissible_candidate_source_contract :
+    labeled_concrete_admissible_candidate_source_contract
+      choose_candidate_subset
+      op_example_jobs
+      all_cpus_admissible
+      1
+      choose_example_candidates
+      choose_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - exact choose_candidate_source_contract.
+    - intros [|t'] j Hin; simpl in *.
+      + destruct Hin as [Hin | []]. subst j. reflexivity.
+      + destruct Hin as [Hin | []]. subst j. reflexivity.
+    - intros [|t'] j Hsubset Helig Hadm; simpl in *.
+      + unfold choose_candidate_subset in Hsubset. subst j. left. reflexivity.
+      + unfold choose_candidate_subset in Hsubset. subst j. left. reflexivity.
+  Qed.
+
+  Definition choose_admissible_candidate_adapter_contract :
+    os_local_admissible_candidate_source_adapter_contract
+      choose_projection
+      choose_candidate_subset
+      choose_example_candidates
+      op_example_jobs
+      all_cpus_admissible
+      1 :=
+    @mkOSLocalAdmissibleCandidateSourceAdapterContract
+      nat
+      choose_projection
+      choose_candidate_subset
+      choose_example_candidates
+      op_example_jobs
+      all_cpus_admissible
+      1
+      choose_candidate_adapter_contract
+      choose_admissible_candidate_source_contract.
+
+  Lemma choose_strong_admissible_candidate_source_contract :
+    labeled_concrete_strong_admissible_candidate_source_contract
+      choose_candidate_subset
+      op_example_jobs
+      all_cpus_admissible
+      1
+      choose_example_candidates
+      choose_labeled_concrete_execution.
+  Proof.
+    constructor.
+    - exact choose_admissible_candidate_source_contract.
+    - intros t j Hin.
+      destruct t as [|t']; simpl in Hin |- *.
+      + destruct Hin as [Hin | []]. subst j.
+        pose proof
+          (os_local_candidate_source_adapter_contract_candidate_implies_eligible
+             nat
+             choose_projection
+             choose_example_candidates
+             op_example_jobs
+             all_cpus_admissible
+             1
+             choose_candidate_adapter_contract
+             0
+             0
+             (or_introl eq_refl)) as Helig.
+        exact
+          (admissible_somewhere_of_all_cpus_admissible
+             op_example_jobs
+             1
+             (project_schedule
+                (osl_to_op_trace choose_projection
+                   (lce_trace choose_labeled_concrete_execution)))
+             0
+             0
+             (Nat.lt_0_succ 0)
+             Helig).
+      + destruct Hin as [Hin | []]. subst j.
+        pose proof
+          (os_local_candidate_source_adapter_contract_candidate_implies_eligible
+             nat
+             choose_projection
+             choose_example_candidates
+             op_example_jobs
+             all_cpus_admissible
+             1
+             choose_candidate_adapter_contract
+             (S t')
+             0
+             (or_introl eq_refl)) as Helig.
+        exact
+          (admissible_somewhere_of_all_cpus_admissible
+             op_example_jobs
+             1
+             (project_schedule
+                (osl_to_op_trace choose_projection
+                   (lce_trace choose_labeled_concrete_execution)))
+             0
+             (S t')
+             (Nat.lt_0_succ 0)
+             Helig).
+  Qed.
+
+  Definition choose_strong_admissible_candidate_adapter_contract :
+    os_local_strong_admissible_candidate_source_adapter_contract
+      choose_projection
+      choose_candidate_subset
+      choose_example_candidates
+      op_example_jobs
+      all_cpus_admissible
+      1 :=
+    @mkOSLocalStrongAdmissibleCandidateSourceAdapterContract
+      nat
+      choose_projection
+      choose_candidate_subset
+      choose_example_candidates
+      op_example_jobs
+      all_cpus_admissible
+      1
+      choose_admissible_candidate_adapter_contract
+      choose_strong_admissible_candidate_source_contract.
+
   Example choose_candidate_contract_choose_event_is_in_candidates :
     In 0
        (projected_candidate_list
@@ -1105,6 +1229,30 @@ Section OperationalProjectionExamples.
   Proof.
     eapply os_local_candidate_source_adapter_contract_candidate_implies_eligible
       with (C := choose_candidate_adapter_contract).
+    simpl. left. reflexivity.
+  Qed.
+
+  Example choose_admissible_candidate_contract_candidates_stay_in_subset :
+    choose_candidate_subset 0.
+  Proof.
+    eapply os_local_admissible_candidate_source_adapter_contract_candidate_in_subset
+      with (C := choose_admissible_candidate_adapter_contract) (t := 0).
+    simpl. left. reflexivity.
+  Qed.
+
+  Example choose_strong_candidate_contract_candidates_are_admissible_somewhere :
+    admissible_somewhere
+      all_cpus_admissible
+      op_example_jobs
+      1
+      (project_schedule
+         (osl_to_op_trace choose_projection
+            (lce_trace choose_labeled_concrete_execution)))
+      0
+      0.
+  Proof.
+    eapply os_local_strong_admissible_candidate_source_adapter_contract_candidate_somewhere
+      with (C := choose_strong_admissible_candidate_adapter_contract).
     simpl. left. reflexivity.
   Qed.
 
