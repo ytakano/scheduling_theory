@@ -141,28 +141,37 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
 
 ## Next Tasks
 
-1. QEMU 上で Awkernel を 2 CPU で起動し、CPU 0 を dedicated
-   scheduler/interrupt witness source、CPU 1 を最初の task-execution
-   witness sourceとした最小 trace を取得する。
-   proof-facing baseline path は cross-core の
-   `EvWakeup -> EvChoose -> EvDispatch -> EvComplete` と `EvStutter`
-   を witness できる concrete observation 列を固定する
-2. Linux KVM 上でも同じ 2 CPU runtime baseline path を取得し、同じ
-   `OSProjection` / `OSLabeledProjection` に通せることを確認する
-3. baseline VM mode が出力する serial trace を canonical captured artifact
-   として固定し、QEMU と Linux KVM の両方がその artifact を再現することを
-   validator で確認する
-4. canonical captured trace に対応する local adapter contract の
-   instance を構成し、Awkernel adapter が backend 固有の capture method を
-   隠蔽したまま同じ common contract family を満たすことを示す
-5. baseline trace-backed witness が安定した後で、
-   scheduler-core から worker-core への handoff, remote wakeup,
-   cross-CPU `EvRequestResched` / `EvHandleResched`, worker-core dispatch を
-   含む multicore trace slice へ拡張する
-6. その multicore projected trace を validity / placement / scheduler-visible /
-   handoff package に接続する
+1. baseline milestone は完了した。
+   faithful な 2 CPU cross-core baseline trace を canonical captured artifact
+   として固定し、QEMU と Linux KVM の両 backend がそれを再現し、
+   Rocq 側の baseline witness がその trace に一致することを確認済みである
+2. 次の中間目標は、handoff-aware な 2 CPU multicore adapter witness を
+   安定化することである。
+   これは common 層の新しい semantics ではなく、既存 interface を使う
+   trace-backed adapter milestone である
+3. この milestone で witness する event slice は次とする
+   - `EvWakeup`
+   - `EvRequestResched`
+   - `EvHandleResched`
+   - `EvChoose`
+   - `EvDispatch`
+   - `EvComplete`
+   - optional `EvStutter`
+4. CPU 0 は scheduler-side witness source、CPU 1 は worker-side execution
+   witness source とする。
+   scheduler-core から worker-core への handoff と cross-CPU wakeup /
+   reschedule propagation は adapter/runtime witness 側で説明し、
+   common operational interface には新 event を足さない
+5. Rocq 側では、captured 2 CPU trace が既存の
+   `OSProjection` / `OSLabeledProjection` / `OSLocalAdapterContract`
+   family をそのまま instantiate し、validity / placement /
+   scheduler-visible / handoff package を再利用できることを示す
+6. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
+   必要な narrow observables だけを追加する。
+   broad tracing system、full interrupt coverage、migration、
+   timer-driven slice、`EvPreempt` はこの milestone では扱わない
 7. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
-   multicore trace projection が安定した後段で追加する
+   handoff-aware multicore witness が安定した後段で追加する
 
 ## Trace-Based Validation Boundary
 
@@ -191,13 +200,13 @@ concrete state-and-step 列であり、少なくとも次の proof-facing view �
 preemption, timer-driven wakeup, migration, raw IPI detail も初回 trace slice には
 含めない。
 
-この baseline witness は 2 CPU runtime 上で取得し、CPU 0 の scheduler-side
-slice と CPU 1 の execution-side slice を組み合わせた cross-core witness として使う。
-Awkernel 自体は 2 CPU 以上を対象とし、1 CPU は interrupt/scheduler 専用、
+baseline witness 自体は 2 CPU runtime 上で取得し、CPU 0 の scheduler-side
+slice と CPU 1 の execution-side slice を組み合わせた cross-core witness として
+使う。Awkernel 自体は 2 CPU 以上を対象とし、1 CPU は interrupt/scheduler 専用、
 他 CPU は async/await task 実行用である。
-したがって、この baseline は common interface を最初に validate する
-minimal witness slice であり、scheduler-core / worker-core interaction の
-refinement witness は次段で追加する。
+したがって、baseline は common interface を validate する最小 witness slice として
+完了し、次段では scheduler-core / worker-core interaction を handoff-aware な
+multicore adapter witness として追加する。
 
 ## Common / Adapter / Runtime Split For The Trace
 
