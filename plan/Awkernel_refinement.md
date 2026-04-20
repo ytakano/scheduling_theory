@@ -149,16 +149,19 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    を witness できる concrete observation 列を固定する
 2. Linux KVM 上でも同じ 2 CPU runtime baseline path を取得し、同じ
    `OSProjection` / `OSLabeledProjection` に通せることを確認する
-3. 2 つの trace source それぞれについて local adapter contract の
+3. baseline VM mode が出力する serial trace を canonical captured artifact
+   として固定し、QEMU と Linux KVM の両方がその artifact を再現することを
+   validator で確認する
+4. canonical captured trace に対応する local adapter contract の
    instance を構成し、Awkernel adapter が backend 固有の capture method を
    隠蔽したまま同じ common contract family を満たすことを示す
-4. baseline trace-backed witness が安定した後で、
+5. baseline trace-backed witness が安定した後で、
    scheduler-core から worker-core への handoff, remote wakeup,
    cross-CPU `EvRequestResched` / `EvHandleResched`, worker-core dispatch を
    含む multicore trace slice へ拡張する
-5. その multicore projected trace を validity / placement / scheduler-visible /
+6. その multicore projected trace を validity / placement / scheduler-visible /
    handoff package に接続する
-6. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
+7. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
    multicore trace projection が安定した後段で追加する
 
 ## Trace-Based Validation Boundary
@@ -207,6 +210,8 @@ Common layer:
 Adapter layer:
 
 - QEMU trace と Linux KVM trace を同じ projected interface に写す
+- その前段で 2 backend の serial trace が 1 つの canonical captured artifact と
+  一致することを確認する
 - backend ごとの capture path の違いを隠蔽し、同じ local contract family に属する
   witness をそれぞれ与える
 - scheduler-irrelevant step を `EvStutter` に写す
