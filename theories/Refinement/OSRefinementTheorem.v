@@ -22,6 +22,7 @@ From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
+From RocqSched Require Import Operational.Common.OSDelayAdapterContract.
 From RocqSched Require Import Refinement.BoundedDelayRefinement.
 Import ListNotations.
 
@@ -359,99 +360,6 @@ Proof.
   exact Hsound.
 Qed.
 
-Record os_delay_adapter_contract
-    {CState : Type}
-    (P : OSLabeledProjection CState)
-    (jobs : JobId -> Job)
-    (adm : admissible_cpu)
-    (m : nat) : Type :=
-  mkOSDelayAdapterContract {
-    odac_base : os_multicore_adapter_contract P jobs adm m;
-    odac_ideal_schedule : Schedule;
-    odac_delay_bounds : op_delay_bounds;
-    odac_delay_sources : DelayTrace;
-    odac_delta : nat;
-    odac_ideal_valid :
-      multicore_semantic_validity jobs m odac_ideal_schedule;
-    odac_default_sources_covered :
-      forall t src,
-        In src
-           (default_event_delay_sources
-              (lex_event
-                 (concrete_to_labeled_execution (oac_execution odac_base)) t)) ->
-        In src (odac_delay_sources t);
-    odac_budget_within_delta :
-      forall t,
-        delay_budget_le
-          odac_delay_bounds
-          odac_delay_sources
-          0
-          t
-          odac_delta;
-    odac_service_lag :
-      service_lag_le
-        m
-        odac_ideal_schedule
-        (labeled_actual_schedule
-           (concrete_to_labeled_execution (oac_execution odac_base)))
-        odac_delta;
-  }.
-
-Record os_delay_top_m_adapter_contract
-    {CState : Type}
-    (P : OSLabeledProjection CState)
-    (spec : GenericTopMSchedulingAlgorithm)
-    (candidates_of : CandidateSource)
-    (jobs : JobId -> Job)
-    (adm : admissible_cpu)
-    (m : nat) : Type :=
-  mkOSDelayTopMAdapterContract {
-    odtac_base : os_multicore_adapter_contract P jobs adm m;
-    odtac_ideal_schedule : Schedule;
-    odtac_delay_bounds : op_delay_bounds;
-    odtac_delay_sources : DelayTrace;
-    odtac_delta : nat;
-    odtac_ideal_top_m :
-      scheduler_rel
-        (top_m_algorithm_schedule spec candidates_of)
-        jobs m odtac_ideal_schedule;
-    odtac_default_sources_covered :
-      forall t src,
-        In src
-           (default_event_delay_sources
-              (lex_event
-                 (concrete_to_labeled_execution (oac_execution odtac_base)) t)) ->
-        In src (odtac_delay_sources t);
-    odtac_budget_within_delta :
-      forall t,
-        delay_budget_le
-          odtac_delay_bounds
-          odtac_delay_sources
-          0
-          t
-          odtac_delta;
-    odtac_service_lag :
-      service_lag_le
-        m
-        odtac_ideal_schedule
-        (labeled_actual_schedule
-           (concrete_to_labeled_execution (oac_execution odtac_base)))
-        odtac_delta;
-  }.
-
-Arguments odac_base {CState P jobs adm m} _.
-Arguments odac_ideal_schedule {CState P jobs adm m} _.
-Arguments odac_delay_bounds {CState P jobs adm m} _.
-Arguments odac_delay_sources {CState P jobs adm m} _ _.
-Arguments odac_delta {CState P jobs adm m} _.
-Arguments odac_ideal_valid {CState P jobs adm m} _.
-Arguments odtac_base {CState P spec candidates_of jobs adm m} _.
-Arguments odtac_ideal_schedule {CState P spec candidates_of jobs adm m} _.
-Arguments odtac_delay_bounds {CState P spec candidates_of jobs adm m} _.
-Arguments odtac_delay_sources {CState P spec candidates_of jobs adm m} _ _.
-Arguments odtac_delta {CState P spec candidates_of jobs adm m} _.
-Arguments odtac_ideal_top_m {CState P spec candidates_of jobs adm m} _.
-
 Lemma os_multicore_adapter_contract_implies_valid_schedule :
   forall CState (P : OSLabeledProjection CState) jobs adm m
          (C : os_multicore_adapter_contract P jobs adm m),
@@ -558,59 +466,4 @@ Proof.
              (concrete_to_labeled_execution
                 (oac_execution (os_local_multicore_adapter_contract_to_global C)))))).
   apply os_multicore_adapter_contract_implies_placement.
-Qed.
-
-Lemma os_delay_adapter_contract_implies_bounded_delay_refinement :
-  forall CState (P : OSLabeledProjection CState) jobs adm m
-         (C : os_delay_adapter_contract P jobs adm m),
-    let ex := @oac_execution CState P jobs adm m (odac_base C) in
-    bounded_delay_projection_refinement
-      jobs
-      adm
-      m
-      (concrete_to_labeled_execution ex)
-      (odac_ideal_schedule C)
-      (odac_delay_bounds C)
-      (odac_delay_sources C)
-      (odac_delta C).
-Proof.
-  intros CState P jobs adm m C.
-  destruct C as [base ideal bounds sources delta Hvalid Hcovered Hbudget Hlag].
-  destruct base as [ex Hsound].
-  apply mk_bounded_delay_projection_refinement.
-  - apply labeled_concrete_multicore_projection_sound_to_labeled_execution.
-    exact Hsound.
-  - exact Hvalid.
-  - exact Hcovered.
-  - exact Hbudget.
-  - exact Hlag.
-Qed.
-
-Lemma os_delay_top_m_adapter_contract_implies_bounded_delay_top_m_refinement :
-  forall CState (P : OSLabeledProjection CState)
-         spec candidates_of jobs adm m
-         (C : os_delay_top_m_adapter_contract P spec candidates_of jobs adm m),
-    let ex := @oac_execution CState P jobs adm m (odtac_base C) in
-    bounded_delay_top_m_projection_refinement
-      spec
-      candidates_of
-      jobs
-      adm
-      m
-      (concrete_to_labeled_execution ex)
-      (odtac_ideal_schedule C)
-      (odtac_delay_bounds C)
-      (odtac_delay_sources C)
-      (odtac_delta C).
-Proof.
-  intros CState P spec candidates_of jobs adm m C.
-  destruct C as [base ideal bounds sources delta Htopm Hcovered Hbudget Hlag].
-  destruct base as [ex Hsound].
-  apply mk_bounded_delay_top_m_projection_refinement.
-  - apply labeled_concrete_multicore_projection_sound_to_labeled_execution.
-    exact Hsound.
-  - exact Htopm.
-  - exact Hcovered.
-  - exact Hbudget.
-  - exact Hlag.
 Qed.

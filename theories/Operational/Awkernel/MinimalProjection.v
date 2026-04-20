@@ -17,12 +17,14 @@ From RocqSched Require Import Operational.Common.OSCandidateSourceContract.
 From RocqSched Require Import Operational.Common.OSAdmissibleCandidateSourceContract.
 From RocqSched Require Import Operational.Common.OSSchedulerRelationContract.
 From RocqSched Require Import Operational.Common.OSAlgorithmAdapterContract.
+From RocqSched Require Import Operational.Common.OSDelayAdapterContract.
 From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Refinement.OSSchedulerViewTheorem.
 From RocqSched Require Import Refinement.OSHandoffTheorem.
 From RocqSched Require Import Refinement.OSCandidateSourceTheorem.
 From RocqSched Require Import Refinement.OSAdmissibleCandidateSourceTheorem.
 From RocqSched Require Import Refinement.OSSchedulerRelationTheorem.
+From RocqSched Require Import Refinement.OSDelayAdapterTheorem.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.ProjectionInvariants.
@@ -136,6 +138,9 @@ Definition awk_adapter_contract :=
 
 Definition awk_delay_adapter_contract :=
   @os_delay_adapter_contract AwkernelState.
+
+Definition awk_delay_top_m_adapter_contract :=
+  @os_delay_top_m_adapter_contract AwkernelState.
 
 Definition awk_project_schedule (tr : AwkernelTrace) : Schedule :=
   project_schedule (awk_to_op_trace tr).

@@ -1,9 +1,16 @@
-From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Common.MetricChooser.
+From RocqSched Require Import Multicore.Common.TopMMetricChooser.
 From RocqSched Require Import Multicore.Common.Admissibility.
+From RocqSched Require Import Multicore.Common.AdmissibleCandidateSource.
 From RocqSched Require Import Multicore.Common.PlacementFacts.
 From RocqSched Require Import Multicore.Common.ValidityFacts.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
 From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.Trace.
 From RocqSched Require Import Operational.Common.Step.
@@ -11,6 +18,7 @@ From RocqSched Require Import Operational.Common.Invariants.
 From RocqSched Require Import Operational.Common.StepLemmas.
 From RocqSched Require Import Operational.Common.Execution.
 From RocqSched Require Import Operational.Common.Projection.
+From RocqSched Require Import Operational.Common.ProjectionInvariants.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.LabeledExecution.
 From RocqSched Require Import Operational.Common.DelayModel.
@@ -19,12 +27,18 @@ From RocqSched Require Import Operational.Common.OSProjectionInterface.
 From RocqSched Require Import Operational.Common.ConcreteExecution.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSAdapterContract.
+From RocqSched Require Import Operational.Common.OSCandidateSourceContract.
+From RocqSched Require Import Operational.Common.OSSchedulerRelationContract.
+From RocqSched Require Import Operational.Common.OSAlgorithmAdapterContract.
+From RocqSched Require Import Operational.Common.OSDelayAdapterContract.
 From RocqSched Require Import Operational.Common.OSCausalityContract.
 From RocqSched Require Import Operational.Common.OSSchedulerViewContract.
 From RocqSched Require Import Operational.Common.OSHandoffContract.
 From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Refinement.OSSchedulerViewTheorem.
 From RocqSched Require Import Refinement.OSHandoffTheorem.
+From RocqSched Require Import Refinement.OSAlgorithmAdapterTheorem.
+From RocqSched Require Import Refinement.OSDelayAdapterTheorem.
 From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
 From RocqSched Require Import Refinement.BoundedDelayRefinement.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
@@ -716,6 +730,350 @@ Section OperationalDelayExamples.
       (odac_delta idle_delay_adapter_contract).
   Proof.
     apply os_delay_adapter_contract_implies_bounded_delay_refinement.
+  Qed.
+
+  Example delay_adapter_contract_actual_valid_schedule :
+    valid_schedule
+      delay_example_jobs
+      1
+      (labeled_actual_schedule
+         (concrete_to_labeled_execution
+            (oac_execution (odac_base idle_delay_adapter_contract)))).
+  Proof.
+    apply os_delay_adapter_contract_implies_actual_valid_schedule.
+  Qed.
+
+  Example delay_adapter_contract_service_lag :
+    service_lag_le
+      1
+      (odac_ideal_schedule idle_delay_adapter_contract)
+      (labeled_actual_schedule
+         (concrete_to_labeled_execution
+            (oac_execution (odac_base idle_delay_adapter_contract))))
+      (odac_delta idle_delay_adapter_contract).
+  Proof.
+    apply os_delay_adapter_contract_implies_service_lag.
+  Qed.
+
+  Definition idle_top_m_state : OpState :=
+    mkOpState (fun _ => None) [] (fun _ => false) (fun _ => None).
+
+  Definition idle_top_m_projection : OSLabeledProjection nat :=
+    mkOSLabeledProjection
+      nat
+      (mkOSProjection nat (fun _ => idle_top_m_state))
+      (fun _ _ => EvStutter).
+
+  Definition idle_top_m_trace : concrete_trace nat := fun _ => 0.
+
+  Lemma idle_top_m_stepwise :
+    forall t,
+      op_step
+        (os_to_op_state (osl_to_os_projection idle_top_m_projection) (idle_top_m_trace t))
+        (os_step_label idle_top_m_projection
+           (idle_top_m_trace t)
+           (idle_top_m_trace (S t)))
+        (os_to_op_state
+           (osl_to_os_projection idle_top_m_projection)
+           (idle_top_m_trace (S t))).
+  Proof.
+    intros t.
+    constructor.
+  Qed.
+
+  Lemma idle_top_m_struct_inv :
+    forall t,
+      op_struct_inv
+        2
+        (os_to_op_state
+           (osl_to_os_projection idle_top_m_projection)
+           (idle_top_m_trace t)).
+  Proof.
+    intro t.
+    constructor.
+    - intros j c1 c2 Hlt1 Hlt2 Hrun1 _.
+      discriminate.
+    - constructor.
+    - intros c j Hcur Hin.
+      discriminate.
+    - intros j c1 c2 Hlt1 Hlt2 Ht1 _.
+      discriminate.
+    - intros c j Hlt Ht.
+      discriminate.
+  Qed.
+
+  Definition idle_top_m_execution :
+      @labeled_concrete_execution nat idle_top_m_projection 2 :=
+    @mkLabeledConcreteExecution
+      nat
+      idle_top_m_projection
+      2
+      idle_top_m_trace
+      True
+      idle_top_m_stepwise
+      idle_top_m_struct_inv.
+
+  Lemma idle_top_m_local_sound :
+    local_labeled_concrete_multicore_projection_sound
+      delay_example_jobs
+      all_cpus_admissible
+      2
+      idle_top_m_execution.
+  Proof.
+    constructor.
+    - constructor.
+      + intros c j Hlt Hrun. discriminate.
+      + intros c j Hlt Hrun. discriminate.
+      + intros j Hin. contradiction.
+      + intros j Hin. contradiction.
+      + intros [|t'] c j Hlt Hrun; simpl in *; discriminate.
+      + intros t c j Hlt Hdispatch; discriminate.
+      + intros t j Hwakeup; discriminate.
+      + intros t j Hwakeup; discriminate.
+      + intros [|t'] c j Hlt Hcur Hcur'; discriminate.
+      + intros t c Hlt Hreq; discriminate.
+      + intros t c Hlt Hhandle; discriminate.
+      + intros t c j Hlt Hchoose; discriminate.
+      + intros t c j Hlt Hchoose; discriminate.
+      + intros t c j Hlt Hdispatch; discriminate.
+      + intros t c j Hblock Hcur; discriminate.
+      + intros t j Hblock Hin; discriminate.
+      + intros t c j Hlt Hblock Htarget; discriminate.
+      + intros t j Hcomplete; discriminate.
+      + intros t c old new Hlt Hpreempt; discriminate.
+      + intros t c old new Hlt Hpreempt; discriminate.
+      + intros t c old new Hlt Hpreempt; discriminate.
+    - intro t.
+      unfold op_idle_outside_range.
+      intros c Hge.
+      destruct c as [|[|c']]; [lia|lia|reflexivity].
+    - intro t.
+      unfold op_respects_admissibility, all_cpus_admissible.
+      intros c j Hlt Hcur.
+      exact I.
+  Qed.
+
+  Definition empty_candidate_source : CandidateSource :=
+    fun _ _ _ _ => [].
+
+  Lemma empty_candidate_source_contract :
+    labeled_concrete_candidate_source_contract
+      delay_example_jobs
+      2
+      empty_candidate_source
+      idle_top_m_execution.
+  Proof.
+    constructor.
+    - intros t j Hin. contradiction.
+    - intros t c j Hlt Hcur. discriminate.
+    - intros t j Hin. contradiction.
+    - intros t c j Hlt Htarget. discriminate.
+    - intros s1 s2 t Hprefix. reflexivity.
+  Qed.
+
+  Definition idle_top_m_algorithm : GenericTopMSchedulingAlgorithm :=
+    make_metric_top_m_algorithm (fun _ _ => 0%Z).
+
+  Lemma idle_top_m_scheduler_relation_contract :
+    labeled_concrete_top_m_scheduler_relation_contract
+      delay_example_jobs
+      2
+      idle_top_m_algorithm
+      empty_candidate_source
+      idle_top_m_execution.
+  Proof.
+    constructor.
+    intros t c.
+    destruct c as [|[|c']]; reflexivity.
+  Qed.
+
+  Lemma empty_candidate_source_admissible_spec :
+    AdmissibleCandidateSourceSpec
+      all_cpus_admissible
+      (fun _ => False)
+      empty_candidate_source.
+  Proof.
+    refine
+      (mkAdmissibleCandidateSourceSpec
+         all_cpus_admissible
+         (fun _ => False)
+         empty_candidate_source
+         _ _ _).
+    - intros jobs m sched t j Hin. contradiction.
+    - intros jobs m sched t j Hfalse Helig Hadm. contradiction.
+    - intros jobs m s1 s2 t Hprefix. reflexivity.
+  Qed.
+
+  Definition idle_top_m_candidate_adapter_contract :
+    os_local_candidate_source_adapter_contract
+      idle_top_m_projection
+      empty_candidate_source
+      delay_example_jobs
+      all_cpus_admissible
+      2 :=
+    @mkOSLocalCandidateSourceAdapterContract
+      nat
+      idle_top_m_projection
+      empty_candidate_source
+      delay_example_jobs
+      all_cpus_admissible
+      2
+      (@mkOSLocalMulticoreAdapterContract
+         nat
+         idle_top_m_projection
+         delay_example_jobs
+         all_cpus_admissible
+         2
+         idle_top_m_execution
+         idle_top_m_local_sound)
+      empty_candidate_source_contract.
+
+  Definition idle_top_m_algorithm_adapter_contract :
+    os_top_m_algorithm_adapter_contract
+      idle_top_m_projection
+      (fun _ => False)
+      idle_top_m_algorithm
+      empty_candidate_source
+      delay_example_jobs
+      all_cpus_admissible
+      2 :=
+    @mkOSTopMAlgorithmAdapterContract
+      nat
+      idle_top_m_projection
+      (fun _ => False)
+      idle_top_m_algorithm
+      empty_candidate_source
+      delay_example_jobs
+      all_cpus_admissible
+      2
+      (@mkOSLocalTopMSchedulerRelationAdapterContract
+         nat
+         idle_top_m_projection
+         idle_top_m_algorithm
+         empty_candidate_source
+         delay_example_jobs
+         all_cpus_admissible
+         2
+         idle_top_m_candidate_adapter_contract
+         idle_top_m_scheduler_relation_contract)
+      empty_candidate_source_admissible_spec.
+
+  Definition idle_top_m_delay_sources : DelayTrace :=
+    fun t =>
+      default_event_delay_sources
+        (lex_event
+           (concrete_to_labeled_execution idle_top_m_execution)
+           t).
+
+  Lemma idle_top_m_default_delay_sources_covered :
+    forall t src,
+      In src
+         (default_event_delay_sources
+            (lex_event
+               (concrete_to_labeled_execution idle_top_m_execution) t)) ->
+      In src (idle_top_m_delay_sources t).
+  Proof.
+    intros t src Hin.
+    exact Hin.
+  Qed.
+
+  Lemma idle_top_m_zero_budget_within_delta :
+    forall t,
+      delay_budget_le
+        zero_delay_bounds
+        idle_top_m_delay_sources
+        0
+        t
+        0.
+  Proof.
+    intros t.
+    unfold delay_budget_le, cumulative_delay, delay_budget_between.
+    simpl.
+    rewrite Nat.sub_0_r.
+    pose proof (cumulative_zero_delay_budget t) as Hbudget.
+    exact Hbudget.
+  Qed.
+
+  Lemma idle_top_m_service_lag_zero :
+    service_lag_le
+      2
+      (project_schedule
+         (osl_to_op_trace idle_top_m_projection (lce_trace idle_top_m_execution)))
+      (labeled_actual_schedule
+         (concrete_to_labeled_execution idle_top_m_execution))
+      0.
+  Proof.
+    apply service_lag_le_refl.
+  Qed.
+
+  Lemma idle_top_m_algorithm_scheduler_rel :
+    scheduler_rel
+      (top_m_algorithm_schedule idle_top_m_algorithm empty_candidate_source)
+      delay_example_jobs
+      2
+      (project_schedule
+         (osl_to_op_trace idle_top_m_projection (lce_trace idle_top_m_execution))).
+  Proof.
+    apply os_top_m_algorithm_adapter_contract_implies_scheduler_rel
+      with (C := idle_top_m_algorithm_adapter_contract).
+  Qed.
+
+  Definition idle_top_m_delay_adapter_contract :
+    os_delay_top_m_adapter_contract
+      idle_top_m_projection
+      (fun _ => False)
+      idle_top_m_algorithm
+      empty_candidate_source
+      delay_example_jobs
+      all_cpus_admissible
+      2 :=
+    @mkOSDelayTopMAdapterContract
+      nat
+      idle_top_m_projection
+      (fun _ => False)
+      idle_top_m_algorithm
+      empty_candidate_source
+      delay_example_jobs
+      all_cpus_admissible
+      2
+      idle_top_m_algorithm_adapter_contract
+      (project_schedule
+         (osl_to_op_trace idle_top_m_projection (lce_trace idle_top_m_execution)))
+      zero_delay_bounds
+      idle_top_m_delay_sources
+      0
+      idle_top_m_algorithm_scheduler_rel
+      idle_top_m_default_delay_sources_covered
+      idle_top_m_zero_budget_within_delta
+      idle_top_m_service_lag_zero.
+
+  Example delay_top_m_adapter_contract_yields_projection_refinement :
+    bounded_delay_top_m_projection_refinement
+      idle_top_m_algorithm
+      empty_candidate_source
+      delay_example_jobs
+      all_cpus_admissible
+      2
+      (concrete_to_labeled_execution
+         (projected_top_m_algorithm_execution
+            (odtac_base idle_top_m_delay_adapter_contract)))
+      (odtac_ideal_schedule idle_top_m_delay_adapter_contract)
+      (odtac_delay_bounds idle_top_m_delay_adapter_contract)
+      (odtac_delay_sources idle_top_m_delay_adapter_contract)
+      (odtac_delta idle_top_m_delay_adapter_contract).
+  Proof.
+    apply os_delay_top_m_adapter_contract_implies_bounded_delay_top_m_refinement.
+  Qed.
+
+  Example delay_top_m_adapter_contract_actual_valid :
+    valid_schedule
+      delay_example_jobs
+      2
+      (labeled_actual_schedule
+         (concrete_to_labeled_execution idle_top_m_execution)).
+  Proof.
+    apply os_delay_top_m_adapter_contract_implies_actual_valid_schedule
+      with (C := idle_top_m_delay_adapter_contract).
   Qed.
 
   Example idle_projection_refinement_actual_valid :

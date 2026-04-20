@@ -113,6 +113,7 @@ theories/Operational/Common/OSCandidateSourceContract.v
 theories/Operational/Common/OSAdmissibleCandidateSourceContract.v
 theories/Operational/Common/OSSchedulerRelationContract.v
 theories/Operational/Common/OSAlgorithmAdapterContract.v
+theories/Operational/Common/OSDelayAdapterContract.v
 theories/Operational/Common/OperationalEntryPoints.v
 theories/Operational/Awkernel/MinimalProjection.v
 theories/Operational/Awkernel/MulticoreProjection.v
@@ -125,6 +126,7 @@ theories/Refinement/OSCandidateSourceTheorem.v
 theories/Refinement/OSAdmissibleCandidateSourceTheorem.v
 theories/Refinement/OSSchedulerRelationTheorem.v
 theories/Refinement/OSAlgorithmAdapterTheorem.v
+theories/Refinement/OSDelayAdapterTheorem.v
 theories/Refinement/OSRefinementTheorem.v
 theories/Examples/OperationalDelayExamples.v
 theories/Semantics/Schedule.v
