@@ -16,6 +16,7 @@ From RocqSched Require Import Operational.Common.OSHandoffContract.
 From RocqSched Require Import Operational.Common.OSCandidateSourceContract.
 From RocqSched Require Import Operational.Common.OSAdmissibleCandidateSourceContract.
 From RocqSched Require Import Operational.Common.OSSchedulerRelationContract.
+From RocqSched Require Import Operational.Common.OSAlgorithmAdapterContract.
 From RocqSched Require Import Refinement.OSCausalityTheorem.
 From RocqSched Require Import Refinement.OSSchedulerViewTheorem.
 From RocqSched Require Import Refinement.OSHandoffTheorem.
@@ -120,6 +121,15 @@ Definition awk_local_single_cpu_scheduler_relation_adapter_contract :=
 
 Definition awk_local_top_m_scheduler_relation_adapter_contract :=
   @os_local_top_m_scheduler_relation_adapter_contract AwkernelState.
+
+Definition awk_single_cpu_algorithm_adapter_contract :=
+  @os_single_cpu_algorithm_adapter_contract AwkernelState.
+
+Definition awk_top_m_algorithm_adapter_contract :=
+  @os_top_m_algorithm_adapter_contract AwkernelState.
+
+Definition awk_strong_top_m_algorithm_adapter_contract :=
+  @os_strong_top_m_algorithm_adapter_contract AwkernelState.
 
 Definition awk_adapter_contract :=
   @os_multicore_adapter_contract AwkernelState.
