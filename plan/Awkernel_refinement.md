@@ -189,19 +189,19 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    witness を書かずに既存の
    `OSProjection` / `OSLabeledProjection` / `OSLocalAdapterContract`
    obligations に到達できる
-9. 次の中間目標は、projected trace-family instance に対する Rocq
-   acceptance function を定義し、それを Haskell に extraction して
-   fast acceptance checker として使うことである。
+9. projected trace-family instance に対する Rocq acceptance function と、
+   その Haskell extraction による fast acceptance checker は実装済みである。
    canonical captured handoff trace は seed instance と regression oracle
-   として残すが、checker の唯一の対象ではない。
-   success criterion は、差し替えた trace artifact に対して extracted
-   checker が accepted / rejected を返し、accepted case が既存の
-   adapter-local contract path に接続できることである
+   として残るが、checker の唯一の対象ではない。
+   差し替えた trace artifact に対して extracted checker が accepted /
+   rejected を返し、accepted case が既存の adapter-local contract path に
+   接続されることを確認済みである
 10. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
    必要な narrow observables だけを維持する。
    human-readable な `BASELINE_TRACE` 行は backend validation に残しつつ、
-   Rocq-encoded witness block も同じ trace から出力する。
-   Haskell checker は emitted artifact の consumer であり、new runtime
+   neutral な checker-facing row block を同じ trace から出力し、移行中の
+   legacy Rocq witness block も併せて保持する。
+   Haskell checker は neutral emitted rows の consumer であり、new runtime
    hooks, broad tracing system, full interrupt coverage, migration,
    timer-driven slice, `EvPreempt` をこの milestone でも追加しない
 11. current concrete trace capture method は runtime-local に固定した。
@@ -211,12 +211,13 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    order には使わない。dump 時には `event_id` 順に merged row list を作り、
    同じ row 列から human-readable trace と Rocq witness block を出力する。
    overflow した run は canonical witness として reject する
-12. common 層はこの次段でも変えない。
+12. common 層はこの段階でも変えない。
    new `OpState`、new `OpEvent`、new common contract family は追加せず、
    acceptance function と accepted rows から existing obligations へ接続する
    proof は adapter 層の責務に留める。extracted Haskell checker はその
    Rocq 定義から導かれる executable fast path であり、common interface の
-   一部ではない
+   一部ではない。checker は acceptance を判定するが、contract を証明する
+   主体ではない
 13. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
    acceptance-checking milestone の次段で追加する
 
