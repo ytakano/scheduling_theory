@@ -12,6 +12,7 @@ From RocqSched Require Import Operational.Awkernel.BaselineTrace.
 From RocqSched Require Import Operational.Awkernel.CapturedTraceSyntax.
 From RocqSched Require Import Operational.Awkernel.GeneratedHandoffTraceArtifact.
 From RocqSched Require Import Operational.Awkernel.HandoffTrace.
+From RocqSched Require Import Operational.Awkernel.HandoffTraceFamily.
 Import ListNotations.
 Open Scope string_scope.
 
@@ -31,85 +32,7 @@ Open Scope string_scope.
 Definition awk_captured_handoff_rows : list AwkernelCapturedRow :=
   awk_generated_handoff_rows.
 
-Definition awk_handoff_phase_of_event (ev : OpEvent) : nat :=
-  match ev with
-  | EvWakeup _ => 1
-  | EvRequestResched _ => 2
-  | EvHandleResched _ => 3
-  | EvChoose _ _ => 4
-  | EvDispatch _ _ => 5
-  | EvComplete _ => 6
-  | _ => 6
-  end.
-
-Definition awk_captured_handoff_state_of_row
-    (row : AwkernelCapturedRow) : AwkernelHandoffState :=
-  mkAwkernelHandoffState
-    (awk_row_to_state row)
-    (awk_handoff_phase_of_event (acr_event row)).
-
 Definition awk_captured_handoff_post_states : list AwkernelHandoffState :=
-  map awk_captured_handoff_state_of_row awk_captured_handoff_rows.
-
-Definition awk_captured_handoff_default_row : AwkernelCapturedRow :=
-  mkAwkernelCapturedRow 0 EvStutter None [] false None.
-
-Definition awk_captured_handoff_trace (t : Time) : AwkernelHandoffState :=
-  match t with
-  | 0 => awk_handoff_state0
-  | S t' => nth t' awk_captured_handoff_post_states awk_handoff_state6
-  end.
-
-Lemma awk_captured_handoff_row0_eq :
-  awk_captured_handoff_state_of_row
-    (nth 0 awk_captured_handoff_rows awk_captured_handoff_default_row) =
-  awk_handoff_state1.
-Proof.
-  vm_compute. reflexivity.
-Qed.
-
-Lemma awk_captured_handoff_row1_eq :
-  awk_captured_handoff_state_of_row
-    (nth 1 awk_captured_handoff_rows awk_captured_handoff_default_row) =
-  awk_handoff_state2.
-Proof.
-  vm_compute. reflexivity.
-Qed.
-
-Lemma awk_captured_handoff_row2_eq :
-  awk_captured_handoff_state_of_row
-    (nth 2 awk_captured_handoff_rows awk_captured_handoff_default_row) =
-  awk_handoff_state3.
-Proof.
-  vm_compute. reflexivity.
-Qed.
-
-Lemma awk_captured_handoff_row3_eq :
-  awk_captured_handoff_state_of_row
-    (nth 3 awk_captured_handoff_rows awk_captured_handoff_default_row) =
-  awk_handoff_state4.
-Proof.
-  vm_compute. reflexivity.
-Qed.
-
-Lemma awk_captured_handoff_row4_eq :
-  awk_captured_handoff_state_of_row
-    (nth 4 awk_captured_handoff_rows awk_captured_handoff_default_row) =
-  awk_handoff_state5.
-Proof.
-  vm_compute. reflexivity.
-Qed.
-
-Lemma awk_captured_handoff_row5_eq :
-  awk_captured_handoff_state_of_row
-    (nth 5 awk_captured_handoff_rows awk_captured_handoff_default_row) =
-  awk_handoff_state6.
-Proof.
-  vm_compute. reflexivity.
-Qed.
-
-Lemma awk_captured_handoff_post_states_eq :
-  awk_captured_handoff_post_states =
   [ awk_handoff_state1
   ; awk_handoff_state2
   ; awk_handoff_state3
@@ -117,18 +40,57 @@ Lemma awk_captured_handoff_post_states_eq :
   ; awk_handoff_state5
   ; awk_handoff_state6
   ].
+
+Definition awk_captured_handoff_trace (t : Time) : AwkernelHandoffState :=
+  match t with
+  | 0 => awk_handoff_state0
+  | S t' => nth t' awk_captured_handoff_post_states awk_handoff_state6
+  end.
+
+Lemma awk_captured_handoff_rows_are_generated :
+  awk_handoff_row_generation
+    awk_captured_handoff_rows
+    awk_captured_handoff_post_states.
 Proof.
-  vm_compute. reflexivity.
+  unfold awk_captured_handoff_rows, awk_captured_handoff_post_states.
+  exact awk_handoff_generated_rows_are_generated.
 Qed.
 
 Lemma awk_captured_handoff_trace_eq :
   forall t, awk_captured_handoff_trace t = awk_handoff_trace t.
 Proof.
-  intros [|[|[|[|[|[|[|t']]]]]]];
-    unfold awk_captured_handoff_trace, awk_handoff_trace;
-    rewrite ?awk_captured_handoff_post_states_eq;
-    try reflexivity.
-  destruct t' as [|[|[|[|[|t'']]]]]; reflexivity.
+  intros [|[|[|[|[|[|[|t']]]]]]].
+  - unfold awk_captured_handoff_trace, awk_handoff_trace,
+      awk_captured_handoff_post_states.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace,
+      awk_captured_handoff_post_states.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace,
+      awk_captured_handoff_post_states.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace,
+      awk_captured_handoff_post_states.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace,
+      awk_captured_handoff_post_states.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace,
+      awk_captured_handoff_post_states.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace,
+      awk_captured_handoff_post_states.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace,
+      awk_captured_handoff_post_states.
+    replace
+      (nth (S (S (S (S (S (S t'))))))
+         [awk_handoff_state1; awk_handoff_state2; awk_handoff_state3;
+          awk_handoff_state4; awk_handoff_state5; awk_handoff_state6]
+         awk_handoff_state6)
+      with awk_handoff_state6 by
+        (symmetry; apply nth_overflow; simpl; lia).
+    reflexivity.
 Qed.
 
 Definition awk_captured_handoff_projection := awk_handoff_projection.
@@ -162,6 +124,14 @@ Example awk_captured_handoff_has_six_events :
   List.length awk_captured_handoff_rows = 6.
 Proof.
   reflexivity.
+Qed.
+
+Example awk_captured_handoff_seed_is_well_formed :
+  awk_handoff_row_generation
+    awk_captured_handoff_rows
+    awk_captured_handoff_post_states.
+Proof.
+  exact awk_captured_handoff_rows_are_generated.
 Qed.
 
 Example awk_captured_handoff_rows_replay_trace :
