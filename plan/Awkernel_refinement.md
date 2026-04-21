@@ -169,12 +169,24 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    scheduler-visible / handoff package を再利用できることを示した。
    synthetic baseline replay は smoke proof として残し、
    handoff-aware replay を active milestone の witness にしている
-6. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
+6. 次の中間目標は artifact-to-proof bridge である。
+   現在は captured handoff trace と Rocq replay witness の対応を
+   adapter 側の handwritten replay で与えている。
+   次段では Rust 側が captured rows を Rocq のコードとして直接出力し、
+   その generated witness artifact を proof input にして既存の replay
+   witness を導く
+7. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
    必要な narrow observables だけを追加する。
+   human-readable な `BASELINE_TRACE` 行は backend validation に残しつつ、
+   Rocq-encoded witness block も同じ trace から出力する。
    broad tracing system、full interrupt coverage、migration、
-   timer-driven slice、`EvPreempt` はこの milestone では扱わない
-7. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
-   fully proved な handoff-aware multicore witness の次段で追加する
+   timer-driven slice、`EvPreempt` は artifact-to-proof bridge の
+   milestone でも扱わない
+8. common 層はこの次段でも変えない。
+   new `OpState`、new `OpEvent`、new common contract family は追加せず、
+   bridge は adapter 層の責務に留める
+9. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
+   artifact-to-proof bridge の次段で追加する
 
 ## Trace-Based Validation Boundary
 

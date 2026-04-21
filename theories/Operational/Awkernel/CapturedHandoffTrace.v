@@ -1,11 +1,16 @@
-From Stdlib Require Import List String.
+From Stdlib Require Import List String Bool Arith Arith.PeanoNat Lia Logic.FunctionalExtensionality.
+From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Operational.Common.State.
+From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ConcreteExecution.
 From RocqSched Require Import Operational.Common.LabeledExecution.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
 From RocqSched Require Import Operational.Awkernel.BaselineTrace.
+From RocqSched Require Import Operational.Awkernel.CapturedTraceSyntax.
+From RocqSched Require Import Operational.Awkernel.GeneratedHandoffTraceArtifact.
 From RocqSched Require Import Operational.Awkernel.HandoffTrace.
 Import ListNotations.
 Open Scope string_scope.
@@ -23,24 +28,146 @@ Open Scope string_scope.
     completion. No new common-layer event is introduced.
  *)
 
-Definition awk_captured_handoff_lines : list string :=
-  [ "BASELINE_TRACE: cpu=0 event=EvWakeup current=None runnable=[1] need_resched=false dispatch_target=None"
-  ; "BASELINE_TRACE: cpu=1 event=EvRequestResched current=None runnable=[1] need_resched=true dispatch_target=None"
-  ; "BASELINE_TRACE: cpu=1 event=EvHandleResched current=None runnable=[1] need_resched=true dispatch_target=None"
-  ; "BASELINE_TRACE: cpu=1 event=EvChoose current=None runnable=[1] need_resched=false dispatch_target=Some(1)"
-  ; "BASELINE_TRACE: cpu=1 event=EvDispatch current=Some(1) runnable=[] need_resched=false dispatch_target=None"
-  ; "BASELINE_TRACE: cpu=1 event=EvComplete current=None runnable=[] need_resched=true dispatch_target=None"
-  ; "BASELINE_TRACE_DONE"
+Definition awk_captured_handoff_rows : list AwkernelCapturedRow :=
+  awk_generated_handoff_rows.
+
+Definition awk_handoff_phase_of_event (ev : OpEvent) : nat :=
+  match ev with
+  | EvWakeup _ => 1
+  | EvRequestResched _ => 2
+  | EvHandleResched _ => 3
+  | EvChoose _ _ => 4
+  | EvDispatch _ _ => 5
+  | EvComplete _ => 6
+  | _ => 6
+  end.
+
+Definition awk_captured_handoff_state_of_row
+    (row : AwkernelCapturedRow) : AwkernelHandoffState :=
+  mkAwkernelHandoffState
+    (awk_row_to_state row)
+    (awk_handoff_phase_of_event (acr_event row)).
+
+Definition awk_captured_handoff_post_states : list AwkernelHandoffState :=
+  map awk_captured_handoff_state_of_row awk_captured_handoff_rows.
+
+Definition awk_captured_handoff_default_row : AwkernelCapturedRow :=
+  mkAwkernelCapturedRow 0 EvStutter None [] false None.
+
+Definition awk_captured_handoff_trace (t : Time) : AwkernelHandoffState :=
+  match t with
+  | 0 => awk_handoff_state0
+  | S t' => nth t' awk_captured_handoff_post_states awk_handoff_state6
+  end.
+
+Lemma awk_captured_handoff_row0_eq :
+  awk_captured_handoff_state_of_row
+    (nth 0 awk_captured_handoff_rows awk_captured_handoff_default_row) =
+  awk_handoff_state1.
+Proof.
+  vm_compute. reflexivity.
+Qed.
+
+Lemma awk_captured_handoff_row1_eq :
+  awk_captured_handoff_state_of_row
+    (nth 1 awk_captured_handoff_rows awk_captured_handoff_default_row) =
+  awk_handoff_state2.
+Proof.
+  vm_compute. reflexivity.
+Qed.
+
+Lemma awk_captured_handoff_row2_eq :
+  awk_captured_handoff_state_of_row
+    (nth 2 awk_captured_handoff_rows awk_captured_handoff_default_row) =
+  awk_handoff_state3.
+Proof.
+  vm_compute. reflexivity.
+Qed.
+
+Lemma awk_captured_handoff_row3_eq :
+  awk_captured_handoff_state_of_row
+    (nth 3 awk_captured_handoff_rows awk_captured_handoff_default_row) =
+  awk_handoff_state4.
+Proof.
+  vm_compute. reflexivity.
+Qed.
+
+Lemma awk_captured_handoff_row4_eq :
+  awk_captured_handoff_state_of_row
+    (nth 4 awk_captured_handoff_rows awk_captured_handoff_default_row) =
+  awk_handoff_state5.
+Proof.
+  vm_compute. reflexivity.
+Qed.
+
+Lemma awk_captured_handoff_row5_eq :
+  awk_captured_handoff_state_of_row
+    (nth 5 awk_captured_handoff_rows awk_captured_handoff_default_row) =
+  awk_handoff_state6.
+Proof.
+  vm_compute. reflexivity.
+Qed.
+
+Lemma awk_captured_handoff_post_states_eq :
+  awk_captured_handoff_post_states =
+  [ awk_handoff_state1
+  ; awk_handoff_state2
+  ; awk_handoff_state3
+  ; awk_handoff_state4
+  ; awk_handoff_state5
+  ; awk_handoff_state6
   ].
+Proof.
+  vm_compute. reflexivity.
+Qed.
+
+Lemma awk_captured_handoff_trace_eq :
+  forall t, awk_captured_handoff_trace t = awk_handoff_trace t.
+Proof.
+  intros [|[|[|[|[|[|[|t']]]]]]];
+    unfold awk_captured_handoff_trace, awk_handoff_trace;
+    rewrite ?awk_captured_handoff_post_states_eq;
+    try reflexivity.
+  destruct t' as [|[|[|[|[|t'']]]]]; reflexivity.
+Qed.
 
 Definition awk_captured_handoff_projection := awk_handoff_projection.
-Definition awk_captured_handoff_execution := awk_handoff_execution.
-Definition awk_captured_handoff_contract := awk_handoff_local_adapter_contract.
+
+Definition awk_captured_handoff_execution : labeled_concrete_execution awk_captured_handoff_projection 2 :=
+  awk_handoff_execution.
+
+Lemma awk_captured_handoff_local_sound :
+  @local_labeled_concrete_multicore_projection_sound AwkernelHandoffState
+    awk_captured_handoff_projection
+    awk_baseline_jobs
+    awk_baseline_admissibility
+    2
+    awk_captured_handoff_execution.
+Proof.
+  exact awk_handoff_local_sound.
+Qed.
+
+Definition awk_captured_handoff_contract :
+  @os_local_multicore_adapter_contract AwkernelHandoffState
+    awk_captured_handoff_projection
+    awk_baseline_jobs
+    awk_baseline_admissibility
+    2 :=
+  {|
+    olac_execution := awk_captured_handoff_execution;
+    olac_sound := awk_captured_handoff_local_sound;
+  |}.
 
 Example awk_captured_handoff_has_six_events :
-  List.length awk_captured_handoff_lines = 7.
+  List.length awk_captured_handoff_rows = 6.
 Proof.
   reflexivity.
+Qed.
+
+Example awk_captured_handoff_rows_replay_trace :
+  forall t, awk_captured_handoff_trace t = awk_handoff_trace t.
+Proof.
+  exact awk_captured_handoff_trace_eq.
 Qed.
 
 Example awk_captured_handoff_valid_schedule :
@@ -52,5 +179,5 @@ Example awk_captured_handoff_valid_schedule :
           (concrete_to_labeled_execution
              (olac_execution awk_captured_handoff_contract)))).
 Proof.
-  exact awk_handoff_contract_valid_schedule.
+  apply os_local_multicore_adapter_contract_implies_valid_schedule.
 Qed.

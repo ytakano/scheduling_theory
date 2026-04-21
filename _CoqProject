@@ -119,6 +119,8 @@ theories/Operational/Awkernel/MinimalProjection.v
 theories/Operational/Awkernel/BaselineTrace.v
 theories/Operational/Awkernel/CapturedBaselineTrace.v
 theories/Operational/Awkernel/HandoffTrace.v
+theories/Operational/Awkernel/CapturedTraceSyntax.v
+theories/Operational/Awkernel/GeneratedHandoffTraceArtifact.v
 theories/Operational/Awkernel/CapturedHandoffTrace.v
 theories/Operational/Awkernel/MulticoreProjection.v
 theories/Examples/OperationalMulticoreProjectionExamples.v
