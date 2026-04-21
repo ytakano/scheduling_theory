@@ -169,23 +169,25 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    scheduler-visible / handoff package を再利用できることを示した。
    synthetic baseline replay は smoke proof として残し、
    handoff-aware replay を active milestone の witness にしている
-6. 次の中間目標は、単発 artifact ではなく trace family を受ける
-   adapter-local 生成規則である。
-   現在の captured handoff trace は canonical な seed instance として維持し、
-   次段ではその 1 本専用の replay から離れて、captured rows の family に対する
-   well-formedness / prefix / row-to-state / row-to-label の生成規則を与える
-7. Rocq 側では、その生成規則から既存の
+6. adapter-local な trace-family 生成規則は実装済みである。
+   現在の captured handoff trace は canonical な seed instance として維持しつつ、
+   その 1 本専用の replay から離れて、captured rows の family に対する
+   well-formedness / prefix / row-to-state / row-to-label の生成規則を Rocq 側で
+  持つようになった
+7. 次の中間目標は、canonical witness への equality 依存を減らし、
+   trace family から既存の
    `OSProjection` / `OSLabeledProjection` / `OSLocalAdapterContract`
-   family を再利用できる replay witness を導く。
-   目標は別の handwritten `state0`, `state1`, ... を増やすことではなく、
-   長い trace でも induction で閉じる adapter-local infrastructure を作ること
+   obligations を直接導くことである。
+   canonical captured handoff trace は seed instance として残すが、
+   次段の acceptance は `awk_handoff_trace` との equality ではなく、
+   accepted trace-family instance 自体が local contract を discharge できることに置く
 8. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
    必要な narrow observables だけを追加する。
    human-readable な `BASELINE_TRACE` 行は backend validation に残しつつ、
    Rocq-encoded witness block も同じ trace から出力する。
    broad tracing system、full interrupt coverage、migration、
-   timer-driven slice、`EvPreempt` は trace-family generation rules の
-   milestone でも扱わない
+   timer-driven slice、`EvPreempt` はこの次段の
+   local-contract derivation milestone でも扱わない
 9. current concrete trace capture method は runtime-local に固定した。
    各 CPU は fixed-capacity buffer に row を append し、global atomic
    `event_id` が canonical replay order を与える。
@@ -195,7 +197,7 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    overflow した run は canonical witness として reject する
 10. common 層はこの次段でも変えない。
    new `OpState`、new `OpEvent`、new common contract family は追加せず、
-   生成規則は adapter 層の責務に留める
+   generation rules と local contract derivation は adapter 層の責務に留める
 11. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
    trace-family generation rules の次段で追加する
 
