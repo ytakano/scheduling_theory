@@ -145,10 +145,11 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    faithful な 2 CPU cross-core baseline trace を canonical captured artifact
    として固定し、QEMU と Linux KVM の両 backend がそれを再現し、
    Rocq 側の baseline witness がその trace に一致することを確認済みである
-2. 次の中間目標は、handoff-aware な 2 CPU multicore adapter witness を
-   安定化することである。
+2. handoff-aware な 2 CPU multicore adapter witness は完了した。
    これは common 層の新しい semantics ではなく、既存 interface を使う
-   trace-backed adapter milestone である
+   trace-backed adapter milestone である。
+   captured handoff trace と fully proved な Rocq replay witness が
+   active milestone の authoritative witness source になっている
 3. この milestone で witness する event slice は次とする
    - `EvWakeup`
    - `EvRequestResched`
@@ -165,13 +166,15 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
 5. Rocq 側では、captured 2 CPU trace が既存の
    `OSProjection` / `OSLabeledProjection` / `OSLocalAdapterContract`
    family をそのまま instantiate し、validity / placement /
-   scheduler-visible / handoff package を再利用できることを示す
+   scheduler-visible / handoff package を再利用できることを示した。
+   synthetic baseline replay は smoke proof として残し、
+   handoff-aware replay を active milestone の witness にしている
 6. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
    必要な narrow observables だけを追加する。
    broad tracing system、full interrupt coverage、migration、
    timer-driven slice、`EvPreempt` はこの milestone では扱わない
 7. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
-   handoff-aware multicore witness が安定した後段で追加する
+   fully proved な handoff-aware multicore witness の次段で追加する
 
 ## Trace-Based Validation Boundary
 
