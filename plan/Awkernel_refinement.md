@@ -181,25 +181,35 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    として残すが、main proof path は `awk_handoff_trace` との equality
    ではなく、accepted trace-family instance 自体が local contract を
    discharge する経路になっている
-8. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
+8. 次の中間目標は、実装者が trace artifact を差し替えるだけで証明可能に
+   することである。現在の gap は `awk_captured_handoff_post_states`
+   がまだ hand-written な post-state 列である点であり、次段では
+   captured row list から `AwkernelHandoffState` の post-state 列と
+   replay trace を決定的に生成する。
+   acceptance は、accepted trace-family instance に対して実装者が
+   別の post-state witness を書かずに、既存の
+   `OSProjection` / `OSLabeledProjection` / `OSLocalAdapterContract`
+   obligations まで到達できることに置く
+9. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
    必要な narrow observables だけを追加する。
    human-readable な `BASELINE_TRACE` 行は backend validation に残しつつ、
    Rocq-encoded witness block も同じ trace から出力する。
    broad tracing system、full interrupt coverage、migration、
    timer-driven slice、`EvPreempt` はこの次段の
-   local-contract derivation milestone でも扱わない
-9. current concrete trace capture method は runtime-local に固定した。
+   trace-replacement-only milestone でも扱わない
+10. current concrete trace capture method は runtime-local に固定した。
    各 CPU は fixed-capacity buffer に row を append し、global atomic
    `event_id` が canonical replay order を与える。
    synchronized TSC は debug metadata として残してよいが、proof-facing
    order には使わない。dump 時には `event_id` 順に merged row list を作り、
    同じ row 列から human-readable trace と Rocq witness block を出力する。
    overflow した run は canonical witness として reject する
-10. common 層はこの次段でも変えない。
+11. common 層はこの次段でも変えない。
    new `OpState`、new `OpEvent`、new common contract family は追加せず、
-   generation rules と local contract derivation は adapter 層の責務に留める
-11. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
-   direct local-contract derivation の次段で追加する
+   row-to-state generation と local contract derivation は adapter 層の
+   責務に留める
+12. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
+   trace-replacement-only artifact bridge の次段で追加する
 
 ## Trace-Based Validation Boundary
 
