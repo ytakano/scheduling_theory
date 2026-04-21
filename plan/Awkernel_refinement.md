@@ -169,24 +169,35 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    scheduler-visible / handoff package を再利用できることを示した。
    synthetic baseline replay は smoke proof として残し、
    handoff-aware replay を active milestone の witness にしている
-6. 次の中間目標は artifact-to-proof bridge である。
-   現在は captured handoff trace と Rocq replay witness の対応を
-   adapter 側の handwritten replay で与えている。
-   次段では Rust 側が captured rows を Rocq のコードとして直接出力し、
-   その generated witness artifact を proof input にして既存の replay
-   witness を導く
-7. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
+6. 次の中間目標は、単発 artifact ではなく trace family を受ける
+   adapter-local 生成規則である。
+   現在の captured handoff trace は canonical な seed instance として維持し、
+   次段ではその 1 本専用の replay から離れて、captured rows の family に対する
+   well-formedness / prefix / row-to-state / row-to-label の生成規則を与える
+7. Rocq 側では、その生成規則から既存の
+   `OSProjection` / `OSLabeledProjection` / `OSLocalAdapterContract`
+   family を再利用できる replay witness を導く。
+   目標は別の handwritten `state0`, `state1`, ... を増やすことではなく、
+   長い trace でも induction で閉じる adapter-local infrastructure を作ること
+8. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
    必要な narrow observables だけを追加する。
    human-readable な `BASELINE_TRACE` 行は backend validation に残しつつ、
    Rocq-encoded witness block も同じ trace から出力する。
    broad tracing system、full interrupt coverage、migration、
-   timer-driven slice、`EvPreempt` は artifact-to-proof bridge の
+   timer-driven slice、`EvPreempt` は trace-family generation rules の
    milestone でも扱わない
-8. common 層はこの次段でも変えない。
+9. current concrete trace capture method は runtime-local に固定した。
+   各 CPU は fixed-capacity buffer に row を append し、global atomic
+   `event_id` が canonical replay order を与える。
+   synchronized TSC は debug metadata として残してよいが、proof-facing
+   order には使わない。dump 時には `event_id` 順に merged row list を作り、
+   同じ row 列から human-readable trace と Rocq witness block を出力する。
+   overflow した run は canonical witness として reject する
+10. common 層はこの次段でも変えない。
    new `OpState`、new `OpEvent`、new common contract family は追加せず、
-   bridge は adapter 層の責務に留める
-9. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
-   artifact-to-proof bridge の次段で追加する
+   生成規則は adapter 層の責務に留める
+11. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
+   trace-family generation rules の次段で追加する
 
 ## Trace-Based Validation Boundary
 
@@ -223,6 +234,18 @@ slice と CPU 1 の execution-side slice を組み合わせた cross-core witnes
 完了し、次段では scheduler-core / worker-core interaction を handoff-aware な
 multicore adapter witness として追加する。
 
+current concrete trace capture は runtime-local method として次で固定している。
+
+- 各 CPU は自分の fixed-capacity buffer にだけ row を append する
+- global atomic `event_id` が cross-CPU replay order を与える
+- synchronized TSC は optional な debug metadata に留める
+- dump 時に `event_id` 順で canonical merged row list を作る
+- 同じ merged row list から `BASELINE_TRACE` 行と Rocq witness block を出力する
+- overflow した run は canonical witness として reject する
+
+この ordering metadata は replay/reconstruction のための runtime detail であり、
+semantic time や common-layer causality を定義するものではない。
+
 ## Common / Adapter / Runtime Split For The Trace
 
 Common layer:
@@ -236,6 +259,8 @@ Adapter layer:
 - QEMU trace と Linux KVM trace を同じ projected interface に写す
 - その前段で 2 backend の serial trace が 1 つの canonical captured artifact と
   一致することを確認する
+- runtime が per-CPU capture substrate から作った merged row list を受け取り、
+  それを proof-facing captured artifact として扱う
 - backend ごとの capture path の違いを隠蔽し、同じ local contract family に属する
   witness をそれぞれ与える
 - scheduler-irrelevant step を `EvStutter` に写す
@@ -246,6 +271,8 @@ Runtime layer:
 
 - 実際の trace source, hook placement, timer/IRQ/IPI capture, queue state
   extraction を持つ
+- per-CPU buffer、global atomic `event_id`、optional debug `TSC`、
+  overflow detection、dump-time merge を持つ
 - これらは common interface の一部ではない
 
 ## Non-goals
