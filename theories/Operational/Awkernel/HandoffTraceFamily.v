@@ -1,6 +1,9 @@
 From Stdlib Require Import List String Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Operational.Common.Step.
+From RocqSched Require Import Operational.Common.Invariants.
+From RocqSched Require Import Operational.Awkernel.MinimalProjection.
+From RocqSched Require Import Operational.Awkernel.BaselineTrace.
 From RocqSched Require Import Operational.Awkernel.CapturedTraceSyntax.
 From RocqSched Require Import Operational.Awkernel.GeneratedHandoffTraceArtifact.
 From RocqSched Require Import Operational.Awkernel.HandoffTrace.
@@ -99,6 +102,25 @@ Section AwkernelHandoffTraceFamily.
       (rows : list AwkernelCapturedRow)
       (states : list AwkernelHandoffState) : Prop :=
     awk_handoff_row_generation_from awk_handoff_state0 rows states.
+
+  Definition awk_handoff_generated_final_state_from
+      (st : AwkernelHandoffState)
+      (states : list AwkernelHandoffState) : AwkernelHandoffState :=
+    last states st.
+
+  Definition awk_handoff_generated_trace_from
+      (st : AwkernelHandoffState)
+      (states : list AwkernelHandoffState)
+      (t : Time) : AwkernelHandoffState :=
+    match t with
+    | 0 => st
+    | S t' => nth t' states (awk_handoff_generated_final_state_from st states)
+    end.
+
+  Definition awk_handoff_generated_trace
+      (states : list AwkernelHandoffState)
+      (t : Time) : AwkernelHandoffState :=
+    awk_handoff_generated_trace_from awk_handoff_state0 states t.
 
   Lemma awk_handoff_row_step_label :
     forall st row st',

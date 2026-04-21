@@ -174,13 +174,13 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    その 1 本専用の replay から離れて、captured rows の family に対する
    well-formedness / prefix / row-to-state / row-to-label の生成規則を Rocq 側で
   持つようになった
-7. 次の中間目標は、canonical witness への equality 依存を減らし、
-   trace family から既存の
+7. canonical witness への equality 依存を減らし、trace family から既存の
    `OSProjection` / `OSLabeledProjection` / `OSLocalAdapterContract`
-   obligations を直接導くことである。
-   canonical captured handoff trace は seed instance として残すが、
-   次段の acceptance は `awk_handoff_trace` との equality ではなく、
-   accepted trace-family instance 自体が local contract を discharge できることに置く
+   obligations を直接導く中間目標は完了した。
+   canonical captured handoff trace は seed instance と regression oracle
+   として残すが、main proof path は `awk_handoff_trace` との equality
+   ではなく、accepted trace-family instance 自体が local contract を
+   discharge する経路になっている
 8. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
    必要な narrow observables だけを追加する。
    human-readable な `BASELINE_TRACE` 行は backend validation に残しつつ、
@@ -199,7 +199,7 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    new `OpState`、new `OpEvent`、new common contract family は追加せず、
    generation rules と local contract derivation は adapter 層の責務に留める
 11. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
-   trace-family generation rules の次段で追加する
+   direct local-contract derivation の次段で追加する
 
 ## Trace-Based Validation Boundary
 
