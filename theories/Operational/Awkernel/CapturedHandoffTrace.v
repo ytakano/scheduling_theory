@@ -35,6 +35,13 @@ Definition awk_captured_handoff_rows : list AwkernelCapturedRow :=
   awk_generated_handoff_rows.
 
 Definition awk_captured_handoff_post_states : list AwkernelHandoffState :=
+  match awk_handoff_generate_post_states awk_captured_handoff_rows with
+  | Some states => states
+  | None => []
+  end.
+
+Lemma awk_captured_handoff_post_states_eq :
+  awk_captured_handoff_post_states =
   [ awk_handoff_state1
   ; awk_handoff_state2
   ; awk_handoff_state3
@@ -42,6 +49,11 @@ Definition awk_captured_handoff_post_states : list AwkernelHandoffState :=
   ; awk_handoff_state5
   ; awk_handoff_state6
   ].
+Proof.
+  unfold awk_captured_handoff_post_states, awk_captured_handoff_rows.
+  rewrite awk_handoff_generated_rows_compute_post_states.
+  reflexivity.
+Qed.
 
 Definition awk_captured_handoff_trace (t : Time) : AwkernelHandoffState :=
   awk_handoff_generated_trace awk_captured_handoff_post_states t.
@@ -51,40 +63,61 @@ Lemma awk_captured_handoff_rows_are_generated :
     awk_captured_handoff_rows
     awk_captured_handoff_post_states.
 Proof.
-  unfold awk_captured_handoff_rows, awk_captured_handoff_post_states.
+  unfold awk_captured_handoff_rows.
+  rewrite awk_captured_handoff_post_states_eq.
   exact awk_handoff_generated_rows_are_generated.
+Qed.
+
+Lemma awk_captured_handoff_rows_are_accepted :
+  awk_handoff_accepts_rows awk_captured_handoff_rows = true.
+Proof.
+  unfold awk_captured_handoff_rows.
+  exact awk_handoff_generated_rows_are_accepted.
+Qed.
+
+Lemma awk_captured_handoff_rows_accept_sound :
+  exists states,
+    awk_handoff_check_rows awk_captured_handoff_rows = Some states /\
+    awk_handoff_row_generation awk_captured_handoff_rows states.
+Proof.
+  exists awk_captured_handoff_post_states.
+  split.
+  - unfold awk_handoff_check_rows, awk_captured_handoff_rows, awk_captured_handoff_post_states.
+    rewrite awk_handoff_generated_rows_compute_post_states.
+    reflexivity.
+  - exact awk_captured_handoff_rows_are_generated.
 Qed.
 
 Lemma awk_captured_handoff_trace_eq :
   forall t, awk_captured_handoff_trace t = awk_handoff_trace t.
 Proof.
   intros [|[|[|[|[|[|[|t']]]]]]].
-  - unfold awk_captured_handoff_trace, awk_handoff_trace,
-      awk_captured_handoff_post_states.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace.
+    rewrite awk_captured_handoff_post_states_eq.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace.
+    rewrite awk_captured_handoff_post_states_eq.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace.
+    rewrite awk_captured_handoff_post_states_eq.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace.
+    rewrite awk_captured_handoff_post_states_eq.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace.
+    rewrite awk_captured_handoff_post_states_eq.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace.
+    rewrite awk_captured_handoff_post_states_eq.
+    reflexivity.
+  - unfold awk_captured_handoff_trace, awk_handoff_trace.
+    rewrite awk_captured_handoff_post_states_eq.
     reflexivity.
   - unfold awk_captured_handoff_trace, awk_handoff_trace,
-      awk_captured_handoff_post_states.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace,
-      awk_captured_handoff_post_states.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace,
-      awk_captured_handoff_post_states.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace,
-      awk_captured_handoff_post_states.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace,
-      awk_captured_handoff_post_states.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace,
-      awk_captured_handoff_post_states.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace,
-      awk_captured_handoff_post_states,
       awk_handoff_generated_trace,
       awk_handoff_generated_trace_from,
       awk_handoff_generated_final_state_from.
+    rewrite awk_captured_handoff_post_states_eq.
     replace
       (nth (S (S (S (S (S (S t'))))))
          [awk_handoff_state1; awk_handoff_state2; awk_handoff_state3;
