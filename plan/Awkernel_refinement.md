@@ -181,45 +181,60 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    として残すが、main proof path は `awk_handoff_trace` との equality
    ではなく、accepted trace-family instance 自体が local contract を
    discharge する経路になっている
-8. 次の中間目標は、実装者が trace artifact を差し替えるだけで証明可能に
-   することである。現在の gap は `awk_captured_handoff_post_states`
-   がまだ hand-written な post-state 列である点であり、次段では
-   captured row list から `AwkernelHandoffState` の post-state 列と
-   replay trace を決定的に生成する。
-   acceptance は、accepted trace-family instance に対して実装者が
-   別の post-state witness を書かずに、既存の
+8. 実装者が trace artifact を差し替えるだけで証明可能にする中間目標も
+   完了した。`awk_captured_handoff_post_states` の hand-written witness は
+   主経路から外れ、captured row list から `AwkernelHandoffState` の
+   post-state 列と replay trace を adapter-local に決定的生成する形へ
+   移っている。accepted trace-family instance は、別の post-state
+   witness を書かずに既存の
    `OSProjection` / `OSLabeledProjection` / `OSLocalAdapterContract`
-   obligations まで到達できることに置く
-9. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
-   必要な narrow observables だけを追加する。
+   obligations に到達できる
+9. 次の中間目標は、projected trace-family instance に対する Rocq
+   acceptance function を定義し、それを Haskell に extraction して
+   fast acceptance checker として使うことである。
+   canonical captured handoff trace は seed instance と regression oracle
+   として残すが、checker の唯一の対象ではない。
+   success criterion は、差し替えた trace artifact に対して extracted
+   checker が accepted / rejected を返し、accepted case が既存の
+   adapter-local contract path に接続できることである
+10. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
+   必要な narrow observables だけを維持する。
    human-readable な `BASELINE_TRACE` 行は backend validation に残しつつ、
    Rocq-encoded witness block も同じ trace から出力する。
-   broad tracing system、full interrupt coverage、migration、
-   timer-driven slice、`EvPreempt` はこの次段の
-   trace-replacement-only milestone でも扱わない
-10. current concrete trace capture method は runtime-local に固定した。
+   Haskell checker は emitted artifact の consumer であり、new runtime
+   hooks, broad tracing system, full interrupt coverage, migration,
+   timer-driven slice, `EvPreempt` をこの milestone でも追加しない
+11. current concrete trace capture method は runtime-local に固定した。
    各 CPU は fixed-capacity buffer に row を append し、global atomic
    `event_id` が canonical replay order を与える。
    synchronized TSC は debug metadata として残してよいが、proof-facing
    order には使わない。dump 時には `event_id` 順に merged row list を作り、
    同じ row 列から human-readable trace と Rocq witness block を出力する。
    overflow した run は canonical witness として reject する
-11. common 層はこの次段でも変えない。
+12. common 層はこの次段でも変えない。
    new `OpState`、new `OpEvent`、new common contract family は追加せず、
-   row-to-state generation と local contract derivation は adapter 層の
-   責務に留める
-12. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
-   trace-replacement-only artifact bridge の次段で追加する
+   acceptance function と accepted rows から existing obligations へ接続する
+   proof は adapter 層の責務に留める。extracted Haskell checker はその
+   Rocq 定義から導かれる executable fast path であり、common interface の
+   一部ではない
+13. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
+   acceptance-checking milestone の次段で追加する
 
 ## Trace-Based Validation Boundary
 
 この段階で必要なのは common 層の新しい semantics ではない。
-必要なのは、既存の common interface が concrete backend trace から
-実際に instantiate できることを示す最小 witness である。
+必要なのは、projected trace-family instance を受理する Rocq acceptance
+function と、その fast acceptance checking 用の Haskell extracted
+checker である。
 
-minimal trace とは、現在の common contract を成立させるのに必要な最小の
-concrete state-and-step 列であり、少なくとも次の proof-facing view を
-回復できなければならない。
+ここでいう acceptance function とは、current merged row list から得た
+projected trace-family instance が既存の common contracts を満たすかを
+判定する Rocq-level decision procedure である。extracted Haskell checker
+は、その関数から生成された executable であり、semantic source ではない。
+
+minimal acceptance input とは、現在の common contract を成立させるかどうかを
+判定するのに必要な最小の projected artifact であり、少なくとも次の
+proof-facing view を inspection できなければならない。
 
 - `op_current`
 - `op_runnable`
@@ -278,6 +293,8 @@ Adapter layer:
 - scheduler-irrelevant step を `EvStutter` に写す
 - Awkernel の multicore topology 自体は adapter witness 側で扱い、
   common operational interface には持ち込まない
+- Rocq acceptance function を定義し、accepted rows が existing obligations に
+  接続されることを証明する
 
 Runtime layer:
 
@@ -286,6 +303,13 @@ Runtime layer:
 - per-CPU buffer、global atomic `event_id`、optional debug `TSC`、
   overflow detection、dump-time merge を持つ
 - これらは common interface の一部ではない
+
+Proof/tooling path:
+
+- Rocq acceptance function と extracted Haskell checker は新しい semantics
+  layer ではない
+- runtime が emit した merged artifact を高速に受理判定するための
+  proof/tooling path である
 
 ## Non-goals
 
