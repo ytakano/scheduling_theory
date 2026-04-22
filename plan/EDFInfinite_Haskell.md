@@ -1405,3 +1405,175 @@ timeout 240s docker exec docker-scheduling_theory-1 zsh -lc \
    の依存を再分解して循環を避ける
 3. 差し替え後に `rocq compile -time` を再測定し、
    新しい hotspot を記録する
+
+## 2026-04-23 Progress (Prefix semantics decomposition before slot-bridge swap)
+
+### 今回の目的
+
+- `generated_prefix_slots_ex_data_ok` をすぐには除去できない状態でも、
+  `cert_ex_prefix_semantics` 全体を 1 本の monolithic proof にしたままでは
+  slot bridge の差し替えがしづらい。
+- そのため今回の次タスクでは、
+  prefix semantics を
+  - slots
+  - completed-by
+  - backlog
+  の 3 成分に明示的に分解し、
+  後続の slot-only refactor が局所化される構造へ組み替えることを目的とした。
+
+### 実装したもの
+
+- `Tutorials/EDFInfiniteSchedulability.v` に、
+  `cert_ex_prefix_semantics` の構成要素として次の局所補題を追加した。
+  - `cert_ex_prefix_slots_sound`
+  - `cert_ex_prefix_completed_by_semantics_local`
+  - `cert_ex_prefix_backlog_semantics_local`
+- `cert_ex_prefix_semantics` は、
+  これら 3 補題を束ねるだけの lemma に組み替えた。
+- これにより、slot 成分だけを差し替える作業は
+  `cert_ex_prefix_slots_sound`
+  周辺に閉じる形になり、
+  completed-by / backlog 証明への影響を最小化できる構造になった。
+
+### 検証
+
+- `rg` で次を確認した。
+  - `generated_prefix_slots_ex_data_ok` はまだ存在する
+  - `generated_prefix_slot_ex` もまだそれに依存している
+  - 新しい 3 つの局所補題が導入され、
+    `cert_ex_prefix_semantics` がそれらを束ねる形になっている
+- Docker で次を実行した。
+
+```sh
+timeout 120s docker exec docker-scheduling_theory-1 zsh -lc \
+  'cd /scheduling_theory && rocq compile -time -q -w -deprecated-native-compiler-option -native-compiler no -Q Tutorials/Generated Tutorials.Generated -R theories RocqSched Tutorials/EDFInfiniteSchedulability.v'
+```
+
+- compile-time 出力は
+  `Chars 18726 - 18838 [Lemma~generated_prefix_slots_e...]`
+  および
+  `Chars 18839 - 18845 [Proof.]`
+  まで進んだ後、
+  少なくとも 70 秒以上無出力のまま停止した。
+- したがって current hotspot は依然として
+  `generated_prefix_slots_ex_data_ok`
+  であり、今回の分解は hotspot 本体の除去ではなく、
+  次の差し替え作業のための proof-order 整理である。
+
+### 意味
+
+- Haskell 側 generated data を Rocq 側 semantics に結ぶ責務分離は、
+  入口 helper と tutorial bridge 名のレベルでは揃ってきた。
+- 今回の分解により、
+  `cert_ex_prefix_semantics` 全体を崩さずに
+  slot proof だけを入れ替える準備はできた。
+- ただし、non-cyclic な slot bridge 自体はまだ未完成であり、
+  `generated_prefix_slots_ex_data_ok`
+  は active proof path に残っている。
+
+### 次の具体作業
+
+1. `cert_ex_prefix_slots_sound` のみを新しい入口にして、
+   `generated_prefix_slot_ex` から bulk equality 依存を外す
+2. そのために必要なら、
+   common layer 側には slot-only の前提で使える最小補題だけを追加する
+3. 差し替え後に `generated_prefix_slots_ex_data_ok` と
+   `nth_map_seq` を削除し、
+   `rocq compile -time` の新しい hotspot を再記録する
+
+## 2026-04-23 Progress (Bulk slot equality removed, new stall moved earlier)
+
+### 今回の目的
+
+- `generated_prefix_slots_ex_data_ok` による
+  whole-list `vm_compute` を active proof path から外し、
+  generated prefix slots を explicit prefix witness として使う形へ
+  置き換えることを試みた。
+- 同時に、以後の slot proof が
+  generated certificate data を witness として使えるよう、
+  generic な prefix-agreement 補題を common layer に追加した。
+
+### 今回の実装
+
+- `theories/Uniprocessor/Generic/FinitePrefixScheduleWitness.v`
+  に次を追加した。
+  - `local_scheduler_matches_generated_schedule_prefix`
+- この補題は、
+  global `scheduler_rel` を最初から持たなくても、
+  有限 horizon `H` までの local choose 一致と
+  other-CPU idle を示せれば、
+  explicit schedule が `generated_schedule_prefix` と
+  prefix 一致することを与える。
+- `Tutorials/EDFInfiniteSchedulability.v` では、
+  old hotspot だった
+  - `generated_prefix_slots_ex_data_ok`
+  - `nth_map_seq`
+  を削除した。
+- 代わりに次を導入した。
+  - `cert_candidates_ex_38`
+  - `cert_prefix_sched_ex`
+  - `cert_candidates_ex_38_spec`
+  - `cert_prefix_sched_ex_choose_agrees_before`
+  - `cert_prefix_sched_ex_local_scheduler`
+- `generated_prefix_slot_ex` は、
+  generated slots list を explicit prefix witness として
+  `local_scheduler_matches_generated_schedule_prefix`
+  から導く形へ差し替えた。
+
+### 静的確認
+
+- `rg` で次を確認した。
+  - `generated_prefix_slots_ex_data_ok` は削除済み
+  - `nth_map_seq` は削除済み
+  - `generated_prefix_slot_ex` は残っている
+  - `generated_prefix_slot_ex` は bulk equality を参照していない
+
+### 実測結果
+
+- Docker で common layer の compile は通った。
+
+```sh
+docker exec docker-scheduling_theory-1 zsh -lc \
+  'cd /scheduling_theory && make theories/Uniprocessor/Generic/FinitePrefixScheduleWitness.vo'
+```
+
+- `rocq compile -time` で tutorial を再観測した。
+
+```sh
+timeout 180s docker exec docker-scheduling_theory-1 zsh -lc \
+  'cd /scheduling_theory && rocq compile -time -q -w -deprecated-native-compiler-option -native-compiler no -Q Tutorials/Generated Tutorials.Generated -R theories RocqSched Tutorials/EDFInfiniteSchedulability.v'
+```
+
+- 観測では、
+  old hotspot だった `generated_prefix_slots_ex_data_ok` には到達する前に、
+  `cert_candidates_ex_38_spec` の末尾付近まで進んだ後で
+  少なくとも 90 秒以上無出力となった。
+- compile-time 出力が最後に進んだのは、
+  `cert_candidates_ex_38_spec` proof 中の
+  `Chars 19359 - 19368 [exact~Hj.]`
+  までである。
+
+### 現状の結論
+
+- `generated_prefix_slots_ex_data_ok` による
+  whole-list `vm_compute` stall は active proof path から消えた。
+- ただし compile-time の長時間停止そのものは解消しておらず、
+  現在の停止点は
+  `cert_candidates_ex_38_spec`
+  付近へ移動している。
+- 残っている `vm_compute` の中では、
+  次に重い候補は
+  `cert_prefix_sched_ex_local_scheduler` 内の
+  38-case `vm_compute` 分岐である。
+- したがって次の作業は、
+  まず `cert_candidates_ex_38_spec` の遅さを切り分け、
+  その後 line 713 付近の local witness `vm_compute`
+  が新しい principal hotspot かを再観測することになる。
+
+### 次の具体作業
+
+1. `cert_candidates_ex_38_spec` がなぜ長く閉じないかを切り分ける
+2. その後、`cert_prefix_sched_ex_local_scheduler` の
+   38-case `vm_compute` が新しい hotspot かを再計測する
+3. 可能なら、候補列挙 spec を別補題へ分割して
+   current stall をさらに前処理側へ押し出す

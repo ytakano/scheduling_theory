@@ -166,6 +166,61 @@ Proof.
         destruct (Nat.eqb_spec (S c') 0); [lia | reflexivity].
 Qed.
 
+Lemma local_scheduler_matches_generated_schedule_prefix :
+  forall alg candidates_of jobs sched H,
+    ChooseAgreesBefore alg jobs candidates_of ->
+    (forall t,
+        t < H ->
+        sched t 0 =
+          choose alg jobs 1 sched t (candidates_of jobs 1 sched t)
+        /\
+        forall c, 0 < c -> sched t c = None) ->
+    agrees_before
+      sched
+      (generated_schedule_prefix alg candidates_of jobs H)
+      H.
+Proof.
+  intros alg candidates_of jobs sched H Hchoose Hlocal.
+  induction H as [|H' IH].
+  - intros t c Hlt. lia.
+  - intros t c Hlt.
+    simpl.
+    assert (Hcase : t < H' \/ t = H') by lia.
+    destruct Hcase as [Hlt' | ->].
+    + destruct (Nat.ltb t H') eqn:Hcmp.
+      * apply IH.
+        -- intros t' Ht'.
+           apply Hlocal.
+           lia.
+        -- exact Hlt'.
+      * apply Nat.ltb_ge in Hcmp.
+        lia.
+    + pose proof (Hlocal H' (Nat.lt_succ_diag_r H')) as Hlocal_at.
+      destruct Hlocal_at as [Hcpu0 Hidle].
+      destruct c as [|c'].
+      * assert (Hagree :
+          agrees_before
+            sched
+            (generated_schedule_prefix alg candidates_of jobs H')
+            H').
+        {
+          apply IH.
+          intros t Ht.
+          apply Hlocal.
+          lia.
+        }
+        rewrite Hcpu0.
+        rewrite (Hchoose sched (generated_schedule_prefix alg candidates_of jobs H')
+                   H' Hagree).
+        rewrite Nat.ltb_irrefl.
+        rewrite Nat.eqb_refl.
+        reflexivity.
+      * rewrite Hidle by lia.
+        rewrite Nat.ltb_irrefl.
+        rewrite Nat.eqb_refl.
+        destruct (Nat.eqb_spec (S c') 0); [lia | reflexivity].
+Qed.
+
 Theorem scheduler_rel_agrees_with_generated_schedule_before :
   forall alg candidates_of jobs sched H,
     ChooseAgreesBefore alg jobs candidates_of ->
