@@ -50,5 +50,7 @@ export HISTSIZE=10000
 export SAVEHIST=10000
 export EDITOR=vi
 export PAGER=less
-export LC_ALL=en_US.UTF-8
-export LANG=en_US.UTF-8
+export LC_ALL=C.utf8
+export LANG=C.utf8
+
+[ -f "$HOME/.ghcup/env" ] && . "$HOME/.ghcup/env" # ghcup-env
