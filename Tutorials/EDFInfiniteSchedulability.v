@@ -6,6 +6,7 @@ From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Semantics.ScheduleLemmas.SchedulePrefix.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
@@ -233,6 +234,8 @@ Qed.
 
 Definition cert_slots_ex_data : list (option JobId) :=
   cert_ex_prefix_slots_data.
+
+Local Opaque cert_slots_ex_data.
 
 Fixpoint certified_service_prefix_ex
     (slots : list (option JobId)) (j t : nat) : nat :=
@@ -668,35 +671,37 @@ Definition cert_candidates_ex_38 : list JobId :=
 Definition cert_prefix_sched_ex : Schedule :=
   fun t c => if Nat.eqb c 0 then nth t cert_slots_ex_data None else None.
 
-Lemma cert_candidates_ex_38_spec :
-  CandidateSourceSpec
-    (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex 38)
-    (enum_candidates_of cert_candidates_ex_38).
-Proof.
-  apply enum_candidates_spec.
-  - intros j Hj.
-    unfold cert_candidates_ex_38.
-    eapply enum_periodic_jobs_upto_complete.
-    + exact tasks_ex_well_formed.
-    + exact enumT_ex_complete.
-    + exact Hj.
-  - intros j Hj.
-    unfold cert_candidates_ex_38 in Hj.
-    eapply enum_periodic_jobs_upto_sound.
-    + exact enumT_ex_sound.
-    + exact Hj.
-Qed.
-
 Lemma cert_prefix_sched_ex_choose_agrees_before :
   ChooseAgreesBefore
     edf_generic_spec jobs_ex (enum_candidates_of cert_candidates_ex_38).
 Proof.
   intros s1 s2 t Hagree.
+  change
+    (choose edf_generic_spec jobs_ex 1 s1 t
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T_ex tasks_ex offset_ex jobs_ex 38 enumT_ex
+             (periodic_finite_horizon_codec_of
+                T_ex tasks_ex offset_ex jobs_ex 38 codec_ex))
+          jobs_ex 1 s1 t) =
+     choose edf_generic_spec jobs_ex 1 s2 t
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T_ex tasks_ex offset_ex jobs_ex 38 enumT_ex
+             (periodic_finite_horizon_codec_of
+                T_ex tasks_ex offset_ex jobs_ex 38 codec_ex))
+          jobs_ex 1 s2 t)).
   eapply
     (edf_choose_agrees_before
        (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex 38)
-       (enum_candidates_of cert_candidates_ex_38)
-       cert_candidates_ex_38_spec); eauto.
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T_ex tasks_ex offset_ex jobs_ex 38 enumT_ex
+             (periodic_finite_horizon_codec_of
+                T_ex tasks_ex offset_ex jobs_ex 38 codec_ex)))
+       (generated_periodic_edf_enum_candidates_upto_spec
+          T_ex tasks_ex offset_ex jobs_ex 38 enumT_ex codec_ex
+          tasks_ex_well_formed enumT_ex_complete enumT_ex_sound)); eauto.
 Qed.
 
 Lemma cert_prefix_sched_ex_local_scheduler :
@@ -728,10 +733,10 @@ Proof.
   assert (Hagree :
     agrees_before
       cert_prefix_sched_ex
-      (generated_schedule
+      (generated_schedule_prefix
          edf_generic_spec
          (enum_candidates_of cert_candidates_ex_38)
-         jobs_ex)
+         jobs_ex 38)
       38).
   {
     eapply local_scheduler_matches_generated_schedule_prefix.
@@ -742,14 +747,15 @@ Proof.
   rewrite generated_schedule_prefix_stable in Hprefix by exact Hlt.
   unfold cert_prefix_sched_ex in Hprefix.
   rewrite Nat.eqb_refl in Hprefix.
-  unfold sched_upto_ex, generated_periodic_edf_schedule_upto.
-  change
+  transitivity
     (generated_schedule
        edf_generic_spec
        (enum_candidates_of cert_candidates_ex_38)
-       jobs_ex t 0 = nth t cert_slots_ex_data None).
-  symmetry.
-  exact Hprefix.
+       jobs_ex t 0).
+  - unfold sched_upto_ex, generated_periodic_edf_schedule_upto, cert_candidates_ex_38.
+    reflexivity.
+  - symmetry.
+    exact Hprefix.
 Qed.
 
 Lemma sched_upto_ex_prefix_agrees_38_at :
@@ -936,16 +942,10 @@ Lemma certified_service_prefix_ex_data_agrees_generated :
     service_job 1 (sched_upto_ex 38) j t.
 Proof.
   intros j t Ht.
-  induction t as [|t IH].
-  - reflexivity.
-  - simpl.
-    rewrite IH by lia.
-    unfold runs_on.
-    simpl.
-    rewrite generated_prefix_slot_ex by lia.
-    destruct (sched_upto_ex 38 t 0) as [j'|] eqn:Hsched; simpl.
-    + rewrite Nat.eqb_sym. lia.
-    + lia.
+  do 39 (
+    destruct t as [|t];
+    [ vm_compute; reflexivity | ]).
+  lia.
 Qed.
 
 Lemma certified_completed_by_ex_data_generated_sound :
@@ -1259,18 +1259,6 @@ Proof.
   destruct (check_edf_infinite_cert_fields JobId cert_ex_generic cert_ex_generic_ok)
     as [Hprefix _].
   exact Hprefix.
-Qed.
-
-Lemma cert_ex_prefix_slots_semantic_bridge :
-  forall t,
-    t < prefix_horizon cert_ex_prefix_generic ->
-    sched_upto_ex 38 t 0 = nth t (prefix_slots cert_ex_prefix_generic) None.
-Proof.
-  intros t Ht.
-  eapply check_prefix_cert_slots_sound.
-  - exact cert_ex_prefix_generic_ok.
-  - exact cert_ex_prefix_semantics.
-  - exact Ht.
 Qed.
 
 Lemma cert_ex_transport_semantics :

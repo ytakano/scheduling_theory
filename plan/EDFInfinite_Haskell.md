@@ -1577,3 +1577,258 @@ timeout 180s docker exec docker-scheduling_theory-1 zsh -lc \
    38-case `vm_compute` が新しい hotspot かを再計測する
 3. 可能なら、候補列挙 spec を別補題へ分割して
    current stall をさらに前処理側へ押し出す
+
+## 2026-04-23 Progress (Unused bridge removed, `generated_prefix_slot_ex` still needed)
+
+### 今回の確認ポイント
+
+- `generated_prefix_slot_ex` 自体が不要かを参照関係から再確認した。
+- 併せて、現在の proof path に不要な wrapper / bridge を削除してから
+  tutorial を再実行した。
+
+### 参照関係の結論
+
+- `generated_prefix_slot_ex` の参照は現状 2 箇所だった。
+  - `certified_service_prefix_ex_data_agrees_generated`
+  - `cert_ex_prefix_slots_sound`
+- 一方で、後段に追加していた
+  - `cert_ex_prefix_slots_semantic_bridge`
+  は参照ゼロで、完全に冗長だった。
+
+### 今回の実施内容
+
+- 削除:
+  - `cert_ex_prefix_slots_semantic_bridge`
+- 維持:
+  - `generated_prefix_slot_ex`
+  - `cert_candidates_ex_38`
+  - `cert_prefix_sched_ex`
+  - `cert_prefix_sched_ex_choose_agrees_before`
+  - `cert_prefix_sched_ex_local_scheduler`
+
+`generated_prefix_slot_ex` は、いまの proof-order では
+`certified_service_prefix_ex_data_agrees_generated` を支える
+早い段階の slot bridge としてまだ必要であり、
+単純削除はできなかった。
+
+### 再実行結果
+
+Docker で再度 tutorial compile を実行した。
+
+```sh
+docker exec docker-scheduling_theory-1 zsh -lc \
+  'cd /scheduling_theory && make Tutorials/EDFInfiniteSchedulability.vo'
+```
+
+結果:
+- `cert_candidates_ex_38_spec` の軽量化自体は維持されている
+- しかし通し compile は依然未完了
+- 現在の failure point は
+  `certified_service_prefix_ex_data_agrees_generated`
+  の proof repair 中である
+
+### 現状の意味
+
+- 「不要な wrapper を消してから再実行する」という切り分けは実施済み
+- その結果、
+  - 不要だったのは後段の `cert_ex_prefix_slots_semantic_bridge`
+  - `generated_prefix_slot_ex` は現状まだ必要
+  であることが確認できた
+
+### 次の具体作業
+
+1. `certified_service_prefix_ex_data_agrees_generated` を
+   `generated_prefix_slot_ex` に依存したまま安定化する
+2. その後に再度 `make Tutorials/EDFInfiniteSchedulability.vo` を回し、
+   次の hotspot / failure point を特定する
+
+## 2026-04-23 Progress (`cert_candidates_ex_38_spec` deleted and inlined)
+
+### 今回の実施内容
+
+- `Tutorials/EDFInfiniteSchedulability.v` から
+  `cert_candidates_ex_38_spec` を削除した。
+- その唯一の残存 use site だった
+  `cert_prefix_sched_ex_choose_agrees_before`
+  で、candidate-source spec を
+  `generated_periodic_edf_enum_candidates_upto_spec`
+  の直接適用へ置き換えた。
+- `cert_candidates_ex_38`、
+  `cert_prefix_sched_ex`、
+  残りの witness chain はこの作業では変更していない。
+
+### 静的確認
+
+- `rg` で
+  `cert_candidates_ex_38_spec`
+  が tutorial から消えていることを確認した。
+- `rg` で
+  `cert_prefix_sched_ex_choose_agrees_before`
+  は残っており、
+  `generated_periodic_edf_enum_candidates_upto_spec`
+  を直接参照していることを確認した。
+
+### 再実行結果
+
+以下を再実行した。
+
+```sh
+timeout 180s docker exec docker-scheduling_theory-1 zsh -lc \
+  'cd /scheduling_theory && make Tutorials/EDFInfiniteSchedulability.vo'
+```
+
+```sh
+timeout 180s docker exec docker-scheduling_theory-1 zsh -lc \
+  'cd /scheduling_theory && rocq compile -time -q -w -deprecated-native-compiler-option -native-compiler no -Q Tutorials/Generated Tutorials.Generated -R theories RocqSched Tutorials/EDFInfiniteSchedulability.v'
+```
+
+結果:
+- `make Tutorials/EDFInfiniteSchedulability.vo` は 180 秒 timeout で未完了だった
+- `rocq compile -time` も 180 秒 timeout で未完了だった
+- compile-time 出力は削除済みの
+  `cert_candidates_ex_38_spec`
+  では止まらず、
+  いまは
+  `cert_prefix_sched_ex_choose_agrees_before`
+  の新しい inline proof 内、
+  `unfold cert_candidates_ex_38`
+  の直後まで進むことを確認した
+
+### 現状の意味
+
+- `cert_candidates_ex_38_spec` は不要な tutorial-local wrapper として
+  削除可能だったことが確認できた。
+- ただし current blocker は
+  `certified_service_prefix_ex_data_agrees_generated`
+  へ進む前に、
+  まず
+  `cert_prefix_sched_ex_choose_agrees_before`
+  の inline された candidate-source proof 近辺へ移動した。
+- したがって、この段階では blocker は
+  もはや deleted wrapper ではないが、
+  まだ
+  `certified_service_prefix_ex_data_agrees_generated`
+  まで compile stream が安定到達していない。
+
+### 次の具体作業
+
+1. `cert_prefix_sched_ex_choose_agrees_before` の inline proof が
+   どこで重くなるかをさらに切り分ける
+2. その上で tutorial-local wrapper を再導入せずに
+   candidate-source proof term の評価負荷を下げる
+3. compile stream が再び先へ進んだら、
+   次の blocker が
+   `certified_service_prefix_ex_data_agrees_generated`
+   へ戻るかを再確認する
+
+## 2026-04-23 Progress (Choose-agreement hotspot confirmed necessary and moved)
+
+### 今回の確認ポイント
+
+- `cert_prefix_sched_ex_choose_agrees_before` が
+  本当に active proof path 上で必要かを先に調べた。
+- 併せて Haskell offload が current blocker を解消できるかも確認した。
+
+### 削除可能性と Haskell offload の結論
+
+- `cert_prefix_sched_ex_choose_agrees_before` は
+  現状 `generated_prefix_slot_ex` の唯一の `ChooseAgreesBefore`
+  供給元であり、
+  `cert_ex_prefix_slots_sound`
+  を通じて
+  `cert_ex_prefix_semantics`
+  と
+  `cert_ex_generic_semantic_sound`
+  に繋がっている。
+- したがって、この段階では単純削除できない。
+- さらに、抽出済み Haskell は
+  `check_edf_infinite_cert cert_ex_generic`
+  の計算側だけを担っており、
+  現在の Rocq proof hotspot
+  (`ChooseAgreesBefore` / prefix slot semantics bridge)
+  を置き換えない。
+- よって Haskell offload は今回の principal blocker には効かず、
+  方針は
+  「削除ではなく proof shape の軽量化」
+  に固定した。
+
+### 今回の実施内容
+
+- `cert_prefix_sched_ex_choose_agrees_before` を
+  `theories/TaskModels/Periodic/PeriodicEDFInfiniteBridge.v`
+  と同じ proof shape に揃えた。
+- 具体的には、
+  `unfold cert_candidates_ex_38`
+  をやめ、
+  goal 側を `change` で展開済み candidate source に合わせてから
+  `edf_choose_agrees_before`
+  を適用する形へ変更した。
+- `generated_periodic_edf_enum_candidates_upto_spec`
+  は引き続き直接使い、
+  tutorial-local wrapper は再導入していない。
+
+### 静的確認
+
+- `rg` で
+  `cert_candidates_ex_38_spec`
+  が再導入されていないことを確認した。
+- `rg` で
+  `cert_prefix_sched_ex_choose_agrees_before`
+  が残っていることを確認した。
+- `rg` で
+  `unfold cert_candidates_ex_38`
+  が消え、
+  `generated_periodic_edf_enum_candidates_upto_spec`
+  の直接使用が維持されていることを確認した。
+
+### 再実行結果
+
+以下を再実行した。
+
+```sh
+docker exec docker-scheduling_theory-1 zsh -lc \
+  'cd /scheduling_theory && make Tutorials/EDFInfiniteSchedulability.vo'
+```
+
+```sh
+timeout 180s docker exec docker-scheduling_theory-1 zsh -lc \
+  'cd /scheduling_theory && rocq compile -time -q -w -deprecated-native-compiler-option -native-compiler no -Q Tutorials/Generated Tutorials.Generated -R theories RocqSched Tutorials/EDFInfiniteSchedulability.v'
+```
+
+結果:
+- `rocq compile -time` は
+  `cert_prefix_sched_ex_choose_agrees_before`
+  を即座に通過し、
+  `generated_prefix_slot_ex`
+  とその後続の補題群も通過した
+- 新しい failure point は
+  `certified_service_prefix_ex_data_agrees_generated`
+  に戻った
+- `make Tutorials/EDFInfiniteSchedulability.vo` も同じ箇所で失敗した
+- 失敗位置は
+  `Tutorials/EDFInfiniteSchedulability.v`
+  line 947 付近で、
+  `certified_service_prefix_ex_data_agrees_generated`
+  の現在の `do 39 ... vm_compute` proof が
+  `nat` と `eqb` 由来の計算形をうまく揃えられていない
+
+### 現状の意味
+
+- `cert_prefix_sched_ex_choose_agrees_before` は
+  active path 上で必要な補題だと確認できた
+- ただし hotspot としては解消済みで、
+  principal blocker は再び
+  `certified_service_prefix_ex_data_agrees_generated`
+  に戻った
+- したがって、次タスクは
+  service-prefix 証明の repair に進んでよい
+
+### 次の具体作業
+
+1. `certified_service_prefix_ex_data_agrees_generated` の
+   現 `vm_compute` proof を、
+   `generated_prefix_slot_ex`
+   を使う安定な形へ戻すか、
+   あるいは計算形を揃える補助 rewrite を入れて修復する
+2. その後に再度 tutorial compile を回し、
+   次の failure point を特定する
