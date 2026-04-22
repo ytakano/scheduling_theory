@@ -233,7 +233,9 @@ Record EDFInfiniteCertEx := {
   cert_period_ex : Time;
   cert_prefix_ex : EDFPrefixCertEx;
   cert_task0_shift_ex : nat;
-  cert_task1_shift_ex : nat
+  cert_task1_shift_ex : nat;
+  cert_task0_completion_offsets_ex : list nat;
+  cert_task1_completion_offsets_ex : list nat
 }.
 
 Definition cert_slots_ex_data : list (option JobId) :=
@@ -252,7 +254,9 @@ Definition cert_ex : EDFInfiniteCertEx :=
        {| cert_horizon_ex := 38;
           cert_slots_ex := cert_slots_ex_data |};
      cert_task0_shift_ex := 7;
-     cert_task1_shift_ex := 5 |}.
+     cert_task1_shift_ex := 5;
+     cert_task0_completion_offsets_ex := [1; 1; 1; 1; 1; 1; 1];
+     cert_task1_completion_offsets_ex := [2; 1; 1; 1; 1] |}.
 
 Definition option_jobid_eqb (x y : option JobId) : bool :=
   match x, y with
@@ -328,7 +332,16 @@ Definition check_prefix_backlog_free_at_releases_ex (p : EDFPrefixCertEx) : bool
 Definition check_periodic_lasso_ex (c : EDFInfiniteCertEx) : bool :=
   Nat.eqb c.(cert_period_ex) 35
   && Nat.eqb c.(cert_task0_shift_ex) 7
-  && Nat.eqb c.(cert_task1_shift_ex) 5.
+  && Nat.eqb c.(cert_task1_shift_ex) 5
+  && Nat.eqb (length c.(cert_task0_completion_offsets_ex)) 7
+  && forallb (Nat.eqb 1) c.(cert_task0_completion_offsets_ex)
+  && Nat.eqb (length c.(cert_task1_completion_offsets_ex)) 5
+  && option_jobid_eqb
+       (Some (nth 0 c.(cert_task1_completion_offsets_ex) 0))
+       (Some 2)
+  && forallb
+       (fun r => Nat.eqb (nth r c.(cert_task1_completion_offsets_ex) 0) 1)
+       (seq 1 4).
 
 Definition check_edf_infinite_cert_ex (c : EDFInfiniteCertEx) : bool :=
   check_prefix_shape_ex c.(cert_prefix_ex)
@@ -372,13 +385,43 @@ Lemma check_periodic_lasso_ex_fields :
     check_periodic_lasso_ex c = true ->
     c.(cert_period_ex) = 35 /\
     c.(cert_task0_shift_ex) = 7 /\
-    c.(cert_task1_shift_ex) = 5.
+    c.(cert_task1_shift_ex) = 5 /\
+    length c.(cert_task0_completion_offsets_ex) = 7 /\
+    (forall r, r < 7 -> nth r c.(cert_task0_completion_offsets_ex) 0 = 1) /\
+    length c.(cert_task1_completion_offsets_ex) = 5 /\
+    nth 0 c.(cert_task1_completion_offsets_ex) 0 = 2 /\
+    (forall r, 1 <= r -> r < 5 -> nth r c.(cert_task1_completion_offsets_ex) 0 = 1).
 Proof.
   intros c Hcheck.
   unfold check_periodic_lasso_ex in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
-  destruct Hcheck as [[Hperiod Hshift0] Hshift1].
-  repeat split; apply Nat.eqb_eq; assumption.
+  destruct Hcheck as [Hcheck Hall1].
+  destruct Hcheck as [Hcheck Hhead1].
+  destruct Hcheck as [Hcheck Hlen1].
+  destruct Hcheck as [Hcheck Hall0].
+  destruct Hcheck as [Hcheck Hlen0].
+  destruct Hcheck as [Hcheck Hshift1].
+  destruct Hcheck as [Hperiod Hshift0].
+  repeat split.
+  - apply Nat.eqb_eq; assumption.
+  - apply Nat.eqb_eq; assumption.
+  - apply Nat.eqb_eq; assumption.
+  - apply Nat.eqb_eq; assumption.
+  - intros r Hr.
+    apply forallb_forall with (x := nth r c.(cert_task0_completion_offsets_ex) 0) in Hall0.
+    + apply Nat.eqb_eq in Hall0.
+      symmetry.
+      exact Hall0.
+    + apply nth_In.
+      apply Nat.eqb_eq in Hlen0.
+      rewrite Hlen0.
+      exact Hr.
+  - apply Nat.eqb_eq; assumption.
+  - apply option_jobid_eqb_eq in Hhead1. inversion Hhead1. reflexivity.
+  - intros r Hr1 Hr5.
+    apply forallb_forall with (x := r) in Hall1.
+    + apply Nat.eqb_eq. exact Hall1.
+    + rewrite in_seq. lia.
 Qed.
 
 Lemma check_edf_infinite_cert_ex_fields :
@@ -805,7 +848,7 @@ Lemma certified_prefix_schedule_ex_cpu0 :
 Proof.
   intros p t.
   unfold certified_prefix_schedule_ex.
-  rewrite Nat.eqb_refl.
+  simpl.
   reflexivity.
 Qed.
 
@@ -1340,6 +1383,243 @@ Definition sched_inf_ex : Schedule :=
   generated_periodic_edf_schedule
     T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex.
 
+(* Structural completion times for the concrete two-task schedule. *)
+Definition structural_completion_time_ex (j : JobId) : Time :=
+  match job_task (jobs_ex j) with
+  | 0 => job_release (jobs_ex j) + 1
+  | 1 =>
+      if Nat.eqb (job_index (jobs_ex j) mod 5) 0 then
+        job_release (jobs_ex j) + 2
+      else
+        job_release (jobs_ex j) + 1
+  | _ => job_release (jobs_ex j) + 1
+  end.
+
+Lemma structural_completion_time_of_task0_ex :
+  forall k,
+    structural_completion_time_ex (job_id_of_ex 0 k) = 5 * k + 1.
+Proof.
+  intro k.
+  unfold structural_completion_time_ex, job_id_of_ex.
+  rewrite jobs_ex_task0.
+  reflexivity.
+Qed.
+
+Lemma structural_completion_time_of_task1_collision_ex :
+  forall q,
+    structural_completion_time_ex (job_id_of_ex 1 (5 * q)) = 35 * q + 2.
+Proof.
+  intro q.
+  unfold structural_completion_time_ex, job_id_of_ex.
+  rewrite jobs_ex_task1.
+  cbn [job_task job_release job_index].
+  replace ((5 * q) mod 5) with 0.
+  2:{
+    rewrite Nat.mul_comm.
+    symmetry.
+    apply nat_mod_mul_left.
+    lia.
+  }
+  cbn.
+  replace (7 * (5 * q)) with (35 * q) by lia.
+  lia.
+Qed.
+
+Lemma structural_completion_time_of_task1_noncollision_ex :
+  forall k,
+    (forall q, k <> 5 * q) ->
+    structural_completion_time_ex (job_id_of_ex 1 k) = 7 * k + 1.
+Proof.
+  intros k Hnc.
+  unfold structural_completion_time_ex, job_id_of_ex.
+  rewrite jobs_ex_task1.
+  cbn [job_task job_release job_index].
+  assert (Hmod : k mod 5 <> 0).
+  {
+    intro Hzero.
+    apply (Hnc (k / 5)).
+    pose proof (Nat.div_mod k 5 ltac:(lia)) as Hdiv.
+    lia.
+  }
+  destruct (Nat.eqb_spec (k mod 5) 0) as [Heq | Hneq].
+  - exfalso. exact (Hmod Heq).
+  - lia.
+Qed.
+
+Lemma structural_completion_time_before_task0_release_ex :
+  forall y k,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < 5 * k ->
+    structural_completion_time_ex y <= 5 * k.
+Proof.
+  intros y k Hy Hrel.
+  pose proof (periodic_jobset_ex_normalize y Hy) as Hnorm.
+  destruct Hnorm as [[k' ->] | [k' ->]].
+  - rewrite structural_completion_time_of_task0_ex.
+    rewrite (job_release_of_task0_ex (job_id_of_ex 0 k') k' eq_refl) in Hrel.
+    apply task0_release_lt_implies_index_lt_ex in Hrel.
+    lia.
+  - destruct (task1_collision_dec_ex k') as [[q Hq] | Hnc].
+    + subst k'.
+      rewrite structural_completion_time_of_task1_collision_ex.
+      rewrite (job_release_of_task1_ex (job_id_of_ex 1 (5 * q)) (5 * q) eq_refl) in Hrel.
+      replace (7 * (5 * q)) with (35 * q) in Hrel by lia.
+      exact
+        (collision_task1_release_lt_task0_release_implies_completion_by_task0_release_ex
+           q k Hrel).
+    + rewrite structural_completion_time_of_task1_noncollision_ex by exact Hnc.
+      rewrite (job_release_of_task1_ex (job_id_of_ex 1 k') k' eq_refl) in Hrel.
+      exact
+        (noncollision_task1_release_lt_task0_release_implies_completion_by_task0_release_ex
+           k' k Hnc Hrel).
+Qed.
+
+Lemma structural_completion_time_before_task1_release_ex :
+  forall y k,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < 7 * k ->
+    structural_completion_time_ex y <= 7 * k.
+Proof.
+  intros y k Hy Hrel.
+  pose proof (periodic_jobset_ex_normalize y Hy) as Hnorm.
+  destruct Hnorm as [[k' ->] | [k' ->]].
+  - rewrite structural_completion_time_of_task0_ex.
+    rewrite (job_release_of_task0_ex (job_id_of_ex 0 k') k' eq_refl) in Hrel.
+    exact
+      (task0_release_lt_task1_release_implies_task0_completed_by_task1_release_ex
+         k' k Hrel).
+  - destruct (task1_collision_dec_ex k') as [[q Hq] | Hnc].
+    + subst k'.
+      rewrite structural_completion_time_of_task1_collision_ex.
+      rewrite (job_release_of_task1_ex (job_id_of_ex 1 (5 * q)) (5 * q) eq_refl) in Hrel.
+      lia.
+    + rewrite structural_completion_time_of_task1_noncollision_ex by exact Hnc.
+      rewrite (job_release_of_task1_ex (job_id_of_ex 1 k') k' eq_refl) in Hrel.
+      apply task1_release_lt_implies_index_lt_ex in Hrel.
+      lia.
+Qed.
+
+Lemma structural_completion_time_before_collision_followup_ex :
+  forall y q,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < 35 * q ->
+    structural_completion_time_ex y <= 35 * q + 1.
+Proof.
+  intros y q Hy Hrel.
+  pose proof (periodic_jobset_ex_normalize y Hy) as Hnorm.
+  destruct Hnorm as [[k' ->] | [k' ->]].
+  - rewrite structural_completion_time_of_task0_ex.
+    rewrite (job_release_of_task0_ex (job_id_of_ex 0 k') k' eq_refl) in Hrel.
+    lia.
+  - destruct (task1_collision_dec_ex k') as [[q' Hq] | Hnc].
+    + subst k'.
+      rewrite structural_completion_time_of_task1_collision_ex.
+      rewrite (job_release_of_task1_ex (job_id_of_ex 1 (5 * q')) (5 * q') eq_refl) in Hrel.
+      lia.
+    + rewrite structural_completion_time_of_task1_noncollision_ex by exact Hnc.
+      rewrite (job_release_of_task1_ex (job_id_of_ex 1 k') k' eq_refl) in Hrel.
+      lia.
+Qed.
+
+Lemma structural_completion_time_before_current_release_ex :
+  forall j y,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < job_release (jobs_ex j) ->
+    structural_completion_time_ex y <= job_release (jobs_ex j).
+Proof.
+  intros j y Hj Hy Hyrel.
+  pose proof (periodic_jobset_ex_normalize j Hj) as Hjnorm.
+  destruct Hjnorm as [[k ->] | [k ->]].
+  - rewrite (job_release_of_task0_ex (job_id_of_ex 0 k) k eq_refl) in Hyrel |- *.
+    exact (structural_completion_time_before_task0_release_ex y k Hy Hyrel).
+  - rewrite (job_release_of_task1_ex (job_id_of_ex 1 k) k eq_refl) in Hyrel |- *.
+    exact (structural_completion_time_before_task1_release_ex y k Hy Hyrel).
+Qed.
+
+Definition certified_completion_time_ex (c : EDFInfiniteCertEx) (j : JobId) : Time :=
+  match job_task (jobs_ex j) with
+  | 0 =>
+      job_release (jobs_ex j)
+      + nth (job_index (jobs_ex j) mod c.(cert_task0_shift_ex))
+          c.(cert_task0_completion_offsets_ex) 0
+  | 1 =>
+      job_release (jobs_ex j)
+      + nth (job_index (jobs_ex j) mod c.(cert_task1_shift_ex))
+          c.(cert_task1_completion_offsets_ex) 0
+  | _ => job_release (jobs_ex j) + 1
+  end.
+
+Lemma certified_completion_time_ex_sound :
+  forall c j,
+    check_periodic_lasso_ex c = true ->
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    certified_completion_time_ex c j = structural_completion_time_ex j.
+Proof.
+  intros c j Hcheck Hj.
+  pose proof (check_periodic_lasso_ex_fields c Hcheck)
+    as [Hperiod [Hshift0 [Hshift1 [Hlen0 [Hoff0 [Hlen1 [Hhead1 Hoff1]]]]]]].
+  pose proof (periodic_jobset_ex_normalize j Hj) as Hnorm.
+  destruct Hnorm as [[k ->] | [k ->]].
+  - unfold certified_completion_time_ex, structural_completion_time_ex.
+    unfold job_id_of_ex.
+    rewrite jobs_ex_task0.
+    cbn [job_task job_release job_index].
+    rewrite Hshift0.
+    replace (k mod 7) with ((k mod 7) mod 7) by (rewrite Nat.mod_small; [reflexivity|apply Nat.mod_upper_bound; lia]).
+    rewrite Hoff0 by (apply Nat.mod_upper_bound; lia).
+    lia.
+  - unfold certified_completion_time_ex, structural_completion_time_ex.
+    unfold job_id_of_ex.
+    rewrite jobs_ex_task1.
+    cbn [job_task job_release job_index].
+    rewrite Hshift1.
+    destruct (task1_collision_dec_ex k) as [[q Hq] | Hnc].
+    + subst k.
+      replace ((5 * q) mod 5) with 0.
+      2:{
+        rewrite Nat.mul_comm.
+        symmetry.
+        apply nat_mod_mul_left.
+        lia.
+      }
+      rewrite Hhead1.
+      simpl.
+      replace (7 * (5 * q)) with (35 * q) by lia.
+      lia.
+    + assert (Hmod1 : 1 <= k mod 5 < 5).
+      {
+        split.
+        - destruct (Nat.eq_dec (k mod 5) 0) as [Hzero | Hnz].
+          + exfalso.
+            apply (Hnc (k / 5)).
+            pose proof (Nat.div_mod k 5 ltac:(lia)) as Hdiv.
+            lia.
+          + lia.
+        - apply Nat.mod_upper_bound; lia.
+      }
+      destruct (Nat.eqb_spec (k mod 5) 0) as [Heq | Hneq].
+      * exfalso.
+        apply (Hnc (k / 5)).
+        pose proof (Nat.div_mod k 5 ltac:(lia)) as Hdiv.
+        lia.
+      * rewrite Hoff1 by lia.
+        lia.
+Qed.
+
+Lemma certified_completion_time_before_current_release_ex :
+  forall c j y,
+    check_periodic_lasso_ex c = true ->
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < job_release (jobs_ex j) ->
+    certified_completion_time_ex c y <= job_release (jobs_ex j).
+Proof.
+  intros c j y Hcheck Hj Hy Hyrel.
+  rewrite (certified_completion_time_ex_sound c y Hcheck Hy).
+  eapply structural_completion_time_before_current_release_ex; eauto.
+Qed.
+
 Inductive completion_target_ex : JobId -> Time -> Prop :=
 | completion_target_task0_ex :
     forall k,
@@ -1605,6 +1885,205 @@ Proof.
            lia.
 Qed.
 
+Lemma completed_before_task0_release_from_structural_ex :
+  forall H k
+         (IHc :
+            forall y,
+              periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+              job_release (jobs_ex y) < 5 * k ->
+              structural_completion_time_ex y < H ->
+              completed jobs_ex 1 (sched_upto_ex H) y
+                (structural_completion_time_ex y))
+         (Hfrontier : 5 * k < H)
+         y,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < 5 * k ->
+    completed jobs_ex 1 (sched_upto_ex H) y (5 * k).
+Proof.
+  intros H k IHc Hfrontier y Hy Hyrel.
+  assert (Hty_le : structural_completion_time_ex y <= 5 * k).
+  { eapply structural_completion_time_before_task0_release_ex; eauto. }
+  assert (Hty_lt_H : structural_completion_time_ex y < H) by lia.
+  pose proof (IHc y Hy Hyrel Hty_lt_H) as Hdone.
+  eapply completed_monotone; eauto.
+Qed.
+
+Lemma completed_before_task1_release_from_structural_ex :
+  forall H k
+         (IHc :
+            forall y,
+              periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+              job_release (jobs_ex y) < 7 * k ->
+              structural_completion_time_ex y < H ->
+              completed jobs_ex 1 (sched_upto_ex H) y
+                (structural_completion_time_ex y))
+         (Hfrontier : 7 * k < H)
+         y,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < 7 * k ->
+    completed jobs_ex 1 (sched_upto_ex H) y (7 * k).
+Proof.
+  intros H k IHc Hfrontier y Hy Hyrel.
+  assert (Hty_le : structural_completion_time_ex y <= 7 * k).
+  { eapply structural_completion_time_before_task1_release_ex; eauto. }
+  assert (Hty_lt_H : structural_completion_time_ex y < H) by lia.
+  pose proof (IHc y Hy Hyrel Hty_lt_H) as Hdone.
+  eapply completed_monotone; eauto.
+Qed.
+
+Lemma completed_before_collision_followup_from_structural_ex :
+  forall H q
+         (IHc :
+            forall y,
+              periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+              job_release (jobs_ex y) < 35 * q ->
+              structural_completion_time_ex y < H ->
+              completed jobs_ex 1 (sched_upto_ex H) y
+                (structural_completion_time_ex y))
+         (Hfrontier : 35 * q + 1 < H)
+         y,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < 35 * q ->
+    completed jobs_ex 1 (sched_upto_ex H) y (35 * q + 1).
+Proof.
+  intros H q IHc Hfrontier y Hy Hyrel.
+  assert (Hty_le : structural_completion_time_ex y <= 35 * q + 1).
+  { eapply structural_completion_time_before_collision_followup_ex; eauto. }
+  assert (Hty_lt_H : structural_completion_time_ex y < H) by lia.
+  pose proof (IHc y Hy Hyrel Hty_lt_H) as Hdone.
+  eapply completed_monotone; eauto.
+Qed.
+
+Lemma completed_at_structural_completion_time_ex :
+  forall H j,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    structural_completion_time_ex j < H ->
+    completed jobs_ex 1 (sched_upto_ex H) j (structural_completion_time_ex j).
+Proof.
+  intros H j Hj Hbound.
+  set (P :=
+         fun r =>
+           forall j,
+             periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+             job_release (jobs_ex j) = r ->
+             structural_completion_time_ex j < H ->
+             completed jobs_ex 1 (sched_upto_ex H) j
+               (structural_completion_time_ex j)).
+  assert (HP : P (job_release (jobs_ex j))).
+  {
+    unfold P.
+    apply (well_founded_induction
+             lt_wf
+             (fun r =>
+                forall j,
+                  periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+                  job_release (jobs_ex j) = r ->
+                  structural_completion_time_ex j < H ->
+                  completed jobs_ex 1 (sched_upto_ex H) j
+                    (structural_completion_time_ex j))).
+    intros r IH j0 Hj0 Hrel0 Hbound0.
+    pose proof (periodic_jobset_ex_normalize j0 Hj0) as Hnorm.
+    destruct Hnorm as [[k ->] | [k ->]].
+    - rewrite structural_completion_time_of_task0_ex in Hbound0 |- *.
+      eapply task0_completed_if_scheduled_at_release_ex; [exact Hbound0|].
+      apply task0_scheduled_at_release_of_earlier_completion_ex; [exact Hbound0|].
+      intros y Hy Hyrel.
+      eapply completed_before_task0_release_from_structural_ex.
+      + intros y' Hy' Hyrel' Hty_lt_H.
+        assert (Hlt_r : job_release (jobs_ex y') < r).
+        {
+          rewrite <- Hrel0.
+          rewrite (job_release_of_task0_ex (job_id_of_ex 0 k) k eq_refl).
+          exact Hyrel'.
+        }
+        exact (IH (job_release (jobs_ex y')) Hlt_r y' Hy' eq_refl Hty_lt_H).
+      + lia.
+      + exact Hy.
+      + exact Hyrel.
+    - destruct (task1_collision_dec_ex k) as [[q Hq] | Hnc].
+      + subst k.
+        rewrite structural_completion_time_of_task1_collision_ex in Hbound0 |- *.
+        pose proof
+          (task0_scheduled_at_release_of_earlier_completion_ex
+             H (7 * q)
+             ltac:(lia)
+             (fun y Hy Hyrel =>
+                completed_before_task0_release_from_structural_ex
+                  H (7 * q)
+                  (fun y' Hy' Hyrel' Hty_lt_H =>
+                     IH
+                       (job_release (jobs_ex y'))
+                       ltac:(
+                         rewrite <- Hrel0;
+                         rewrite (job_release_of_task1_ex (job_id_of_ex 1 (5 * q)) (5 * q) eq_refl);
+                         replace (5 * (7 * q)) with (7 * (5 * q)) in Hyrel' by lia;
+                         exact Hyrel')
+                       y' Hy' eq_refl Hty_lt_H)
+                  ltac:(lia)
+                  y Hy
+                  ltac:(replace (35 * q) with (5 * (7 * q)) in Hyrel by lia; exact Hyrel)))
+          as Hrun0'.
+        assert (Hrun0 :
+          sched_upto_ex H (35 * q) 0 = Some (job_id_of_ex 0 (7 * q))).
+        {
+          replace (35 * q) with (5 * (7 * q)) by lia.
+          exact Hrun0'.
+        }
+        eapply task1_completed_if_not_scheduled_at_release_then_at_next_ex.
+        * exact Hbound0.
+        * exact Hrun0.
+        * apply task1_scheduled_after_collision_of_earlier_completion_ex;
+            [exact Hbound0|exact Hrun0|].
+          intros y Hy Hyrel.
+          eapply completed_before_collision_followup_from_structural_ex.
+          -- intros y' Hy' Hyrel' Hty_lt_H.
+             assert (Hlt_r : job_release (jobs_ex y') < r).
+             {
+               rewrite <- Hrel0.
+               rewrite (job_release_of_task1_ex (job_id_of_ex 1 (5 * q)) (5 * q) eq_refl).
+               replace (35 * q) with (7 * (5 * q)) in Hyrel' by lia.
+               exact Hyrel'.
+             }
+             exact (IH (job_release (jobs_ex y')) Hlt_r y' Hy' eq_refl Hty_lt_H).
+          -- lia.
+          -- exact Hy.
+          -- exact Hyrel.
+      + rewrite structural_completion_time_of_task1_noncollision_ex
+          in Hbound0 |- * by exact Hnc.
+        eapply task1_completed_if_scheduled_at_release_ex; [exact Hbound0|].
+        apply task1_scheduled_at_release_of_earlier_completion_ex.
+        * exact Hnc.
+        * exact Hbound0.
+        * intros y Hy Hyrel.
+          eapply completed_before_task1_release_from_structural_ex.
+          -- intros y' Hy' Hyrel' Hty_lt_H.
+             assert (Hlt_r : job_release (jobs_ex y') < r).
+             {
+               rewrite <- Hrel0.
+               rewrite (job_release_of_task1_ex (job_id_of_ex 1 k) k eq_refl).
+               exact Hyrel'.
+             }
+             exact (IH (job_release (jobs_ex y')) Hlt_r y' Hy' eq_refl Hty_lt_H).
+          -- lia.
+          -- exact Hy.
+          -- exact Hyrel.
+  }
+  exact (HP j Hj eq_refl Hbound).
+Qed.
+
+Lemma completed_at_certified_completion_time_ex :
+  forall c H j,
+    check_periodic_lasso_ex c = true ->
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    certified_completion_time_ex c j < H ->
+    completed jobs_ex 1 (sched_upto_ex H) j (certified_completion_time_ex c j).
+Proof.
+  intros c H j Hcheck Hj Hbound.
+  rewrite (certified_completion_time_ex_sound c j Hcheck Hj).
+  rewrite (certified_completion_time_ex_sound c j Hcheck Hj) in Hbound.
+  eapply completed_at_structural_completion_time_ex; eauto.
+Qed.
+
 Lemma completed_before_task0_release_from_target_ex :
   forall H k
          (IHc :
@@ -1848,7 +2327,9 @@ Lemma generated_edf_backlog_free_before_release_ex_task0_lasso :
          (S (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q))))))
       (job_id_of_ex 0 (r + 7 * q)).
 Proof.
-  intros c q r _ _ _.
+  intros c q r Hcheck _ _.
+  pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
+    as [_ [_ [_ [_ [_ Hlasso]]]]].
   eapply periodic_edf_backlog_free_before_release_of_earlier_completion.
   - apply generated_periodic_edf_schedule_upto_valid_ex.
   - apply periodic_jobset_job0_ex.
@@ -1866,24 +2347,29 @@ Proof.
              T_ex tasks_ex offset_ex jobs_ex 0
              (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q)))) y Hy).
     }
-    destruct (periodic_job_has_completion_target_ex y Hpy) as [ty Hty].
     assert (Hty_le :
-      ty <= job_release (jobs_ex (job_id_of_ex 0 (r + 7 * q)))).
+      certified_completion_time_ex c y <=
+      job_release (jobs_ex (job_id_of_ex 0 (r + 7 * q)))).
     {
-      eapply completion_target_before_current_release_ex; eauto.
-      apply periodic_jobset_job0_ex.
+      eapply certified_completion_time_before_current_release_ex.
+      - exact Hlasso.
+      - apply periodic_jobset_job0_ex.
+      - exact Hpy.
+      - exact Hyrel.
     }
     assert (Hty_lt_H :
-      ty < S (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q))))).
+      certified_completion_time_ex c y <
+      S (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q))))).
     {
       rewrite (job_release_of_task0_ex (job_id_of_ex 0 (r + 7 * q)) (r + 7 * q) eq_refl) in Hty_le.
       rewrite (job_deadline_of_task0_ex (job_id_of_ex 0 (r + 7 * q)) (r + 7 * q) eq_refl).
       lia.
     }
     pose proof
-      (completed_at_completion_target_ex
+      (completed_at_certified_completion_time_ex
+         c
          (S (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q)))))
-         y ty Hpy Hty Hty_lt_H) as Hdone.
+         y Hlasso Hpy Hty_lt_H) as Hdone.
     eapply completed_monotone; eauto.
 Qed.
 
@@ -1899,7 +2385,9 @@ Lemma generated_edf_backlog_free_before_release_ex_task1_lasso :
          (S (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q))))))
       (job_id_of_ex 1 (r + 5 * q)).
 Proof.
-  intros c q r _ _ _.
+  intros c q r Hcheck _ _.
+  pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
+    as [_ [_ [_ [_ [_ Hlasso]]]]].
   eapply periodic_edf_backlog_free_before_release_of_earlier_completion.
   - apply generated_periodic_edf_schedule_upto_valid_ex.
   - apply periodic_jobset_job1_ex.
@@ -1917,24 +2405,29 @@ Proof.
              T_ex tasks_ex offset_ex jobs_ex 0
              (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q)))) y Hy).
     }
-    destruct (periodic_job_has_completion_target_ex y Hpy) as [ty Hty].
     assert (Hty_le :
-      ty <= job_release (jobs_ex (job_id_of_ex 1 (r + 5 * q)))).
+      certified_completion_time_ex c y <=
+      job_release (jobs_ex (job_id_of_ex 1 (r + 5 * q)))).
     {
-      eapply completion_target_before_current_release_ex; eauto.
-      apply periodic_jobset_job1_ex.
+      eapply certified_completion_time_before_current_release_ex.
+      - exact Hlasso.
+      - apply periodic_jobset_job1_ex.
+      - exact Hpy.
+      - exact Hyrel.
     }
     assert (Hty_lt_H :
-      ty < S (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q))))).
+      certified_completion_time_ex c y <
+      S (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q))))).
     {
       rewrite (job_release_of_task1_ex (job_id_of_ex 1 (r + 5 * q)) (r + 5 * q) eq_refl) in Hty_le.
       rewrite (job_deadline_of_task1_ex (job_id_of_ex 1 (r + 5 * q)) (r + 5 * q) eq_refl).
       lia.
     }
     pose proof
-      (completed_at_completion_target_ex
+      (completed_at_certified_completion_time_ex
+         c
          (S (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q)))))
-         y ty Hpy Hty Hty_lt_H) as Hdone.
+         y Hlasso Hpy Hty_lt_H) as Hdone.
     eapply completed_monotone; eauto.
 Qed.
 

@@ -519,3 +519,132 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 
 - lasso bridge を generated EDF schedule の構造 proof に差し替え、completion-target helper 群への依存も外す。
 - その後で completion-target core を整理し、最後に残る temporary `Admitted.` 群を恒久証明へ戻す。
+
+## 2026-04-22 Plan (Strong certificate design for Haskell offload)
+
+### 判断
+
+- Haskell は **強い証明証生成器** にはできる。
+- ただし現状の `check_periodic_lasso_ex` のような
+  - `cert_period_ex = 35`
+  - `cert_task0_shift_ex = 7`
+  - `cert_task1_shift_ex = 5`
+  だけの定数チェックでは弱すぎる。
+- このままでは、later-period lasso bridge の意味論的部分は Rocq 側に残り続ける。
+- よって次タスクは、Haskell にオフロードしたい探索結果を **transport witness** として certificate interface に昇格する設計へ進める。
+
+### 次タスクの目標
+
+- `EDFInfiniteCertEx` の lasso 部分を、単なる定数フィールドから
+  **base representative から later-period representative への移送を検査できる witness**
+  へ強化する。
+- Rocq 側 checker は、その witness を `bool` として検証するだけに留める。
+- Rocq 側 soundness theorem は、
+  - finite prefix slot / service / release-backlog facts
+  - later-period transport witness
+  から `generated_edf_backlog_free_before_release_ex` を導く形へ整理する。
+- これにより、現在の tutorial-local recurrence proof と completion-target helper 依存を、
+  将来的に Haskell 生成証明証 + checker soundness に置き換えられる境界を作る。
+
+### 証明証の強さの段階整理
+
+- 弱い証明証:
+  - prefix slots のみ
+  - period / shift 定数のみ
+  - これは first-period には使えるが later-period recurrence には弱い
+- 実用的に十分強い証明証:
+  - prefix slots
+  - base jobs の service / completion fact
+  - release-time backlog-free fact
+  - task0/task1 の base representative から shifted representative への transport witness
+- 強すぎる証明証:
+  - global generated EDF schedule の周期性そのものを full slot trace で持つ
+  - tutorial には使えるが generic interface としては重すぎる
+
+### 次に追加・変更すべき certificate/checker 境界
+
+- `EDFInfiniteCertEx` には、現状の `cert_period_ex` / `cert_task0_shift_ex` / `cert_task1_shift_ex`
+  を残しつつ、その意味論を支える witness table を追加する。
+- witness table は tutorial-local には次の粒度で十分である。
+  - task 0 の residue `r < 7`
+  - task 1 の residue `r < 5`
+  - 各 residue について、base representative の release/deadline/completion-at-release fact が
+    `+35*q` に移ることを checker が検査できるデータ
+- checker は探索しない。
+  - Haskell が witness を生成する
+  - Rocq は witness を読むだけ
+- これにより、later-period transport の責務を
+  - 「Rocq が構造証明を全部やる」から
+  - 「Rocq は witness の意味論だけ証明する」
+  へ移す。
+
+### Rocq 側に残す proof obligations
+
+- prefix slot/service/backlog checker の soundness
+- transport witness が正しければ later-period backlog-free へ持ち上がること
+- その結果を `generated_edf_busy_prefix_no_carry_in_bridge_of_backlog_ex` に流すこと
+
+### Haskell 側に移せるもの
+
+- finite prefix EDF simulation
+- base jobs の completion / release-backlog table の生成
+- task 0 / task 1 の shifted representative に対する transport witness の生成
+- 壊れた witness を作っても Rocq checker が reject する、という negative test 用データ生成
+
+### この計画の意味
+
+- Haskell は依然として TCB ではない。
+- Rocq 側に残すのは small checker とその soundness だけである。
+- ただし現在の completion-target helper や tutorial-local recurrence proof を減らすには、
+  Haskell 証明証は now の lasso constant check より強くなければならない。
+- 次マイルストーンは「proof を全部 Haskell に移す」ことではなく、
+  **意味論的に十分な witness を持つ certificate interface を固定すること** である。
+
+### 次の実装タスク
+
+1. `EDFInfiniteCertEx` の lasso 部分に transport witness を追加する tutorial-local 設計案を確定する。
+2. `check_periodic_lasso_ex` を witness-reading checker に差し替える。
+3. `check_edf_infinite_cert_ex_sound` の later-period path を、その witness の soundness に載せ替える。
+4. completion-target helper 群が checker path から完全に外れたら、legacy scaffolding として隔離する。
+5. その後で `periodic_classical_dbf_test_by_cutoff_ex`、`cert_ex_ok`、`generated_prefix_slot_ex` の temporary `Admitted.` 解消へ戻る。
+
+## 2026-04-22 Progress (Witness-bearing lasso certificate)
+
+### 追加したもの
+
+- `EDFInfiniteCertEx` の lasso 部分に residue-indexed completion-offset witness table を追加した。
+  - `cert_task0_completion_offsets_ex`
+  - `cert_task1_completion_offsets_ex`
+- `check_periodic_lasso_ex` を、定数 `35/7/5` のみを見る checker から、
+  witness table の shape / value を読む checker へ拡張した。
+- witness checker の soundness から使う tutorial-local bridge を追加した。
+  - `certified_completion_time_ex`
+  - `certified_completion_time_ex_sound`
+  - `certified_completion_time_before_current_release_ex`
+  - `completed_at_certified_completion_time_ex`
+
+### 今回の意味
+
+- lasso certificate は now 単なる constant check ではなく、later-period transport に使うデータを持つ。
+- `generated_edf_backlog_free_before_release_ex_task0_lasso` と
+  `..._task1_lasso` は、checker path では structural completion time を直接使わず、
+  witness-reading layer 越しに completion fact を得る形になった。
+- これにより、Haskell が将来生成すべき strong certificate の最小 tutorial-local 形が、
+  `prefix facts + residue-indexed transport witness` として具体化した。
+
+### まだ残っているもの
+
+- later-period transport の soundness 自体は、今はまだ tutorial-local structural proof
+  (`structural_completion_time_ex` とその補題群) に支えられている。
+- したがって completion-target helper 依存は消えたが、generated EDF schedule の周期構造を
+  generic witness semantics として抽出したわけではまだない。
+- `periodic_classical_dbf_test_by_cutoff_ex`、`cert_ex_ok`、`generated_prefix_slot_ex` の
+  temporary `Admitted.` は引き続き残っている。
+
+### 次の作業
+
+- residue-indexed completion-offset witness を、later-period backlog transport witness の
+  完成形として十分か再点検し、不足があれば release-time backlog transport table を追加する。
+- `structural_completion_time_ex` 系の tutorial-local recurrence proof を、possible な限り
+  witness semantics の soundness 補題へ圧縮する。
+- その後で remaining temporary `Admitted.` を軽量な恒久証明へ戻す。
