@@ -946,12 +946,19 @@ Proof.
   - reflexivity.
   - simpl.
     rewrite IH by lia.
-    unfold runs_on.
-    simpl.
-    rewrite generated_prefix_slot_ex by lia.
-    destruct (sched_upto_ex 38 t 0) as [j'|] eqn:Hsched; simpl.
-    + rewrite Nat.eqb_sym. lia.
-    + lia.
+    destruct (nth t cert_slots_ex_data None) as [j'|] eqn:Hslot.
+    + assert (Hsched : sched_upto_ex 38 t 0 = Some j').
+      { rewrite generated_prefix_slot_ex by lia. exact Hslot. }
+      destruct (Nat.eq_dec j j') as [->|Hneq].
+      * simpl. fold (sched_upto_ex 38 t 0). unfold runs_on. rewrite Hsched. simpl.
+        rewrite Nat.add_comm. reflexivity.
+      * simpl. fold (sched_upto_ex 38 t 0). unfold runs_on. rewrite Hsched.
+        apply Nat.eqb_neq in Hneq. rewrite Hneq.
+        rewrite Nat.add_comm. reflexivity.
+    + assert (Hsched : sched_upto_ex 38 t 0 = None).
+      { rewrite generated_prefix_slot_ex by lia. exact Hslot. }
+      simpl. fold (sched_upto_ex 38 t 0). unfold runs_on. rewrite Hsched. simpl.
+      rewrite Nat.add_comm. reflexivity.
 Qed.
 
 Lemma certified_completed_by_ex_data_generated_sound :

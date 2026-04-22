@@ -26,7 +26,8 @@ tutorial file の compile を先へ進めることである。
 - current principal blocker は
   `certified_service_prefix_ex_data_agrees_generated` である。
 - ただし blocker は proof 全体ではなく、
-  いまはその補題内の `rewrite Nat.eqb_sym` に局所化されている。
+ いまはその補題内の `Some j'` 分岐で、
+ 右辺に残る `sched_upto_ex` の展開形を `Hsched` で十分に潰せていない点に局所化されている。
 
 ## Stable Decisions
 
@@ -62,23 +63,25 @@ Lemma certified_service_prefix_ex_data_agrees_generated :
 
 - 旧安定形の帰納 proof へ戻すところまでは実施済み。
 - compile はこの補題まで進み、
-  `generated_prefix_slot_ex` を使う形へ戻っている。
+  `generated_prefix_slot_ex` を使う帰納 proof には戻っている。
+- `Nat.eqb_sym` rewrite failure と単純な `lia` failure は解消した。
 - いまの failure は
   `Tutorials/EDFInfiniteSchedulability.v`
   line 953 付近の
-  `rewrite Nat.eqb_sym`
-  で、
-  すでに goal 上に `=?` 形が残っていないため rewrite が失敗している。
+  `Some j'` / `j = j'` 分岐で、
+  `Hsched : sched_upto_ex 38 t 0 = Some j'` を持っていても
+  右辺に残る `sched_upto_ex` の具体展開を refold/rewrite し切れていないことにある。
 
 次に試すべき既定方針:
 
 - `generated_prefix_slot_ex` を使う帰納 proof は維持する。
 - 次の修正は局所的に行う。
-  既定では
-  `rewrite Nat.eqb_sym`
-  を削除するか、
-  必要ならその直前の `simpl` / `destruct` の形を見て
-  現在の goal に合う rewrite に置き換える。
+  既定では `service_job 1 (sched_upto_ex 38) j (S t)` の 1-step 展開を
+  `simpl` に任せず、
+  `change` か `replace` で
+  `cpu_count 1 (sched_upto_ex 38) j t + service_job 1 (sched_upto_ex 38) j t`
+  の形へ固定した上で `Hsched` を書き換える。
+- `sched_upto_ex` を具体展開した巨大 `match t with ...` を直接相手にする方針は採らない。
 - theorem statement や周辺補題は変えない。
 
 変えないもの:
@@ -91,7 +94,9 @@ Lemma certified_service_prefix_ex_data_agrees_generated :
 ## Next Task
 
 1. `certified_service_prefix_ex_data_agrees_generated` 内の
-   `rewrite Nat.eqb_sym` failure を局所修正する。
+   `Some j'` / `j = j'` 分岐で、
+   右辺の `sched_upto_ex` 展開を `change` / `replace` で再束縛してから
+   `Hsched` を使える形に直す。
 2. 修復後に tutorial compile を再実行する。
 3. 新しい failure point をこのファイルへ追記する。
 
@@ -124,4 +129,6 @@ timeout 180s docker exec docker-scheduling_theory-1 zsh -lc \
 - 次の stall は `cert_prefix_sched_ex_choose_agrees_before` に移ったが、
   proof shape を bridge 側に揃えることで解消した。
 - `certified_service_prefix_ex_data_agrees_generated` は旧帰納形へ戻した。
-- 現在の blocker は同補題内の `rewrite Nat.eqb_sym` 失敗である。
+- `rewrite Nat.eqb_sym` failure は解消した。
+- `Nat.eqb` split だけでは不十分で、principal blocker は
+  同補題内の `Some j'` / `j = j'` 分岐での `sched_upto_ex` 展開の残留に移った。
