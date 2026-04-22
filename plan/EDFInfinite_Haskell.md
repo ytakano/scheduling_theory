@@ -693,3 +693,50 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
   completion-offset witness の soundness 補題へ置き換え、
   structural completion bridge への依存を checker path から外す。
 - その後で remaining temporary `Admitted.` を軽量な恒久証明へ戻す。
+
+## 2026-04-22 Progress (Direct witness-driven completion transport)
+
+### 追加したもの
+
+- completion-offset witness から直接使う tutorial-local 算術補題を追加した。
+  - `certified_completion_time_of_task0_ex`
+  - `certified_completion_time_of_task1_collision_ex`
+  - `certified_completion_time_of_task1_noncollision_ex`
+- backlog-offset witness についても structural completion time を介さない
+  direct time formula を追加した。
+  - `certified_backlog_time_of_task0_ex`
+  - `certified_backlog_time_of_task1_collision_ex`
+  - `certified_backlog_time_of_task1_noncollision_ex`
+- `certified_backlog_time_ex_sound` を structural completion equality 経由ではなく、
+  completion/backlog witness の direct equality として証明し直した。
+- completion-side soundness を direct witness induction に差し替えるための補題を追加した。
+  - `certified_completion_time_before_task0_release_ex`
+  - `certified_completion_time_before_task1_release_ex`
+  - `certified_completion_time_before_collision_followup_ex`
+  - `completed_before_task0_release_from_certified_ex`
+  - `completed_before_task1_release_from_certified_ex`
+  - `completed_before_collision_followup_from_certified_ex`
+
+### 今回の意味
+
+- `completed_at_certified_completion_time_ex` は now
+  `completed_at_structural_completion_time_ex` を経由せず、
+  completion-offset witness と generated EDF schedule の direct induction から閉じる。
+- later-period lasso bridge の checker path では、
+  release-side だけでなく completion-side も witness-driven になった。
+- これにより `check_edf_infinite_cert_ex_sound` から到達する backlog-free 証明経路は、
+  tutorial-local structural completion bridge に依存しなくなった。
+
+### まだ残っているもの
+
+- `structural_completion_time_ex` とその補題群自体は、legacy tutorial-local scaffolding として
+  まだファイル内に残っている。
+- `periodic_classical_dbf_test_by_cutoff_ex`、`cert_ex_ok`、`generated_prefix_slot_ex` の
+  temporary `Admitted.` は引き続き残っている。
+
+### 次の作業
+
+- remaining temporary `Admitted.` 3 箇所を、軽量な恒久証明または計算境界の
+  再整理で順に除去する。
+- legacy tutorial-local scaffolding になった `structural_completion_time_ex` 系を、
+  まだ依存が残るか確認しつつ整理対象として切り出す。
