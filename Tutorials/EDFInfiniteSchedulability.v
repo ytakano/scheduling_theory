@@ -1849,8 +1849,42 @@ Lemma generated_edf_backlog_free_before_release_ex_task0_lasso :
       (job_id_of_ex 0 (r + 7 * q)).
 Proof.
   intros c q r _ _ _.
-  apply generated_edf_backlog_free_before_release_ex_from_completion_targets.
-  apply periodic_jobset_job0_ex.
+  eapply periodic_edf_backlog_free_before_release_of_earlier_completion.
+  - apply generated_periodic_edf_schedule_upto_valid_ex.
+  - apply periodic_jobset_job0_ex.
+  - intros y Hy Hyrel.
+    assert (Hpy :
+      periodic_jobset T_ex tasks_ex offset_ex jobs_ex y).
+    {
+      split.
+      - exact
+          (periodic_jobset_deadline_between_implies_task_in_scope
+             T_ex tasks_ex offset_ex jobs_ex 0
+             (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q)))) y Hy).
+      - exact
+          (periodic_jobset_deadline_between_implies_generated
+             T_ex tasks_ex offset_ex jobs_ex 0
+             (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q)))) y Hy).
+    }
+    destruct (periodic_job_has_completion_target_ex y Hpy) as [ty Hty].
+    assert (Hty_le :
+      ty <= job_release (jobs_ex (job_id_of_ex 0 (r + 7 * q)))).
+    {
+      eapply completion_target_before_current_release_ex; eauto.
+      apply periodic_jobset_job0_ex.
+    }
+    assert (Hty_lt_H :
+      ty < S (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q))))).
+    {
+      rewrite (job_release_of_task0_ex (job_id_of_ex 0 (r + 7 * q)) (r + 7 * q) eq_refl) in Hty_le.
+      rewrite (job_deadline_of_task0_ex (job_id_of_ex 0 (r + 7 * q)) (r + 7 * q) eq_refl).
+      lia.
+    }
+    pose proof
+      (completed_at_completion_target_ex
+         (S (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q)))))
+         y ty Hpy Hty Hty_lt_H) as Hdone.
+    eapply completed_monotone; eauto.
 Qed.
 
 Lemma generated_edf_backlog_free_before_release_ex_task1_lasso :
@@ -1866,8 +1900,42 @@ Lemma generated_edf_backlog_free_before_release_ex_task1_lasso :
       (job_id_of_ex 1 (r + 5 * q)).
 Proof.
   intros c q r _ _ _.
-  apply generated_edf_backlog_free_before_release_ex_from_completion_targets.
-  apply periodic_jobset_job1_ex.
+  eapply periodic_edf_backlog_free_before_release_of_earlier_completion.
+  - apply generated_periodic_edf_schedule_upto_valid_ex.
+  - apply periodic_jobset_job1_ex.
+  - intros y Hy Hyrel.
+    assert (Hpy :
+      periodic_jobset T_ex tasks_ex offset_ex jobs_ex y).
+    {
+      split.
+      - exact
+          (periodic_jobset_deadline_between_implies_task_in_scope
+             T_ex tasks_ex offset_ex jobs_ex 0
+             (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q)))) y Hy).
+      - exact
+          (periodic_jobset_deadline_between_implies_generated
+             T_ex tasks_ex offset_ex jobs_ex 0
+             (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q)))) y Hy).
+    }
+    destruct (periodic_job_has_completion_target_ex y Hpy) as [ty Hty].
+    assert (Hty_le :
+      ty <= job_release (jobs_ex (job_id_of_ex 1 (r + 5 * q)))).
+    {
+      eapply completion_target_before_current_release_ex; eauto.
+      apply periodic_jobset_job1_ex.
+    }
+    assert (Hty_lt_H :
+      ty < S (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q))))).
+    {
+      rewrite (job_release_of_task1_ex (job_id_of_ex 1 (r + 5 * q)) (r + 5 * q) eq_refl) in Hty_le.
+      rewrite (job_deadline_of_task1_ex (job_id_of_ex 1 (r + 5 * q)) (r + 5 * q) eq_refl).
+      lia.
+    }
+    pose proof
+      (completed_at_completion_target_ex
+         (S (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q)))))
+         y ty Hpy Hty Hty_lt_H) as Hdone.
+    eapply completed_monotone; eauto.
 Qed.
 
 Lemma generated_edf_backlog_free_before_release_ex_from_certified_prefix_and_lasso :

@@ -499,17 +499,23 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 ### 今回の意味
 
 - checker soundness path に残っていた lasso bridge の admit は消えた。
-- ただし現時点の lasso bridge は、tutorial-local recurrence proof ではなく
+- さらに、lasso bridge の内部から
   `generated_edf_backlog_free_before_release_ex_from_completion_targets`
-  を再利用して閉じている。
+  という theorem 呼び出し自体は外れた。
+- ただし現時点の lasso bridge は、tutorial-local recurrence proof ではなく
+  completion-target helper 群
+  (`periodic_job_has_completion_target_ex`,
+   `completion_target_before_current_release_ex`,
+   `completed_at_completion_target_ex`)
+  を直接使って閉じている。
 
 ### まだ残っているもの
 
 - later-period recurrence bridge はまだ生成スケジュールの `35` 周期構造からは出ていない。
-- したがって `generated_edf_backlog_free_before_release_ex_from_completion_targets` は、今も lasso bridge の内部実装として必要である。
+- したがって completion-target core への依存は theorem 名から helper 群へ分解されたが、理論的にはまだ残っている。
 - `periodic_classical_dbf_test_by_cutoff_ex`、`cert_ex_ok`、`generated_prefix_slot_ex` の temporary `Admitted.` は引き続き残っている。
 
 ### 次の作業
 
-- lasso bridge を generated EDF schedule の構造 proof に差し替え、completion-target core への依存を間接経路からも外す。
+- lasso bridge を generated EDF schedule の構造 proof に差し替え、completion-target helper 群への依存も外す。
 - その後で completion-target core を整理し、最後に残る temporary `Admitted.` 群を恒久証明へ戻す。
