@@ -176,11 +176,11 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
   持つようになった
 7. canonical witness への equality 依存を減らし、trace family から既存の
    `OSProjection` / `OSLabeledProjection` / `OSLocalAdapterContract`
-   obligations を直接導く中間目標は完了した。
+   path へ入る中間目標は完了した。
    canonical captured handoff trace は seed instance と regression oracle
-   として残すが、main proof path は `awk_handoff_trace` との equality
-   ではなく、accepted trace-family instance 自体が local contract を
-   discharge する経路になっている
+   として残す。accepted trace-family instance は adapter-local replay object
+   と sound entry point を与えるが、current captured-handoff proof の最終的な
+   local contract 導出は canonical witness との equality transport をまだ使う
 8. 実装者が trace artifact を差し替えるだけで証明可能にする中間目標も
    完了した。`awk_captured_handoff_post_states` の hand-written witness は
    主経路から外れ、captured row list から `AwkernelHandoffState` の
@@ -188,19 +188,25 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    移っている。accepted trace-family instance は、別の post-state
    witness を書かずに既存の
    `OSProjection` / `OSLabeledProjection` / `OSLocalAdapterContract`
-   obligations に到達できる
-9. projected trace-family instance に対する Rocq acceptance function と、
-   その Haskell extraction による fast acceptance checker は実装済みである。
+   path へ入るための premise を与える
+9. `Neutral Rows 移行第2段` を次の active milestone とする。
+   common interface は一切広げず、`BEGIN_TRACE_ROWS` / `END_TRACE_ROWS`
+   の neutral checker-facing row block を adapter-layer の正規入口として
+   固定する。extracted Haskell acceptance checker は、この emitted rows から
+   `accepted rows -> adapter-local replay object` へ入る primary
+   adapter-facing validation path として扱うが、common semantics にはしない。
    canonical captured handoff trace は seed instance と regression oracle
-   として残るが、checker の唯一の対象ではない。
-   差し替えた trace artifact に対して extracted checker が accepted /
-   rejected を返し、accepted case が既存の adapter-local contract path に
-   接続されることを確認済みである
+   として残し、legacy Rocq witness block と canonical artifact comparison は
+   migration-era compatibility / regression checks として保持する
 10. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
    必要な narrow observables だけを維持する。
    human-readable な `BASELINE_TRACE` 行は backend validation に残しつつ、
-   neutral な checker-facing row block を同じ trace から出力し、移行中の
-   legacy Rocq witness block も併せて保持する。
+   neutral な checker-facing row block を正規 migration artifact として
+   同じ trace から出力し、legacy Rocq witness block も proof bridge が
+   必要な間は互換 artifact として保持する。
+   `check-handoff-accept-*` は rows artifact に対する primary
+   adapter-facing validation path とし、`check-handoff-trace-*` は
+   artifact-shape と regression の入口に留める。
    Haskell checker は neutral emitted rows の consumer であり、new runtime
    hooks, broad tracing system, full interrupt coverage, migration,
    timer-driven slice, `EvPreempt` をこの milestone でも追加しない
@@ -217,9 +223,11 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    proof は adapter 層の責務に留める。extracted Haskell checker はその
    Rocq 定義から導かれる executable fast path であり、common interface の
    一部ではない。checker は acceptance を判定するが、contract を証明する
-   主体ではない
+   主体ではない。accepted rows から local contract を一般に導く定理は
+   future work として残り、現段階では final contract 導出で canonical
+   witness との equality transport を使ってよい
 13. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
-   acceptance-checking milestone の次段で追加する
+   `Neutral Rows 移行第2段` の後段で追加する
 
 ## Trace-Based Validation Boundary
 
@@ -229,22 +237,24 @@ function と、その fast acceptance checking 用の Haskell extracted
 checker である。
 
 ここでいう acceptance function とは、current merged row list から得た
-projected trace-family instance が既存の common contracts を満たすかを
-判定する Rocq-level decision procedure である。extracted Haskell checker
+projected trace-family instance から adapter-local replay generation に入る
+ための Rocq-level acceptance procedure である。extracted Haskell checker
 は、その関数から生成された executable であり、semantic source ではない。
 
-minimal acceptance input とは、現在の common contract を成立させるかどうかを
-判定するのに必要な最小の projected artifact であり、少なくとも次の
-proof-facing view を inspection できなければならない。
+minimal acceptance input とは、adapter-local replay / projection connection に
+必要な最小の projected artifact であり、少なくとも次の proof-facing view を
+inspection できなければならない。
 
 - `op_current`
 - `op_runnable`
 - `op_need_resched`
 - `op_dispatch_target`
 
-初回の target event は次でよい。
+現行の handoff-aware target event slice は次である。
 
 - `EvWakeup`
+- `EvRequestResched`
+- `EvHandleResched`
 - `EvChoose`
 - `EvDispatch`
 - `EvComplete`
@@ -286,16 +296,20 @@ Adapter layer:
 
 - QEMU trace と Linux KVM trace を同じ projected interface に写す
 - その前段で 2 backend の serial trace が 1 つの canonical captured artifact と
-  一致することを確認する
+  一致することを migration-era regression gate として確認する
 - runtime が per-CPU capture substrate から作った merged row list を受け取り、
-  それを proof-facing captured artifact として扱う
+  neutral rows を primary proof/tooling artifact として扱う
 - backend ごとの capture path の違いを隠蔽し、同じ local contract family に属する
   witness をそれぞれ与える
 - scheduler-irrelevant step を `EvStutter` に写す
 - Awkernel の multicore topology 自体は adapter witness 側で扱い、
   common operational interface には持ち込まない
-- Rocq acceptance function を定義し、accepted rows が existing obligations に
-  接続されることを証明する
+- Rocq acceptance function を定義し、accepted rows が adapter-local replay
+  object と sound premise を与えることを使って existing obligations への
+  接続を構成する
+- final local-contract 導出では canonical witness との equality transport を
+  補助的に使ってよいが、accepted rows 自体の意味づけは canonical equality に
+  依存させない
 
 Runtime layer:
 
@@ -309,8 +323,10 @@ Proof/tooling path:
 
 - Rocq acceptance function と extracted Haskell checker は新しい semantics
   layer ではない
-- runtime が emit した merged artifact を高速に受理判定するための
-  proof/tooling path である
+- runtime が emit した neutral rows を高速に受理判定するための
+  adapter-facing proof/tooling path である
+- `check-handoff-accept-*` は primary validation path、
+  `check-handoff-trace-*` は artifact-shape と regression path として扱う
 
 ## Non-goals
 

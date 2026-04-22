@@ -56,7 +56,19 @@ Proof.
 Qed.
 
 Definition awk_captured_handoff_trace (t : Time) : AwkernelHandoffState :=
-  awk_handoff_generated_trace awk_captured_handoff_post_states t.
+  awk_handoff_rows_replay_trace awk_captured_handoff_rows t.
+
+Lemma awk_captured_handoff_rows_bridge :
+  exists states,
+    awk_handoff_check_rows awk_captured_handoff_rows = Some states /\
+    awk_handoff_row_generation awk_captured_handoff_rows states /\
+    forall t,
+      awk_captured_handoff_trace t = awk_handoff_generated_trace states t.
+Proof.
+  unfold awk_captured_handoff_trace, awk_captured_handoff_rows.
+  apply awk_handoff_accepts_rows_bridge.
+  exact awk_handoff_generated_rows_are_accepted.
+Qed.
 
 Lemma awk_captured_handoff_rows_are_generated :
   awk_handoff_row_generation
@@ -80,44 +92,33 @@ Lemma awk_captured_handoff_rows_accept_sound :
     awk_handoff_check_rows awk_captured_handoff_rows = Some states /\
     awk_handoff_row_generation awk_captured_handoff_rows states.
 Proof.
-  exists awk_captured_handoff_post_states.
-  split.
-  - unfold awk_handoff_check_rows, awk_captured_handoff_rows, awk_captured_handoff_post_states.
-    rewrite awk_handoff_generated_rows_compute_post_states.
-    reflexivity.
-  - exact awk_captured_handoff_rows_are_generated.
+  destruct awk_captured_handoff_rows_bridge as [states [Hcheck [Hgen _]]].
+  exists states.
+  split; assumption.
 Qed.
 
 Lemma awk_captured_handoff_trace_eq :
   forall t, awk_captured_handoff_trace t = awk_handoff_trace t.
 Proof.
-  intros [|[|[|[|[|[|[|t']]]]]]].
-  - unfold awk_captured_handoff_trace, awk_handoff_trace.
-    rewrite awk_captured_handoff_post_states_eq.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace.
-    rewrite awk_captured_handoff_post_states_eq.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace.
-    rewrite awk_captured_handoff_post_states_eq.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace.
-    rewrite awk_captured_handoff_post_states_eq.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace.
-    rewrite awk_captured_handoff_post_states_eq.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace.
-    rewrite awk_captured_handoff_post_states_eq.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace.
-    rewrite awk_captured_handoff_post_states_eq.
-    reflexivity.
-  - unfold awk_captured_handoff_trace, awk_handoff_trace,
+  intros t.
+  destruct awk_captured_handoff_rows_bridge as [states [Hcheck [_ Htrace]]].
+  rewrite (Htrace t).
+  unfold awk_captured_handoff_rows, awk_handoff_check_rows in Hcheck.
+  rewrite awk_handoff_generated_rows_compute_post_states in Hcheck.
+  inversion Hcheck; subst states.
+  clear Hcheck Htrace.
+  destruct t as [|[|[|[|[|[|[|t']]]]]]].
+  - reflexivity.
+  - reflexivity.
+  - reflexivity.
+  - reflexivity.
+  - reflexivity.
+  - reflexivity.
+  - reflexivity.
+  - unfold awk_handoff_trace,
       awk_handoff_generated_trace,
       awk_handoff_generated_trace_from,
       awk_handoff_generated_final_state_from.
-    rewrite awk_captured_handoff_post_states_eq.
     replace
       (nth (S (S (S (S (S (S t'))))))
          [awk_handoff_state1; awk_handoff_state2; awk_handoff_state3;

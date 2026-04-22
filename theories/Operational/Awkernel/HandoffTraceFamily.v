@@ -352,6 +352,14 @@ Section AwkernelHandoffTraceFamily.
       (rows : list AwkernelCapturedRow) : option (list AwkernelHandoffState) :=
     awk_handoff_generate_post_states rows.
 
+  Definition awk_handoff_rows_replay_trace
+      (rows : list AwkernelCapturedRow)
+      (t : Time) : AwkernelHandoffState :=
+    match awk_handoff_check_rows rows with
+    | Some states => awk_handoff_generated_trace states t
+    | None => awk_handoff_state0
+    end.
+
   Definition awk_handoff_accepts_rows
       (rows : list AwkernelCapturedRow) : bool :=
     match awk_handoff_check_rows rows with
@@ -489,6 +497,40 @@ Section AwkernelHandoffTraceFamily.
     destruct (awk_handoff_generate_post_states rows) as [states|] eqn:Hcheck; simpl; try discriminate.
     intro Haccept. exists states.
     now apply awk_handoff_check_rows_sound.
+  Qed.
+
+  Lemma awk_handoff_rows_replay_trace_of_checked_rows :
+    forall rows states,
+      awk_handoff_check_rows rows = Some states ->
+      forall t,
+        awk_handoff_rows_replay_trace rows t =
+        awk_handoff_generated_trace states t.
+  Proof.
+    intros rows states Hcheck t.
+    unfold awk_handoff_rows_replay_trace.
+    now rewrite Hcheck.
+  Qed.
+
+  Lemma awk_handoff_accepts_rows_bridge :
+    forall rows,
+      awk_handoff_accepts_rows rows = true ->
+      exists states,
+        awk_handoff_check_rows rows = Some states /\
+        awk_handoff_row_generation rows states /\
+        forall t,
+          awk_handoff_rows_replay_trace rows t =
+          awk_handoff_generated_trace states t.
+  Proof.
+    intros rows Haccept.
+    unfold awk_handoff_accepts_rows, awk_handoff_check_rows in Haccept.
+    destruct (awk_handoff_generate_post_states rows) as [states|] eqn:Hcheck;
+      simpl in Haccept; try discriminate.
+    exists states.
+    split.
+    - exact Hcheck.
+    - split.
+      + now apply awk_handoff_check_rows_sound.
+      + now apply awk_handoff_rows_replay_trace_of_checked_rows.
   Qed.
 
   Lemma awk_handoff_row_step_label :
