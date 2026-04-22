@@ -160,27 +160,54 @@ cert_slots_ex e =
    Build_EDFPrefixCertEx _ cert_slots_ex0 -> cert_slots_ex0}
 
 data EDFInfiniteCertEx =
-   Build_EDFInfiniteCertEx Time EDFPrefixCertEx Nat Nat
+   Build_EDFInfiniteCertEx Time EDFPrefixCertEx Nat Nat (List Nat) (List Nat) 
+ (List Nat) (List Nat)
 
 cert_period_ex :: EDFInfiniteCertEx -> Time
 cert_period_ex e =
   case e of {
-   Build_EDFInfiniteCertEx cert_period_ex0 _ _ _ -> cert_period_ex0}
+   Build_EDFInfiniteCertEx cert_period_ex0 _ _ _ _ _ _ _ -> cert_period_ex0}
 
 cert_prefix_ex :: EDFInfiniteCertEx -> EDFPrefixCertEx
 cert_prefix_ex e =
   case e of {
-   Build_EDFInfiniteCertEx _ cert_prefix_ex0 _ _ -> cert_prefix_ex0}
+   Build_EDFInfiniteCertEx _ cert_prefix_ex0 _ _ _ _ _ _ -> cert_prefix_ex0}
 
 cert_task0_shift_ex :: EDFInfiniteCertEx -> Nat
 cert_task0_shift_ex e =
   case e of {
-   Build_EDFInfiniteCertEx _ _ cert_task0_shift_ex0 _ -> cert_task0_shift_ex0}
+   Build_EDFInfiniteCertEx _ _ cert_task0_shift_ex0 _ _ _ _ _ ->
+    cert_task0_shift_ex0}
 
 cert_task1_shift_ex :: EDFInfiniteCertEx -> Nat
 cert_task1_shift_ex e =
   case e of {
-   Build_EDFInfiniteCertEx _ _ _ cert_task1_shift_ex0 -> cert_task1_shift_ex0}
+   Build_EDFInfiniteCertEx _ _ _ cert_task1_shift_ex0 _ _ _ _ ->
+    cert_task1_shift_ex0}
+
+cert_task0_completion_offsets_ex :: EDFInfiniteCertEx -> List Nat
+cert_task0_completion_offsets_ex e =
+  case e of {
+   Build_EDFInfiniteCertEx _ _ _ _ cert_task0_completion_offsets_ex0 _ _ _ ->
+    cert_task0_completion_offsets_ex0}
+
+cert_task1_completion_offsets_ex :: EDFInfiniteCertEx -> List Nat
+cert_task1_completion_offsets_ex e =
+  case e of {
+   Build_EDFInfiniteCertEx _ _ _ _ _ cert_task1_completion_offsets_ex0 _ _ ->
+    cert_task1_completion_offsets_ex0}
+
+cert_task0_backlog_offsets_ex :: EDFInfiniteCertEx -> List Nat
+cert_task0_backlog_offsets_ex e =
+  case e of {
+   Build_EDFInfiniteCertEx _ _ _ _ _ _ cert_task0_backlog_offsets_ex0 _ ->
+    cert_task0_backlog_offsets_ex0}
+
+cert_task1_backlog_offsets_ex :: EDFInfiniteCertEx -> List Nat
+cert_task1_backlog_offsets_ex e =
+  case e of {
+   Build_EDFInfiniteCertEx _ _ _ _ _ _ _ cert_task1_backlog_offsets_ex0 ->
+    cert_task1_backlog_offsets_ex0}
 
 cert_slots_ex_data :: List (Option JobId)
 cert_slots_ex_data =
@@ -206,6 +233,11 @@ cert_ex =
     (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S
     (S (S (S (S (S (S (S (S (S (S O))))))))))))))))))))))))))))))))))))))
     cert_slots_ex_data) (S (S (S (S (S (S (S O))))))) (S (S (S (S (S O)))))
+    (Cons (S O) (Cons (S O) (Cons (S O) (Cons (S O) (Cons (S O) (Cons (S O)
+    (Cons (S O) Nil))))))) (Cons (S (S O)) (Cons (S O) (Cons (S O) (Cons (S
+    O) (Cons (S O) Nil))))) (Cons (S O) (Cons (S O) (Cons (S O) (Cons (S O)
+    (Cons (S O) (Cons (S O) (Cons (S O) Nil))))))) (Cons (S (S O)) (Cons (S
+    O) (Cons (S O) (Cons (S O) (Cons (S O) Nil)))))
 
 option_jobid_eqb :: (Option JobId) -> (Option JobId) -> Bool
 option_jobid_eqb x y =
@@ -297,11 +329,44 @@ check_periodic_lasso_ex :: EDFInfiniteCertEx -> Bool
 check_periodic_lasso_ex c =
   andb
     (andb
-      (eqb (cert_period_ex c) (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S
-        (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S
-        O))))))))))))))))))))))))))))))))))))
-      (eqb (cert_task0_shift_ex c) (S (S (S (S (S (S (S O)))))))))
-    (eqb (cert_task1_shift_ex c) (S (S (S (S (S O))))))
+      (andb
+        (andb
+          (andb
+            (andb
+              (andb
+                (andb
+                  (andb
+                    (andb
+                      (andb
+                        (andb
+                          (eqb (cert_period_ex c) (S (S (S (S (S (S (S (S (S
+                            (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S
+                            (S (S (S (S (S (S (S (S (S (S
+                            O))))))))))))))))))))))))))))))))))))
+                          (eqb (cert_task0_shift_ex c) (S (S (S (S (S (S (S
+                            O)))))))))
+                        (eqb (cert_task1_shift_ex c) (S (S (S (S (S O)))))))
+                      (eqb (length (cert_task0_completion_offsets_ex c)) (S
+                        (S (S (S (S (S (S O)))))))))
+                    (forallb (eqb (S O))
+                      (cert_task0_completion_offsets_ex c)))
+                  (eqb (length (cert_task1_completion_offsets_ex c)) (S (S (S
+                    (S (S O)))))))
+                (option_jobid_eqb (Some
+                  (nth O (cert_task1_completion_offsets_ex c) O)) (Some (S (S
+                  O)))))
+              (forallb (\r ->
+                eqb (nth r (cert_task1_completion_offsets_ex c) O) (S O))
+                (seq (S O) (S (S (S (S O)))))))
+            (eqb (length (cert_task0_backlog_offsets_ex c)) (S (S (S (S (S (S
+              (S O)))))))))
+          (forallb (eqb (S O)) (cert_task0_backlog_offsets_ex c)))
+        (eqb (length (cert_task1_backlog_offsets_ex c)) (S (S (S (S (S
+          O)))))))
+      (option_jobid_eqb (Some (nth O (cert_task1_backlog_offsets_ex c) O))
+        (Some (S (S O)))))
+    (forallb (\r -> eqb (nth r (cert_task1_backlog_offsets_ex c) O) (S O))
+      (seq (S O) (S (S (S (S O))))))
 
 check_edf_infinite_cert_ex :: EDFInfiniteCertEx -> Bool
 check_edf_infinite_cert_ex c =

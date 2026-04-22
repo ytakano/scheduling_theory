@@ -648,3 +648,48 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 - `structural_completion_time_ex` 系の tutorial-local recurrence proof を、possible な限り
   witness semantics の soundness 補題へ圧縮する。
 - その後で remaining temporary `Admitted.` を軽量な恒久証明へ戻す。
+
+## 2026-04-22 Progress (Release-backlog witness extension)
+
+### 追加したもの
+
+- `EDFInfiniteCertEx` に release-backlog transport 用の witness table を追加した。
+  - `cert_task0_backlog_offsets_ex`
+  - `cert_task1_backlog_offsets_ex`
+- `check_periodic_lasso_ex` を再度拡張し、completion-offset table だけでなく
+  backlog-offset table も読むようにした。
+- checker 由来の backlog witness layer を追加した。
+  - `certified_backlog_offset_ex`
+  - `certified_backlog_time_ex`
+  - `certified_backlog_offset_ex_fields`
+  - `certified_backlog_time_ex_sound`
+  - `certified_backlog_time_before_current_release_ex`
+- later-period lasso bridge は、release comparison については
+  completion-offset ではなく backlog-offset witness を使うように切り替えた。
+
+### 今回の意味
+
+- lasso certificate は now
+  - completion-time witness
+  - release-backlog witness
+  の両方を持つ。
+- later-period checker path のうち、「現在の release までに earlier job が終わるか」の比較は、
+  structural completion bridge ではなく backlog witness から得る形になった。
+- extracted Haskell checker も新しい certificate field に追随する形へ再生成された。
+
+### まだ残っているもの
+
+- `completed_at_certified_completion_time_ex` は、actual completion-at-time の soundness については
+  まだ `certified_completion_time_ex_sound` と `completed_at_structural_completion_time_ex`
+  に依存している。
+- したがって checker path の release-side bound は witness 化されたが、
+  completion-side soundness はまだ tutorial-local structural completion bridge を完全には脱していない。
+- `periodic_classical_dbf_test_by_cutoff_ex`、`cert_ex_ok`、`generated_prefix_slot_ex` の
+  temporary `Admitted.` は引き続き残っている。
+
+### 次の作業
+
+- `completed_at_certified_completion_time_ex` を、possible な限り
+  completion-offset witness の soundness 補題へ置き換え、
+  structural completion bridge への依存を checker path から外す。
+- その後で remaining temporary `Admitted.` を軽量な恒久証明へ戻す。

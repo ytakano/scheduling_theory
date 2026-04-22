@@ -235,7 +235,9 @@ Record EDFInfiniteCertEx := {
   cert_task0_shift_ex : nat;
   cert_task1_shift_ex : nat;
   cert_task0_completion_offsets_ex : list nat;
-  cert_task1_completion_offsets_ex : list nat
+  cert_task1_completion_offsets_ex : list nat;
+  cert_task0_backlog_offsets_ex : list nat;
+  cert_task1_backlog_offsets_ex : list nat
 }.
 
 Definition cert_slots_ex_data : list (option JobId) :=
@@ -256,7 +258,9 @@ Definition cert_ex : EDFInfiniteCertEx :=
      cert_task0_shift_ex := 7;
      cert_task1_shift_ex := 5;
      cert_task0_completion_offsets_ex := [1; 1; 1; 1; 1; 1; 1];
-     cert_task1_completion_offsets_ex := [2; 1; 1; 1; 1] |}.
+     cert_task1_completion_offsets_ex := [2; 1; 1; 1; 1];
+     cert_task0_backlog_offsets_ex := [1; 1; 1; 1; 1; 1; 1];
+     cert_task1_backlog_offsets_ex := [2; 1; 1; 1; 1] |}.
 
 Definition option_jobid_eqb (x y : option JobId) : bool :=
   match x, y with
@@ -341,6 +345,15 @@ Definition check_periodic_lasso_ex (c : EDFInfiniteCertEx) : bool :=
        (Some 2)
   && forallb
        (fun r => Nat.eqb (nth r c.(cert_task1_completion_offsets_ex) 0) 1)
+       (seq 1 4)
+  && Nat.eqb (length c.(cert_task0_backlog_offsets_ex)) 7
+  && forallb (Nat.eqb 1) c.(cert_task0_backlog_offsets_ex)
+  && Nat.eqb (length c.(cert_task1_backlog_offsets_ex)) 5
+  && option_jobid_eqb
+       (Some (nth 0 c.(cert_task1_backlog_offsets_ex) 0))
+       (Some 2)
+  && forallb
+       (fun r => Nat.eqb (nth r c.(cert_task1_backlog_offsets_ex) 0) 1)
        (seq 1 4).
 
 Definition check_edf_infinite_cert_ex (c : EDFInfiniteCertEx) : bool :=
@@ -390,11 +403,21 @@ Lemma check_periodic_lasso_ex_fields :
     (forall r, r < 7 -> nth r c.(cert_task0_completion_offsets_ex) 0 = 1) /\
     length c.(cert_task1_completion_offsets_ex) = 5 /\
     nth 0 c.(cert_task1_completion_offsets_ex) 0 = 2 /\
-    (forall r, 1 <= r -> r < 5 -> nth r c.(cert_task1_completion_offsets_ex) 0 = 1).
+    (forall r, 1 <= r -> r < 5 -> nth r c.(cert_task1_completion_offsets_ex) 0 = 1) /\
+    length c.(cert_task0_backlog_offsets_ex) = 7 /\
+    (forall r, r < 7 -> nth r c.(cert_task0_backlog_offsets_ex) 0 = 1) /\
+    length c.(cert_task1_backlog_offsets_ex) = 5 /\
+    nth 0 c.(cert_task1_backlog_offsets_ex) 0 = 2 /\
+    (forall r, 1 <= r -> r < 5 -> nth r c.(cert_task1_backlog_offsets_ex) 0 = 1).
 Proof.
   intros c Hcheck.
   unfold check_periodic_lasso_ex in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
+  destruct Hcheck as [Hcheck Hall1b].
+  destruct Hcheck as [Hcheck Hhead1b].
+  destruct Hcheck as [Hcheck Hlen1b].
+  destruct Hcheck as [Hcheck Hall0b].
+  destruct Hcheck as [Hcheck Hlen0b].
   destruct Hcheck as [Hcheck Hall1].
   destruct Hcheck as [Hcheck Hhead1].
   destruct Hcheck as [Hcheck Hlen1].
@@ -421,6 +444,22 @@ Proof.
   - intros r Hr1 Hr5.
     apply forallb_forall with (x := r) in Hall1.
     + apply Nat.eqb_eq. exact Hall1.
+    + rewrite in_seq. lia.
+  - apply Nat.eqb_eq; assumption.
+  - intros r Hr.
+    apply forallb_forall with (x := nth r c.(cert_task0_backlog_offsets_ex) 0) in Hall0b.
+    + apply Nat.eqb_eq in Hall0b.
+      symmetry.
+      exact Hall0b.
+    + apply nth_In.
+      apply Nat.eqb_eq in Hlen0b.
+      rewrite Hlen0b.
+      exact Hr.
+  - apply Nat.eqb_eq; assumption.
+  - apply option_jobid_eqb_eq in Hhead1b. inversion Hhead1b. reflexivity.
+  - intros r Hr1 Hr5.
+    apply forallb_forall with (x := r) in Hall1b.
+    + apply Nat.eqb_eq. exact Hall1b.
     + rewrite in_seq. lia.
 Qed.
 
@@ -1550,6 +1589,20 @@ Definition certified_completion_time_ex (c : EDFInfiniteCertEx) (j : JobId) : Ti
   | _ => job_release (jobs_ex j) + 1
   end.
 
+Definition certified_backlog_offset_ex (c : EDFInfiniteCertEx) (j : JobId) : nat :=
+  match job_task (jobs_ex j) with
+  | 0 =>
+      nth (job_index (jobs_ex j) mod c.(cert_task0_shift_ex))
+          c.(cert_task0_backlog_offsets_ex) 0
+  | 1 =>
+      nth (job_index (jobs_ex j) mod c.(cert_task1_shift_ex))
+          c.(cert_task1_backlog_offsets_ex) 0
+  | _ => 1
+  end.
+
+Definition certified_backlog_time_ex (c : EDFInfiniteCertEx) (j : JobId) : Time :=
+  job_release (jobs_ex j) + certified_backlog_offset_ex c j.
+
 Lemma certified_completion_time_ex_sound :
   forall c j,
     check_periodic_lasso_ex c = true ->
@@ -1558,7 +1611,7 @@ Lemma certified_completion_time_ex_sound :
 Proof.
   intros c j Hcheck Hj.
   pose proof (check_periodic_lasso_ex_fields c Hcheck)
-    as [Hperiod [Hshift0 [Hshift1 [Hlen0 [Hoff0 [Hlen1 [Hhead1 Hoff1]]]]]]].
+    as [_ [Hshift0 [Hshift1 [_ [Hoff0 [_ [Hhead1 [Hoff1 [_ [_ [_ _]]]]]]]]]]].
   pose proof (periodic_jobset_ex_normalize j Hj) as Hnorm.
   destruct Hnorm as [[k ->] | [k ->]].
   - unfold certified_completion_time_ex, structural_completion_time_ex.
@@ -1573,8 +1626,8 @@ Proof.
     unfold job_id_of_ex.
     rewrite jobs_ex_task1.
     cbn [job_task job_release job_index].
-    rewrite Hshift1.
-    destruct (task1_collision_dec_ex k) as [[q Hq] | Hnc].
+      rewrite Hshift1.
+      destruct (task1_collision_dec_ex k) as [[q Hq] | Hnc].
     + subst k.
       replace ((5 * q) mod 5) with 0.
       2:{
@@ -1607,6 +1660,91 @@ Proof.
         lia.
 Qed.
 
+Lemma certified_backlog_offset_ex_fields :
+  forall c j,
+    check_periodic_lasso_ex c = true ->
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    certified_backlog_offset_ex c j =
+    match job_task (jobs_ex j) with
+    | 0 => 1
+    | 1 =>
+        if Nat.eqb (job_index (jobs_ex j) mod 5) 0 then 2 else 1
+    | _ => 1
+    end.
+Proof.
+  intros c j Hcheck Hj.
+  pose proof (check_periodic_lasso_ex_fields c Hcheck) as Hfields.
+  destruct Hfields as [_ Hfields].
+  destruct Hfields as [Hshift0 Hfields].
+  destruct Hfields as [Hshift1 Hfields].
+  destruct Hfields as [_ Hfields].
+  destruct Hfields as [_ Hfields].
+  destruct Hfields as [_ Hfields].
+  destruct Hfields as [_ Hfields].
+  destruct Hfields as [_ Hfields].
+  destruct Hfields as [Hlen0b Hfields].
+  destruct Hfields as [Hoff0b Hfields].
+  destruct Hfields as [Hlen1b Hfields].
+  destruct Hfields as [Hhead1b Hoff1b].
+  pose proof (periodic_jobset_ex_normalize j Hj) as Hnorm.
+  destruct Hnorm as [[k ->] | [k ->]].
+  - unfold certified_backlog_offset_ex, job_id_of_ex.
+    rewrite jobs_ex_task0.
+    cbn [job_task job_index].
+    rewrite Hshift0.
+    rewrite Hoff0b by (apply Nat.mod_upper_bound; lia).
+    reflexivity.
+  - unfold certified_backlog_offset_ex, job_id_of_ex.
+    rewrite jobs_ex_task1.
+    cbn [job_task job_index].
+    rewrite Hshift1.
+    destruct (task1_collision_dec_ex k) as [[q Hq] | Hnc].
+    + subst k.
+      replace ((5 * q) mod 5) with 0.
+      2:{
+        rewrite Nat.mul_comm.
+        symmetry.
+        apply nat_mod_mul_left.
+        lia.
+      }
+      rewrite Hhead1b.
+      simpl.
+      reflexivity.
+    + destruct (Nat.eqb_spec (k mod 5) 0) as [Heq | Hneq].
+      * exfalso.
+        apply (Hnc (k / 5)).
+        pose proof (Nat.div_mod k 5 ltac:(lia)) as Hdiv.
+        lia.
+      * assert (Hmod1 : 1 <= k mod 5 < 5).
+        { split; [lia|apply Nat.mod_upper_bound; lia]. }
+        rewrite (Hoff1b (k mod 5)) by lia.
+        destruct (Nat.eqb (k mod 5) 0) eqn:Heqb.
+        -- apply Nat.eqb_eq in Heqb. contradiction.
+        -- reflexivity.
+Qed.
+
+Lemma certified_backlog_time_ex_sound :
+  forall c j,
+    check_periodic_lasso_ex c = true ->
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    certified_backlog_time_ex c j = certified_completion_time_ex c j.
+Proof.
+  intros c j Hcheck Hj.
+  unfold certified_backlog_time_ex.
+  rewrite (certified_backlog_offset_ex_fields c j Hcheck Hj).
+  rewrite (certified_completion_time_ex_sound c j Hcheck Hj).
+  pose proof (periodic_jobset_ex_normalize j Hj) as Hnorm.
+  destruct Hnorm as [[k ->] | [k ->]].
+  - unfold job_id_of_ex, structural_completion_time_ex.
+    rewrite jobs_ex_task0.
+    cbn [job_task job_release job_index].
+    reflexivity.
+  - unfold job_id_of_ex, structural_completion_time_ex.
+    rewrite jobs_ex_task1.
+    cbn [job_task job_release job_index].
+    destruct (Nat.eqb (k mod 5) 0); lia.
+Qed.
+
 Lemma certified_completion_time_before_current_release_ex :
   forall c j y,
     check_periodic_lasso_ex c = true ->
@@ -1616,6 +1754,20 @@ Lemma certified_completion_time_before_current_release_ex :
     certified_completion_time_ex c y <= job_release (jobs_ex j).
 Proof.
   intros c j y Hcheck Hj Hy Hyrel.
+  rewrite (certified_completion_time_ex_sound c y Hcheck Hy).
+  eapply structural_completion_time_before_current_release_ex; eauto.
+Qed.
+
+Lemma certified_backlog_time_before_current_release_ex :
+  forall c j y,
+    check_periodic_lasso_ex c = true ->
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex y ->
+    job_release (jobs_ex y) < job_release (jobs_ex j) ->
+    certified_backlog_time_ex c y <= job_release (jobs_ex j).
+Proof.
+  intros c j y Hcheck Hj Hy Hyrel.
+  rewrite (certified_backlog_time_ex_sound c y Hcheck Hy).
   rewrite (certified_completion_time_ex_sound c y Hcheck Hy).
   eapply structural_completion_time_before_current_release_ex; eauto.
 Qed.
@@ -2348,10 +2500,10 @@ Proof.
              (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q)))) y Hy).
     }
     assert (Hty_le :
-      certified_completion_time_ex c y <=
+      certified_backlog_time_ex c y <=
       job_release (jobs_ex (job_id_of_ex 0 (r + 7 * q)))).
     {
-      eapply certified_completion_time_before_current_release_ex.
+      eapply certified_backlog_time_before_current_release_ex.
       - exact Hlasso.
       - apply periodic_jobset_job0_ex.
       - exact Hpy.
@@ -2361,6 +2513,7 @@ Proof.
       certified_completion_time_ex c y <
       S (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q))))).
     {
+      rewrite <- (certified_backlog_time_ex_sound c y Hlasso Hpy).
       rewrite (job_release_of_task0_ex (job_id_of_ex 0 (r + 7 * q)) (r + 7 * q) eq_refl) in Hty_le.
       rewrite (job_deadline_of_task0_ex (job_id_of_ex 0 (r + 7 * q)) (r + 7 * q) eq_refl).
       lia.
@@ -2370,6 +2523,7 @@ Proof.
          c
          (S (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q)))))
          y Hlasso Hpy Hty_lt_H) as Hdone.
+    rewrite <- (certified_backlog_time_ex_sound c y Hlasso Hpy) in Hdone.
     eapply completed_monotone; eauto.
 Qed.
 
@@ -2406,10 +2560,10 @@ Proof.
              (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q)))) y Hy).
     }
     assert (Hty_le :
-      certified_completion_time_ex c y <=
+      certified_backlog_time_ex c y <=
       job_release (jobs_ex (job_id_of_ex 1 (r + 5 * q)))).
     {
-      eapply certified_completion_time_before_current_release_ex.
+      eapply certified_backlog_time_before_current_release_ex.
       - exact Hlasso.
       - apply periodic_jobset_job1_ex.
       - exact Hpy.
@@ -2419,6 +2573,7 @@ Proof.
       certified_completion_time_ex c y <
       S (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q))))).
     {
+      rewrite <- (certified_backlog_time_ex_sound c y Hlasso Hpy).
       rewrite (job_release_of_task1_ex (job_id_of_ex 1 (r + 5 * q)) (r + 5 * q) eq_refl) in Hty_le.
       rewrite (job_deadline_of_task1_ex (job_id_of_ex 1 (r + 5 * q)) (r + 5 * q) eq_refl).
       lia.
@@ -2428,6 +2583,7 @@ Proof.
          c
          (S (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q)))))
          y Hlasso Hpy Hty_lt_H) as Hdone.
+    rewrite <- (certified_backlog_time_ex_sound c y Hlasso Hpy) in Hdone.
     eapply completed_monotone; eauto.
 Qed.
 
