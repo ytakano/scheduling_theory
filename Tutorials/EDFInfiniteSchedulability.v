@@ -1,4 +1,5 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool Wf_nat.
+From Stdlib Require Extraction.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Foundation.Arithmetic.
 From RocqSched Require Import Semantics.Schedule.
@@ -220,6 +221,123 @@ Example periodic_classical_dbf_test_by_cutoff_ex :
 Proof.
   vm_compute.
   reflexivity.
+Qed.
+
+Record EDFInfiniteCertEx := {
+  cert_hyperperiod_ex : Time;
+  cert_task0_completion_delay_ex : Time;
+  cert_task1_completion_delay_ex : Time;
+  cert_task1_collision_completion_delay_ex : Time
+}.
+
+Definition cert_ex : EDFInfiniteCertEx :=
+  {| cert_hyperperiod_ex := 35;
+     cert_task0_completion_delay_ex := 1;
+     cert_task1_completion_delay_ex := 1;
+     cert_task1_collision_completion_delay_ex := 2 |}.
+
+Definition check_edf_infinite_cert_ex (c : EDFInfiniteCertEx) : bool :=
+  Nat.eqb c.(cert_hyperperiod_ex) 35
+  && Nat.eqb c.(cert_task0_completion_delay_ex) 1
+  && Nat.eqb c.(cert_task1_completion_delay_ex) 1
+  && Nat.eqb c.(cert_task1_collision_completion_delay_ex) 2.
+
+Definition cert_completion_target_time_ex
+    (c : EDFInfiniteCertEx) (j : JobId) : Time :=
+  match job_task (jobs_ex j) with
+  | 0 =>
+      job_release (jobs_ex j) + c.(cert_task0_completion_delay_ex)
+  | 1 =>
+      if Nat.eqb (job_index (jobs_ex j) mod 5) 0 then
+        job_release (jobs_ex j) + c.(cert_task1_collision_completion_delay_ex)
+      else
+        job_release (jobs_ex j) + c.(cert_task1_completion_delay_ex)
+  | _ => 0
+  end.
+
+Lemma cert_ex_ok :
+  check_edf_infinite_cert_ex cert_ex = true.
+Proof.
+  reflexivity.
+Qed.
+
+Lemma check_edf_infinite_cert_ex_fields :
+  forall c,
+    check_edf_infinite_cert_ex c = true ->
+    c.(cert_hyperperiod_ex) = 35 /\
+    c.(cert_task0_completion_delay_ex) = 1 /\
+    c.(cert_task1_completion_delay_ex) = 1 /\
+    c.(cert_task1_collision_completion_delay_ex) = 2.
+Proof.
+  intros c Hcheck.
+  unfold check_edf_infinite_cert_ex in Hcheck.
+  repeat rewrite andb_true_iff in Hcheck.
+  destruct Hcheck as [[[Hperiod Htask0] Htask1] Hcollision].
+  repeat split; apply Nat.eqb_eq; assumption.
+Qed.
+
+Lemma cert_completion_target_time_task0_ex :
+  forall c k,
+    check_edf_infinite_cert_ex c = true ->
+    cert_completion_target_time_ex c (job_id_of_ex 0 k) = 5 * k + 1.
+Proof.
+  intros c k Hcheck.
+  pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
+    as [_ [Htask0 [_ _]]].
+  unfold cert_completion_target_time_ex, job_id_of_ex.
+  rewrite jobs_ex_task0.
+  cbn [job_task job_index].
+  rewrite Htask0.
+  reflexivity.
+Qed.
+
+Lemma cert_completion_target_time_task1_noncollision_ex :
+  forall c k,
+    (forall q, k <> 5 * q) ->
+    check_edf_infinite_cert_ex c = true ->
+    cert_completion_target_time_ex c (job_id_of_ex 1 k) = 7 * k + 1.
+Proof.
+  intros c k Hnc Hcheck.
+  pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
+    as [_ [_ [Htask1 _]]].
+  unfold cert_completion_target_time_ex, job_id_of_ex.
+  rewrite jobs_ex_task1.
+  cbn [job_task job_index].
+  assert (Hmod : k mod 5 <> 0).
+  {
+    intro Hmod0.
+    apply (Hnc (k / 5)).
+    pose proof (Nat.div_mod k 5 ltac:(lia)) as Hdiv.
+    lia.
+  }
+  destruct (Nat.eqb (k mod 5) 0) eqn:Heqb.
+  - apply Nat.eqb_eq in Heqb. contradiction.
+  - rewrite Htask1.
+    reflexivity.
+Qed.
+
+Lemma cert_completion_target_time_task1_collision_ex :
+  forall c q,
+    check_edf_infinite_cert_ex c = true ->
+    cert_completion_target_time_ex c (job_id_of_ex 1 (5 * q)) = 35 * q + 2.
+Proof.
+  intros c q Hcheck.
+  pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
+    as [_ [_ [_ Hcollision]]].
+  unfold cert_completion_target_time_ex, job_id_of_ex.
+  rewrite jobs_ex_task1.
+  cbn [job_task job_index].
+  replace ((5 * q) mod 5) with 0.
+  2:{
+    rewrite Nat.mul_comm.
+    symmetry.
+    apply nat_mod_mul_left.
+    lia.
+  }
+  simpl.
+  rewrite Hcollision.
+  replace (7 * (5 * q)) with (35 * q) by lia.
+  lia.
 Qed.
 
 Lemma periodic_classical_dbf_from_cutoff_ex :
@@ -763,6 +881,37 @@ Inductive completion_target_ex : JobId -> Time -> Prop :=
     forall q,
       completion_target_ex (job_id_of_ex 1 (5 * q)) (35 * q + 2).
 
+Lemma cert_completion_target_time_ex_sound :
+  forall c j,
+    check_edf_infinite_cert_ex c = true ->
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    completion_target_ex j (cert_completion_target_time_ex c j).
+Proof.
+  intros c j Hcheck Hj.
+  pose proof (periodic_jobset_ex_normalize j Hj) as Hnorm.
+  destruct Hnorm as [[k Hj0] | [k Hj1]].
+  - subst j.
+    rewrite cert_completion_target_time_task0_ex by exact Hcheck.
+    constructor.
+  - subst j.
+    destruct (task1_collision_dec_ex k) as [[q Hq] | Hnc].
+    + subst k.
+      rewrite cert_completion_target_time_task1_collision_ex by exact Hcheck.
+      constructor.
+    + assert (Hmod : k mod 5 <> 0).
+      {
+        intro Hmod0.
+        apply (Hnc (k / 5)).
+        pose proof (Nat.div_mod k 5 ltac:(lia)) as Hdiv.
+        lia.
+      }
+      rewrite cert_completion_target_time_task1_noncollision_ex.
+      2:{ exact Hnc. }
+      2:{ exact Hcheck. }
+      constructor.
+      exact Hnc.
+Qed.
+
 Lemma periodic_job_has_completion_target_ex :
   forall j,
     periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
@@ -1202,22 +1351,35 @@ Proof.
   exact (HP j t Hj eq_refl Htarget Hbound).
 Qed.
 
-Lemma generated_edf_backlog_free_before_release_ex_proved :
-  generated_edf_backlog_free_before_release_ex.
+Theorem check_edf_infinite_cert_ex_sound :
+  forall c,
+    check_edf_infinite_cert_ex c = true ->
+    generated_edf_backlog_free_before_release_ex.
 Proof.
-  intros j Hj.
+  intros c Hcheck j Hj.
   eapply periodic_edf_backlog_free_before_release_of_earlier_completion.
   - apply generated_periodic_edf_schedule_upto_valid_ex.
   - exact Hj.
   - intros y Hy Hyrel.
-    destruct (periodic_job_has_completion_target_ex y
-                (conj
-                   (periodic_jobset_deadline_between_implies_task_in_scope
-                      T_ex tasks_ex offset_ex jobs_ex 0
-                      (job_abs_deadline (jobs_ex j)) y Hy)
-                   (periodic_jobset_deadline_between_implies_generated
-                      T_ex tasks_ex offset_ex jobs_ex 0
-                      (job_abs_deadline (jobs_ex j)) y Hy))) as [ty Hty].
+    set (ty := cert_completion_target_time_ex c y).
+    assert (Hpy :
+      periodic_jobset T_ex tasks_ex offset_ex jobs_ex y).
+    {
+      split.
+      - exact
+          (periodic_jobset_deadline_between_implies_task_in_scope
+             T_ex tasks_ex offset_ex jobs_ex 0
+             (job_abs_deadline (jobs_ex j)) y Hy).
+      - exact
+          (periodic_jobset_deadline_between_implies_generated
+             T_ex tasks_ex offset_ex jobs_ex 0
+             (job_abs_deadline (jobs_ex j)) y Hy).
+    }
+    assert (Hty : completion_target_ex y ty).
+    {
+      unfold ty.
+      eapply cert_completion_target_time_ex_sound; eauto.
+    }
     assert (Hty_le :
       ty <= job_release (jobs_ex j)).
     {
@@ -1235,23 +1397,17 @@ Proof.
         rewrite (job_deadline_of_task1_ex (job_id_of_ex 1 k) k eq_refl).
         lia.
     }
-    assert (Hpy :
-      periodic_jobset T_ex tasks_ex offset_ex jobs_ex y).
-    {
-      split.
-      - exact
-          (periodic_jobset_deadline_between_implies_task_in_scope
-             T_ex tasks_ex offset_ex jobs_ex 0
-             (job_abs_deadline (jobs_ex j)) y Hy).
-      - exact
-          (periodic_jobset_deadline_between_implies_generated
-             T_ex tasks_ex offset_ex jobs_ex 0
-             (job_abs_deadline (jobs_ex j)) y Hy).
-    }
     pose proof
       (completed_at_completion_target_ex
          (S (job_abs_deadline (jobs_ex j))) y ty Hpy Hty Hty_lt_H) as Hdone.
     eapply completed_monotone; eauto.
+Qed.
+
+Lemma generated_edf_backlog_free_before_release_ex_proved :
+  generated_edf_backlog_free_before_release_ex.
+Proof.
+  eapply check_edf_infinite_cert_ex_sound.
+  exact cert_ex_ok.
 Qed.
 
 Section TutorialClassicalProof.
@@ -1352,3 +1508,10 @@ Section TutorialClassicalProof.
     1: exact periodic_classical_dbf_from_cutoff_ex.
   Qed.
 End TutorialClassicalProof.
+
+Extraction Language Haskell.
+
+Extraction "/scheduling_theory/extracted/haskell/EDFInfiniteCertificateChecker.hs"
+  check_edf_infinite_cert_ex
+  cert_completion_target_time_ex
+  cert_ex.
