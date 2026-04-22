@@ -1167,6 +1167,26 @@ Proof.
     + eapply cert_ex_prefix_backlog_matrix_completed_true; eauto.
 Qed.
 
+Lemma cert_ex_prefix_generic_ok :
+  check_prefix_cert cert_ex_prefix_generic = true.
+Proof.
+  destruct (check_edf_infinite_cert_fields JobId cert_ex_generic cert_ex_generic_ok)
+    as [Hprefix _].
+  exact Hprefix.
+Qed.
+
+Lemma cert_ex_prefix_slots_semantic_bridge :
+  forall t,
+    t < prefix_horizon cert_ex_prefix_generic ->
+    sched_upto_ex 38 t 0 = nth t (prefix_slots cert_ex_prefix_generic) None.
+Proof.
+  intros t Ht.
+  eapply check_prefix_cert_slots_sound.
+  - exact cert_ex_prefix_generic_ok.
+  - exact cert_ex_prefix_semantics.
+  - exact Ht.
+Qed.
+
 Lemma cert_ex_transport_semantics :
   EDFTransportCertSemantics cert_ex_transport_witness cert_ex_transport_generic.
 Proof.

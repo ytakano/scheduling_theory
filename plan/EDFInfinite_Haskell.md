@@ -1260,3 +1260,148 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
    same generic schema で再利用できることを確認する。
 3. 必要なら Haskell generator 側の Rocq pretty-printer contract を
    明文化して、generated artifact の再現性を固定する。
+
+## 2026-04-23 Progress (Prefix slots responsibility split and current hotspot)
+
+### 今回の方針整理
+
+- Haskell 側の責務は `Tutorials/Generated/EDFInfiniteSchedulabilityCert_ex.v`
+  に出力される generated data の生成に固定する。
+  特に、`cert_ex_prefix_slots_data` は generated EDF prefix の
+  authoritative data source として扱う。
+- Rocq 側の責務は、その generated data が
+  `sched_upto_ex 38` の意味論と一致することの証明に固定する。
+- ただし現時点では、この意味論的一致の最終入口は still
+  tutorial-local proof に残っており、完全な lightweight bridge への
+  置換は未完了である。
+
+### 今回の実装
+
+- `generated_prefix_slot_ex` の per-slot `vm_compute` case split をやめ、
+  bulk equality 補題
+  - `generated_prefix_slots_ex_data_ok`
+  とそこからの lookup 補題
+  - `generated_prefix_slot_ex`
+  の構成へ戻した。
+- これにより、
+  `certified_service_prefix_ex_data_agrees_generated` と
+  `cert_ex_prefix_semantics`
+  は引き続き generated prefix data を読む構造を維持した。
+- 役割分担としては、
+  - Haskell: prefix slots data を生成する
+  - Rocq: generated schedule がその data と一致することを証明する
+  という境界を明示した。
+
+### 実測結果
+
+- Docker で次を実行した。
+
+```sh
+timeout 240s docker exec docker-scheduling_theory-1 zsh -lc \
+  'cd /scheduling_theory && rocq compile -time -q -w -deprecated-native-compiler-option -native-compiler no -Q Tutorials/Generated Tutorials.Generated -R theories RocqSched Tutorials/EDFInfiniteSchedulability.v'
+```
+
+- `cert_ex_dbf_test_by_cutoff_true` の `vm_compute` は約 `0.014s`
+- `cert_ex_generic_ok` の `vm_compute` はほぼ `0s`
+- `generated_prefix_slot_ex` の per-slot 版では、
+  後半分岐で
+  - 約 `3.2s`
+  - 約 `48.9s`
+  - その次で 70 秒以上無出力
+  となり、明確な hotspot だった
+- bulk equality に戻した current version では、
+  `generated_prefix_slots_ex_data_ok` に入った後、
+  少なくとも 70 秒以上 `rocq compile -time` 出力が止まることを確認した
+
+### 現状の結論
+
+- per-slot `vm_compute` は bulk equality より悪い
+- しかし bulk equality でも、
+  `sched_upto_ex 38` を Rocq 側で丸ごと正規化している限り、
+  current hotspot は解消していない
+- したがって、
+  Haskell/Rocq の責務分離は「data source の分離」としては整理できたが、
+  compile-time 改善のための最終段としては、
+  `generated_prefix_slots_ex_data_ok` を置き換える
+  semantic bridge が still 必要である
+
+### 次の具体作業
+
+1. `generated_prefix_slots_ex_data_ok` を直接使わずに済む、
+   prefix-slot 一致専用の semantic bridge を導入する
+2. その bridge は
+   `cert_ex_prefix_semantics` と `cert_ex_generic_semantic_sound` の
+   循環を起こさない順序で配置する
+3. その後で `generated_prefix_slot_ex` を
+   generated data lookup の薄い補題へ置き換える
+
+## 2026-04-23 Progress (Common-layer prefix bridge helpers and tutorial bridge entry)
+
+### 今回の目的
+
+- hotspot 本体の置換に入る前に、
+  generated prefix data を Rocq 側の意味論補題へ接続する
+  proof-facing interface を common layer に明示する。
+- あわせて tutorial 側にも、
+  generated prefix certificate から slot 一致だけを取り出す
+  名前付き bridge 入口を追加する。
+
+### 実装したもの
+
+- `theories/TaskModels/Periodic/PeriodicEDFCertificateSoundness.v`
+  に、`check_prefix_cert_semantic_sound` の projection helper を追加した。
+  - `check_prefix_cert_slots_sound`
+  - `check_prefix_cert_completed_by_sound`
+  - `check_prefix_cert_backlog_sound`
+- これらは、
+  `EDFPrefixCertSemantics` から
+  - slot 観測
+  - completed-by 観測
+  - backlog 観測
+  を個別に取り出す小さい proof-facing interface である。
+- `Tutorials/EDFInfiniteSchedulability.v` には、
+  tutorial-specific bridge として
+  - `cert_ex_prefix_generic_ok`
+  - `cert_ex_prefix_slots_semantic_bridge`
+  を追加した。
+- これにより、tutorial 側では
+  `cert_ex_prefix_semantics`
+  と `check_prefix_cert_slots_sound`
+  を介して、
+  generated prefix certificate から slot 一致を取り出す
+  明示的な semantic bridge 入口を持つようになった。
+
+### 検証
+
+- Docker で
+  `make theories/TaskModels/Periodic/PeriodicEDFCertificateSoundness.vo`
+  は成功した。
+- `rg` で上記 helper / bridge 名が導入されたことを確認した。
+- tutorial 全体の `rocq compile -time` は、
+  current version でも依然として
+  `generated_prefix_slots_ex_data_ok`
+  に入った後で長時間停止する。
+
+### 意味
+
+- これで、Haskell-generated prefix data を Rocq 側の意味論へ結ぶ
+  共通層の public helper は用意できた。
+- まだ `generated_prefix_slot_ex` 自体は
+  `generated_prefix_slots_ex_data_ok` に依存しているが、
+  置換先となる semantic bridge の名前付き入口は確保できた。
+- 次の実作業は、
+  この新しい bridge を使う順序に証明を並べ替えて、
+  `generated_prefix_slots_ex_data_ok` を proof path から外すことである。
+
+### 次の具体作業
+
+1. `generated_prefix_slot_ex` を
+   `generated_prefix_slots_ex_data_ok` ではなく
+   `cert_ex_prefix_slots_semantic_bridge` ベースに差し替えられるよう、
+   tutorial 内の証明順序を組み替える
+2. その際、
+   `certified_service_prefix_ex_data_agrees_generated`
+   と `cert_ex_prefix_semantics`
+   の依存を再分解して循環を避ける
+3. 差し替え後に `rocq compile -time` を再測定し、
+   新しい hotspot を記録する
