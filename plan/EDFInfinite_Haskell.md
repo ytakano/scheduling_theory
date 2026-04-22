@@ -329,3 +329,44 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 - Haskell 側で `.v` の証明証データを自動生成するツール本体
 - concrete tutorial 専用 soundness から reusable concrete-analysis interface への一般化
 - 壊れた証明証を与えたときに checker が失敗する回帰テストの整備
+
+## 2026-04-22 Progress (Prefix/Lasso task)
+
+### 完了
+
+- `Tutorials/EDFInfiniteSchedulability.v` の certificate 形を delay-parameter 型から prefix/lasso 型へ置き換えた。
+  - `EDFPrefixCertEx`
+  - `EDFInfiniteCertEx`
+  - `cert_slots_ex_data`
+  - `cert_period_ex`
+  - `cert_task0_shift_ex`
+  - `cert_task1_shift_ex`
+- checker を prefix/lasso 向けの分割形へ差し替えた。
+  - `check_prefix_shape_ex`
+  - `check_prefix_slots_match_ex`
+  - `check_prefix_edf_ex`
+  - `check_prefix_service_ex`
+  - `check_prefix_backlog_free_at_releases_ex`
+  - `check_periodic_lasso_ex`
+  - `check_edf_infinite_cert_ex`
+- extracted Haskell artifact を新しい certificate/checker 形で再生成した。
+  - `extracted/haskell/EDFInfiniteCertificateChecker.hs`
+- `make Tutorials/EDFInfiniteSchedulability.vo` は Docker で通した。
+
+### この段階での意味
+
+- tutorial は now explicit slot prefix を持つ concrete certificate を使う。
+- lasso 情報も certificate field として保持する。
+- `generated_edf_backlog_free_before_release_ex_proved` は引き続き checker 経由で得られる。
+
+### まだ残しているもの
+
+- heavy proof core 自体はまだ `generated_edf_backlog_free_before_release_ex_from_completion_targets` として tutorial 内に残している。
+- `cert_slots_ex_data` が generated EDF prefix と一致することを Rocq 側の独立 soundness で閉じるところまでは今回入れていない。
+- したがって、この段階の `check_prefix_slots_match_ex` は explicit certificate data との整合を検査する tutorial-local checker であり、まだ generated schedule 同値を public soundness core にしていない。
+
+### 次の具体的作業
+
+- `cert_slots_ex_data` と `generated_periodic_edf_schedule_upto ... 38` の一致を閉じる lightweight lemma 群を追加する。
+- `generated_edf_backlog_free_before_release_ex_from_completion_targets` の依存を、completion-target 帰納証明から certified prefix service / release backlog checker へ段階的に置き換える。
+- その後で Haskell 側の `.v` 証明証生成器を作る。

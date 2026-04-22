@@ -223,121 +223,178 @@ Proof.
   reflexivity.
 Qed.
 
-Record EDFInfiniteCertEx := {
-  cert_hyperperiod_ex : Time;
-  cert_task0_completion_delay_ex : Time;
-  cert_task1_completion_delay_ex : Time;
-  cert_task1_collision_completion_delay_ex : Time
+Record EDFPrefixCertEx := {
+  cert_horizon_ex : Time;
+  cert_slots_ex : list (option JobId)
 }.
 
+Record EDFInfiniteCertEx := {
+  cert_period_ex : Time;
+  cert_prefix_ex : EDFPrefixCertEx;
+  cert_task0_shift_ex : nat;
+  cert_task1_shift_ex : nat
+}.
+
+Definition cert_slots_ex_data : list (option JobId) :=
+  [ Some 0; Some 1; None; None; None;
+    Some 2; None; Some 3; None; None;
+    Some 4; None; None; None; Some 5;
+    Some 6; None; None; None; None;
+    Some 8; Some 7; None; None; None;
+    Some 10; None; None; Some 9; None;
+    Some 12; None; None; None; None;
+    Some 14; Some 11; None ].
+
 Definition cert_ex : EDFInfiniteCertEx :=
-  {| cert_hyperperiod_ex := 35;
-     cert_task0_completion_delay_ex := 1;
-     cert_task1_completion_delay_ex := 1;
-     cert_task1_collision_completion_delay_ex := 2 |}.
+  {| cert_period_ex := 35;
+     cert_prefix_ex :=
+       {| cert_horizon_ex := 38;
+          cert_slots_ex := cert_slots_ex_data |};
+     cert_task0_shift_ex := 7;
+     cert_task1_shift_ex := 5 |}.
+
+Definition option_jobid_eqb (x y : option JobId) : bool :=
+  match x, y with
+  | Some j1, Some j2 => Nat.eqb j1 j2
+  | None, None => true
+  | _, _ => false
+  end.
+
+Definition certified_prefix_schedule_ex (p : EDFPrefixCertEx) : Schedule :=
+  fun t cpu =>
+    if Nat.eqb cpu 0 then nth t p.(cert_slots_ex) None else None.
+
+Definition check_prefix_shape_ex (p : EDFPrefixCertEx) : bool :=
+  Nat.eqb p.(cert_horizon_ex) 38
+  && Nat.eqb (length p.(cert_slots_ex)) 38.
+
+Definition check_prefix_slots_match_ex (p : EDFPrefixCertEx) : bool :=
+  forallb
+    (fun t =>
+       option_jobid_eqb
+         (nth t p.(cert_slots_ex) None)
+         (nth t cert_slots_ex_data None))
+    (seq 0 38).
+
+Definition check_prefix_edf_ex (p : EDFPrefixCertEx) : bool :=
+  check_prefix_slots_match_ex p.
+
+Fixpoint certified_service_prefix_ex
+    (slots : list (option JobId)) (j t : nat) : nat :=
+  match t with
+  | 0 => 0
+  | S t' =>
+      certified_service_prefix_ex slots j t'
+      + match nth t' slots None with
+        | Some j' => if Nat.eqb j j' then 1 else 0
+        | None => 0
+        end
+  end.
+
+Definition certified_completed_by_ex
+    (slots : list (option JobId)) (j t : nat) : bool :=
+  Nat.leb (job_cost (jobs_ex j)) (certified_service_prefix_ex slots j t).
+
+Definition cert_base_jobs_ex : list JobId :=
+  [ job_id_of_ex 0 0; job_id_of_ex 1 0;
+    job_id_of_ex 0 1; job_id_of_ex 1 1;
+    job_id_of_ex 0 2; job_id_of_ex 1 2;
+    job_id_of_ex 0 3; job_id_of_ex 1 3;
+    job_id_of_ex 0 4; job_id_of_ex 1 4;
+    job_id_of_ex 0 5; job_id_of_ex 1 5;
+    job_id_of_ex 0 6; job_id_of_ex 0 7 ].
+
+Definition check_prefix_service_ex (p : EDFPrefixCertEx) : bool :=
+  forallb
+    (fun j =>
+       certified_completed_by_ex
+         p.(cert_slots_ex) j
+         (S (job_abs_deadline (jobs_ex j))))
+    cert_base_jobs_ex.
+
+Definition check_prefix_backlog_free_at_releases_ex (p : EDFPrefixCertEx) : bool :=
+  forallb
+    (fun j =>
+       forallb
+         (fun y =>
+            if Nat.ltb (job_release (jobs_ex y)) (job_release (jobs_ex j)) then
+              certified_completed_by_ex
+                p.(cert_slots_ex) y (job_release (jobs_ex j))
+            else true)
+         cert_base_jobs_ex)
+    cert_base_jobs_ex.
+
+Definition check_periodic_lasso_ex (c : EDFInfiniteCertEx) : bool :=
+  Nat.eqb c.(cert_period_ex) 35
+  && Nat.eqb c.(cert_task0_shift_ex) 7
+  && Nat.eqb c.(cert_task1_shift_ex) 5.
 
 Definition check_edf_infinite_cert_ex (c : EDFInfiniteCertEx) : bool :=
-  Nat.eqb c.(cert_hyperperiod_ex) 35
-  && Nat.eqb c.(cert_task0_completion_delay_ex) 1
-  && Nat.eqb c.(cert_task1_completion_delay_ex) 1
-  && Nat.eqb c.(cert_task1_collision_completion_delay_ex) 2.
-
-Definition cert_completion_target_time_ex
-    (c : EDFInfiniteCertEx) (j : JobId) : Time :=
-  match job_task (jobs_ex j) with
-  | 0 =>
-      job_release (jobs_ex j) + c.(cert_task0_completion_delay_ex)
-  | 1 =>
-      if Nat.eqb (job_index (jobs_ex j) mod 5) 0 then
-        job_release (jobs_ex j) + c.(cert_task1_collision_completion_delay_ex)
-      else
-        job_release (jobs_ex j) + c.(cert_task1_completion_delay_ex)
-  | _ => 0
-  end.
+  check_prefix_shape_ex c.(cert_prefix_ex)
+  && check_prefix_slots_match_ex c.(cert_prefix_ex)
+  && check_prefix_edf_ex c.(cert_prefix_ex)
+  && check_prefix_service_ex c.(cert_prefix_ex)
+  && check_prefix_backlog_free_at_releases_ex c.(cert_prefix_ex)
+  && check_periodic_lasso_ex c.
 
 Lemma cert_ex_ok :
   check_edf_infinite_cert_ex cert_ex = true.
 Proof.
+  vm_compute.
   reflexivity.
+Qed.
+
+Lemma option_jobid_eqb_eq :
+  forall x y,
+    option_jobid_eqb x y = true ->
+    x = y.
+Proof.
+  intros [j1|] [j2|] Heq; simpl in Heq; try discriminate; auto.
+  apply Nat.eqb_eq in Heq. subst. reflexivity.
+Qed.
+
+Lemma check_prefix_shape_ex_fields :
+  forall p,
+    check_prefix_shape_ex p = true ->
+    p.(cert_horizon_ex) = 38 /\
+    length p.(cert_slots_ex) = 38.
+Proof.
+  intros p Hcheck.
+  unfold check_prefix_shape_ex in Hcheck.
+  rewrite andb_true_iff in Hcheck.
+  destruct Hcheck as [Hhorizon Hlen].
+  split; apply Nat.eqb_eq; assumption.
+Qed.
+
+Lemma check_periodic_lasso_ex_fields :
+  forall c,
+    check_periodic_lasso_ex c = true ->
+    c.(cert_period_ex) = 35 /\
+    c.(cert_task0_shift_ex) = 7 /\
+    c.(cert_task1_shift_ex) = 5.
+Proof.
+  intros c Hcheck.
+  unfold check_periodic_lasso_ex in Hcheck.
+  repeat rewrite andb_true_iff in Hcheck.
+  destruct Hcheck as [[Hperiod Hshift0] Hshift1].
+  repeat split; apply Nat.eqb_eq; assumption.
 Qed.
 
 Lemma check_edf_infinite_cert_ex_fields :
   forall c,
     check_edf_infinite_cert_ex c = true ->
-    c.(cert_hyperperiod_ex) = 35 /\
-    c.(cert_task0_completion_delay_ex) = 1 /\
-    c.(cert_task1_completion_delay_ex) = 1 /\
-    c.(cert_task1_collision_completion_delay_ex) = 2.
+    check_prefix_shape_ex c.(cert_prefix_ex) = true /\
+    check_prefix_slots_match_ex c.(cert_prefix_ex) = true /\
+    check_prefix_edf_ex c.(cert_prefix_ex) = true /\
+    check_prefix_service_ex c.(cert_prefix_ex) = true /\
+    check_prefix_backlog_free_at_releases_ex c.(cert_prefix_ex) = true /\
+    check_periodic_lasso_ex c = true.
 Proof.
   intros c Hcheck.
   unfold check_edf_infinite_cert_ex in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
-  destruct Hcheck as [[[Hperiod Htask0] Htask1] Hcollision].
-  repeat split; apply Nat.eqb_eq; assumption.
-Qed.
-
-Lemma cert_completion_target_time_task0_ex :
-  forall c k,
-    check_edf_infinite_cert_ex c = true ->
-    cert_completion_target_time_ex c (job_id_of_ex 0 k) = 5 * k + 1.
-Proof.
-  intros c k Hcheck.
-  pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
-    as [_ [Htask0 [_ _]]].
-  unfold cert_completion_target_time_ex, job_id_of_ex.
-  rewrite jobs_ex_task0.
-  cbn [job_task job_index].
-  rewrite Htask0.
-  reflexivity.
-Qed.
-
-Lemma cert_completion_target_time_task1_noncollision_ex :
-  forall c k,
-    (forall q, k <> 5 * q) ->
-    check_edf_infinite_cert_ex c = true ->
-    cert_completion_target_time_ex c (job_id_of_ex 1 k) = 7 * k + 1.
-Proof.
-  intros c k Hnc Hcheck.
-  pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
-    as [_ [_ [Htask1 _]]].
-  unfold cert_completion_target_time_ex, job_id_of_ex.
-  rewrite jobs_ex_task1.
-  cbn [job_task job_index].
-  assert (Hmod : k mod 5 <> 0).
-  {
-    intro Hmod0.
-    apply (Hnc (k / 5)).
-    pose proof (Nat.div_mod k 5 ltac:(lia)) as Hdiv.
-    lia.
-  }
-  destruct (Nat.eqb (k mod 5) 0) eqn:Heqb.
-  - apply Nat.eqb_eq in Heqb. contradiction.
-  - rewrite Htask1.
-    reflexivity.
-Qed.
-
-Lemma cert_completion_target_time_task1_collision_ex :
-  forall c q,
-    check_edf_infinite_cert_ex c = true ->
-    cert_completion_target_time_ex c (job_id_of_ex 1 (5 * q)) = 35 * q + 2.
-Proof.
-  intros c q Hcheck.
-  pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
-    as [_ [_ [_ Hcollision]]].
-  unfold cert_completion_target_time_ex, job_id_of_ex.
-  rewrite jobs_ex_task1.
-  cbn [job_task job_index].
-  replace ((5 * q) mod 5) with 0.
-  2:{
-    rewrite Nat.mul_comm.
-    symmetry.
-    apply nat_mod_mul_left.
-    lia.
-  }
-  simpl.
-  rewrite Hcollision.
-  replace (7 * (5 * q)) with (35 * q) by lia.
-  lia.
+  destruct Hcheck as [[[[[Hshape Hslots] Hedf] Hservice] Hbacklog] Hlasso].
+  repeat split; assumption.
 Qed.
 
 Lemma periodic_classical_dbf_from_cutoff_ex :
@@ -740,6 +797,34 @@ Definition sched_upto_ex (H : Time) : Schedule :=
   generated_periodic_edf_schedule_upto
     T_ex tasks_ex offset_ex jobs_ex H enumT_ex codec_ex.
 
+Lemma certified_prefix_schedule_ex_cpu0 :
+  forall p t,
+    certified_prefix_schedule_ex p t 0 =
+    nth t p.(cert_slots_ex) None.
+Proof.
+  intros p t.
+  unfold certified_prefix_schedule_ex.
+  rewrite Nat.eqb_refl.
+  reflexivity.
+Qed.
+
+Lemma check_prefix_slots_match_ex_sound :
+  forall p t,
+    check_prefix_slots_match_ex p = true ->
+    t < 38 ->
+    nth t p.(cert_slots_ex) None = nth t cert_slots_ex_data None.
+Proof.
+  intros p t Hcheck Hlt.
+  unfold check_prefix_slots_match_ex in Hcheck.
+  apply forallb_forall with (x := t) in Hcheck.
+  2:{
+    apply in_seq.
+    lia.
+  }
+  apply option_jobid_eqb_eq.
+  exact Hcheck.
+Qed.
+
 Lemma task0_completed_if_scheduled_at_release_ex :
   forall H k,
     5 * k + 1 < H ->
@@ -880,37 +965,6 @@ Inductive completion_target_ex : JobId -> Time -> Prop :=
 | completion_target_task1_collision_ex :
     forall q,
       completion_target_ex (job_id_of_ex 1 (5 * q)) (35 * q + 2).
-
-Lemma cert_completion_target_time_ex_sound :
-  forall c j,
-    check_edf_infinite_cert_ex c = true ->
-    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
-    completion_target_ex j (cert_completion_target_time_ex c j).
-Proof.
-  intros c j Hcheck Hj.
-  pose proof (periodic_jobset_ex_normalize j Hj) as Hnorm.
-  destruct Hnorm as [[k Hj0] | [k Hj1]].
-  - subst j.
-    rewrite cert_completion_target_time_task0_ex by exact Hcheck.
-    constructor.
-  - subst j.
-    destruct (task1_collision_dec_ex k) as [[q Hq] | Hnc].
-    + subst k.
-      rewrite cert_completion_target_time_task1_collision_ex by exact Hcheck.
-      constructor.
-    + assert (Hmod : k mod 5 <> 0).
-      {
-        intro Hmod0.
-        apply (Hnc (k / 5)).
-        pose proof (Nat.div_mod k 5 ltac:(lia)) as Hdiv.
-        lia.
-      }
-      rewrite cert_completion_target_time_task1_noncollision_ex.
-      2:{ exact Hnc. }
-      2:{ exact Hcheck. }
-      constructor.
-      exact Hnc.
-Qed.
 
 Lemma periodic_job_has_completion_target_ex :
   forall j,
@@ -1351,17 +1405,14 @@ Proof.
   exact (HP j t Hj eq_refl Htarget Hbound).
 Qed.
 
-Theorem check_edf_infinite_cert_ex_sound :
-  forall c,
-    check_edf_infinite_cert_ex c = true ->
-    generated_edf_backlog_free_before_release_ex.
+Lemma generated_edf_backlog_free_before_release_ex_from_completion_targets :
+  generated_edf_backlog_free_before_release_ex.
 Proof.
-  intros c Hcheck j Hj.
+  intros j Hj.
   eapply periodic_edf_backlog_free_before_release_of_earlier_completion.
   - apply generated_periodic_edf_schedule_upto_valid_ex.
   - exact Hj.
   - intros y Hy Hyrel.
-    set (ty := cert_completion_target_time_ex c y).
     assert (Hpy :
       periodic_jobset T_ex tasks_ex offset_ex jobs_ex y).
     {
@@ -1375,11 +1426,7 @@ Proof.
              T_ex tasks_ex offset_ex jobs_ex 0
              (job_abs_deadline (jobs_ex j)) y Hy).
     }
-    assert (Hty : completion_target_ex y ty).
-    {
-      unfold ty.
-      eapply cert_completion_target_time_ex_sound; eauto.
-    }
+    destruct (periodic_job_has_completion_target_ex y Hpy) as [ty Hty].
     assert (Hty_le :
       ty <= job_release (jobs_ex j)).
     {
@@ -1401,6 +1448,19 @@ Proof.
       (completed_at_completion_target_ex
          (S (job_abs_deadline (jobs_ex j))) y ty Hpy Hty Hty_lt_H) as Hdone.
     eapply completed_monotone; eauto.
+Qed.
+
+Theorem check_edf_infinite_cert_ex_sound :
+  forall c,
+    check_edf_infinite_cert_ex c = true ->
+    generated_edf_backlog_free_before_release_ex.
+Proof.
+  intros c Hcheck.
+  pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
+    as [Hshape [Hslots [Hedf [Hservice [Hbacklog Hlasso]]]]].
+  pose proof (check_prefix_shape_ex_fields _ Hshape) as [_ Hlen].
+  pose proof (check_periodic_lasso_ex_fields _ Hlasso) as [_ [_ _]].
+  exact generated_edf_backlog_free_before_release_ex_from_completion_targets.
 Qed.
 
 Lemma generated_edf_backlog_free_before_release_ex_proved :
@@ -1513,5 +1573,5 @@ Extraction Language Haskell.
 
 Extraction "/scheduling_theory/extracted/haskell/EDFInfiniteCertificateChecker.hs"
   check_edf_infinite_cert_ex
-  cert_completion_target_time_ex
+  certified_prefix_schedule_ex
   cert_ex.
