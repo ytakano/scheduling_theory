@@ -26,8 +26,10 @@ tutorial file の compile を先へ進めることである。
 - current principal blocker は
   `certified_service_prefix_ex_data_agrees_generated` である。
 - ただし blocker は proof 全体ではなく、
- いまはその補題内の `Some j'` 分岐で、
- 右辺に残る `sched_upto_ex` の展開形を `Hsched` で十分に潰せていない点に局所化されている。
+ いまはその補題内の `Some j'` / `j = j'` 分岐に局所化されている。
+- `change` / `replace` で `service_job` の RHS 1-step 形を固定する方針は試したが、
+  final goal には依然として concrete `sched_upto_ex` 展開
+  (`match t with 0 | 1 | 5 | ...`) が残る。
 
 ## Stable Decisions
 
@@ -67,21 +69,22 @@ Lemma certified_service_prefix_ex_data_agrees_generated :
 - `Nat.eqb_sym` rewrite failure と単純な `lia` failure は解消した。
 - いまの failure は
   `Tutorials/EDFInfiniteSchedulability.v`
-  line 953 付近の
+  line 958 付近の
   `Some j'` / `j = j'` 分岐で、
-  `Hsched : sched_upto_ex 38 t 0 = Some j'` を持っていても
-  右辺に残る `sched_upto_ex` の具体展開を refold/rewrite し切れていないことにある。
+  subproof では
+  `replace (service_job 1 (sched_upto_ex 38) j' (S t)) with (S (...))`
+  を閉じられるが、
+  その後の main goal で右辺に concrete `sched_upto_ex` 展開が残り、
+  `S (service_job ...)` と一致しないことにある。
 
 次に試すべき既定方針:
 
 - `generated_prefix_slot_ex` を使う帰納 proof は維持する。
-- 次の修正は局所的に行う。
-  既定では `service_job 1 (sched_upto_ex 38) j (S t)` の 1-step 展開を
-  `simpl` に任せず、
-  `change` か `replace` で
-  `cpu_count 1 (sched_upto_ex 38) j t + service_job 1 (sched_upto_ex 38) j t`
-  の形へ固定した上で `Hsched` を書き換える。
-- `sched_upto_ex` を具体展開した巨大 `match t with ...` を直接相手にする方針は採らない。
+- 次は `service_job` の RHS を branch ごとに固定するのではなく、
+  main goal 側に残る concrete schedule match を明示的に再束縛する
+  (`remember`, `set`, `change`, `pattern`, あるいは branch-local helper lemma) 方針を取る。
+- 少なくとも現状の `rewrite generated_prefix_slot_ex` だけでは、
+  final goal の concrete `sched_upto_ex` 展開を十分に吸収できない。
 - theorem statement や周辺補題は変えない。
 
 変えないもの:
@@ -95,8 +98,8 @@ Lemma certified_service_prefix_ex_data_agrees_generated :
 
 1. `certified_service_prefix_ex_data_agrees_generated` 内の
    `Some j'` / `j = j'` 分岐で、
-   右辺の `sched_upto_ex` 展開を `change` / `replace` で再束縛してから
-   `Hsched` を使える形に直す。
+   final goal に残る concrete `sched_upto_ex` 展開全体を再束縛し、
+   `service_job` の 1-step 形と同じ surface syntax に合わせる。
 2. 修復後に tutorial compile を再実行する。
 3. 新しい failure point をこのファイルへ追記する。
 
@@ -130,5 +133,6 @@ timeout 180s docker exec docker-scheduling_theory-1 zsh -lc \
   proof shape を bridge 側に揃えることで解消した。
 - `certified_service_prefix_ex_data_agrees_generated` は旧帰納形へ戻した。
 - `rewrite Nat.eqb_sym` failure は解消した。
-- `Nat.eqb` split だけでは不十分で、principal blocker は
-  同補題内の `Some j'` / `j = j'` 分岐での `sched_upto_ex` 展開の残留に移った。
+- `change` / `replace` で `service_job` の RHS 1-step 形を固定する方針も試した。
+- それでも principal blocker は同補題内の
+  `Some j'` / `j = j'` 分岐での concrete `sched_upto_ex` 展開残りにある。

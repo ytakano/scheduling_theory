@@ -944,21 +944,33 @@ Proof.
   intros j t Ht.
   induction t as [|t IH].
   - reflexivity.
-  - simpl.
+  - cbn [certified_service_prefix_ex].
     rewrite IH by lia.
     destruct (nth t cert_slots_ex_data None) as [j'|] eqn:Hslot.
-    + assert (Hsched : sched_upto_ex 38 t 0 = Some j').
-      { rewrite generated_prefix_slot_ex by lia. exact Hslot. }
-      destruct (Nat.eq_dec j j') as [->|Hneq].
-      * simpl. fold (sched_upto_ex 38 t 0). unfold runs_on. rewrite Hsched. simpl.
-        rewrite Nat.add_comm. reflexivity.
-      * simpl. fold (sched_upto_ex 38 t 0). unfold runs_on. rewrite Hsched.
-        apply Nat.eqb_neq in Hneq. rewrite Hneq.
-        rewrite Nat.add_comm. reflexivity.
-    + assert (Hsched : sched_upto_ex 38 t 0 = None).
-      { rewrite generated_prefix_slot_ex by lia. exact Hslot. }
-      simpl. fold (sched_upto_ex 38 t 0). unfold runs_on. rewrite Hsched. simpl.
-      rewrite Nat.add_comm. reflexivity.
+    + destruct (Nat.eq_dec j j') as [->|Hneq].
+      * replace (service_job 1 (sched_upto_ex 38) j' (S t))
+          with (S (service_job 1 (sched_upto_ex 38) j' t)).
+        2:{
+          cbn [service_job cpu_count]. unfold runs_on.
+          rewrite generated_prefix_slot_ex by lia. rewrite Hslot. simpl.
+          rewrite Nat.eqb_refl. reflexivity.
+        }
+        simpl. rewrite Nat.add_comm. reflexivity.
+      * replace (service_job 1 (sched_upto_ex 38) j (S t))
+          with (service_job 1 (sched_upto_ex 38) j t).
+        2:{
+          cbn [service_job cpu_count]. unfold runs_on.
+          rewrite generated_prefix_slot_ex by lia. rewrite Hslot. simpl.
+          apply Nat.eqb_neq in Hneq. rewrite Hneq. reflexivity.
+        }
+        simpl. reflexivity.
+    + replace (service_job 1 (sched_upto_ex 38) j (S t))
+        with (service_job 1 (sched_upto_ex 38) j t).
+      2:{
+        cbn [service_job cpu_count]. unfold runs_on.
+        rewrite generated_prefix_slot_ex by lia. rewrite Hslot. reflexivity.
+      }
+      simpl. reflexivity.
 Qed.
 
 Lemma certified_completed_by_ex_data_generated_sound :
