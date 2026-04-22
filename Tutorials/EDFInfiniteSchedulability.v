@@ -825,6 +825,268 @@ Proof.
   exact Hcheck.
 Qed.
 
+Lemma generated_prefix_slot_ex :
+  forall t,
+    t < 38 ->
+    sched_upto_ex 38 t 0 = nth t cert_slots_ex_data None.
+Proof.
+  intros t Hlt.
+  do 38 (
+    destruct t as [|t];
+    [vm_compute; reflexivity|]
+  ).
+  lia.
+Qed.
+
+Lemma check_prefix_slots_match_ex_generated_sound :
+  forall p t,
+    check_prefix_slots_match_ex p = true ->
+    t < 38 ->
+    nth t p.(cert_slots_ex) None = sched_upto_ex 38 t 0.
+Proof.
+  intros p t Hcheck Hlt.
+  rewrite check_prefix_slots_match_ex_sound with (p := p) by assumption.
+  symmetry.
+  apply generated_prefix_slot_ex.
+  exact Hlt.
+Qed.
+
+Lemma certified_prefix_schedule_agrees_ex :
+  forall c t,
+    check_edf_infinite_cert_ex c = true ->
+    t < 38 ->
+    certified_prefix_schedule_ex c.(cert_prefix_ex) t 0 =
+    sched_upto_ex 38 t 0.
+Proof.
+  intros c t Hcheck Hlt.
+  pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
+    as [_ [Hslots [_ [_ [_ _]]]]].
+  rewrite certified_prefix_schedule_ex_cpu0.
+  eapply check_prefix_slots_match_ex_generated_sound; eauto.
+Qed.
+
+Lemma sched_upto_ex_prefix_agrees_38_at :
+  forall H t c,
+    t < H ->
+    H <= 38 ->
+    sched_upto_ex H t c = sched_upto_ex 38 t c.
+Proof.
+  intros H t c Hlt Hle.
+  pose proof
+    (infinite_generated_edf_prefix_coherence
+       T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex
+       tasks_ex_well_formed enumT_ex_complete enumT_ex_sound H)
+    as HagreeH.
+  pose proof
+    (infinite_generated_edf_prefix_coherence
+       T_ex tasks_ex offset_ex jobs_ex enumT_ex codec_ex
+       tasks_ex_well_formed enumT_ex_complete enumT_ex_sound 38)
+    as Hagree38.
+  rewrite (HagreeH t c Hlt).
+  symmetry.
+  apply Hagree38.
+  lia.
+Qed.
+
+Lemma sched_upto_ex_agrees_before_38 :
+  forall H,
+    H <= 38 ->
+    agrees_before (sched_upto_ex H) (sched_upto_ex 38) H.
+Proof.
+  intros H Hle t c Hlt.
+  apply sched_upto_ex_prefix_agrees_38_at; lia.
+Qed.
+
+Lemma certified_service_prefix_ex_agrees_generated :
+  forall c j t,
+    check_edf_infinite_cert_ex c = true ->
+    t <= 38 ->
+    certified_service_prefix_ex c.(cert_prefix_ex).(cert_slots_ex) j t =
+    service_job 1 (sched_upto_ex 38) j t.
+Proof.
+  intros c j t Hcheck Ht.
+  induction t as [|t IH].
+  - reflexivity.
+  - simpl.
+    rewrite IH by lia.
+    unfold runs_on.
+    simpl.
+    rewrite (certified_prefix_schedule_agrees_ex c t Hcheck) by lia.
+    destruct (sched_upto_ex 38 t 0) as [j'|] eqn:Hsched; simpl.
+    + rewrite Nat.eqb_sym.
+      lia.
+    + lia.
+Qed.
+
+Lemma check_prefix_service_ex_sound :
+  forall p j,
+    check_prefix_service_ex p = true ->
+    In j cert_base_jobs_ex ->
+    certified_completed_by_ex
+      p.(cert_slots_ex) j (S (job_abs_deadline (jobs_ex j))) = true.
+Proof.
+  intros p j Hcheck Hin.
+  unfold check_prefix_service_ex in Hcheck.
+  apply forallb_forall with (x := j) in Hcheck; [exact Hcheck|exact Hin].
+Qed.
+
+Lemma check_prefix_backlog_free_at_releases_ex_sound :
+  forall p j y,
+    check_prefix_backlog_free_at_releases_ex p = true ->
+    In j cert_base_jobs_ex ->
+    In y cert_base_jobs_ex ->
+    job_release (jobs_ex y) < job_release (jobs_ex j) ->
+    certified_completed_by_ex
+      p.(cert_slots_ex) y (job_release (jobs_ex j)) = true.
+Proof.
+  intros p j y Hcheck Hj Hy Hrel.
+  unfold check_prefix_backlog_free_at_releases_ex in Hcheck.
+  apply forallb_forall with (x := j) in Hcheck; [|exact Hj].
+  apply forallb_forall with (x := y) in Hcheck; [|exact Hy].
+  rewrite Nat.ltb_lt in Hrel.
+  rewrite Hrel in Hcheck.
+  exact Hcheck.
+Qed.
+
+Lemma cert_base_jobs_ex_contains_task0 :
+  forall k,
+    k <= 7 ->
+    In (job_id_of_ex 0 k) cert_base_jobs_ex.
+Proof.
+  intros k Hk.
+  destruct k as [|[|[|[|[|[|[|[|k]]]]]]]]; simpl; auto; lia.
+Qed.
+
+Lemma cert_base_jobs_ex_contains_task1 :
+  forall k,
+    k <= 5 ->
+    In (job_id_of_ex 1 k) cert_base_jobs_ex.
+Proof.
+  intros k Hk.
+  destruct k as [|[|[|[|[|[|k]]]]]]; simpl; auto; lia.
+Qed.
+
+Lemma periodic_jobset_ex_deadline_lt_38_in_cert_base_jobs :
+  forall j,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    job_abs_deadline (jobs_ex j) < 38 ->
+    In j cert_base_jobs_ex.
+Proof.
+  intros j Hj Hdl.
+  pose proof (periodic_jobset_ex_normalize j Hj) as Hnorm.
+  destruct Hnorm as [[k ->] | [k ->]].
+  - apply cert_base_jobs_ex_contains_task0.
+    rewrite (job_deadline_of_task0_ex (job_id_of_ex 0 k) k eq_refl) in Hdl.
+    lia.
+  - apply cert_base_jobs_ex_contains_task1.
+    rewrite (job_deadline_of_task1_ex (job_id_of_ex 1 k) k eq_refl) in Hdl.
+    lia.
+Qed.
+
+Lemma certified_completed_by_ex_generated_sound :
+  forall c j t,
+    check_edf_infinite_cert_ex c = true ->
+    t <= 38 ->
+    certified_completed_by_ex c.(cert_prefix_ex).(cert_slots_ex) j t = true ->
+    completed jobs_ex 1 (sched_upto_ex 38) j t.
+Proof.
+  intros c j t Hcheck Ht Hcert.
+  unfold certified_completed_by_ex in Hcert.
+  unfold completed.
+  apply Nat.leb_le in Hcert.
+  rewrite <- (certified_service_prefix_ex_agrees_generated c j t Hcheck Ht).
+  exact Hcert.
+Qed.
+
+Lemma generated_edf_backlog_free_before_release_ex_from_certified_prefix_first_period :
+  forall c j,
+    check_edf_infinite_cert_ex c = true ->
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    job_abs_deadline (jobs_ex j) < 38 ->
+    periodic_edf_backlog_free_before_release
+      T_ex tasks_ex offset_ex jobs_ex
+      (S (job_abs_deadline (jobs_ex j)))
+      (sched_upto_ex (S (job_abs_deadline (jobs_ex j))))
+      j.
+Proof.
+  intros c j Hcheck Hj Hdl_j.
+  eapply periodic_edf_backlog_free_before_release_of_earlier_completion.
+  - apply generated_periodic_edf_schedule_upto_valid_ex.
+  - exact Hj.
+  - intros y Hy Hyrel.
+    pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
+      as [_ [_ [_ [_ [Hbacklog _]]]]].
+    assert (Hj_base : In j cert_base_jobs_ex).
+    {
+      apply periodic_jobset_ex_deadline_lt_38_in_cert_base_jobs; assumption.
+    }
+    assert (Hpy :
+      periodic_jobset T_ex tasks_ex offset_ex jobs_ex y).
+    {
+      split.
+      - exact
+          (periodic_jobset_deadline_between_implies_task_in_scope
+             T_ex tasks_ex offset_ex jobs_ex 0
+             (job_abs_deadline (jobs_ex j)) y Hy).
+      - exact
+          (periodic_jobset_deadline_between_implies_generated
+             T_ex tasks_ex offset_ex jobs_ex 0
+             (job_abs_deadline (jobs_ex j)) y Hy).
+    }
+    assert (Hdl_y :
+      job_abs_deadline (jobs_ex y) < 38).
+    {
+      pose proof
+        (periodic_jobset_deadline_between_implies_deadline_le
+           T_ex tasks_ex offset_ex jobs_ex 0
+           (job_abs_deadline (jobs_ex j)) y Hy) as Hle.
+      lia.
+    }
+    assert (Hy_base : In y cert_base_jobs_ex).
+    {
+      apply periodic_jobset_ex_deadline_lt_38_in_cert_base_jobs; assumption.
+    }
+    pose proof
+      (check_prefix_backlog_free_at_releases_ex_sound
+         c.(cert_prefix_ex) j y Hbacklog Hj_base Hy_base Hyrel) as Hcert_done.
+    assert (Hrel_bound : job_release (jobs_ex j) <= 38).
+    {
+      pose proof (periodic_jobset_ex_normalize j Hj) as Hjnorm.
+      destruct Hjnorm as [[k ->] | [k ->]].
+      - rewrite (job_deadline_of_task0_ex (job_id_of_ex 0 k) k eq_refl) in Hdl_j.
+        rewrite (job_release_of_task0_ex (job_id_of_ex 0 k) k eq_refl).
+        lia.
+      - rewrite (job_deadline_of_task1_ex (job_id_of_ex 1 k) k eq_refl) in Hdl_j.
+        rewrite (job_release_of_task1_ex (job_id_of_ex 1 k) k eq_refl).
+        lia.
+    }
+    assert (Hdone38 :
+      completed jobs_ex 1 (sched_upto_ex 38) y (job_release (jobs_ex j))).
+    {
+      eapply certified_completed_by_ex_generated_sound; eauto.
+    }
+    assert (Hagree :
+      agrees_before
+        (sched_upto_ex (S (job_abs_deadline (jobs_ex j))))
+        (sched_upto_ex 38)
+        (job_release (jobs_ex j))).
+    {
+      eapply agrees_before_weaken.
+      - lia.
+      - apply sched_upto_ex_agrees_before_38.
+        lia.
+    }
+    pose proof
+      (proj2
+         (agrees_before_completed
+            jobs_ex 1
+            (sched_upto_ex (S (job_abs_deadline (jobs_ex j))))
+            (sched_upto_ex 38)
+            y (job_release (jobs_ex j)) Hagree)
+         Hdone38) as Hdone.
+    exact Hdone.
+Qed.
+
 Lemma task0_completed_if_scheduled_at_release_ex :
   forall H k,
     5 * k + 1 < H ->
@@ -1455,12 +1717,13 @@ Theorem check_edf_infinite_cert_ex_sound :
     check_edf_infinite_cert_ex c = true ->
     generated_edf_backlog_free_before_release_ex.
 Proof.
-  intros c Hcheck.
-  pose proof (check_edf_infinite_cert_ex_fields c Hcheck)
-    as [Hshape [Hslots [Hedf [Hservice [Hbacklog Hlasso]]]]].
-  pose proof (check_prefix_shape_ex_fields _ Hshape) as [_ Hlen].
-  pose proof (check_periodic_lasso_ex_fields _ Hlasso) as [_ [_ _]].
-  exact generated_edf_backlog_free_before_release_ex_from_completion_targets.
+  intros c Hcheck j Hj.
+  destruct (Nat.lt_ge_cases (job_abs_deadline (jobs_ex j)) 38) as [Hdl | Hdl].
+  - eapply generated_edf_backlog_free_before_release_ex_from_certified_prefix_first_period.
+    + exact Hcheck.
+    + exact Hj.
+    + exact Hdl.
+  - exact (generated_edf_backlog_free_before_release_ex_from_completion_targets j Hj).
 Qed.
 
 Lemma generated_edf_backlog_free_before_release_ex_proved :

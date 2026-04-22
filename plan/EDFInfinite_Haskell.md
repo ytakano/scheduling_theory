@@ -370,3 +370,58 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 - `cert_slots_ex_data` と `generated_periodic_edf_schedule_upto ... 38` の一致を閉じる lightweight lemma 群を追加する。
 - `generated_edf_backlog_free_before_release_ex_from_completion_targets` の依存を、completion-target 帰納証明から certified prefix service / release backlog checker へ段階的に置き換える。
 - その後で Haskell 側の `.v` 証明証生成器を作る。
+
+## 2026-04-22 Progress (Slot soundness task)
+
+### 追加したもの
+
+- `generated_prefix_slot_ex`
+- `check_prefix_slots_match_ex_generated_sound`
+- `certified_prefix_schedule_agrees_ex`
+
+これにより、checker の slot 一致仮定から generated EDF prefix への橋を tutorial 内で明示する形にはした。
+
+### 現時点の状態
+
+- `check_edf_infinite_cert_ex_sound` は now slot-agreement bridge を明示的に通る。
+- heavy backlog proof core は依然として
+  `generated_edf_backlog_free_before_release_ex_from_completion_targets`
+  に残っている。
+
+### 残課題
+
+- `generated_prefix_slot_ex` は現時点では `vm_compute` ベースの有限 case split で閉じており、Docker 上での再コンパイル完走確認が重い。
+- 必要なら次は、この補題を release-slot / collision-slot / idle-slot の分割補題に置き換えて、計算依存を下げる。
+- その後で、completion-target 帰納証明の依存を certified prefix service 側へ寄せる。
+
+## 2026-04-22 Progress (Certified prefix backlog split)
+
+### 追加したもの
+
+- `sched_upto_ex_prefix_agrees_38_at`
+- `sched_upto_ex_agrees_before_38`
+- `certified_service_prefix_ex_agrees_generated`
+- `check_prefix_service_ex_sound`
+- `check_prefix_backlog_free_at_releases_ex_sound`
+- `periodic_jobset_ex_deadline_lt_38_in_cert_base_jobs`
+- `certified_completed_by_ex_generated_sound`
+- `generated_edf_backlog_free_before_release_ex_from_certified_prefix_first_period`
+
+### 今回の意味
+
+- checker から extracted した prefix service / release-backlog fact を、generated EDF prefix の completion fact に戻す tutorial-local bridge が入った。
+- `check_edf_infinite_cert_ex_sound` は、少なくとも first-period job については completion-target core を経由せず、certificate 由来の backlog-free proof を使う。
+- `agrees_before` を使って `sched_upto_ex 38` 上の certified completion を、各 job ごとの horizon `S (job_abs_deadline ...)` へ戻す形にした。
+
+### まだ残っているもの
+
+- infinite-time 全域では、`check_edf_infinite_cert_ex_sound` は first-period を越える job に対してまだ
+  `generated_edf_backlog_free_before_release_ex_from_completion_targets`
+  に fallback している。
+- つまり completion-target core は最終的には legacy 化できていない。今は proof split を first-period / later-period に切った段階である。
+- `generated_prefix_slot_ex` の compute-heavy 性質も未解決のまま残っている。
+
+### 次の作業
+
+- periodic/lasso field から later-period job を first-period certificate fact へ移送する tutorial-local periodicity lemma を入れる。
+- その移送が入ったら、`check_edf_infinite_cert_ex_sound` の fallback を削除し、completion-target core を legacy 補題へ落とす。
