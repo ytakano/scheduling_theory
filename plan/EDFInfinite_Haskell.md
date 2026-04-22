@@ -425,3 +425,37 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 
 - periodic/lasso field から later-period job を first-period certificate fact へ移送する tutorial-local periodicity lemma を入れる。
 - その移送が入ったら、`check_edf_infinite_cert_ex_sound` の fallback を削除し、completion-target core を legacy 補題へ落とす。
+
+## 2026-04-22 Progress (Later-period normalization task)
+
+### 追加したもの
+
+- task 0 / task 1 の index を cert shift 単位で分解する補題
+  - `task0_index_decompose_by_cert_shift_ex`
+  - `task1_index_decompose_by_cert_shift_ex`
+- one-period shift に対する release / deadline 算術補題
+  - `job_release_of_task0_period_shift_ex`
+  - `job_release_of_task1_period_shift_ex`
+  - `job_deadline_of_task0_period_shift_ex`
+  - `job_deadline_of_task1_period_shift_ex`
+- 任意 periodic job を cert base representative へ正規化する補題
+  - `periodic_jobset_ex_normalize_to_cert_base_job`
+
+### 今回の意味
+
+- later-period job を「base representative + q periods」の形へ落とす tutorial-local arithmetic boundaryができた。
+- `check_periodic_lasso_ex` の field が、単なる constant check ではなく、後続の period-shift proof が参照する値として使える形になった。
+- 重い `vm_compute` 箇所は一時的に `Admitted.` へ退避できる切り分けが済んだ。
+
+### まだ残っているもの
+
+- `check_edf_infinite_cert_ex_sound` から later-period fallback を消すには、generated EDF schedule 上で completion / backlog fact を `+35*q` だけ移送する補題がまだ必要である。
+- 現状の library には、そのまま使える generated-schedule periodicity lemma が無く、tutorial-local に recurrence bridge を追加する必要がある。
+- `periodic_classical_dbf_test_by_cutoff_ex`、`cert_ex_ok`、`generated_prefix_slot_ex` の `Admitted.` は将来的に削除予定の暫定措置であり、軽量な計算証明または構造補題へ戻す必要がある。
+
+### 次の作業
+
+- generated EDF schedule の `35` 周期 recurrence を tutorial-local に明示する。
+- その recurrence を使って first-period certified backlog theorem を later-period representative へ持ち上げる。
+- その後で `check_edf_infinite_cert_ex_sound` の legacy fallback を削除する。
+- 上記が終わった段階で、暫定 `Admitted.` を軽量な恒久証明へ置き換える。
