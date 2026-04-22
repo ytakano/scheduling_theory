@@ -3252,8 +3252,9 @@ Qed.
 Lemma generated_edf_backlog_free_before_release_ex_proved :
   generated_edf_backlog_free_before_release_ex.
 Proof.
-  eapply check_edf_infinite_cert_ex_sound.
-  exact cert_ex_ok.
+  exact
+    (generated_edf_backlog_free_before_release_ex_from_certified_prefix_and_lasso
+       cert_ex cert_ex_ok).
 Qed.
 
 Section TutorialClassicalProof.

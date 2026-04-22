@@ -1066,3 +1066,36 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 2. generic transport witness から tutorial-local lasso bridge を直接回収する adapter theorem を作る。
 3. その後で old local certificate/checker schema と
    `vm_compute`-heavy support theorem 群を proof core から retire する。
+
+## 2026-04-23 Progress (Final theorem path no longer goes through the legacy checker theorem)
+
+### 変更したもの
+
+- `generated_edf_backlog_free_before_release_ex_proved` は
+  `check_edf_infinite_cert_ex_sound` を経由しないようにした。
+- final backlog-free theorem は now
+  `generated_edf_backlog_free_before_release_ex_from_certified_prefix_and_lasso cert_ex cert_ex_ok`
+  を直接使う。
+
+### 今回の意味
+
+- tutorial の final theorem path から、legacy checker theorem
+  `check_edf_infinite_cert_ex_sound` への依存は外れた。
+- imported generated Rocq certificate が source-of-truth になった状態で、
+  final theorem path は legacy checker theorem ではなく
+  legacy prefix/lasso adapter theorem を直接使う段階まで整理できた。
+
+### まだ残っているもの
+
+- final path は still
+  `generated_edf_backlog_free_before_release_ex_from_certified_prefix_and_lasso`
+  に依存している。
+- したがって generic semantic soundness から tutorial-local lasso bridge を
+  直接回収する adapter theorem はまだ未実装である。
+
+### 次の作業
+
+1. `generated_edf_backlog_free_before_release_ex_from_certified_prefix_and_lasso`
+   を generic imported-certificate path から置き換える。
+2. その後で old local checker theorem / schema / compute-heavy support lemma 群を
+   proof core から retire する。
