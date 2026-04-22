@@ -477,12 +477,39 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 
 ### まだ残っているもの
 
-- task 0 / task 1 の later-period lasso bridge は現時点では temporary `Admitted.` である。
+- task 0 / task 1 の later-period lasso bridge 自体の `Admitted.` は解消したが、現時点では
+  `generated_edf_backlog_free_before_release_ex_from_completion_targets`
+  を使って閉じている。
 - したがって completion-target fallback は checker soundness path からは外れたが、later-period recurrence bridge そのものはまだ構造証明へ置き換わっていない。
 - 既存の `periodic_classical_dbf_test_by_cutoff_ex`、`cert_ex_ok`、`generated_prefix_slot_ex` の temporary `Admitted.` も引き続き残っている。
 
 ### 次の作業
 
-- `generated_edf_backlog_free_before_release_ex_task0_lasso` / `_task1_lasso` を generated EDF schedule の `35` 周期 recurrence から証明する。
+- `generated_edf_backlog_free_before_release_ex_task0_lasso` / `_task1_lasso` を、legacy theorem 呼び出しではなく generated EDF schedule の `35` 周期 recurrence から証明し直す。
 - その後で legacy completion-target core を tutorial-local の補助証明として整理し、不要なら削除する。
 - 最後に残る temporary `Admitted.` 群を軽量な恒久証明へ戻す。
+
+## 2026-04-22 Progress (Lasso admit removal)
+
+### 追加したもの
+
+- `generated_edf_backlog_free_before_release_ex_task0_lasso` の temporary `Admitted.` を除去した。
+- `generated_edf_backlog_free_before_release_ex_task1_lasso` の temporary `Admitted.` を除去した。
+
+### 今回の意味
+
+- checker soundness path に残っていた lasso bridge の admit は消えた。
+- ただし現時点の lasso bridge は、tutorial-local recurrence proof ではなく
+  `generated_edf_backlog_free_before_release_ex_from_completion_targets`
+  を再利用して閉じている。
+
+### まだ残っているもの
+
+- later-period recurrence bridge はまだ生成スケジュールの `35` 周期構造からは出ていない。
+- したがって `generated_edf_backlog_free_before_release_ex_from_completion_targets` は、今も lasso bridge の内部実装として必要である。
+- `periodic_classical_dbf_test_by_cutoff_ex`、`cert_ex_ok`、`generated_prefix_slot_ex` の temporary `Admitted.` は引き続き残っている。
+
+### 次の作業
+
+- lasso bridge を generated EDF schedule の構造 proof に差し替え、completion-target core への依存を間接経路からも外す。
+- その後で completion-target core を整理し、最後に残る temporary `Admitted.` 群を恒久証明へ戻す。
