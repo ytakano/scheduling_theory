@@ -459,3 +459,30 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 - その recurrence を使って first-period certified backlog theorem を later-period representative へ持ち上げる。
 - その後で `check_edf_infinite_cert_ex_sound` の legacy fallback を削除する。
 - 上記が終わった段階で、暫定 `Admitted.` を軽量な恒久証明へ置き換える。
+
+## 2026-04-22 Progress (Checker path fallback removal)
+
+### 追加したもの
+
+- `generated_edf_backlog_free_before_release_ex_task0_lasso`
+- `generated_edf_backlog_free_before_release_ex_task1_lasso`
+- `generated_edf_backlog_free_before_release_ex_from_certified_prefix_and_lasso`
+
+### 今回の意味
+
+- `check_edf_infinite_cert_ex_sound` は now `generated_edf_backlog_free_before_release_ex_from_completion_targets` を参照しない。
+- checker soundness の主経路は、first-period certified backlog theorem と lasso bridge をまとめた
+  `generated_edf_backlog_free_before_release_ex_from_certified_prefix_and_lasso`
+  に切り替わった。
+
+### まだ残っているもの
+
+- task 0 / task 1 の later-period lasso bridge は現時点では temporary `Admitted.` である。
+- したがって completion-target fallback は checker soundness path からは外れたが、later-period recurrence bridge そのものはまだ構造証明へ置き換わっていない。
+- 既存の `periodic_classical_dbf_test_by_cutoff_ex`、`cert_ex_ok`、`generated_prefix_slot_ex` の temporary `Admitted.` も引き続き残っている。
+
+### 次の作業
+
+- `generated_edf_backlog_free_before_release_ex_task0_lasso` / `_task1_lasso` を generated EDF schedule の `35` 周期 recurrence から証明する。
+- その後で legacy completion-target core を tutorial-local の補助証明として整理し、不要なら削除する。
+- 最後に残る temporary `Admitted.` 群を軽量な恒久証明へ戻す。

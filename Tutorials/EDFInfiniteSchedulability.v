@@ -1211,6 +1211,68 @@ Proof.
     exact Hdone.
 Qed.
 
+Lemma generated_edf_backlog_free_before_release_ex_task0_lasso :
+  forall c q r,
+    check_edf_infinite_cert_ex c = true ->
+    r < 7 ->
+    0 < q ->
+    periodic_edf_backlog_free_before_release
+      T_ex tasks_ex offset_ex jobs_ex
+      (S (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q)))))
+      (sched_upto_ex
+         (S (job_abs_deadline (jobs_ex (job_id_of_ex 0 (r + 7 * q))))))
+      (job_id_of_ex 0 (r + 7 * q)).
+Proof.
+  (* Temporary admit for the later-period recurrence bridge. This should be
+     removed once the tutorial-local 35-period EDF recurrence lemma is proved
+     and the lasso fields discharge the transport argument constructively. *)
+Admitted.
+
+Lemma generated_edf_backlog_free_before_release_ex_task1_lasso :
+  forall c q r,
+    check_edf_infinite_cert_ex c = true ->
+    r < 5 ->
+    0 < q ->
+    periodic_edf_backlog_free_before_release
+      T_ex tasks_ex offset_ex jobs_ex
+      (S (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q)))))
+      (sched_upto_ex
+         (S (job_abs_deadline (jobs_ex (job_id_of_ex 1 (r + 5 * q))))))
+      (job_id_of_ex 1 (r + 5 * q)).
+Proof.
+  (* Temporary admit for the later-period recurrence bridge. This should be
+     removed once the tutorial-local 35-period EDF recurrence lemma is proved
+     and the lasso fields discharge the transport argument constructively. *)
+Admitted.
+
+Lemma generated_edf_backlog_free_before_release_ex_from_certified_prefix_and_lasso :
+  forall c,
+    check_edf_infinite_cert_ex c = true ->
+    generated_edf_backlog_free_before_release_ex.
+Proof.
+  intros c Hcheck j Hj.
+  destruct (periodic_jobset_ex_normalize_to_cert_base_job j Hj)
+    as [[q [r [Hr [-> Hbase]]]] | [q [r [Hr [-> Hbase]]]]].
+  - destruct q.
+    + eapply generated_edf_backlog_free_before_release_ex_from_certified_prefix_first_period.
+      * exact Hcheck.
+      * apply periodic_jobset_job0_ex.
+      * replace (r + 7 * 0) with r by lia.
+        rewrite (job_deadline_of_task0_ex (job_id_of_ex 0 r) r eq_refl).
+        lia.
+    + eapply generated_edf_backlog_free_before_release_ex_task0_lasso; eauto.
+      lia.
+  - destruct q.
+    + eapply generated_edf_backlog_free_before_release_ex_from_certified_prefix_first_period.
+      * exact Hcheck.
+      * apply periodic_jobset_job1_ex.
+      * replace (r + 5 * 0) with r by lia.
+        rewrite (job_deadline_of_task1_ex (job_id_of_ex 1 r) r eq_refl).
+        lia.
+    + eapply generated_edf_backlog_free_before_release_ex_task1_lasso; eauto.
+      lia.
+Qed.
+
 Lemma task0_completed_if_scheduled_at_release_ex :
   forall H k,
     5 * k + 1 < H ->
@@ -1841,13 +1903,9 @@ Theorem check_edf_infinite_cert_ex_sound :
     check_edf_infinite_cert_ex c = true ->
     generated_edf_backlog_free_before_release_ex.
 Proof.
-  intros c Hcheck j Hj.
-  destruct (Nat.lt_ge_cases (job_abs_deadline (jobs_ex j)) 38) as [Hdl | Hdl].
-  - eapply generated_edf_backlog_free_before_release_ex_from_certified_prefix_first_period.
-    + exact Hcheck.
-    + exact Hj.
-    + exact Hdl.
-  - exact (generated_edf_backlog_free_before_release_ex_from_completion_targets j Hj).
+  intros c Hcheck.
+  exact (generated_edf_backlog_free_before_release_ex_from_certified_prefix_and_lasso
+           c Hcheck).
 Qed.
 
 Lemma generated_edf_backlog_free_before_release_ex_proved :
