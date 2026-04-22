@@ -1,4 +1,5 @@
 -R theories RocqSched
+-Q Tutorials/Generated Tutorials.Generated
 theories/Abstractions/Scheduler/Interface.v
 theories/Abstractions/Scheduler/Validity.v
 theories/Abstractions/SchedulingAlgorithm/ClassicalLemmas.v
@@ -54,6 +55,7 @@ theories/Examples/RRExamples.v
 theories/Examples/SchedulableExamples.v
 Tutorials/EDFSchedulability.v
 Tutorials/EDFInfiniteSchedulability.v
+Tutorials/Generated/EDFInfiniteSchedulabilityCert_ex.v
 theories/Foundation/Base.v
 theories/Foundation/Arithmetic.v
 theories/Multicore/Common/MultiCoreBase.v

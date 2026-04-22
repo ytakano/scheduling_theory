@@ -16,8 +16,11 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFAnalysisEntryPoints.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFCertificate.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFCertificateSoundness.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFPrefixCoherence.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFInfiniteBridge.
+Require Import Tutorials.Generated.EDFInfiniteSchedulabilityCert_ex.
 
 Import ListNotations.
 
@@ -220,9 +223,9 @@ Definition codec_ex : PeriodicCodec T_ex tasks_ex offset_ex jobs_ex :=
 Example periodic_classical_dbf_test_by_cutoff_ex :
   dbf_test_by_cutoff tasks_ex enumT_ex = true.
 Proof.
-  (* Temporary admit to unblock heavy proof checking; remove once the
-     computable proof is replaced by a lighter permanent argument. *)
-Admitted.
+  vm_compute.
+  reflexivity.
+Qed.
 
 Record EDFPrefixCertEx := {
   cert_horizon_ex : Time;
@@ -241,26 +244,19 @@ Record EDFInfiniteCertEx := {
 }.
 
 Definition cert_slots_ex_data : list (option JobId) :=
-  [ Some 0; Some 1; None; None; None;
-    Some 2; None; Some 3; None; None;
-    Some 4; None; None; None; Some 5;
-    Some 6; None; None; None; None;
-    Some 8; Some 7; None; None; None;
-    Some 10; None; None; Some 9; None;
-    Some 12; None; None; None; None;
-    Some 14; Some 11; None ].
+  cert_ex_prefix_slots_data.
 
 Definition cert_ex : EDFInfiniteCertEx :=
-  {| cert_period_ex := 35;
+  {| cert_period_ex := cert_ex_transport_period_data;
      cert_prefix_ex :=
-       {| cert_horizon_ex := 38;
+       {| cert_horizon_ex := prefix_horizon cert_ex_prefix_generic;
           cert_slots_ex := cert_slots_ex_data |};
-     cert_task0_shift_ex := 7;
-     cert_task1_shift_ex := 5;
-     cert_task0_completion_offsets_ex := [1; 1; 1; 1; 1; 1; 1];
-     cert_task1_completion_offsets_ex := [2; 1; 1; 1; 1];
-     cert_task0_backlog_offsets_ex := [1; 1; 1; 1; 1; 1; 1];
-     cert_task1_backlog_offsets_ex := [2; 1; 1; 1; 1] |}.
+     cert_task0_shift_ex := cert_ex_task0_shift_data;
+     cert_task1_shift_ex := cert_ex_task1_shift_data;
+     cert_task0_completion_offsets_ex := cert_ex_task0_completion_offsets_data;
+     cert_task1_completion_offsets_ex := cert_ex_task1_completion_offsets_data;
+     cert_task0_backlog_offsets_ex := cert_ex_task0_backlog_offsets_data;
+     cert_task1_backlog_offsets_ex := cert_ex_task1_backlog_offsets_data |}.
 
 Definition option_jobid_eqb (x y : option JobId) : bool :=
   match x, y with
@@ -305,13 +301,7 @@ Definition certified_completed_by_ex
   Nat.leb (job_cost (jobs_ex j)) (certified_service_prefix_ex slots j t).
 
 Definition cert_base_jobs_ex : list JobId :=
-  [ job_id_of_ex 0 0; job_id_of_ex 1 0;
-    job_id_of_ex 0 1; job_id_of_ex 1 1;
-    job_id_of_ex 0 2; job_id_of_ex 1 2;
-    job_id_of_ex 0 3; job_id_of_ex 1 3;
-    job_id_of_ex 0 4; job_id_of_ex 1 4;
-    job_id_of_ex 0 5; job_id_of_ex 1 5;
-    job_id_of_ex 0 6; job_id_of_ex 0 7 ].
+  cert_ex_prefix_basis_jobs_data.
 
 Definition check_prefix_service_ex (p : EDFPrefixCertEx) : bool :=
   forallb
@@ -367,9 +357,16 @@ Definition check_edf_infinite_cert_ex (c : EDFInfiniteCertEx) : bool :=
 Lemma cert_ex_ok :
   check_edf_infinite_cert_ex cert_ex = true.
 Proof.
-  (* Temporary admit to unblock heavy checker evaluation; remove once the
-     certificate check is discharged by a lighter permanent proof. *)
-Admitted.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Lemma cert_ex_generic_ok :
+  check_edf_infinite_cert cert_ex_generic = true.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
 
 Lemma option_jobid_eqb_eq :
   forall x y,
@@ -908,14 +905,44 @@ Proof.
   exact Hcheck.
 Qed.
 
+Lemma nth_map_seq :
+  forall (A : Type) (f : nat -> A) start len n d,
+    n < len ->
+    nth n (map f (seq start len)) d = f (start + n).
+Proof.
+  intros A f start len.
+  revert start.
+  induction len as [|len IH]; intros start n d Hlt.
+  - lia.
+  - destruct n as [|n].
+    + cbn [seq map nth].
+      replace (start + 0) with start by lia.
+      reflexivity.
+    + cbn [seq map nth].
+      rewrite (IH (S start) n d) by lia.
+      replace (S start + n) with (start + S n) by lia.
+      reflexivity.
+Qed.
+
+Lemma generated_prefix_slots_ex_data_ok :
+  map (fun t => sched_upto_ex 38 t 0) (seq 0 38) = cert_slots_ex_data.
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
 Lemma generated_prefix_slot_ex :
   forall t,
     t < 38 ->
     sched_upto_ex 38 t 0 = nth t cert_slots_ex_data None.
 Proof.
-  (* Temporary admit to unblock heavy prefix-slot evaluation; remove once the
-     slot agreement is replaced by release/collision/idle structural lemmas. *)
-Admitted.
+  intros t Hlt.
+  pose proof
+    (f_equal (fun l => nth t l None) generated_prefix_slots_ex_data_ok) as Hnth.
+  rewrite nth_map_seq in Hnth by exact Hlt.
+  replace (0 + t) with t in Hnth by lia.
+  exact Hnth.
+Qed.
 
 Lemma check_prefix_slots_match_ex_generated_sound :
   forall p t,
@@ -1190,6 +1217,168 @@ Proof.
   apply Nat.leb_le in Hcert.
   rewrite <- (certified_service_prefix_ex_agrees_generated c j t Hcheck Ht).
   exact Hcert.
+Qed.
+
+Lemma cert_ex_prefix_completed_by_data_sound :
+  forall i j t,
+    nth_error cert_ex_prefix_basis_jobs_data i = Some j ->
+    nth_error cert_ex_prefix_completed_by_data i = Some t ->
+    t = S (job_abs_deadline (jobs_ex j)).
+Proof.
+  intros i j t Hjob Htime.
+  vm_compute in Hjob, Htime.
+  repeat
+    match goal with
+    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
+    end;
+    reflexivity.
+Qed.
+
+Lemma cert_ex_prefix_basis_job_release_le_38 :
+  forall i j,
+    nth_error cert_ex_prefix_basis_jobs_data i = Some j ->
+    job_release (jobs_ex j) <= 38.
+Proof.
+  intros i j Hjob.
+  vm_compute in Hjob.
+  repeat
+    match goal with
+    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
+    end;
+    lia.
+Qed.
+
+Lemma cert_ex_prefix_backlog_matrix_release_lt :
+  forall i row j ji jj,
+    nth_error cert_ex_prefix_backlog_matrix_data i = Some row ->
+    nth_error row j = Some true ->
+    nth_error cert_ex_prefix_basis_jobs_data i = Some ji ->
+    nth_error cert_ex_prefix_basis_jobs_data j = Some jj ->
+    job_release (jobs_ex jj) < job_release (jobs_ex ji).
+Proof.
+  intros i row j ji jj Hrow Hcell Hji Hjj.
+  vm_compute in Hrow, Hcell, Hji, Hjj.
+  repeat
+    match goal with
+    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
+    end;
+    lia.
+Qed.
+
+Definition cert_ex_transport_witness
+    (j : JobId) (cls : EDFTransportClass JobId) (shift : nat) : Prop :=
+  shift = 0 /\ transport_rep_job cls = j.
+
+Lemma cert_ex_transport_lookup_sound :
+  forall i j class_id shift cls,
+    nth_error cert_ex_transport_job_class_data i = Some class_id ->
+    nth_error cert_ex_transport_job_shift_data i = Some shift ->
+    nth_error cert_ex_prefix_basis_jobs_data i = Some j ->
+    nth_error cert_ex_transport_classes_data class_id = Some cls ->
+    cert_ex_transport_witness j cls shift.
+Proof.
+  intros i j class_id shift cls Hclass Hshift Hjob Hcls.
+  unfold cert_ex_transport_witness.
+  vm_compute in Hclass, Hshift, Hjob, Hcls.
+  repeat
+    match goal with
+    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
+    end.
+  repeat split; reflexivity.
+Qed.
+
+Definition cert_ex_dbf_holds (t : Time) : Prop :=
+  taskset_periodic_dbf tasks_ex enumT_ex t <= t.
+
+Lemma cert_ex_prefix_semantics :
+  EDFPrefixCertSemantics jobs_ex cert_ex_prefix_generic (sched_upto_ex 38).
+Proof.
+  constructor.
+  - intros t Hlt.
+    unfold cert_ex_prefix_generic.
+    simpl.
+    apply generated_prefix_slot_ex.
+    exact Hlt.
+  - intros i j t Hjob Htime.
+    pose proof (check_edf_infinite_cert_ex_fields cert_ex cert_ex_ok)
+      as [_ [_ [_ [Hservice [_ _]]]]].
+    pose proof (cert_ex_prefix_completed_by_data_sound i j t Hjob Htime) as ->.
+    eapply certified_completed_by_ex_generated_sound.
+    + exact cert_ex_ok.
+    + lia.
+    + eapply check_prefix_service_ex_sound; eauto.
+      eapply nth_error_In.
+      exact Hjob.
+  - intros i row j b ji jj Hrow Hcell Hji Hjj Hb.
+    subst b.
+    pose proof (check_edf_infinite_cert_ex_fields cert_ex cert_ex_ok)
+      as [_ [_ [_ [_ [Hbacklog _]]]]].
+    pose proof
+      (cert_ex_prefix_backlog_matrix_release_lt i row j ji jj Hrow Hcell Hji Hjj)
+      as Hrel.
+    eapply certified_completed_by_ex_generated_sound.
+    + exact cert_ex_ok.
+    + eapply cert_ex_prefix_basis_job_release_le_38; eauto.
+    + eapply check_prefix_backlog_free_at_releases_ex_sound; eauto.
+      * eapply nth_error_In. exact Hji.
+      * eapply nth_error_In. exact Hjj.
+Qed.
+
+Lemma cert_ex_transport_semantics :
+  EDFTransportCertSemantics cert_ex_transport_witness cert_ex_transport_generic.
+Proof.
+  constructor.
+  intros i j class_id shift cls Hjob Hclass Hshift Hcls.
+  eapply cert_ex_transport_lookup_sound; eauto.
+Qed.
+
+Lemma cert_ex_dbf_semantics :
+  EDFDBFCertSemantics cert_ex_dbf_holds cert_ex_dbf_generic.
+Proof.
+  constructor.
+  intros t b Hnth Hb.
+  unfold cert_ex_dbf_holds.
+  vm_compute in Hnth, Hb.
+  inversion Hnth; subst; clear Hnth.
+  exact periodic_classical_dbf_from_cutoff_ex.
+Qed.
+
+Lemma cert_ex_generic_semantic_sound :
+  (forall t,
+      t < prefix_horizon cert_ex_prefix_generic ->
+      sched_upto_ex 38 t 0 = nth t (prefix_slots cert_ex_prefix_generic) None)
+  /\
+  (forall i t,
+      nth_error (prefix_completed_by cert_ex_prefix_generic) i = Some t ->
+      exists j,
+        nth_error (prefix_basis_jobs cert_ex_prefix_generic) i = Some j /\
+        completed jobs_ex 1 (sched_upto_ex 38) j t)
+  /\
+  (forall i row j,
+      nth_error (prefix_backlog_free_matrix cert_ex_prefix_generic) i = Some row ->
+      nth_error row j = Some true ->
+      exists ji jj,
+        nth_error (prefix_basis_jobs cert_ex_prefix_generic) i = Some ji /\
+        nth_error (prefix_basis_jobs cert_ex_prefix_generic) j = Some jj /\
+        completed jobs_ex 1 (sched_upto_ex 38) jj (job_release (jobs_ex ji)))
+  /\
+  0 < transport_period cert_ex_transport_generic
+  /\
+  (forall i j class_id shift,
+      nth_error (transport_basis_jobs cert_ex_transport_generic) i = Some j ->
+      nth_error (transport_job_class cert_ex_transport_generic) i = Some class_id ->
+      nth_error (transport_job_shift cert_ex_transport_generic) i = Some shift ->
+      exists cls,
+        nth_error (transport_classes cert_ex_transport_generic) class_id = Some cls /\
+        cert_ex_transport_witness j cls shift)
+  /\
+  (forall t, t <= dbf_cutoff cert_ex_dbf_generic -> cert_ex_dbf_holds t).
+Proof.
+  eapply check_edf_infinite_cert_semantic_sound.
+  - exact cert_ex_generic_ok.
+  - exact cert_ex_prefix_semantics.
+  - exact cert_ex_transport_semantics.
+  - exact cert_ex_dbf_semantics.
 Qed.
 
 Lemma generated_edf_backlog_free_before_release_ex_from_certified_prefix_first_period :
@@ -3169,6 +3358,5 @@ End TutorialClassicalProof.
 Extraction Language Haskell.
 
 Extraction "/scheduling_theory/extracted/haskell/EDFInfiniteCertificateChecker.hs"
-  check_edf_infinite_cert_ex
-  certified_prefix_schedule_ex
-  cert_ex.
+  check_edf_infinite_cert
+  cert_ex_generic.

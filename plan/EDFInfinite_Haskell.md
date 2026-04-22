@@ -774,7 +774,8 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
   - bounded DBF facts
 - したがってスケールする設計は、
   「具体例 theorem を Rocq で再計算する」のではなく、
-  「Haskell が witness artifact を生成し、Rocq が generic checker で読む」
+  「Haskell が generated Rocq certificate file を生成し、Rocq が `Require Import` して
+  generic checker で読む」
   方向である。
 
 ### 目標アーキテクチャ
@@ -789,7 +790,7 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 - tutorial file は最終的に thin adapter へ寄せる。
   - concrete task set definition
   - codec instantiation
-  - optional generated fixture artifact
+  - optional generated Rocq fixture artifact
   のみを持ち、`vm_compute` theorem は proof core から外す。
 
 ### generic certificate が持つべきもの
@@ -817,7 +818,7 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
   - tutorial 固有の residue split
   - `35/7/5` のような固定算術
   - hardcoded prefix slot 列
-- Haskell が task set ごとに artifact を変えてよく、
+- Haskell が task set ごとに generated Rocq file を変えてよく、
   Rocq 側の checker/soundness は共通であるべき。
 
 ### trusted boundary
@@ -829,7 +830,7 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
   - generic checker soundness
   のみ。
 - したがって `cert_ex_ok` のような concrete checker acceptance theorem は、
-  将来的には proof-core ではなく external certificate validation の位置づけに落とす。
+  将来的には proof-core ではなく generated Rocq certificate validation の位置づけに落とす。
 
 ### 既存 tutorial work の位置づけ
 
@@ -847,24 +848,31 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 2. generic prefix / transport / DBF checker を導入する。
 3. generic soundness theorem を追加する。
 4. tutorial をその generic layer の concrete instantiation に寄せる。
-5. その後で current tutorial の `vm_compute` obligations を
-   generated artifact validation へ置き換える。
+5. その後で Haskell が current tutorial task set 用の generated Rocq `.v`
+   certificate file を出力する。
+6. その generated Rocq certificate validation へ
+   current tutorial の `vm_compute` obligations を置き換える。
 
 ### 成功条件
 
 - current tutorial task set に対して generic checker が certificate を読める。
-- 少なくとももう 1 つ別の periodic task set に対して、schema を変えずに同じ checker が使える。
+- Haskell が current tutorial task set に対して generated Rocq `.v` certificate file を出力できる。
+- 少なくとももう 1 つ別の periodic task set に対して、schema を変えずに同じ generated Rocq
+  certificate format と checker が使える。
 - final schedulability theorem の statement は変わらない。
 - current tutorial-specific `vm_compute` obligations は trusted proof core から外れる。
 
 ### defaults
 
-- external artifact format の default は JSON とする。
+- generated artifact format の default は Rocq `.v` とする。
+- Haskell は generic certificate record の concrete `Definition` 群を出力する。
+- Rocq 側で JSON parsing / decoding は行わない。
 - first target は uniprocessor zero-offset periodic EDF に限定する。
 - migration は additive に進める。
   - generic layer を追加
   - soundness を証明
   - tutorial を adapter 化
+  - Haskell が generated Rocq certificate file を出力
   - その後で local compute theorem を retire
 
 ## 2026-04-22 Progress (Generic periodic EDF certificate/checker layer)
@@ -896,6 +904,8 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 - この段階ではまだ schedule semantics への full soundness は入れていないが、
   後続で generic proof を載せるための table shape / lookup fact は共通層に移った。
 - tutorial file はまだ旧来の concrete schema を使ってよく、migration は additive に進められる。
+- Haskell が最終的に target にする artifact format は JSON ではなく、
+  generic certificate record を直接 instantiate する Rocq source file である。
 
 ### まだ残っているもの
 
@@ -907,4 +917,152 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
 
 1. common layer で generic prefix / transport / DBF checker の semantic soundness を証明する。
 2. `Tutorials/EDFInfiniteSchedulability.v` を generic certificate layer の concrete instantiation に寄せる。
-3. その後で tutorial-specific `vm_compute` obligations を generated artifact validation へ落とす。
+3. その後で Haskell-generated Rocq certificate file を tutorial に import させる。
+4. tutorial-specific `vm_compute` obligations を generated Rocq certificate validation へ落とす。
+
+## 2026-04-22 Progress (Generic semantic soundness for periodic EDF certificates)
+
+### 追加したもの
+
+- `PeriodicEDFCertificateSoundness.v` に、generic checker へ semantic meaning を与える layer を追加した。
+- common-layer assumption record を導入した。
+  - `EDFPrefixCertSemantics`
+  - `EDFTransportCertSemantics`
+  - `EDFDBFCertSemantics`
+- generic semantic soundness theorem を追加した。
+  - `check_prefix_cert_semantic_sound`
+  - `check_transport_cert_semantic_sound`
+  - `check_dbf_cert_semantic_sound`
+  - `check_edf_infinite_cert_semantic_sound`
+- これらを支える common lookup lemma も追加した。
+  - `nth_error_exists_of_lt`
+  - basis / backlog row / transport class / DBF table lookup から semantic predicate を引く補題群
+
+### 今回の意味
+
+- generic periodic EDF certificate/checker layer は now 単なる table-shape validator ではなく、
+  prefix / transport / DBF witness が何を意味するかを common layer で表現できるようになった。
+- まだ final generated EDF theorem へ直結する fully packaged interface ではないが、
+  tutorial-local `EDFInfiniteCertEx` から generic layer へ移るための semantic target は揃った。
+- これにより Haskell offload の trusted boundary は、
+  tutorial file ではなく common periodic EDF layer に置ける見通しが立った。
+- artifact story も JSON decoder を挟まず、generated Rocq source file を直接 import する形へ
+  収束させられる見通しが立った。
+
+### まだ残っているもの
+
+- tutorial はまだ旧来の concrete schema と checker path を使っている。
+- `Tutorials/EDFInfiniteSchedulability.v` 側の
+  - `EDFInfiniteCertEx`
+  - `check_edf_infinite_cert_ex`
+  - `cert_ex_ok`
+  - tutorial-specific `vm_compute` obligations
+  はまだ generic layer に migrate していない。
+- `PeriodicEDFConcreteInfiniteClassicalObligations` もまだ generic certificate checker を consume しない。
+
+### 次の作業
+
+1. `Tutorials/EDFInfiniteSchedulability.v` を generic certificate layer の concrete instantiation に寄せる。
+2. tutorial-specific checker path を generic `check_edf_infinite_cert` 系へ置き換える。
+3. Haskell が tutorial task set 用の generated Rocq `.v` certificate file を出力する。
+4. その後で `cert_ex_ok`、`generated_prefix_slot_ex`、`periodic_classical_dbf_test_by_cutoff_ex` を
+   generated Rocq certificate validation へ落とす。
+
+## 2026-04-23 Plan (Generated Rocq certificate files, not JSON)
+
+### 出力形式の修正
+
+- Haskell が出力する証明証 artifact の canonical format は JSON ではなく Rocq `.v` とする。
+- Haskell は generic periodic EDF certificate record を直接 instantiate する
+  concrete `Definition` 群を出力する。
+- Rocq 側で JSON parser / decoder / decoder correctness は持たない。
+
+### なぜ Rocq `.v` を選ぶか
+
+- `Require Import` でそのまま proof input にできる。
+- parser / decoder correctness という別レイヤを増やさずに済む。
+- generated artifact を diff review しやすい。
+- trusted boundary を
+  - generic certificate 型
+  - generic checker
+  - generic semantic soundness
+  に集中させられる。
+
+### generated Rocq file の想定
+
+- generated file は data-only とする。
+- 含めるのは
+  - `EDFPrefixCert`
+  - `EDFTransportCert`
+  - `EDFDBFCert`
+  - `EDFInfiniteCert`
+  の concrete inhabitant 定義のみ。
+- theorem / proof script / `Admitted.` は含めない。
+- 生成先は generated subdirectory を想定する。
+  - 例: `Tutorials/Generated/`
+
+### migration への影響
+
+- tutorial migration の次の実装単位は、
+  generated Rocq certificate file を import する path を作ることである。
+- `cert_ex_ok` の役割は、将来的には handwritten concrete theorem ではなく、
+  imported generated Rocq certificate に対する checker acceptance theorem へ置き換わる。
+- `generated_prefix_slot_ex` と `periodic_classical_dbf_test_by_cutoff_ex` も同様に、
+  local compute theorem ではなく generated Rocq certificate を支える local semantic lemma へ
+  後退する。
+
+### defaults
+
+- artifact format の default は Rocq `.v`
+- one task set / one generated Rocq file
+- deterministic pretty-print
+- checked-in generated file か reproducible generation のどちらかを採るが、
+  Rocq 側は generated `.v` を直接 consume する
+
+## 2026-04-23 Progress (Imported generated Rocq certificate for the EDF infinite tutorial)
+
+### 追加したもの
+
+- `Tutorials/Generated/EDFInfiniteSchedulabilityCert_ex.v` を追加した。
+- generated file には data-only definition を置いた。
+  - generic prefix certificate data
+  - generic transport certificate data
+  - generic DBF certificate data
+  - `cert_ex_generic : EDFInfiniteCert JobId`
+- `_CoqProject` に generated file 用の logical path を追加した。
+  - `-Q Tutorials/Generated Tutorials.Generated`
+- `Tutorials/EDFInfiniteSchedulability.v` は generated Rocq certificate file を import するようにした。
+- tutorial には generic checker acceptance theorem を追加した。
+  - `cert_ex_generic_ok`
+- tutorial には generic semantic adapter を追加した。
+  - `cert_ex_prefix_semantics`
+  - `cert_ex_transport_semantics`
+  - `cert_ex_dbf_semantics`
+  - `cert_ex_generic_semantic_sound`
+- extraction target は old local checker ではなく generic checker / generic certificate に切り替えた。
+
+### 今回の意味
+
+- Haskell offload の concrete artifact story は now JSON ではなく
+  checked-in generated Rocq `.v` file として tutorial に接続された。
+- tutorial の concrete witness data は handwritten local constants ではなく、
+  imported generated certificate data を source-of-truth にする方向へ進んだ。
+- generic checker / semantic soundness layer は now tutorial から実際に consume される境界になった。
+
+### まだ残っているもの
+
+- final backlog-free theorem path 自体はまだ tutorial-local legacy checker soundness を adapter として使っている。
+- したがって
+  - `check_edf_infinite_cert_ex_sound`
+  - `generated_edf_backlog_free_before_release_ex_proved`
+  まわりの local proof core はまだ完全には retire していない。
+- `periodic_classical_dbf_test_by_cutoff_ex` や `generated_prefix_slot_ex` も、
+  まだ local semantic support lemma として残っている。
+
+### 次の作業
+
+1. `generated_edf_backlog_free_before_release_ex_proved` の最終経路から
+   legacy `check_edf_infinite_cert_ex_sound` を外す。
+2. generic transport witness から tutorial-local lasso bridge を直接回収する adapter theorem を作る。
+3. その後で old local certificate/checker schema と
+   `vm_compute`-heavy support theorem 群を proof core から retire する。
