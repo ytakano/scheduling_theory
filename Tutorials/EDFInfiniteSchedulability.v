@@ -942,10 +942,16 @@ Lemma certified_service_prefix_ex_data_agrees_generated :
     service_job 1 (sched_upto_ex 38) j t.
 Proof.
   intros j t Ht.
-  do 39 (
-    destruct t as [|t];
-    [ vm_compute; reflexivity | ]).
-  lia.
+  induction t as [|t IH].
+  - reflexivity.
+  - simpl.
+    rewrite IH by lia.
+    unfold runs_on.
+    simpl.
+    rewrite generated_prefix_slot_ex by lia.
+    destruct (sched_upto_ex 38 t 0) as [j'|] eqn:Hsched; simpl.
+    + rewrite Nat.eqb_sym. lia.
+    + lia.
 Qed.
 
 Lemma certified_completed_by_ex_data_generated_sound :
