@@ -740,3 +740,171 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
   再整理で順に除去する。
 - legacy tutorial-local scaffolding になった `structural_completion_time_ex` 系を、
   まだ依存が残るか確認しつつ整理対象として切り出す。
+
+## 2026-04-22 Plan (Generic Haskell offload for vm_compute-heavy EDF certificates)
+
+### 方針転換
+
+- 次の主目標は、tutorial 内で
+  `periodic_classical_dbf_test_by_cutoff_ex`、
+  `cert_ex_ok`、
+  `generated_prefix_slot_ex`
+  の 3 箇所を個別に証明し切ることではない。
+- 代わりに、これらの `vm_compute`-heavy obligation を Haskell-generated certificate へ
+  オフロードできる generic boundary を先に設計・実装する。
+- Rocq 側は引き続き trusted core として、
+  - generic certificate 型
+  - generic boolean checker
+  - generic checker soundness theorem
+  を持つ。
+- Haskell は untrusted witness generator として、
+  - finite prefix
+  - bounded DBF table
+  - periodic transport witness
+  を task set ごとに生成する。
+
+### なぜこの方向に変えるか
+
+- tutorial-local に 3 つの compute-heavy theorem を潰しても、
+  task set を変えるたびに同種の `vm_compute` を抱え直す。
+- 今回の witness-bearing lasso work により、Rocq 側に本当に必要な observables は
+  かなり明確になった。
+  - prefix slots / service / backlog facts
+  - later-period completion/backlog transport facts
+  - bounded DBF facts
+- したがってスケールする設計は、
+  「具体例 theorem を Rocq で再計算する」のではなく、
+  「Haskell が witness artifact を生成し、Rocq が generic checker で読む」
+  方向である。
+
+### 目標アーキテクチャ
+
+- common layer に generic periodic EDF certificate/checker 層を追加する。
+  - `theories/TaskModels/Periodic/PeriodicEDFCertificate.v`
+  - `theories/TaskModels/Periodic/PeriodicEDFCertificateSoundness.v`
+- generic certificate は少なくとも 3 層に分ける。
+  - finite prefix certificate
+  - periodic transport certificate
+  - DBF cutoff certificate
+- tutorial file は最終的に thin adapter へ寄せる。
+  - concrete task set definition
+  - codec instantiation
+  - optional generated fixture artifact
+  のみを持ち、`vm_compute` theorem は proof core から外す。
+
+### generic certificate が持つべきもの
+
+- finite prefix certificate:
+  - horizon
+  - prefix slot trace
+  - basis jobs
+  - basis jobs の completion/service facts
+  - release-time backlog facts
+- periodic transport certificate:
+  - recurrence period
+  - basis representative jobs
+  - class-based completion offsets
+  - class-based backlog offsets
+  - later-period job を basis representative へ落とす class/shift witness
+- DBF cutoff certificate:
+  - cutoff
+  - bounded `dbf(t) <= t` を読む table
+
+### genericity の要求
+
+- 新しい設計は次に依存してはならない。
+  - 固定 task 数
+  - tutorial 固有の residue split
+  - `35/7/5` のような固定算術
+  - hardcoded prefix slot 列
+- Haskell が task set ごとに artifact を変えてよく、
+  Rocq 側の checker/soundness は共通であるべき。
+
+### trusted boundary
+
+- Haskell は TCB に入れない。
+- trusted なのは Rocq 側の
+  - generic certificate semantics
+  - generic checker
+  - generic checker soundness
+  のみ。
+- したがって `cert_ex_ok` のような concrete checker acceptance theorem は、
+  将来的には proof-core ではなく external certificate validation の位置づけに落とす。
+
+### 既存 tutorial work の位置づけ
+
+- 現在までの tutorial-local witness work は破棄しない。
+- これは generic certificate に必要な observables を絞るプロトタイプとして扱う。
+  - prefix facts
+  - completion transport witness
+  - release-backlog transport witness
+- 一方で、remaining `vm_compute` obligations の局所 cleanup は
+  もはや最優先ではない。
+
+### 次の実装マイルストーン
+
+1. generic periodic EDF certificate record を common layer に導入する。
+2. generic prefix / transport / DBF checker を導入する。
+3. generic soundness theorem を追加する。
+4. tutorial をその generic layer の concrete instantiation に寄せる。
+5. その後で current tutorial の `vm_compute` obligations を
+   generated artifact validation へ置き換える。
+
+### 成功条件
+
+- current tutorial task set に対して generic checker が certificate を読める。
+- 少なくとももう 1 つ別の periodic task set に対して、schema を変えずに同じ checker が使える。
+- final schedulability theorem の statement は変わらない。
+- current tutorial-specific `vm_compute` obligations は trusted proof core から外れる。
+
+### defaults
+
+- external artifact format の default は JSON とする。
+- first target は uniprocessor zero-offset periodic EDF に限定する。
+- migration は additive に進める。
+  - generic layer を追加
+  - soundness を証明
+  - tutorial を adapter 化
+  - その後で local compute theorem を retire
+
+## 2026-04-22 Progress (Generic periodic EDF certificate/checker layer)
+
+### 追加したもの
+
+- common periodic layer に generic certificate/checker file を追加した。
+  - `theories/TaskModels/Periodic/PeriodicEDFCertificate.v`
+  - `theories/TaskModels/Periodic/PeriodicEDFCertificateSoundness.v`
+- generic extraction-friendly record を導入した。
+  - `EDFPrefixCert`
+  - `EDFTransportClass`
+  - `EDFTransportCert`
+  - `EDFDBFCert`
+  - `EDFInfiniteCert`
+- generic boolean checker を導入した。
+  - `check_prefix_cert`
+  - `check_transport_cert`
+  - `check_dbf_cert`
+  - `check_edf_infinite_cert`
+- field decomposition と lookup-oriented structural lemma を追加した。
+  - `check_*_fields`
+  - basis / backlog row / transport class / DBF table の `nth_error` structural facts
+
+### 今回の意味
+
+- Haskell offload の target になる common-layer schema が、tutorial-local record ではなく
+  generic periodic EDF interface として固定された。
+- この段階ではまだ schedule semantics への full soundness は入れていないが、
+  後続で generic proof を載せるための table shape / lookup fact は共通層に移った。
+- tutorial file はまだ旧来の concrete schema を使ってよく、migration は additive に進められる。
+
+### まだ残っているもの
+
+- generic checker soundness theorem はまだ未実装である。
+- tutorial はまだ generic certificate layer へ migrate していない。
+- current tutorial-specific `vm_compute` obligations はまだ proof core から外れていない。
+
+### 次の作業
+
+1. common layer で generic prefix / transport / DBF checker の semantic soundness を証明する。
+2. `Tutorials/EDFInfiniteSchedulability.v` を generic certificate layer の concrete instantiation に寄せる。
+3. その後で tutorial-specific `vm_compute` obligations を generated artifact validation へ落とす。

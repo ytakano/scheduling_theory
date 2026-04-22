@@ -160,6 +160,8 @@ theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicEDFBridgeCompat.v
 theories/TaskModels/Periodic/PeriodicClassicDBF.v
 theories/TaskModels/Periodic/PeriodicEDFClassicalBridge.v
+theories/TaskModels/Periodic/PeriodicEDFCertificate.v
+theories/TaskModels/Periodic/PeriodicEDFCertificateSoundness.v
 theories/TaskModels/Periodic/PeriodicEDFNoCarryInSupply.v
 theories/TaskModels/Periodic/PeriodicEDFPrefixCoherence.v
 theories/TaskModels/Periodic/PeriodicEDFInfiniteBridge.v
