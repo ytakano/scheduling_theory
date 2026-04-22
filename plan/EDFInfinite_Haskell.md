@@ -1099,3 +1099,164 @@ PoCでは、現在の2タスク例だけを対象にすればよい。
    を generic imported-certificate path から置き換える。
 2. その後で old local checker theorem / schema / compute-heavy support lemma 群を
    proof core から retire する。
+
+## 2026-04-23 Progress (Generic transport witness now drives the final lasso path)
+
+### 変更したもの
+
+- generated Rocq certificate file の transport data を later-period representative basis 用に強めた。
+  - `transport_basis_jobs` は recurrence basis に絞った。
+  - `transport_job_shift` は all-zero ではなく task0/task1 の actual shift data を持つようにした。
+- tutorial 側の `cert_ex_transport_witness` を強化した。
+  - representative job
+  - shift
+  - completion offset
+  - backlog offset
+  を witness として持つようにした。
+- generic imported-certificate path から later-period backlog-free を導く新しい theorem 群を追加した。
+  - `generated_edf_backlog_free_before_release_ex_task0_generic_transport`
+  - `generated_edf_backlog_free_before_release_ex_task1_generic_transport`
+  - `generated_edf_backlog_free_before_release_ex_from_generic_prefix_and_transport`
+- `generated_edf_backlog_free_before_release_ex_proved` は now
+  `generated_edf_backlog_free_before_release_ex_from_generic_prefix_and_transport`
+  を使う。
+
+### 今回の意味
+
+- final backlog-free theorem path は now
+  legacy lasso theorem family
+  - `generated_edf_backlog_free_before_release_ex_task0_lasso`
+  - `generated_edf_backlog_free_before_release_ex_task1_lasso`
+  - `generated_edf_backlog_free_before_release_ex_from_certified_prefix_and_lasso`
+  に依存しない。
+- generic imported certificate の transport witness が、later-period bridge の
+  proof-core path に入った。
+- common-layer transport schema は既存の table shape のままで足り、
+  ボトルネックは schema ではなく generated data と tutorial adapter の弱さだったことが確認できた。
+
+### まだ残っているもの
+
+- proof core は still local support lemma として
+  - `cert_ex_ok`
+  - `generated_edf_backlog_free_before_release_ex_from_certified_prefix_first_period`
+  - `certified_completion_time_ex` / `certified_backlog_time_ex` 周辺
+  を使っている。
+- old local checker/schema 自体は file からまだ削除していない。
+
+### 次の作業
+
+1. old local certificate/checker schema を proof core から完全に切り離す。
+2. `cert_ex_ok` と prefix/DBF の local compute-heavy support lemma を
+   generic imported-certificate validation へ整理し直す。
+3. その後で legacy local checker theorem / schema を retire する。
+
+## 2026-04-23 Progress (Old local checker/schema removed from the active proof core)
+
+### 変更したもの
+
+- tutorial の first-period branch に、
+  `generated_edf_backlog_free_before_release_ex_from_generic_prefix_first_period`
+  を追加した。
+  これは old local checker decomposition ではなく、
+  imported generic prefix certificate とその semantic soundness から
+  backlog-free を回収する。
+- `generated_edf_backlog_free_before_release_ex_task0_generic_transport` と
+  `..._task1_generic_transport` は、
+  `check_edf_infinite_cert_ex_fields cert_ex cert_ex_ok` から
+  lasso fact を取り出すのをやめ、
+  `cert_ex_periodic_lasso_ok` を使う形に差し替えた。
+- `generated_edf_backlog_free_before_release_ex_from_generic_prefix_and_transport`
+  の first-period branch は now
+  `generated_edf_backlog_free_before_release_ex_from_generic_prefix_first_period`
+  を使う。
+
+### 今回の意味
+
+- active proof path は now
+  - `cert_ex_ok`
+  - `check_edf_infinite_cert_ex_fields`
+  - `check_edf_infinite_cert_ex_sound`
+  に依存しない。
+- imported generated generic certificate と、その semantic soundness が
+  tutorial proof core の唯一の active certificate boundary になった。
+- old local checker/schema は file 内に残っていても、
+  役割は legacy scaffolding に縮退した。
+
+### まだ残っているもの
+
+- old local checker/schema definitions 自体は file にまだ残っている。
+- `periodic_classical_dbf_test_by_cutoff_ex` や
+  `certified_completion_time_ex` / `certified_backlog_time_ex` 周辺の
+  heavy support lemma は still file に残っている。
+- compile time の観点では、legacy lemma family を別ファイルへ隔離するか、
+  不要部分を物理削除する余地がまだある。
+
+### 次の作業
+
+1. old local checker/schema definition 群を物理削除するか、
+   少なくとも legacy file へ隔離して tutorial compile path から外す。
+2. `periodic_classical_dbf_test_by_cutoff_ex` など、
+   まだ残る heavy support lemma を generated generic certificate 側へ
+   さらに寄せる。
+3. その後で、別 task set 向け generated Rocq certificate を増やして
+   genericity を実証する。
+
+## 2026-04-23 Progress (Physical deletion of the old local checker/schema and heavy legacy lemma family)
+
+### 変更したもの
+
+- `Tutorials/EDFInfiniteSchedulability.v` から、old local certificate/checker schema を
+  物理削除した。
+  - `EDFPrefixCertEx`
+  - `EDFInfiniteCertEx`
+  - `cert_ex`
+  - `check_prefix_*_ex`
+  - `check_periodic_lasso_ex`
+  - `check_edf_infinite_cert_ex`
+  - `cert_ex_ok`
+  - `check_*_fields`
+  - `check_*_sound`
+- old checker にぶら下がっていた heavy legacy lemma family も削除した。
+  - `certified_completion_time_ex`
+  - `certified_backlog_time_ex`
+  - `completed_at_certified_completion_time_ex`
+  - structural completion bridge 群
+  - old lasso bridge theorem family
+- later-period bridge は、
+  imported generic certificate と completion-target helper 群だけを使う形へ
+  整理した。
+- DBF 側の active path も、
+  renamed local fact
+  - `cert_ex_dbf_test_by_cutoff_true`
+  - `cert_ex_dbf_full_sound`
+  に整理し、old local checker path への参照を消した。
+
+### 今回の意味
+
+- tutorial は now 一つの concrete proof boundary だけを持つ。
+  - generated Rocq certificate
+  - `check_edf_infinite_cert`
+  - `cert_ex_generic_ok`
+  - `cert_ex_generic_semantic_sound`
+- old local checker/schema は、proof core から外れたのではなく、
+  file からも削除された。
+- compile-time のボトルネックは now
+  old checker/schema の二重管理ではなく、
+  残っている tutorial-local semantic support lemma の重さに絞られた。
+
+### まだ残っているもの
+
+- tutorial file には still completion-target 系の support lemma が残っている。
+  これらは old certificate boundary ではないが、保守性や compile time の観点では
+  将来分割候補である。
+- generated Rocq certificate pipeline の genericity は、
+  現時点では tutorial task set でしか実証していない。
+
+### 次の作業
+
+1. completion-target 系の remaining support block を、
+   必要なら別 file に分離して compile-time 影響を局所化する。
+2. 別 task set 向け generated Rocq certificate を追加し、
+   same generic schema で再利用できることを確認する。
+3. 必要なら Haskell generator 側の Rocq pretty-printer contract を
+   明文化して、generated artifact の再現性を固定する。
