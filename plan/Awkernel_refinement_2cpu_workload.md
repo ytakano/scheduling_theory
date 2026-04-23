@@ -148,11 +148,41 @@ current workflow では、concrete trace constraint の semantic oracle は
 
 acceptance lane は `rows + lifecycle` を入力に取り、少なくとも次を検査する。
 
-- lifecycle well-formedness
-- finite-task family membership
-- rows/lifecycle consistency
-- optional stutter admissibility
-- start/end condition
+- lifecycle well-formedness  
+  lifecycle record 列そのものが、root task の導入、duplicate spawn の禁止、
+  `JoinWait` の参照先の既知性などを満たして summary に畳み込めることを検査する。  
+  Rocq では `lifecycle_record_valid`、`summarize_lifecycle`、
+  `workload_lifecycle_well_formed` がこの責務を定義し、全体の theorem surface では
+  `accepted_workload_trace_family` と
+  `awk_workload_accepts_trace_sound` / `awk_workload_accepts_trace_complete`
+  がその判定機の意味を固定する。
+- finite-task family membership  
+  checker が固定 job-id ではなく、lifecycle から復元した有限 task 集合
+  `wls_known_tasks` の上で trace を読むことを意味する。  
+  Rocq では `WorkloadLifecycleSummary`、`lifecycle_record_step`、
+  `summarize_lifecycle` が task universe を構成し、
+  `accepted_workload_trace_family` が「その finite-task family に属する」
+  という Prop-level 境界を与える。
+- rows/lifecycle consistency  
+  rows 側の wakeup / choose / dispatch / complete が、
+  lifecycle から得た known task 集合、completion dependency、
+  selected/dispatched/completed state と矛盾しないことを検査する。  
+  Rocq では `row_step_after_start`、`workload_row_family_member`、
+  `accepted_workload_trace_family` がこの整合性を表し、bool 判定との対応は
+  `awk_workload_accepts_trace_sound` / `awk_workload_accepts_trace_complete`
+  が与える。
+- optional stutter admissibility  
+  scheduler-irrelevant step を全部許すのではなく、現在の narrow workload family で
+  意味を壊さない stutter row だけを許す。  
+  Rocq では `row_is_stutter` が許される row shape を定義し、
+  `row_step_after_start` がその row を adapter-local に受理する。
+- start/end condition  
+  trace が root task の wakeup で始まり、最後に root task が completed 集合へ入る
+  ことを要求する。  
+  Rocq では開始条件を `row_step_start`、終了条件を `accept_rows_from` が与え、
+  それらを含んだ family 全体を `accepted_workload_trace_family` と
+  `awk_workload_accepts_trace_sound` / `awk_workload_accepts_trace_complete`
+  が持ち上げる。
 
 この checker は fixed job-id example に依存せず、lifecycle summary が与える
 known task 集合の上で row matching を行う。runnable list の順序自体は意味論に使わず、
