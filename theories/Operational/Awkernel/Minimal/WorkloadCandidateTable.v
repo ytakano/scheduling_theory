@@ -29,13 +29,13 @@ Definition sorted_nodup_job_listb (xs : list JobId) : bool :=
   end.
 
 Definition row_candidate_visibleb
-    (row : AwkernelCapturedRow) (j : JobId) : bool :=
-  job_in_optionb (acr_current row) j ||
-  job_in_listb j (acr_runnable row) ||
-  job_in_optionb (acr_dispatch_target row) j.
+    (row : AwkernelSchedTraceEntry) (j : JobId) : bool :=
+  job_in_optionb (aste_current row) j ||
+  job_in_listb j (aste_runnable row) ||
+  job_in_optionb (aste_dispatch_target row) j.
 
 Fixpoint all_candidates_visibleb
-    (row : AwkernelCapturedRow) (cand : list JobId) : bool :=
+    (row : AwkernelSchedTraceEntry) (cand : list JobId) : bool :=
   match cand with
   | [] => true
   | j :: cand' =>
@@ -57,15 +57,15 @@ Fixpoint all_jobs_includedb
   end.
 
 Definition candidate_row_contractb
-    (row : AwkernelCapturedRow) (cand : list JobId) : bool :=
+    (row : AwkernelSchedTraceEntry) (cand : list JobId) : bool :=
   sorted_nodup_job_listb cand &&
   all_candidates_visibleb row cand &&
-  option_candidate_includedb (acr_current row) cand &&
-  all_jobs_includedb (acr_runnable row) cand &&
-  option_candidate_includedb (acr_dispatch_target row) cand.
+  option_candidate_includedb (aste_current row) cand &&
+  all_jobs_includedb (aste_runnable row) cand &&
+  option_candidate_includedb (aste_dispatch_target row) cand.
 
 Fixpoint candidate_table_contractb
-    (rows : list AwkernelCapturedRow)
+    (rows : list AwkernelSchedTraceEntry)
     (table : list (list JobId)) : bool :=
   match rows, table with
   | [], [] => true
@@ -76,21 +76,21 @@ Fixpoint candidate_table_contractb
   end.
 
 Definition candidate_table_matches_rows
-    (rows : list AwkernelCapturedRow)
+    (rows : list AwkernelSchedTraceEntry)
     (table : list (list JobId)) : bool :=
   Nat.eqb (length rows) (length table) &&
   candidate_table_contractb rows table.
 
 Definition workload_candidate_row_contract
-    (row : AwkernelCapturedRow) (cand : list JobId) : Prop :=
+    (row : AwkernelSchedTraceEntry) (cand : list JobId) : Prop :=
   sorted_nodup_job_listb cand = true /\
   all_candidates_visibleb row cand = true /\
-  option_candidate_includedb (acr_current row) cand = true /\
-  all_jobs_includedb (acr_runnable row) cand = true /\
-  option_candidate_includedb (acr_dispatch_target row) cand = true.
+  option_candidate_includedb (aste_current row) cand = true /\
+  all_jobs_includedb (aste_runnable row) cand = true /\
+  option_candidate_includedb (aste_dispatch_target row) cand = true.
 
 Definition workload_candidate_table_contract
-    (rows : list AwkernelCapturedRow)
+    (rows : list AwkernelSchedTraceEntry)
     (table : list (list JobId)) : Prop :=
   length rows = length table /\
   Forall2 workload_candidate_row_contract rows table.

@@ -8,7 +8,7 @@ concrete runtime layer の narrow な refinement 手順である。
 この手順の目的は次である。
 
 - Awkernel が emit した workload trace を serial log として取得する
-- その log から rows と lifecycle block を取り出し、Haskell acceptance lane で
+- その log から sched_trace と task_trace block を取り出し、Haskell acceptance lane で
   concrete trace constraint を判定する
 - concrete trace checking と generic refinement obligation を分離した現行境界を記録する
 
@@ -35,22 +35,22 @@ Rocq の generic theorem は後ろの別節へ分ける。
 - `OSLocalAdapterContract`
 
 workload trace のために common layer へ新しい event や state field は追加しない。
-追加するのは Awkernel adapter-local checker と、runtime-local lifecycle export
+追加するのは Awkernel adapter-local checker と、runtime-local task_trace export
 だけである。
 
-## Acceptance artifacts: rows と lifecycle
+## Acceptance artifacts: sched_trace と task_trace
 
 current procedure が checker input として使う emitted artifact は 2 つある。
 
-- `rows`
-  - block marker は `BEGIN_TRACE_ROWS ... END_TRACE_ROWS`
+- `sched_trace`
+  - block marker は `BEGIN_SCHED_TRACE ... END_SCHED_TRACE`
   - 各行は現在の adapter encoding では
     `cpu_id, event_tag, event_arg0, event_arg1, current, runnable_csv, need_resched, dispatch_target`
     の 8 列 TSV である
   - これは acceptance が読む scheduler-visible row stream であり、Rocq では
-    `AwkernelCapturedRow` に対応する
-- `lifecycle`
-  - block marker は `BEGIN_TASK_LIFECYCLE ... END_TASK_LIFECYCLE`
+    `AwkernelSchedTraceEntry` に対応する
+- `task_trace`
+  - block marker は `BEGIN_TASK_TRACE ... END_TASK_TRACE`
   - 各行は現在の adapter encoding では `kind, subject, related`
     の 3 列 TSV である
   - `kind` は現在
@@ -58,7 +58,7 @@ current procedure が checker input として使う emitted artifact は 2 つ�
     を取る
   - これは checker が root task、known-task set、join/completion dependency を
     要約するための task-family fact stream であり、Rocq では
-    `TaskLifecycleRecord` と `WorkloadLifecycleSummary` に対応する
+    `AwkernelTaskTraceEntry` と `AwkernelTaskTraceSummary` に対応する
 
 この 2 つは adapter-local emitted artifact であり、common layer に追加された API ではない。
 acceptance lane は serial log からこれらを一時入力として抽出して読み、成功時に
@@ -79,7 +79,7 @@ repo 管理下の artifact として保存しない。
 - task complete
 
 これらは `awkernel_async_lib` の executor / task / sleep / join_handle 側から
-`baseline_trace::record_lifecycle(...)` を呼ぶ形で記録される。workload trace 用 feature が
+`baseline_trace::record_task_trace(...)` を呼ぶ形で記録される。workload trace 用 feature が
 有効なときだけ有効になり、通常 runtime path には影響を与えない。
 
 workload trace VM では root orchestrator task を起動し、
@@ -111,14 +111,14 @@ current runtime capture path は `awkernel/Makefile` にある。
 QEMU と KVM はどちらも acceptance backend であり、current workflow では
 checked-in workload fixture を保持しない。
 
-## Step 3: acceptance lane が log から rows と lifecycle block を抽出する
+## Step 3: acceptance lane が log から sched_trace と task_trace block を抽出する
 
 `check-workload-accept-*` は、生ログから
 
-- `BEGIN_TRACE_ROWS ... END_TRACE_ROWS`
-- `BEGIN_TASK_LIFECYCLE ... END_TASK_LIFECYCLE`
+- `BEGIN_SCHED_TRACE ... END_SCHED_TRACE`
+- `BEGIN_TASK_TRACE ... END_TASK_TRACE`
 
-を抽出し、一時的な `rows.tsv` と `lifecycle.tsv` を作って Haskell runner に渡す。
+を抽出し、一時的な `sched_trace.tsv` と `task_trace.tsv` を作って Haskell runner に渡す。
 この一時 TSV は acceptance lane の内部入力であり、成功時に repo 管理下の artifact として
 保存しない。
 
@@ -137,8 +137,8 @@ checked-in workload fixture を保持しない。
 - Python wrapper:
   `awkernel/scripts/check_workload_acceptance.py`
 
-Haskell 側では `rows.tsv` と `lifecycle.tsv` を読み、
-extracted checker `awk_workload_accepts_trace lifecycle rows` を呼ぶ。
+Haskell 側では `sched_trace.tsv` と `task_trace.tsv` を読み、
+extracted checker `awk_workload_accepts_sched_trace task_trace sched_trace` を呼ぶ。
 この Step が concrete trace analysis そのものであり、Rocq 側で実トレースを
 個別に再検査しない。
 
@@ -152,12 +152,12 @@ diagnostics を返す。
 
 現在の failure split は次である。
 
-- rows block が無い
-- rows block が空
-- lifecycle block が無い
-- lifecycle block が空
-- rows parse failure
-- lifecycle parse failure
+- sched_trace block が無い
+- sched_trace block が空
+- task_trace block が無い
+- task_trace block が空
+- sched_trace parse failure
+- task_trace parse failure
 - semantic rejection
 - runner / checker module / runhaskell の起動失敗
 
@@ -174,49 +174,49 @@ current workflow では、concrete trace constraint の semantic oracle は
 
 ### Haskell checker が検査すること
 
-acceptance lane は `rows + lifecycle` を入力に取り、少なくとも次を検査する。
+acceptance lane は `sched_trace + task_trace` を入力に取り、少なくとも次を検査する。
 
-- lifecycle well-formedness  
-  lifecycle record 列そのものが、root task の導入、duplicate spawn の禁止、
+- task_trace well-formedness  
+  task_trace record 列そのものが、root task の導入、duplicate spawn の禁止、
   `JoinWait` の参照先の既知性などを満たして summary に畳み込めることを検査する。  
-  Rocq では `lifecycle_record_valid`、`summarize_lifecycle`、
-  `workload_lifecycle_well_formed` がこの責務を定義し、全体の theorem surface では
-  `accepted_workload_trace_family` と
-  `awk_workload_accepts_trace_sound` / `awk_workload_accepts_trace_complete`
+  Rocq では `task_trace_entry_valid`、`summarize_task_trace`、
+  `task_trace_well_formed` がこの責務を定義し、全体の theorem surface では
+  `accepted_workload_sched_trace_family` と
+  `awk_workload_accepts_sched_trace_sound` / `awk_workload_accepts_sched_trace_complete`
   がその判定機の意味を固定する。
 - finite-task family membership  
-  checker が固定 job-id ではなく、lifecycle から復元した有限 task 集合
-  `wls_known_tasks` の上で trace を読むことを意味する。  
-  Rocq では `WorkloadLifecycleSummary`、`lifecycle_record_step`、
-  `summarize_lifecycle` が task universe を構成し、
-  `accepted_workload_trace_family` が「その finite-task family に属する」
+  checker が固定 job-id ではなく、task_trace から復元した有限 task 集合
+  `atts_known_tasks` の上で sched_trace を読むことを意味する。  
+  Rocq では `AwkernelTaskTraceSummary`、`task_trace_entry_step`、
+  `summarize_task_trace` が task universe を構成し、
+  `accepted_workload_sched_trace_family` が「その finite-task family に属する」
   という Prop-level 境界を与える。
-- rows/lifecycle consistency  
-  rows 側の wakeup / choose / dispatch / complete が、
-  lifecycle から得た known task 集合、completion dependency、
+- sched_trace/task_trace consistency  
+  sched_trace 側の wakeup / choose / dispatch / complete が、
+  task_trace から得た known task 集合、completion dependency、
   selected/dispatched/completed state と矛盾しないことを検査する。  
-  Rocq では `row_step_after_start`、`workload_row_family_member`、
-  `accepted_workload_trace_family` がこの整合性を表し、bool 判定との対応は
-  `awk_workload_accepts_trace_sound` / `awk_workload_accepts_trace_complete`
+  Rocq では `sched_trace_step_after_start`、`sched_trace_family_member`、
+  `accepted_workload_sched_trace_family` がこの整合性を表し、bool 判定との対応は
+  `awk_workload_accepts_sched_trace_sound` / `awk_workload_accepts_sched_trace_complete`
   が与える。
 - optional stutter admissibility  
   scheduler-irrelevant step を全部許すのではなく、現在の narrow workload family で
   意味を壊さない stutter row だけを許す。  
-  Rocq では `row_is_stutter` が許される row shape を定義し、
-  `row_step_after_start` がその row を adapter-local に受理する。
+  Rocq では `sched_trace_is_stutter` が許される row shape を定義し、
+  `sched_trace_step_after_start` がその row を adapter-local に受理する。
 - start/end condition  
   trace が root task の wakeup で始まり、最後に root task が completed 集合へ入る
   ことを要求する。  
-  Rocq では開始条件を `row_step_start`、終了条件を `accept_rows_from` が与え、
-  それらを含んだ family 全体を `accepted_workload_trace_family` と
-  `awk_workload_accepts_trace_sound` / `awk_workload_accepts_trace_complete`
+  Rocq では開始条件を `sched_trace_step_start`、終了条件を `accept_sched_trace_from` が与え、
+  それらを含んだ family 全体を `accepted_workload_sched_trace_family` と
+  `awk_workload_accepts_sched_trace_sound` / `awk_workload_accepts_sched_trace_complete`
   が持ち上げる。
 
-この checker は fixed job-id example に依存せず、lifecycle summary が与える
-known task 集合の上で row matching を行う。runnable list の順序自体は意味論に使わず、
+この checker は fixed job-id example に依存せず、task_trace summary が与える
+known task 集合の上で sched_trace matching を行う。runnable list の順序自体は意味論に使わず、
 membership だけを使う。
 
-### lifecycle 側で見る record kind
+### task_trace 側で見る record kind
 
 - `Spawn`
 - `Runnable`
@@ -226,7 +226,7 @@ membership だけを使う。
 - `JoinWait`
 - `Complete`
 
-### rows 側で見る pattern
+### sched_trace 側で見る pattern
 
 - wakeup row
 - choose row
@@ -266,9 +266,9 @@ Rocq 側に残している主な役割は次である。
 
 workload acceptance 本体については、
 
-- `accepted_workload_trace_family`
-- `awk_workload_accepts_trace_sound`
-- `awk_workload_accepts_trace_complete`
+- `accepted_workload_sched_trace_family`
+- `awk_workload_accepts_sched_trace_sound`
+- `awk_workload_accepts_sched_trace_complete`
 
 が、現在の finite-task workload family に対する theorem surface である。
 candidate-table 側では、
@@ -276,11 +276,11 @@ candidate-table 側では、
 - `candidate_table_matches_rows_sound`
 - `candidate_table_matches_rows_complete`
 
-が rows-only local contract に対する theorem surface を与える。
+が sched_trace-only local contract に対する theorem surface を与える。
 
 この Rocq 側が現在保証する境界は次である。
 
-- emitted rows/lifecycle が adapter-local generation rules に従うことを generic に述べられる
+- emitted sched_trace/task_trace が adapter-local generation rules に従うことを generic に述べられる
 - acceptance decision procedure の成功と failure を generic に説明できる
 
 この Rocq 側ではまだ次を保証しない。
@@ -293,7 +293,7 @@ candidate-table 側では、
 
 現在、この 2 CPU workload refinement path でできているのは次である。
 
-- runtime が rows + lifecycle artifact を含む serial log を deterministic に emit する
+- runtime が sched_trace + task_trace artifact を含む serial log を deterministic に emit する
 - extracted Haskell checker がその log 由来の artifact を受理/棄却できる
 - KVM でも smoke acceptance を回せる
 
@@ -307,9 +307,9 @@ candidate-table 側では、
 - scheduler-relation
 - bounded-delay / deadline proof
 
-現在の checker は fixed job-id の例に依存せず、lifecycle summary が与える
-known task 集合の上で row matching を行う。この段階での主張は
-`current lifecycle-grammar family が受理する任意の有限 task set` に限られ、
+現在の checker は fixed job-id の例に依存せず、task_trace summary が与える
+known task 集合の上で sched_trace matching を行う。この段階での主張は
+`current task-trace grammar family が受理する任意の有限 task set` に限られ、
 Awkernel が emit しうる全 trace の coverage を意味しない。
 
 ## After the Current Procedure

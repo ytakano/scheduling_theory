@@ -31,7 +31,7 @@ Open Scope string_scope.
     completion. No new common-layer event is introduced.
  *)
 
-Definition awk_captured_handoff_rows : list AwkernelCapturedRow :=
+Definition awk_captured_handoff_rows : list AwkernelSchedTraceEntry :=
   awk_generated_handoff_rows.
 
 Definition awk_captured_handoff_post_states : list AwkernelHandoffState :=

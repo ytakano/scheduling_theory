@@ -55,25 +55,25 @@ Section AwkernelHandoffTraceFamily.
     - reflexivity.
   Qed.
 
-  Definition awk_handoff_row_wakeup : AwkernelCapturedRow :=
-    mkAwkernelCapturedRow 0 (EvWakeup 1) None [1] false None.
+  Definition awk_handoff_row_wakeup : AwkernelSchedTraceEntry :=
+    mkAwkernelSchedTraceEntry 0 (EvWakeup 1) None [1] false None.
 
-  Definition awk_handoff_row_request_resched : AwkernelCapturedRow :=
-    mkAwkernelCapturedRow 1 (EvRequestResched 1) None [1] true None.
+  Definition awk_handoff_row_request_resched : AwkernelSchedTraceEntry :=
+    mkAwkernelSchedTraceEntry 1 (EvRequestResched 1) None [1] true None.
 
-  Definition awk_handoff_row_handle_resched : AwkernelCapturedRow :=
-    mkAwkernelCapturedRow 1 (EvHandleResched 1) None [1] true None.
+  Definition awk_handoff_row_handle_resched : AwkernelSchedTraceEntry :=
+    mkAwkernelSchedTraceEntry 1 (EvHandleResched 1) None [1] true None.
 
-  Definition awk_handoff_row_choose : AwkernelCapturedRow :=
-    mkAwkernelCapturedRow 1 (EvChoose 1 1) None [1] true (Some 1).
+  Definition awk_handoff_row_choose : AwkernelSchedTraceEntry :=
+    mkAwkernelSchedTraceEntry 1 (EvChoose 1 1) None [1] true (Some 1).
 
-  Definition awk_handoff_row_dispatch : AwkernelCapturedRow :=
-    mkAwkernelCapturedRow 1 (EvDispatch 1 1) (Some 1) [] false None.
+  Definition awk_handoff_row_dispatch : AwkernelSchedTraceEntry :=
+    mkAwkernelSchedTraceEntry 1 (EvDispatch 1 1) (Some 1) [] false None.
 
-  Definition awk_handoff_row_complete : AwkernelCapturedRow :=
-    mkAwkernelCapturedRow 1 (EvComplete 1) None [] true None.
+  Definition awk_handoff_row_complete : AwkernelSchedTraceEntry :=
+    mkAwkernelSchedTraceEntry 1 (EvComplete 1) None [] true None.
 
-  Definition awk_handoff_seed_rows : list AwkernelCapturedRow :=
+  Definition awk_handoff_seed_rows : list AwkernelSchedTraceEntry :=
     [ awk_handoff_row_wakeup
     ; awk_handoff_row_request_resched
     ; awk_handoff_row_handle_resched
@@ -89,7 +89,7 @@ Section AwkernelHandoffTraceFamily.
   Qed.
 
   Inductive awk_handoff_row_step
-    : AwkernelHandoffState -> AwkernelCapturedRow -> AwkernelHandoffState -> Prop :=
+    : AwkernelHandoffState -> AwkernelSchedTraceEntry -> AwkernelHandoffState -> Prop :=
   | awk_handoff_row_step_wakeup :
       awk_handoff_row_step
         awk_handoff_state0
@@ -131,7 +131,7 @@ Section AwkernelHandoffTraceFamily.
 
   Inductive awk_handoff_row_generation_from
     : AwkernelHandoffState ->
-      list AwkernelCapturedRow ->
+      list AwkernelSchedTraceEntry ->
       list AwkernelHandoffState -> Prop :=
   | awk_handoff_row_generation_nil :
       forall st,
@@ -143,7 +143,7 @@ Section AwkernelHandoffTraceFamily.
         awk_handoff_row_generation_from st (row :: rows) (st' :: states).
 
   Definition awk_handoff_row_generation
-      (rows : list AwkernelCapturedRow)
+      (rows : list AwkernelSchedTraceEntry)
       (states : list AwkernelHandoffState) : Prop :=
     awk_handoff_row_generation_from awk_handoff_state0 rows states.
 
@@ -167,7 +167,7 @@ Section AwkernelHandoffTraceFamily.
     awk_handoff_generated_trace_from awk_handoff_state0 states t.
 
   Definition awk_row_matches_visible
-      (row : AwkernelCapturedRow)
+      (row : AwkernelSchedTraceEntry)
       (vis : AwkernelState) : Prop :=
     awk_current (awk_row_to_state row) 0 = awk_current vis 0 /\
     awk_current (awk_row_to_state row) 1 = awk_current vis 1 /\
@@ -193,7 +193,7 @@ Section AwkernelHandoffTraceFamily.
     end.
 
   Definition captured_row_eqb
-      (x y : AwkernelCapturedRow) : bool :=
+      (x y : AwkernelSchedTraceEntry) : bool :=
     Nat.eqb (acr_cpu x) (acr_cpu y) &&
     op_event_eqb (acr_event x) (acr_event y) &&
     option_job_eqb (acr_current x) (acr_current y) &&
@@ -202,7 +202,7 @@ Section AwkernelHandoffTraceFamily.
     option_job_eqb (acr_dispatch_target x) (acr_dispatch_target y).
 
   Definition awk_row_matches_visibleb
-      (row : AwkernelCapturedRow)
+      (row : AwkernelSchedTraceEntry)
       (vis : AwkernelState) : bool :=
     option_job_eqb
       (awk_current (awk_row_to_state row) 0)
@@ -294,7 +294,7 @@ Section AwkernelHandoffTraceFamily.
 
   Definition awk_handoff_row_step_next
       (st : AwkernelHandoffState)
-      (row : AwkernelCapturedRow) : option AwkernelHandoffState :=
+      (row : AwkernelSchedTraceEntry) : option AwkernelHandoffState :=
     if captured_row_eqb row awk_handoff_row_wakeup then
       match awk_handoff_phase st with
       | 0 => Some awk_handoff_state1
@@ -330,7 +330,7 @@ Section AwkernelHandoffTraceFamily.
 
   Fixpoint awk_handoff_generate_post_states_from
       (st : AwkernelHandoffState)
-      (rows : list AwkernelCapturedRow) : option (list AwkernelHandoffState) :=
+      (rows : list AwkernelSchedTraceEntry) : option (list AwkernelHandoffState) :=
     match rows with
     | [] => Some []
     | row :: rows' =>
@@ -345,15 +345,15 @@ Section AwkernelHandoffTraceFamily.
     end.
 
   Definition awk_handoff_generate_post_states
-      (rows : list AwkernelCapturedRow) : option (list AwkernelHandoffState) :=
+      (rows : list AwkernelSchedTraceEntry) : option (list AwkernelHandoffState) :=
     awk_handoff_generate_post_states_from awk_handoff_state0 rows.
 
   Definition awk_handoff_check_rows
-      (rows : list AwkernelCapturedRow) : option (list AwkernelHandoffState) :=
+      (rows : list AwkernelSchedTraceEntry) : option (list AwkernelHandoffState) :=
     awk_handoff_generate_post_states rows.
 
   Definition awk_handoff_rows_replay_trace
-      (rows : list AwkernelCapturedRow)
+      (rows : list AwkernelSchedTraceEntry)
       (t : Time) : AwkernelHandoffState :=
     match awk_handoff_check_rows rows with
     | Some states => awk_handoff_generated_trace states t
@@ -361,7 +361,7 @@ Section AwkernelHandoffTraceFamily.
     end.
 
   Definition awk_handoff_accepts_rows
-      (rows : list AwkernelCapturedRow) : bool :=
+      (rows : list AwkernelSchedTraceEntry) : bool :=
     match awk_handoff_check_rows rows with
     | Some _ => true
     | None => false
