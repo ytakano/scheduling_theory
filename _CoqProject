@@ -118,6 +118,8 @@ theories/Operational/Common/OSDelayAdapterContract.v
 theories/Operational/Common/OperationalEntryPoints.v
 theories/Operational/Awkernel/MinimalProjection.v
 theories/Operational/Awkernel/CapturedTraceSyntax.v
+theories/Operational/Awkernel/WorkloadAcceptance.v
+theories/Operational/Awkernel/WorkloadAcceptanceExtraction.v
 theories/Operational/Awkernel/MulticoreProjection.v
 theories/Examples/OperationalMulticoreProjectionExamples.v
 theories/Refinement/BoundedDelayRefinement.v
