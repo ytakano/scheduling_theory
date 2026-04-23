@@ -70,6 +70,16 @@ Proof.
   exact awk_handoff_generated_rows_are_accepted.
 Qed.
 
+Lemma awk_captured_handoff_phase2_completion :
+  exists states,
+    awk_handoff_check_rows awk_captured_handoff_rows = Some states /\
+    awk_handoff_row_generation awk_captured_handoff_rows states /\
+    (forall t,
+      awk_captured_handoff_trace t = awk_handoff_generated_trace states t).
+Proof.
+  exact awk_captured_handoff_rows_bridge.
+Qed.
+
 Lemma awk_captured_handoff_rows_are_generated :
   awk_handoff_row_generation
     awk_captured_handoff_rows
@@ -205,6 +215,9 @@ Lemma awk_captured_handoff_local_sound :
     2
     awk_captured_handoff_contract_execution.
 Proof.
+  (* Phase 2 closes at accepted rows -> replay/projection entry.
+     The final local-contract derivation still reuses the canonical
+     equality transport as a compatibility path. *)
   pose proof (llcmps_projection_sound awk_handoff_local_sound) as Hproj.
   refine {|
     llcmps_projection_sound := _;

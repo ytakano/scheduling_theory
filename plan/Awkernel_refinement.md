@@ -149,7 +149,7 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    これは common 層の新しい semantics ではなく、既存 interface を使う
    trace-backed adapter milestone である。
    captured handoff trace と fully proved な Rocq replay witness が
-   active milestone の authoritative witness source になっている
+   この完了済み milestone の authoritative witness source になっている
 3. この milestone で witness する event slice は次とする
    - `EvWakeup`
    - `EvRequestResched`
@@ -168,7 +168,7 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    family をそのまま instantiate し、validity / placement /
    scheduler-visible / handoff package を再利用できることを示した。
    synthetic baseline replay は smoke proof として残し、
-   handoff-aware replay を active milestone の witness にしている
+   handoff-aware replay をこの完了済み milestone の witness にしている
 6. adapter-local な trace-family 生成規則は実装済みである。
    現在の captured handoff trace は canonical な seed instance として維持しつつ、
    その 1 本専用の replay から離れて、captured rows の family に対する
@@ -189,15 +189,15 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    witness を書かずに既存の
    `OSProjection` / `OSLabeledProjection` / `OSLocalAdapterContract`
    path へ入るための premise を与える
-9. `Neutral Rows 移行第2段` を次の active milestone とする。
+9. `Neutral Rows 移行第2段` の完了条件は閉じた。
    common interface は一切広げず、`BEGIN_TRACE_ROWS` / `END_TRACE_ROWS`
    の neutral checker-facing row block を adapter-layer の正規入口として
-   固定する。extracted Haskell acceptance checker は、この emitted rows から
+   固定した。extracted Haskell acceptance checker は、この emitted rows から
    `accepted rows -> adapter-local replay object` へ入る primary
-   adapter-facing validation path として扱うが、common semantics にはしない。
-   canonical captured handoff trace は seed instance と regression oracle
+   adapter-facing validation path として扱い、common semantics にはしない。
+   canonical captured handoff trace は compatibility / regression oracle
    として残し、legacy Rocq witness block と canonical artifact comparison は
-   migration-era compatibility / regression checks として保持する
+   regression / compatibility checks として保持する
 10. runtime 側では、deterministic な handoff-aware 2 CPU trace を出すのに
    必要な narrow observables だけを維持する。
    human-readable な `BASELINE_TRACE` 行は backend validation に残しつつ、
@@ -227,7 +227,7 @@ Awkernel がそれをどの concrete hook で実現するかは local adapter co
    future work として残り、現段階では final contract 導出で canonical
    witness との equality transport を使ってよい
 13. candidate-source, scheduler-relation, algorithm-adapter, delay-adapter は
-   `Neutral Rows 移行第2段` の後段で追加する
+   この完了済み phase-2 checklist の外に置き、次段 milestone で追加する
 
 ## Trace-Based Validation Boundary
 
@@ -268,7 +268,7 @@ baseline witness 自体は 2 CPU runtime 上で取得し、CPU 0 の scheduler-s
 slice と CPU 1 の execution-side slice を組み合わせた cross-core witness として
 使う。Awkernel 自体は 2 CPU 以上を対象とし、1 CPU は interrupt/scheduler 専用、
 他 CPU は async/await task 実行用である。
-したがって、baseline は common interface を validate する最小 witness slice として
+したがって、baseline は common interface を exercise する最小 witness slice として
 完了し、次段では scheduler-core / worker-core interaction を handoff-aware な
 multicore adapter witness として追加する。
 
@@ -283,6 +283,15 @@ current concrete trace capture は runtime-local method として次で固定し
 
 この ordering metadata は replay/reconstruction のための runtime detail であり、
 semantic time や common-layer causality を定義するものではない。
+
+phase-2 completion checklist は次で閉じる。
+
+- common layer は unchanged
+- emitted neutral rows は primary adapter-facing entry point である
+- accepted rows は replay / projection entry を与えるが、local contract を直接 discharge しない
+- `check-handoff-accept-*` は primary validation path である
+- `check-handoff-trace-*` は artifact-shape / regression path である
+- canonical witness と legacy Rocq witness block は compatibility / regression artifact として残す
 
 ## Common / Adapter / Runtime Split For The Trace
 
