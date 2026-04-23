@@ -176,6 +176,14 @@ add_job_once :: JobId -> (List JobId) -> List JobId
 add_job_once =
   insert_job_sorted
 
+first_some :: (a1 -> Option a2) -> (List a1) -> Option a2
+first_some f xs =
+  case xs of {
+   Nil -> None;
+   Cons x xs' -> case f x of {
+                  Some y -> Some y;
+                  None -> first_some f xs'}}
+
 pair_list_contains :: (Prod JobId JobId) -> (List (Prod JobId JobId)) -> Bool
 pair_list_contains x xs =
   case xs of {
@@ -468,29 +476,18 @@ sched_trace_step_after_start summary st entry =
       (astas_dispatched st) (add_job_once j (astas_completed st)));
      False -> None}}
   in
-  let {
-   try_known_jobs = let {
-                     try_known_jobs f jobs =
-                       case jobs of {
-                        Nil -> None;
-                        Cons j jobs' ->
-                         case f j of {
-                          Some st' -> Some st';
-                          None -> try_known_jobs f jobs'}}}
-                    in try_known_jobs}
-  in
   case sched_trace_is_stutter entry of {
    True -> Some st;
    False ->
-    case try_known_jobs try_wakeup_job known of {
+    case first_some try_wakeup_job known of {
      Some st' -> Some st';
      None ->
-      case try_known_jobs try_choose_job known of {
+      case first_some try_choose_job known of {
        Some st' -> Some st';
        None ->
-        case try_known_jobs try_dispatch_job known of {
+        case first_some try_dispatch_job known of {
          Some st' -> Some st';
-         None -> try_known_jobs try_complete_job known}}}}
+         None -> first_some try_complete_job known}}}}
 
 sched_trace_step :: AwkernelTaskTraceSummary ->
                     AwkernelSchedTraceAcceptanceState ->

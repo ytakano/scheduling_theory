@@ -277,17 +277,24 @@ candidate-table 側では、
 - `candidate_table_matches_rows_complete`
 
 が sched_trace-only local contract に対する theorem surface を与える。
+candidate-source reuse 側では、
+
+- `accepted_workload_candidate_source_family`
+- `accepted_workload_candidate_source_sound`
+
+が accepted family, candidate table, execution/sched_trace correspondence を
+adapter-local `os_local_candidate_source_adapter_contract` へ持ち上げる theorem surface を与える。
 
 この Rocq 側が現在保証する境界は次である。
 
 - emitted sched_trace/task_trace が adapter-local generation rules に従うことを generic に述べられる
 - acceptance decision procedure の成功と failure を generic に説明できる
+- accepted workload family と candidate table から adapter-local candidate-source bridge を構成できる
 
 この Rocq 側ではまだ次を保証しない。
 
 - all valid runtime traces を checker が完全に受理すること
-- accepted trace から generic local adapter contract を end-to-end で作ること
-- candidate-source や scheduler-relation をこの family 全体で与えること
+- scheduler-facing witness や scheduler-relation をこの family 全体で与えること
 
 ## 現在の到達点
 
@@ -302,7 +309,6 @@ candidate-table 側では、
 この手順がまだ扱わないものは次である。
 
 - all Awkernel traces を含む workload family
-- accepted workload trace からの generic candidate-source reuse
 - dispatch-latency gap を吸収する scheduler-facing witness
 - scheduler-relation
 - bounded-delay / deadline proof
@@ -318,17 +324,9 @@ Awkernel が emit しうる全 trace の coverage を意味しない。
 ここから先は operational procedure ではなく、accepted family を次の refinement reuse へ
 接続する段階である。
 
-### Future Step 8: generic local refinement obligations
-
-Step 5 の bool-valued acceptance boundary の後段では、Rocq が concrete trace を
-個別に再検査するのではなく、acceptance decision procedure に対する generic
-soundness/completeness theorem と、その accepted family に対する generic local
-refinement obligations を扱う。この step は adapter layer の内部にとどまり、
-common layer の event/state interface は増やさない。
-
 ### Future Step 9: scheduler-facing witness
 
-Future Step 8 の後段では、dispatch-latency gap を吸収する adapter-local
+candidate-source reuse の後段では、dispatch-latency gap を吸収する adapter-local
 scheduler-facing witness を導入する。この witness の役割は、accepted family に
 対する後段の proof obligation を与えることであり、common operational interface
 自体を変更することではない。
@@ -336,4 +334,4 @@ scheduler-facing witness を導入する。この witness の役割は、accepte
 ### Future Step 10: scheduler-relation
 
 scheduler-relation は、Future Step 9 のさらに後段で扱う。したがって、この文書の
-Step 1 から Step 5 は現在の procedure、Future Step 8 以降はその先にある番号付き拡張である。
+Step 1 から Step 5 は現在の procedure、Future Step 9 以降はその先にある番号付き拡張である。

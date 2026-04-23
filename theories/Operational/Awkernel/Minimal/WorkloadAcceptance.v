@@ -1,4 +1,4 @@
-From Stdlib Require Import List Bool Arith Arith.PeanoNat.
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Awkernel.Minimal.CapturedTraceSyntax.
@@ -43,6 +43,23 @@ Fixpoint insert_job_sorted (j : JobId) (xs : list JobId) : list JobId :=
 
 Definition add_job_once (j : JobId) (xs : list JobId) : list JobId :=
   insert_job_sorted j xs.
+
+Ltac peel_andb_left :=
+  repeat match goal with
+         | H : _ && _ = true |- _ =>
+             apply Bool.andb_true_iff in H as [H _]
+         end.
+
+Fixpoint first_some {A B : Type}
+    (f : A -> option B) (xs : list A) : option B :=
+  match xs with
+  | [] => None
+  | x :: xs' =>
+      match f x with
+      | Some y => Some y
+      | None => first_some f xs'
+      end
+  end.
 
 Fixpoint pair_list_contains (x : JobId * JobId) (xs : list (JobId * JobId)) : bool :=
   match xs with
@@ -276,28 +293,17 @@ Definition sched_trace_step_after_start
          all_dependencies_completed j deps (astas_completed st)
       then Some (mkAwkernelSchedTraceAcceptanceState true None (astas_dispatched st) (add_job_once j (astas_completed st)))
       else None in
-  let fix try_known_jobs
-      (f : JobId -> option AwkernelSchedTraceAcceptanceState)
-      (jobs : list JobId) : option AwkernelSchedTraceAcceptanceState :=
-      match jobs with
-      | [] => None
-      | j :: jobs' =>
-          match f j with
-          | Some st' => Some st'
-          | None => try_known_jobs f jobs'
-          end
-      end in
   if sched_trace_is_stutter entry
   then Some st
-  else match try_known_jobs try_wakeup_job known with
+  else match first_some try_wakeup_job known with
        | Some st' => Some st'
        | None =>
-           match try_known_jobs try_choose_job known with
+           match first_some try_choose_job known with
            | Some st' => Some st'
            | None =>
-               match try_known_jobs try_dispatch_job known with
+               match first_some try_dispatch_job known with
                | Some st' => Some st'
-               | None => try_known_jobs try_complete_job known
+               | None => first_some try_complete_job known
                end
            end
        end.
@@ -369,4 +375,242 @@ Proof.
   unfold awk_workload_accepts_sched_trace.
   rewrite Hsummary.
   exact Hsched.
+Qed.
+
+Lemma first_some_some :
+  forall A B (f : A -> option B) xs y,
+    first_some f xs = Some y ->
+    exists x, In x xs /\ f x = Some y.
+Proof.
+  intros A B f xs.
+  induction xs as [|x xs IH]; intros y Hsome; simpl in Hsome.
+  - discriminate.
+  - destruct (f x) as [y'|] eqn:Hfx.
+    + inversion Hsome; subst y'.
+      exists x. split; [left; reflexivity|assumption].
+    + apply IH in Hsome.
+      destruct Hsome as [x' [Hin Hfx']].
+      exists x'. split; [right; assumption|assumption].
+Qed.
+
+Lemma sched_trace_is_wakeup_cpu_in_range :
+  forall j entry,
+    sched_trace_is_wakeup j entry = true ->
+    aste_cpu entry < 2.
+Proof.
+  intros j entry H.
+  unfold sched_trace_is_wakeup in H.
+  peel_andb_left.
+  apply Nat.eqb_eq in H.
+  lia.
+Qed.
+
+Lemma sched_trace_is_choose_cpu_in_range :
+  forall j entry,
+    sched_trace_is_choose j entry = true ->
+    aste_cpu entry < 2.
+Proof.
+  intros j entry H.
+  unfold sched_trace_is_choose in H.
+  peel_andb_left.
+  apply Nat.eqb_eq in H.
+  lia.
+Qed.
+
+Lemma sched_trace_is_dispatch_cpu_in_range :
+  forall j entry,
+    sched_trace_is_dispatch j entry = true ->
+    aste_cpu entry < 2.
+Proof.
+  intros j entry H.
+  unfold sched_trace_is_dispatch in H.
+  peel_andb_left.
+  apply Nat.eqb_eq in H.
+  lia.
+Qed.
+
+Lemma sched_trace_is_complete_cpu_in_range :
+  forall j entry,
+    sched_trace_is_complete j entry = true ->
+    aste_cpu entry < 2.
+Proof.
+  intros j entry H.
+  unfold sched_trace_is_complete in H.
+  peel_andb_left.
+  apply Nat.eqb_eq in H.
+  lia.
+Qed.
+
+Lemma sched_trace_is_stutter_cpu_in_range :
+  forall entry,
+    sched_trace_is_stutter entry = true ->
+    aste_cpu entry < 2.
+Proof.
+  intros entry H.
+  unfold sched_trace_is_stutter in H.
+  peel_andb_left.
+  apply Nat.eqb_eq in H.
+  lia.
+Qed.
+
+Lemma sched_trace_step_start_cpu_in_range :
+  forall summary entry st,
+    sched_trace_step_start summary entry = Some st ->
+    aste_cpu entry < 2.
+Proof.
+  intros summary entry st Hstep.
+  unfold sched_trace_step_start in Hstep.
+  destruct (atts_root_task summary) as [root|] eqn:Hroot; try discriminate.
+  destruct (sched_trace_is_wakeup root entry) eqn:Hwakeup; inversion Hstep; subst.
+  apply sched_trace_is_wakeup_cpu_in_range in Hwakeup.
+  exact Hwakeup.
+Qed.
+
+Lemma sched_trace_step_after_start_cpu_in_range :
+  forall summary st entry st',
+    sched_trace_step_after_start summary st entry = Some st' ->
+    aste_cpu entry < 2.
+Proof.
+  intros summary st entry st' Hstep.
+  unfold sched_trace_step_after_start in Hstep.
+  set (known := atts_known_tasks summary) in *.
+  set (deps := atts_completion_deps summary) in *.
+  set (try_wakeup_job :=
+         fun j : JobId =>
+           if sched_trace_is_wakeup j entry &&
+              job_list_contains j known &&
+              negb (job_list_contains j (astas_completed st))
+           then Some st
+           else None) in *.
+  set (try_choose_job :=
+         fun j : JobId =>
+           if sched_trace_is_choose j entry &&
+              job_list_contains j known &&
+              negb (job_list_contains j (astas_completed st)) &&
+              option_job_eqb (astas_selected st) None
+           then Some
+                  (mkAwkernelSchedTraceAcceptanceState
+                     true
+                     (Some j)
+                     (astas_dispatched st)
+                     (astas_completed st))
+           else None) in *.
+  set (try_dispatch_job :=
+         fun j : JobId =>
+           if sched_trace_is_dispatch j entry &&
+              option_job_eqb (astas_selected st) (Some j)
+           then Some
+                  (mkAwkernelSchedTraceAcceptanceState
+                     true None (add_job_once j (astas_dispatched st))
+                     (astas_completed st))
+           else None) in *.
+  set (try_complete_job :=
+         fun j : JobId =>
+           if sched_trace_is_complete j entry &&
+              job_list_contains j (astas_dispatched st) &&
+              negb (job_list_contains j (astas_completed st)) &&
+              all_dependencies_completed j deps (astas_completed st)
+           then Some
+                  (mkAwkernelSchedTraceAcceptanceState
+                     true None (astas_dispatched st)
+                     (add_job_once j (astas_completed st)))
+           else None) in *.
+  destruct (sched_trace_is_stutter entry) eqn:Hstutter.
+  - inversion Hstep; subst.
+    apply sched_trace_is_stutter_cpu_in_range in Hstutter.
+    exact Hstutter.
+  - destruct (first_some try_wakeup_job known) as [st1|] eqn:Hwakeups.
+    + inversion Hstep; subst.
+      apply first_some_some in Hwakeups.
+      destruct Hwakeups as [j [_ Hj]].
+      unfold try_wakeup_job in Hj.
+      destruct
+        (sched_trace_is_wakeup j entry &&
+         job_list_contains j known &&
+         negb (job_list_contains j (astas_completed st))) eqn:Hcond;
+        simpl in Hj; try discriminate.
+      inversion Hj; subst.
+      apply Bool.andb_true_iff in Hcond as [Hwakeup _].
+      apply Bool.andb_true_iff in Hwakeup as [Hwakeup _].
+      eapply sched_trace_is_wakeup_cpu_in_range; eauto.
+    + destruct (first_some try_choose_job known) as [st2|] eqn:Hchooses.
+      * inversion Hstep; subst.
+        apply first_some_some in Hchooses.
+        destruct Hchooses as [j [_ Hj]].
+        unfold try_choose_job in Hj.
+        destruct
+          (sched_trace_is_choose j entry &&
+           job_list_contains j known &&
+           negb (job_list_contains j (astas_completed st)) &&
+           option_job_eqb (astas_selected st) None) eqn:Hcond;
+          simpl in Hj; try discriminate.
+        inversion Hj; subst.
+        apply Bool.andb_true_iff in Hcond as [Hchoose _].
+        apply Bool.andb_true_iff in Hchoose as [Hchoose _].
+        apply Bool.andb_true_iff in Hchoose as [Hchoose _].
+        eapply sched_trace_is_choose_cpu_in_range; eauto.
+      * destruct (first_some try_dispatch_job known) as [st3|] eqn:Hdispatches.
+        { inversion Hstep; subst.
+          apply first_some_some in Hdispatches.
+          destruct Hdispatches as [j [_ Hj]].
+          unfold try_dispatch_job in Hj.
+          destruct
+            (sched_trace_is_dispatch j entry &&
+             option_job_eqb (astas_selected st) (Some j)) eqn:Hcond;
+            simpl in Hj; try discriminate.
+          inversion Hj; subst.
+          apply Bool.andb_true_iff in Hcond as [Hdispatch _].
+          eapply sched_trace_is_dispatch_cpu_in_range; eauto. }
+        { apply first_some_some in Hstep.
+          destruct Hstep as [j [_ Hj]].
+          unfold try_complete_job in Hj.
+          destruct
+            (sched_trace_is_complete j entry &&
+             job_list_contains j (astas_dispatched st) &&
+             negb (job_list_contains j (astas_completed st)) &&
+             all_dependencies_completed j deps (astas_completed st)) eqn:Hcond;
+            simpl in Hj; try discriminate.
+          inversion Hj; subst.
+          apply Bool.andb_true_iff in Hcond as [Hcomplete _].
+          apply Bool.andb_true_iff in Hcomplete as [Hcomplete _].
+          apply Bool.andb_true_iff in Hcomplete as [Hcomplete _].
+          eapply sched_trace_is_complete_cpu_in_range; eauto. }
+Qed.
+
+Lemma sched_trace_step_cpu_in_range :
+  forall summary st entry st',
+    sched_trace_step summary st entry = Some st' ->
+    aste_cpu entry < 2.
+Proof.
+  intros summary st entry st' Hstep.
+  unfold sched_trace_step in Hstep.
+  destruct (astas_started st) eqn:Hstarted.
+  - eapply sched_trace_step_after_start_cpu_in_range; eauto.
+  - eapply sched_trace_step_start_cpu_in_range; eauto.
+Qed.
+
+Lemma accept_sched_trace_from_cpus_in_range :
+  forall summary st sched_trace,
+    accept_sched_trace_from summary st sched_trace = true ->
+    Forall (fun entry => aste_cpu entry < 2) sched_trace.
+Proof.
+  intros summary st sched_trace.
+  revert st.
+  induction sched_trace as [|entry sched_trace IH]; intros st Haccept; simpl in Haccept.
+  - constructor.
+  - destruct (sched_trace_step summary st entry) as [st'|] eqn:Hstep;
+      try discriminate.
+    constructor.
+    + eapply sched_trace_step_cpu_in_range; eauto.
+    + apply (IH st'). exact Haccept.
+Qed.
+
+Lemma accepted_workload_sched_trace_family_cpus_in_range :
+  forall task_trace sched_trace,
+    accepted_workload_sched_trace_family task_trace sched_trace ->
+    Forall (fun entry => aste_cpu entry < 2) sched_trace.
+Proof.
+  intros task_trace sched_trace [summary [_ Hfamily]].
+  unfold sched_trace_family_member in Hfamily.
+  eapply accept_sched_trace_from_cpus_in_range; eauto.
 Qed.
