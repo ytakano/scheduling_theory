@@ -77,6 +77,7 @@ theories/Multicore/Common/TopMSelectionFacts.v
 theories/Multicore/Common/RunningSetFacts.v
 theories/Multicore/Common/TopMPlacementFacts.v
 theories/Multicore/Global/GlobalEDF.v
+theories/Multicore/Global/GlobalFIFO.v
 theories/Multicore/Global/GlobalLLF.v
 theories/Multicore/Global/GlobalEntryPoints.v
 theories/Multicore/Partitioned/Partitioned.v

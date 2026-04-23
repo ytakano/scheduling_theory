@@ -47,7 +47,7 @@ The layer is organized into three parts.
 
 `Multicore/Global`
 - global top-`m` scheduler structure
-- policy wrappers for global EDF and global LLF
+- policy wrappers for global EDF, global FIFO, and global LLF
 - stable entry-point packaging for the reusable global theorem layer
 
 The main multicore-specific abstraction boundary is top-`m` scheduling:
@@ -84,6 +84,7 @@ Important supporting modules include:
 - `theories/Multicore/Partitioned/Partitioned.v`
 - `theories/Multicore/Partitioned/PartitionedCompose.v`
 - `theories/Multicore/Global/GlobalEDF.v`
+- `theories/Multicore/Global/GlobalFIFO.v`
 - `theories/Multicore/Global/GlobalLLF.v`
 
 ## Design boundaries
@@ -172,6 +173,9 @@ New multicore work should keep structural scheduling facts here and move interva
   Canonical downstream import for the partitioned theorem layer.
 - `theories/Multicore/Global/GlobalEDF.v`
   Global EDF wrapper layer over the top-`m` theorem infrastructure.
+- `theories/Multicore/Global/GlobalFIFO.v`
+  Global FIFO wrapper + validity layer over the top-`m` theorem
+  infrastructure; candidate order carries the FIFO discipline.
 - `theories/Multicore/Global/GlobalLLF.v`
   Global LLF wrapper layer over the top-`m` theorem infrastructure.
 - `theories/Multicore/Global/GlobalEntryPoints.v`

@@ -556,7 +556,7 @@ Design note:
 **Status: E-1 stable public theorem layer implemented; downstream analysis packaging and first fairness-facing clients now live in Phase G**
 
 ### E-1. Global scheduling
-**Status: Stable global EDF / LLF theorem layers and canonical entry-point packaging implemented**
+**Status: Stable global EDF / FIFO / LLF wrapper layers and canonical entry-point packaging implemented**
 
 What is already done:
 
@@ -570,6 +570,14 @@ What is already done:
   - subset-aware theorem entry points
   - admissibility-aware wrappers
   - set-level `top_m_selected_from` wrappers over the stable common boundary
+- `GlobalFIFO.v` provides:
+  - `global_fifo_scheduler`
+  - `global_fifo_valid`
+  - `global_fifo_idle_outside_range`
+  - `global_fifo_no_duplication`
+  - `global_fifo_semantic_validity`
+  - subset-aware theorem entry points
+  - wrapper-style FIFO semantics carried by candidate order
 - `GlobalLLF.v` provides analogous theorem families
 - `TopMMetricFacts.v` provides reusable top-`m` metric-order facts for
   dynamic-metric policies
@@ -579,6 +587,8 @@ What is already done:
   - machine-full consequences
 - `GlobalEDF.v` and `GlobalLLF.v` expose thin semantic-validity and interval
   full-supply wrappers over the common top-`m` theorem layer
+- `GlobalFIFO.v` intentionally stops at wrapper + validity and does not yet
+  expose the deeper admissibility wrapper family
 - `GlobalEntryPoints.v` provides the canonical downstream import path for the
   stable global theorem inventory
 - `Examples/GlobalExamples.v` curates representative downstream clients in one

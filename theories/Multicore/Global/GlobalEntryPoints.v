@@ -5,6 +5,7 @@ From RocqSched Require Export Abstractions.SchedulingAlgorithm.TopMSchedulerBrid
 From RocqSched Require Export Multicore.Common.TopMSchedulerBridgeFacts.
 From RocqSched Require Export Multicore.Common.TopMAdmissibilityBridge.
 From RocqSched Require Export Multicore.Global.GlobalEDF.
+From RocqSched Require Export Multicore.Global.GlobalFIFO.
 From RocqSched Require Export Multicore.Global.GlobalLLF.
 
 (** * Stable public entry points for the global theorem layer
@@ -15,6 +16,7 @@ From RocqSched Require Export Multicore.Global.GlobalLLF.
     Public theorem families exposed here:
     - the generic top-`m` scheduler bridge and admissibility boundary
     - global EDF policy wrappers
+    - global FIFO wrapper + validity layer
     - global LLF policy wrappers
 
     Not part of this layer:
