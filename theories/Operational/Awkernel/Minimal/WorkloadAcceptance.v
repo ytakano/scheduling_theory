@@ -207,6 +207,13 @@ Fixpoint summarize_lifecycle
       else None
   end.
 
+Definition workload_lifecycle_well_formed
+    (lifecycle : list TaskLifecycleRecord) : bool :=
+  match summarize_lifecycle initial_lifecycle_summary lifecycle with
+  | Some _ => true
+  | None => false
+  end.
+
 Record WorkloadRowState : Type := mkWorkloadRowState {
   wrs_started : bool;
   wrs_selected : option JobId;
@@ -310,10 +317,15 @@ Fixpoint accept_rows_from
       end
   end.
 
+Definition workload_row_family_member
+    (summary : WorkloadLifecycleSummary)
+    (rows : list AwkernelCapturedRow) : bool :=
+  accept_rows_from summary initial_row_state rows.
+
 Definition awk_workload_accepts_trace
     (lifecycle : list TaskLifecycleRecord)
     (rows : list AwkernelCapturedRow) : bool :=
   match summarize_lifecycle initial_lifecycle_summary lifecycle with
-  | Some summary => accept_rows_from summary initial_row_state rows
+  | Some summary => workload_row_family_member summary rows
   | None => false
   end.

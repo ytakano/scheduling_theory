@@ -141,12 +141,15 @@ lifecycle record として現在扱う kind は次である。
 この段階では、task が存在する前に参照されていないか、
 join wait が既知 task 間で張られているか、known task 集合に重複がないか、
 といった well-formedness を確認する。
+この lifecycle summary が、現在の finite task universe の authoritative source
+である。
 
 ## Step 3: rows を finite-task summary と照合する
 
 その後 scheduler-visible rows を読み、Step 2 で得た summary と照合しながら
 row-state machine を進める。現在の checker は fixed job-id example に依存せず、
 lifecycle summary から復元した known task 集合の上で row matching を行う。
+このとき runnable list の順序自体は意味論に使わず、membership だけを使う。
 
 現在見る row pattern は次である。
 
@@ -167,8 +170,11 @@ checker state には少なくとも次を持つ。
 
 - root task の wakeup から開始する
 - known task 以外は choose / dispatch / complete できない
+- duplicate spawn を許さない
+- invalid join edge を許さない
 - sleeping / join dependency に反する completion を許さない
-- optional stutter を許す
+- `cpu=1`, `current=None`, `need_resched=false`, `dispatch_target=None` の
+  narrow shape に限って optional stutter を許す
 - trace 末尾で root task が completed に入っている
 
 ことを要求する。
@@ -248,6 +254,14 @@ current runtime capture path は `awkernel/Makefile` にある。
 QEMU は canonical regression backend であり、
 KVM は smoke backend である。
 
+現在の regression policy は workload ごとに分かれる。
+
+- `single_async`, `nested_spawn`
+  - baseline text, rows, lifecycle, generated Rocq witness export を exact に比較する
+- `multi_async`, `sleep_wakeup`
+  - rows, lifecycle, generated Rocq witness export を exact に比較する
+  - baseline text は representative reference にとどめ、drift を semantic rejection と見なさない
+
 QEMU fixture は現在、
 
 - `awkernel/fixtures/workload_trace/<scenario>/baseline.txt`
@@ -275,6 +289,7 @@ QEMU fixture は現在、
 
 - emitted rows/lifecycle が adapter-local generation rules に従う
 - accepted trace を replay/projection path に入れる前提として使える
+- semantic acceptance と representative regression drift を分けて扱える
 
 この手順ではまだ次を保証しない。
 
