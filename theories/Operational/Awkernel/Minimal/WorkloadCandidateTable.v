@@ -122,6 +122,17 @@ Proof.
   repeat split; assumption.
 Qed.
 
+Lemma candidate_row_contractb_complete :
+  forall row cand,
+    workload_candidate_row_contract row cand ->
+    candidate_row_contractb row cand = true.
+Proof.
+  intros row cand [Hsorted [Hvisible [Hcurrent [Hrunnable Hdispatch]]]].
+  unfold candidate_row_contractb.
+  rewrite Hsorted, Hvisible, Hcurrent, Hrunnable, Hdispatch.
+  reflexivity.
+Qed.
+
 Lemma candidate_table_contractb_sound :
   forall rows table,
     candidate_table_contractb rows table = true ->
@@ -137,6 +148,19 @@ Proof.
     + apply IH. exact Hrest.
 Qed.
 
+Lemma candidate_table_contractb_complete :
+  forall rows table,
+    Forall2 workload_candidate_row_contract rows table ->
+    candidate_table_contractb rows table = true.
+Proof.
+  intros rows table Hcontract.
+  induction Hcontract; simpl.
+  - reflexivity.
+  - rewrite candidate_row_contractb_complete by exact H.
+    rewrite IHHcontract.
+    reflexivity.
+Qed.
+
 Lemma candidate_table_matches_rows_sound :
   forall rows table,
     candidate_table_matches_rows rows table = true ->
@@ -149,4 +173,18 @@ Proof.
   split; [exact Hlen|].
   apply candidate_table_contractb_sound.
   exact Htable.
+Qed.
+
+Lemma candidate_table_matches_rows_complete :
+  forall rows table,
+    workload_candidate_table_contract rows table ->
+    candidate_table_matches_rows rows table = true.
+Proof.
+  intros rows table [Hlen Hcontract].
+  unfold candidate_table_matches_rows.
+  assert (Nat.eqb (length rows) (length table) = true) as Hlenb.
+  { apply Nat.eqb_eq. exact Hlen. }
+  rewrite Hlenb.
+  rewrite candidate_table_contractb_complete by exact Hcontract.
+  reflexivity.
 Qed.

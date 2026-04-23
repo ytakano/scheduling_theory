@@ -8,11 +8,10 @@ concrete runtime layer の narrow な refinement 手順である。
 
 この手順の目的は次である。
 
-- Awkernel が emit した workload trace を deterministic artifact として取得する
-- その artifact が adapter-local な generation rules に従っているかを
-  Rocq 由来の checker で判定する
-- accepted workload trace を、既存の projection / replay / adapter-obligation
-  path へ入れるための前段境界として整理する
+- Awkernel が emit した workload trace を serial log として取得する
+- その log から rows と lifecycle block を取り出し、
+  Haskell acceptance lane で concrete trace constraint を判定する
+- concrete trace checking と generic refinement obligation を分離した現行境界を記録する
 
 この手順の範囲外にあるものは次である。
 
@@ -40,21 +39,16 @@ workload trace のために common layer へ新しい event や state field は�
 
 ### 2. Concrete behavior
 
-Awkernel runtime は 2 CPU 上で async/await workload を実行し、次の 4 種の
-artifact を emit する。
+Awkernel runtime は 2 CPU 上で async/await workload を実行し、
+baseline、rows、lifecycle、Rocq-export block を埋め込んだ serial log を emit する。
 
-- `BASELINE_TRACE:*` による baseline text
-- `BEGIN_TRACE_ROWS ... END_TRACE_ROWS` による scheduler-visible rows
-- `BEGIN_TASK_LIFECYCLE ... END_TASK_LIFECYCLE` による task lifecycle export
-- `BEGIN_ROCQ_TRACE ... END_ROCQ_TRACE` による generated Rocq witness export
-
-このうち semantic acceptance の主入力は
+このうち semantic acceptance の主入力は、log から抽出した
 
 - rows
 - lifecycle
 
 の 2 つである。baseline text と generated Rocq export は regression/reference
-artifact として使う。
+artifact としてだけ使う。
 
 ### 3. Layer split
 
@@ -68,9 +62,10 @@ workload-specific な spawn, sleep, join などの concrete executor detail は
 
 Awkernel emitted rows と lifecycle export から、
 `accepted workload trace` かどうかを判定する generation-rules checker を置く。
-この checker は `Operational/Awkernel/Minimal/WorkloadAcceptance.v` にあり、
-accepted trace を既存の replay/projection path へ入れるための adapter-local
-前段境界である。
+この checker の定義は `Operational/Awkernel/Minimal/WorkloadAcceptance.v` にあるが、
+実際の concrete trace constraint 判定は、その Haskell 抽出が acceptance lane で実行する。
+Rocq 側は accepted trace を既存の replay/projection path へ入れるための
+generic refinement obligation を持つ。
 
 #### Concrete runtime layer
 
@@ -113,14 +108,14 @@ deterministic artifact」である。
 これらは semantic family の定義ではなく、runtime artifact を出す
 representative examples である。
 
-## Step 2: lifecycle summary を構成する
+## Step 2: acceptance lane が lifecycle summary を構成する
 
-次に Rocq 側で lifecycle export を読み、finite task set と dependency を
+次に acceptance lane が lifecycle export を読み、finite task set と dependency を
 recover する summary を作る。ここで使うのは `rows + lifecycle` を受ける
-adapter-local checker であり、common layer の interface は広げない。
+adapter-local checker の Haskell 抽出であり、common layer の interface は広げない。
 
-現在の checker は `Operational/Awkernel/Minimal/WorkloadAcceptance.v` にあり、
-大きく 2 段からなる。
+現在の checker の定義は `Operational/Awkernel/Minimal/WorkloadAcceptance.v` にあり、
+実際の concrete artifact に対する summary 構成は extracted checker が行う。
 
 この summary では、まず lifecycle export を読み、次の情報を構成する。
 
@@ -144,7 +139,7 @@ join wait が既知 task 間で張られているか、known task 集合に重�
 この lifecycle summary が、現在の finite task universe の authoritative source
 である。
 
-## Step 3: rows を finite-task summary と照合する
+## Step 3: acceptance lane が rows を finite-task summary と照合する
 
 その後 scheduler-visible rows を読み、Step 2 で得た summary と照合しながら
 row-state machine を進める。現在の checker は fixed job-id example に依存せず、
@@ -179,7 +174,7 @@ checker state には少なくとも次を持つ。
 
 ことを要求する。
 
-## Step 4: extracted checker を実行する
+## Step 4: acceptance lane が extracted checker を実行する
 
 checker は Rocq で定義され、Haskell へ Extraction される。実際の運用では
 checker を source のまま使うのではなく、extracted checker を serial log に
@@ -196,8 +191,6 @@ Rocq 側で実トレースを個別に再検査しない。
   `scheduling_theory/extracted/haskell/AwkernelWorkloadAcceptance.hs`
 - Haskell runner:
   `awkernel/scripts/haskell/WorkloadAcceptanceMain.hs`
-- candidate-table runner:
-  `awkernel/scripts/haskell/WorkloadCandidateTableMain.hs`
 - Python wrapper:
   `awkernel/scripts/check_workload_acceptance.py`
 
@@ -206,9 +199,9 @@ Haskell 側の active path は serial log から抽出された
 - rows TSV
 - lifecycle TSV
 
-を読み、まず extracted checker `awk_workload_accepts_trace lifecycle rows` を呼ぶ。
-その acceptance が通ったあと、rows から candidate table を生成し、同じく extracted な
-rows-only checker で candidate-table local contract を検査する。
+を読み、extracted checker `awk_workload_accepts_trace lifecycle rows` を呼ぶ。
+現在の active acceptance lane は、成功時に proof-facing artifact を出力しない。
+返すのは `accept/reject` と diagnostics だけである。
 
 現在の failure split は次である。
 
@@ -231,8 +224,11 @@ rows-only checker で candidate-table local contract を検査する。
 - `BEGIN_TASK_LIFECYCLE ... END_TASK_LIFECYCLE`
 
 を抽出し、Haskell checker に渡して semantic acceptance を行う。
-その後、accepted rows から candidate table を生成し、その local row contract も
-Haskell の extracted checker で確認する。これは fixture equality に依存しない。
+この path が concrete trace constraint の semantic oracle である。
+成功時には `accept` を返し、失敗時には constraint 種別と場所つきの
+diagnostics を返す。成功時に `candidate_table.v`、`rocq.v`、
+`rows.tsv`、`lifecycle.tsv`、`baseline.txt` を acceptance lane から
+追加出力しない。
 
 ### Regression path
 
@@ -245,6 +241,8 @@ Haskell の extracted checker で確認する。これは fixture equality に�
 
 の drift を検出する。
 こちらは semantic acceptance ではなく regression/reference check である。
+candidate-table の生成や検査はこの lane では行わず、staging や Rocq proof も
+通常の trace-regression path には入れない。
 
 current runtime capture path は `awkernel/Makefile` にある。
 
@@ -284,24 +282,24 @@ QEMU fixture は現在、
 3. task lifecycle TSV
 4. generated Rocq witness export
 
-## Step 6: accepted artifact を proof-facing 境界として解釈する
+## Step 6: acceptance outcome を refinement から分離して解釈する
 
-この手順で得られる accepted artifact は、
-`accepted emitted workload artifact` が Awkernel adapter-local な accepted family に
-属する、という意味で使う。ここでの役割は `proof entry gate` であって、
-完全な refinement closure ではない。
+この手順で得られるのは、`accepted emitted workload artifact` が Awkernel
+adapter-local な accepted family に属する、という bool 判定と diagnostics である。
+ここでの役割は `concrete trace checking lane` を閉じることであって、
+そのまま proof-facing artifact を受け渡すことではない。
 
 この手順が現在保証する境界は次である。
 
 - emitted rows/lifecycle が adapter-local generation rules に従う
-- accepted trace を replay/projection path に入れる前提として使える
+- acceptance lane の成功と failure が concrete trace constraint に対して定義されている
 - semantic acceptance と representative regression drift を分けて扱える
 
 この手順ではまだ次を保証しない。
 
 - all valid runtime traces を checker が完全に受理すること
 - accepted trace から generic local adapter contract を end-to-end で作ること
-- scheduler-relation や candidate-source をこの family 全体で与えること
+- candidate-source や scheduler-relation をこの family 全体で与えること
 
 ## 現在の到達点
 
@@ -333,24 +331,25 @@ Awkernel が emit しうる全 trace の coverage を意味しない。
 ここから先は、現在実際に回している手順ではなく、その accepted family を
 次の refinement reuse へ接続するための段階である。
 
-## Step 7: rows-only local candidate-table contract
+旧 draft の Step 7 にあった rows-only candidate-table generation / checking は、
+現在は Step 4 と Step 5 の acceptance lane に吸収されている。
 
-Step 6 で proof-facing boundary として受理した finite-task family を起点に、
-Haskell が rows から candidate tables を出力し、concrete trace constraint を
-rows 上で検査する。Rocq は受理済み artifact に対する generic refinement
-obligations を証明する。
+## Future Step 8: generic local refinement obligations
 
-この step は adapter layer の内部にとどまり、common layer の event/state interface は
-増やさない。lifecycle は acceptance lane のまま維持され、この手順で受理した current
-lifecycle-grammar family に限られ、all Awkernel traces を covered したと主張するものではない。
-また、この step は scheduler-relation でも common layer の意味論でもない。
+Step 6 の bool-valued acceptance boundary の後段では、Rocq が concrete trace を
+個別に再検査するのではなく、acceptance decision procedure に対する generic
+soundness/completeness theorem と、その accepted family に対する generic local
+refinement obligations を扱う。この step は adapter layer の内部にとどまり、
+common layer の event/state interface は増やさない。
 
-## Step 8: scheduler-facing witness
+## Future Step 9: scheduler-facing witness
 
-Step 7 の後段では、dispatch-latency gap を吸収する adapter-local
-scheduler-facing witness を導入する。この witness の役割は、accepted workload artifact を
-downstream proof obligation が使える形へ写すことであり、common operational interface 自体を
-変更することではない。
+Future Step 8 の後段では、dispatch-latency gap を吸収する adapter-local
+scheduler-facing witness を導入する。この witness の役割は、accepted family に
+対する後段の proof obligation を与えることであり、common operational interface
+自体を変更することではない。
 
-scheduler-relation は、この Step 8 のさらに後段で扱う。したがって、この文書の
-Step 1 から Step 6 は現在の procedure、Step 7 と Step 8 はその先にある番号付き拡張である。
+## Future Step 10: scheduler-relation
+
+scheduler-relation は、Future Step 9 のさらに後段で扱う。したがって、この文書の
+Step 1 から Step 6 は現在の procedure、Future Step 8 以降はその先にある番号付き拡張である。
