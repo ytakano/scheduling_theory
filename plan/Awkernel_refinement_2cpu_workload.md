@@ -198,6 +198,20 @@ Rocq 側に残している主な役割は次である。
 - `Operational/Awkernel/Minimal/WorkloadCandidateTable.v`
 - `Operational/Awkernel/Minimal/WorkloadAcceptanceExtraction.v`
 
+workload acceptance 本体については、
+
+- `accepted_workload_trace_family`
+- `awk_workload_accepts_trace_sound`
+- `awk_workload_accepts_trace_complete`
+
+が、現在の finite-task workload family に対する theorem surface である。
+candidate-table 側では、
+
+- `candidate_table_matches_rows_sound`
+- `candidate_table_matches_rows_complete`
+
+が rows-only local contract に対する theorem surface を与える。
+
 この Rocq 側が現在保証する境界は次である。
 
 - emitted rows/lifecycle が adapter-local generation rules に従うことを generic に述べられる

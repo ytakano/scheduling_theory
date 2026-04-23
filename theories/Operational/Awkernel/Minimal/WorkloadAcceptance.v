@@ -329,3 +329,34 @@ Definition awk_workload_accepts_trace
   | Some summary => workload_row_family_member summary rows
   | None => false
   end.
+
+Definition accepted_workload_trace_family
+    (lifecycle : list TaskLifecycleRecord)
+    (rows : list AwkernelCapturedRow) : Prop :=
+  exists summary,
+    summarize_lifecycle initial_lifecycle_summary lifecycle = Some summary /\
+    workload_row_family_member summary rows = true.
+
+Lemma awk_workload_accepts_trace_sound :
+  forall lifecycle rows,
+    awk_workload_accepts_trace lifecycle rows = true ->
+    accepted_workload_trace_family lifecycle rows.
+Proof.
+  intros lifecycle rows Haccept.
+  unfold awk_workload_accepts_trace in Haccept.
+  destruct (summarize_lifecycle initial_lifecycle_summary lifecycle) as [summary|] eqn:Hsummary;
+    simpl in Haccept; try discriminate.
+  exists summary.
+  split; assumption.
+Qed.
+
+Lemma awk_workload_accepts_trace_complete :
+  forall lifecycle rows,
+    accepted_workload_trace_family lifecycle rows ->
+    awk_workload_accepts_trace lifecycle rows = true.
+Proof.
+  intros lifecycle rows [summary [Hsummary Hrows]].
+  unfold awk_workload_accepts_trace.
+  rewrite Hsummary.
+  exact Hrows.
+Qed.
