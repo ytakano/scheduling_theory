@@ -128,7 +128,7 @@ obligations.
 The current common operational bridge now exposes that path through:
 
 - `Operational/Common/ProjectionMulticoreValidity.v`
-- `Operational/Awkernel/MulticoreProjection.v`
+- `Operational/Awkernel/Minimal/MulticoreProjection.v`
 
 This operational projection boundary is distinct from
 `theories/Refinement/SchedulingAlgorithmRefinement.v`.

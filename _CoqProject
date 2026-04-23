@@ -120,8 +120,8 @@ theories/Operational/Awkernel/MinimalProjection.v
 theories/Operational/Awkernel/CapturedTraceSyntax.v
 theories/Operational/Awkernel/WorkloadAcceptance.v
 theories/Operational/Awkernel/WorkloadAcceptanceExtraction.v
-theories/Operational/Awkernel/MulticoreProjection.v
-theories/Examples/OperationalMulticoreProjectionExamples.v
+theories/Operational/Awkernel/Minimal/MulticoreProjection.v
+theories/Operational/Awkernel/Minimal/OperationalMulticoreProjectionExamples.v
 theories/Refinement/BoundedDelayRefinement.v
 theories/Refinement/OSCausalityTheorem.v
 theories/Refinement/OSSchedulerViewTheorem.v

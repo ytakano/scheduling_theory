@@ -22,6 +22,8 @@ From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
 From RocqSched Require Import Operational.Awkernel.MinimalProjection.
 Import ListNotations.
 
+(** Worked 2-CPU projection examples built on top of the reusable Awkernel
+    minimal projection boundary. *)
 Section OperationalMulticoreProjectionExamples.
 
   Definition mc_job0 : Job := mkJob 0 0 0 3 5.

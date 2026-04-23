@@ -873,6 +873,8 @@ Implemented core:
 - `Operational/Common/ConcreteExecution.v`
 - `Operational/Common/OperationalEntryPoints.v`
 - `Operational/Awkernel/MinimalProjection.v`
+  The reusable Awkernel adapter boundary used by the 2-CPU minimal examples in
+  `Operational/Awkernel/Minimal/`.
 
 What is already done:
 

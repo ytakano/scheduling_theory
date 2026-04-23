@@ -85,8 +85,9 @@ boundary with the multicore-common bridge:
 
 Concrete OS adapters may then expose OS-specific states and traces outside
 `Operational/Common`. The current `Operational/Awkernel/MinimalProjection.v`
-and `Operational/Awkernel/MulticoreProjection.v` modules are examples of such
-concrete adapter layers.
+module is the reusable Awkernel adapter boundary, while
+`Operational/Awkernel/Minimal/MulticoreProjection.v` is a 2-CPU minimal
+example entry point built on top of that boundary.
 
 ## Public entry points
 
@@ -183,8 +184,11 @@ These extensions should continue to project into the same semantic schedule laye
   `Multicore/Common`.
 - `theories/Operational/Awkernel/MinimalProjection.v`
   Concrete adapter example built on top of the common projection slice.
-- `theories/Operational/Awkernel/MulticoreProjection.v`
-  Thin Awkernel-facing entry point for the multicore projection bridge.
+- `theories/Operational/Awkernel/Minimal/MulticoreProjection.v`
+  Thin 2-CPU Awkernel-facing entry point for the multicore projection bridge.
+- `theories/Operational/Awkernel/Minimal/OperationalMulticoreProjectionExamples.v`
+  Worked 2-CPU projection examples layered on top of the Awkernel minimal
+  projection boundary.
 
 ## Summary
 
