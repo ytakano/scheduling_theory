@@ -122,6 +122,7 @@ theories/Operational/Awkernel/Minimal/CapturedTraceSyntax.v
 theories/Operational/Awkernel/Minimal/WorkloadAcceptance.v
 theories/Operational/Awkernel/Minimal/WorkloadCandidateTable.v
 theories/Operational/Awkernel/Minimal/WorkloadCandidateSource.v
+theories/Operational/Awkernel/Minimal/WorkloadSchedulerFacing.v
 theories/Operational/Awkernel/Minimal/WorkloadAcceptanceExtraction.v
 theories/Operational/Awkernel/Minimal/MulticoreProjection.v
 theories/Operational/Awkernel/Minimal/OperationalMulticoreProjectionExamples.v

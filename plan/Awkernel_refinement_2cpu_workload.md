@@ -324,14 +324,24 @@ Awkernel が emit しうる全 trace の coverage を意味しない。
 ここから先は operational procedure ではなく、accepted family を次の refinement reuse へ
 接続する段階である。
 
-### Future Step 9: scheduler-facing witness
+### Step 9: scheduler-facing witness
 
-candidate-source reuse の後段では、dispatch-latency gap を吸収する adapter-local
-scheduler-facing witness を導入する。この witness の役割は、accepted family に
-対する後段の proof obligation を与えることであり、common operational interface
-自体を変更することではない。
+candidate-source reuse の後段として、dispatch-latency gap を吸収する adapter-local
+scheduler-facing witness を proof-side bridge として追加した。current minimal
+module は `GlobalFIFO` を target にし、
 
-### Future Step 10: scheduler-relation
+- `workload_scheduler_facing_execution_matches_sched_trace`
+- `workload_global_fifo_table_witness`
+- `accepted_workload_scheduler_facing_family`
+- `accepted_workload_scheduler_facing_adapter_contract`
 
-scheduler-relation は、Future Step 9 のさらに後段で扱う。したがって、この文書の
-Step 1 から Step 5 は現在の procedure、Future Step 9 以降はその先にある番号付き拡張である。
+を導入している。ここでの witness は physical 2-CPU projected schedule そのものではなく、
+accepted `sched_trace` から logical scheduler-facing row state を読む narrow bridge である。
+common operational interface は変更しない。
+
+### Future Step 10: stronger scheduler-relation reuse
+
+current proof-side witness は `GlobalFIFO` に対する adapter-local bridge までであり、
+その先の stronger algorithm-facing reuse や `CandidateSourceSpec` を伴う packaging は
+Future Step 10 に残る。したがって、この文書の Step 1 から Step 5 は current procedure、
+Step 9 は current proof bridge、Future Step 10 以降はその先にある拡張である。

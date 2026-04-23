@@ -271,6 +271,11 @@ Important definitions and theorems are:
 - `accepted_workload_candidate_source_family`
 - `accepted_workload_candidate_source_sound`
 - `accepted_workload_candidate_source_adapter_contract`
+- `workload_scheduler_facing_execution_matches_sched_trace`
+- `workload_global_fifo_table_witness`
+- `accepted_workload_scheduler_facing_family`
+- `accepted_workload_scheduler_facing_sound_from_contract`
+- `accepted_workload_scheduler_facing_adapter_contract`
 
 The intended progression is:
 
@@ -282,11 +287,18 @@ The intended progression is:
    plus the candidate-table contract yield
    `labeled_concrete_candidate_source_contract`,
 4. `accepted_workload_candidate_source_adapter_contract` packages the result as
-   `os_local_candidate_source_adapter_contract`.
+   `os_local_candidate_source_adapter_contract`,
+5. `workload_scheduler_facing_execution_matches_sched_trace` and
+   `workload_global_fifo_table_witness` introduce a proof-side
+   scheduler-facing witness over the accepted family,
+6. `accepted_workload_scheduler_facing_sound_from_contract` lifts that witness
+   to `labeled_concrete_top_m_scheduler_relation_contract` for `GlobalFIFO`,
+7. `accepted_workload_scheduler_facing_adapter_contract` packages the result
+   as `os_local_top_m_scheduler_relation_adapter_contract`.
 
 This is an adapter-local bridge built on top of the common contract ladder. It
-does not widen `Operational/Common`, and it stops before
-`CandidateSourceSpec`, scheduler-facing witness, or scheduler-relation.
+does not widen `Operational/Common`, and it still stops before
+`CandidateSourceSpec` and stronger algorithm-facing packaging.
 
 ## Public entry points
 
@@ -335,6 +347,7 @@ Important supporting entry points are grouped by responsibility below.
 - `theories/Operational/Awkernel/Minimal/WorkloadAcceptanceExtraction.v`
 - `theories/Operational/Awkernel/Minimal/WorkloadCandidateTable.v`
 - `theories/Operational/Awkernel/Minimal/WorkloadCandidateSource.v`
+- `theories/Operational/Awkernel/Minimal/WorkloadSchedulerFacing.v`
 - `theories/Operational/Awkernel/Minimal/MulticoreProjection.v`
 - `theories/Operational/Awkernel/Minimal/OperationalMulticoreProjectionExamples.v`
 
