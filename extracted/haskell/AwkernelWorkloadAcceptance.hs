@@ -39,6 +39,12 @@ data List a =
    Nil
  | Cons a (List a)
 
+app :: (List a1) -> (List a1) -> List a1
+app l m =
+  case l of {
+   Nil -> m;
+   Cons a l1 -> Cons a (app l1 m)}
+
 eqb :: Bool -> Bool -> Bool
 eqb b1 b2 =
   case b1 of {
@@ -524,4 +530,83 @@ awk_workload_accepts_sched_trace task_trace sched_trace =
   case summarize_task_trace initial_task_trace_summary task_trace of {
    Some summary -> sched_trace_family_member summary sched_trace;
    None -> False}
+
+option_job_to_list :: (Option JobId) -> List JobId
+option_job_to_list oj =
+  case oj of {
+   Some j -> Cons j Nil;
+   None -> Nil}
+
+append_job_once_preserving :: (List JobId) -> JobId -> List JobId
+append_job_once_preserving xs j =
+  case job_list_contains j xs of {
+   True -> xs;
+   False -> app xs (Cons j Nil)}
+
+append_jobs_once_preserving :: (List JobId) -> (List JobId) -> List JobId
+append_jobs_once_preserving acc xs =
+  case xs of {
+   Nil -> acc;
+   Cons j xs' ->
+    append_jobs_once_preserving (append_job_once_preserving acc j) xs'}
+
+append_option_job_once_preserving :: (List JobId) -> (Option JobId) -> List
+                                     JobId
+append_option_job_once_preserving acc oj =
+  case oj of {
+   Some j -> append_job_once_preserving acc j;
+   None -> acc}
+
+sched_trace_fifo_candidates :: AwkernelSchedTraceEntry -> List JobId
+sched_trace_fifo_candidates entry =
+  append_option_job_once_preserving
+    (append_jobs_once_preserving (option_job_to_list (aste_current entry))
+      (aste_runnable entry))
+    (aste_dispatch_target entry)
+
+sched_trace_fifo_head :: AwkernelSchedTraceEntry -> Option JobId
+sched_trace_fifo_head entry =
+  case sched_trace_fifo_candidates entry of {
+   Nil -> None;
+   Cons j _ -> Some j}
+
+sched_trace_global_fifo_rowb :: AwkernelSchedTraceEntry -> Bool
+sched_trace_global_fifo_rowb entry =
+  case aste_event entry of {
+   EvChoose cpu j ->
+    andb (andb (eqb0 (aste_cpu entry) (S O)) (eqb0 cpu (S O)))
+      (option_job_eqb (sched_trace_fifo_head entry) (Some j));
+   _ -> True}
+
+sched_trace_global_fifo_checkb :: (List AwkernelSchedTraceEntry) -> Bool
+sched_trace_global_fifo_checkb sched_trace =
+  case sched_trace of {
+   Nil -> True;
+   Cons entry sched_trace' ->
+    andb (sched_trace_global_fifo_rowb entry)
+      (sched_trace_global_fifo_checkb sched_trace')}
+
+first_non_fifo_sched_trace_index_from :: Nat -> (List
+                                         AwkernelSchedTraceEntry) -> Option
+                                         Nat
+first_non_fifo_sched_trace_index_from n sched_trace =
+  case sched_trace of {
+   Nil -> None;
+   Cons entry sched_trace' ->
+    case sched_trace_global_fifo_rowb entry of {
+     True -> first_non_fifo_sched_trace_index_from (S n) sched_trace';
+     False -> Some n}}
+
+first_non_fifo_sched_trace_index :: (List AwkernelSchedTraceEntry) -> Option
+                                    Nat
+first_non_fifo_sched_trace_index sched_trace =
+  first_non_fifo_sched_trace_index_from O sched_trace
+
+awk_workload_accepts_global_fifo_sched_trace :: (List AwkernelTaskTraceEntry)
+                                                -> (List
+                                                AwkernelSchedTraceEntry) ->
+                                                Bool
+awk_workload_accepts_global_fifo_sched_trace task_trace sched_trace =
+  andb (awk_workload_accepts_sched_trace task_trace sched_trace)
+    (sched_trace_global_fifo_checkb sched_trace)
 

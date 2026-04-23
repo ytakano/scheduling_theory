@@ -266,6 +266,7 @@ candidate-source bridge over the accepted finite-task workload family.
 Important definitions and theorems are:
 
 - `accepted_workload_sched_trace_family`
+- `accepted_workload_global_fifo_sched_trace_family`
 - `workload_candidate_table_contract`
 - `candidate_source_of_table`
 - `accepted_workload_candidate_source_family`
@@ -281,19 +282,22 @@ The intended progression is:
 
 1. `accepted_workload_sched_trace_family` identifies the accepted
    `task_trace + sched_trace` family,
-2. `workload_candidate_table_contract` and `candidate_source_of_table` define
+2. `accepted_workload_global_fifo_sched_trace_family` adds the current
+   trace-local `GlobalFIFO` choose-order check used by the extracted Haskell
+   checker over concrete `EvChoose` rows,
+3. `workload_candidate_table_contract` and `candidate_source_of_table` define
    a proof-side candidate witness over accepted `sched_trace`,
-3. `accepted_workload_candidate_source_sound` shows that the accepted family
+4. `accepted_workload_candidate_source_sound` shows that the accepted family
    plus the candidate-table contract yield
    `labeled_concrete_candidate_source_contract`,
-4. `accepted_workload_candidate_source_adapter_contract` packages the result as
+5. `accepted_workload_candidate_source_adapter_contract` packages the result as
    `os_local_candidate_source_adapter_contract`,
-5. `workload_scheduler_facing_execution_matches_sched_trace` and
+6. `workload_scheduler_facing_execution_matches_sched_trace` and
    `workload_global_fifo_table_witness` introduce a proof-side
    scheduler-facing witness over the accepted family,
-6. `accepted_workload_scheduler_facing_sound_from_contract` lifts that witness
+7. `accepted_workload_scheduler_facing_sound_from_contract` lifts that witness
    to `labeled_concrete_top_m_scheduler_relation_contract` for `GlobalFIFO`,
-7. `accepted_workload_scheduler_facing_adapter_contract` packages the result
+8. `accepted_workload_scheduler_facing_adapter_contract` packages the result
    as `os_local_top_m_scheduler_relation_adapter_contract`.
 
 This is an adapter-local bridge built on top of the common contract ladder. It

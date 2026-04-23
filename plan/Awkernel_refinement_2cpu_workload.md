@@ -138,7 +138,10 @@ checked-in workload fixture を保持しない。
   `awkernel/scripts/check_workload_acceptance.py`
 
 Haskell 側では `sched_trace.tsv` と `task_trace.tsv` を読み、
-extracted checker `awk_workload_accepts_sched_trace task_trace sched_trace` を呼ぶ。
+まず extracted checker `awk_workload_accepts_sched_trace task_trace sched_trace`
+で accepted workload family への membership を判定し、その後
+`first_non_fifo_sched_trace_index sched_trace` で
+trace-local な `GlobalFIFO` choose-order check を走らせる。
 この Step が concrete trace analysis そのものであり、Rocq 側で実トレースを
 個別に再検査しない。
 
@@ -211,6 +214,16 @@ acceptance lane は `sched_trace + task_trace` を入力に取り、少なくと
   それらを含んだ family 全体を `accepted_workload_sched_trace_family` と
   `awk_workload_accepts_sched_trace_sound` / `awk_workload_accepts_sched_trace_complete`
   が持ち上げる。
+- trace-local GlobalFIFO choose-order check  
+  `EvChoose` row では、選ばれた job が `sched_trace` から読んだ canonical FIFO order
+  の先頭であることを検査する。これは full の scheduler-relation ではなく、
+  concrete trace だけから観測できる narrow な FIFO property である。  
+  Rocq では `sched_trace_fifo_candidates`、`sched_trace_fifo_head`、
+  `sched_trace_global_fifo_rowb`、`sched_trace_global_fifo_checkb` がこの判定機を定義し、
+  `accepted_workload_global_fifo_sched_trace_family` と
+  `awk_workload_accepts_global_fifo_sched_trace_sound` /
+  `awk_workload_accepts_global_fifo_sched_trace_complete`
+  が bool 判定と Prop-level family の対応を固定する。
 
 この checker は fixed job-id example に依存せず、task_trace summary が与える
 known task 集合の上で sched_trace matching を行う。runnable list の順序自体は意味論に使わず、
@@ -271,6 +284,14 @@ workload acceptance 本体については、
 - `awk_workload_accepts_sched_trace_complete`
 
 が、現在の finite-task workload family に対する theorem surface である。
+さらに concrete trace 上の FIFO check については、
+
+- `accepted_workload_global_fifo_sched_trace_family`
+- `awk_workload_accepts_global_fifo_sched_trace_sound`
+- `awk_workload_accepts_global_fifo_sched_trace_complete`
+
+が、accepted family の上に載る trace-local `GlobalFIFO` choose-order check の
+theorem surface である。
 candidate-table 側では、
 
 - `candidate_table_matches_rows_sound`

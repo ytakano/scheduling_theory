@@ -4,6 +4,7 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
 From RocqSched Require Import Operational.Common.State.
+From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
 From RocqSched Require Import Operational.Common.ConcreteExecution.
@@ -31,6 +32,106 @@ Definition workload_scheduler_facing_choice
   | Some j => [j]
   | None => []
   end.
+
+Definition option_job_to_list (oj : option JobId) : list JobId :=
+  match oj with
+  | Some j => [j]
+  | None => []
+  end.
+
+Definition append_job_once_preserving
+    (xs : list JobId) (j : JobId) : list JobId :=
+  if job_list_contains j xs then xs else xs ++ [j].
+
+Fixpoint append_jobs_once_preserving
+    (acc xs : list JobId) : list JobId :=
+  match xs with
+  | [] => acc
+  | j :: xs' =>
+      append_jobs_once_preserving
+        (append_job_once_preserving acc j) xs'
+  end.
+
+Definition append_option_job_once_preserving
+    (acc : list JobId) (oj : option JobId) : list JobId :=
+  match oj with
+  | Some j => append_job_once_preserving acc j
+  | None => acc
+  end.
+
+Definition sched_trace_fifo_candidates
+    (entry : AwkernelSchedTraceEntry) : list JobId :=
+  append_option_job_once_preserving
+    (append_jobs_once_preserving
+       (option_job_to_list (aste_current entry))
+       (aste_runnable entry))
+    (aste_dispatch_target entry).
+
+Definition sched_trace_fifo_head
+    (entry : AwkernelSchedTraceEntry) : option JobId :=
+  match sched_trace_fifo_candidates entry with
+  | j :: _ => Some j
+  | [] => None
+  end.
+
+Definition workload_global_fifo_choose_row
+    (entry : AwkernelSchedTraceEntry) : Prop :=
+  match aste_event entry with
+  | EvChoose cpu j =>
+      aste_cpu entry = 1 /\
+      cpu = 1 /\
+      sched_trace_fifo_head entry = Some j
+  | _ => True
+  end.
+
+Definition sched_trace_global_fifo_rowb
+    (entry : AwkernelSchedTraceEntry) : bool :=
+  match aste_event entry with
+  | EvChoose cpu j =>
+      Nat.eqb (aste_cpu entry) 1 &&
+      Nat.eqb cpu 1 &&
+      option_job_eqb (sched_trace_fifo_head entry) (Some j)
+  | _ => true
+  end.
+
+Fixpoint sched_trace_global_fifo_checkb
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  match sched_trace with
+  | [] => true
+  | entry :: sched_trace' =>
+      sched_trace_global_fifo_rowb entry &&
+      sched_trace_global_fifo_checkb sched_trace'
+  end.
+
+Fixpoint first_non_fifo_sched_trace_index_from
+    (n : nat) (sched_trace : list AwkernelSchedTraceEntry) : option nat :=
+  match sched_trace with
+  | [] => None
+  | entry :: sched_trace' =>
+      if sched_trace_global_fifo_rowb entry
+      then first_non_fifo_sched_trace_index_from (S n) sched_trace'
+      else Some n
+  end.
+
+Definition first_non_fifo_sched_trace_index
+    (sched_trace : list AwkernelSchedTraceEntry) : option nat :=
+  first_non_fifo_sched_trace_index_from 0 sched_trace.
+
+Definition sched_trace_global_fifo_family
+    (sched_trace : list AwkernelSchedTraceEntry) : Prop :=
+  Forall workload_global_fifo_choose_row sched_trace.
+
+Definition accepted_workload_global_fifo_sched_trace_family
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : Prop :=
+  accepted_workload_sched_trace_family task_trace sched_trace /\
+  sched_trace_global_fifo_family sched_trace.
+
+Definition awk_workload_accepts_global_fifo_sched_trace
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  awk_workload_accepts_sched_trace task_trace sched_trace &&
+  sched_trace_global_fifo_checkb sched_trace.
 
 Definition workload_scheduler_facing_execution_matches_sched_trace
     {P : OSLabeledProjection AwkernelState}
@@ -70,6 +171,144 @@ Definition accepted_workload_scheduler_facing_family
   accepted_workload_sched_trace_family task_trace sched_trace /\
   workload_candidate_table_contract sched_trace table /\
   workload_global_fifo_table_witness jobs sched sched_trace table.
+
+Lemma option_job_eqb_eq :
+  forall x y,
+    option_job_eqb x y = true <-> x = y.
+Proof.
+  intros [x|] [y|]; simpl.
+  - rewrite Nat.eqb_eq. split; congruence.
+  - split; discriminate.
+  - split; discriminate.
+  - split; intro H; [reflexivity|reflexivity].
+Qed.
+
+Lemma sched_trace_global_fifo_rowb_sound :
+  forall entry,
+    sched_trace_global_fifo_rowb entry = true ->
+    workload_global_fifo_choose_row entry.
+Proof.
+  intros entry.
+  unfold sched_trace_global_fifo_rowb, workload_global_fifo_choose_row.
+  destruct (aste_event entry) as
+      [j|j|j|c|c|c j|c j|c old new| |] eqn:Hevent; simpl; auto.
+  intros H.
+  apply Bool.andb_true_iff in H as [Hcpu Hhead].
+  apply Bool.andb_true_iff in Hcpu as [Hcpu Heqcpu].
+  apply Nat.eqb_eq in Hcpu.
+  apply Nat.eqb_eq in Heqcpu.
+  apply option_job_eqb_eq in Hhead.
+  repeat split; assumption.
+Qed.
+
+Lemma sched_trace_global_fifo_rowb_complete :
+  forall entry,
+    workload_global_fifo_choose_row entry ->
+    sched_trace_global_fifo_rowb entry = true.
+Proof.
+  intros entry.
+  unfold sched_trace_global_fifo_rowb, workload_global_fifo_choose_row.
+  destruct (aste_event entry) as
+      [j|j|j|c|c|c j|c j|c old new| |] eqn:Hevent; simpl; auto.
+  intros [Hcpu [Heqcpu Hhead]].
+  apply Nat.eqb_eq in Hcpu.
+  apply Nat.eqb_eq in Heqcpu.
+  apply option_job_eqb_eq in Hhead.
+  rewrite Hcpu, Heqcpu, Hhead.
+  reflexivity.
+Qed.
+
+Lemma sched_trace_global_fifo_checkb_sound :
+  forall sched_trace,
+    sched_trace_global_fifo_checkb sched_trace = true ->
+    sched_trace_global_fifo_family sched_trace.
+Proof.
+  intros sched_trace.
+  induction sched_trace as [|entry sched_trace IH]; simpl; intros Hcheck.
+  - constructor.
+  - apply Bool.andb_true_iff in Hcheck as [Hrow Hrest].
+    constructor.
+    + apply sched_trace_global_fifo_rowb_sound. exact Hrow.
+    + apply IH. exact Hrest.
+Qed.
+
+Lemma sched_trace_global_fifo_checkb_complete :
+  forall sched_trace,
+    sched_trace_global_fifo_family sched_trace ->
+    sched_trace_global_fifo_checkb sched_trace = true.
+Proof.
+  intros sched_trace Hfamily.
+  induction Hfamily; simpl.
+  - reflexivity.
+  - rewrite sched_trace_global_fifo_rowb_complete by exact H.
+    rewrite IHHfamily.
+    reflexivity.
+Qed.
+
+Lemma first_non_fifo_sched_trace_index_from_none :
+  forall n sched_trace,
+    first_non_fifo_sched_trace_index_from n sched_trace = None ->
+    sched_trace_global_fifo_checkb sched_trace = true.
+Proof.
+  intros n sched_trace.
+  revert n.
+  induction sched_trace as [|entry sched_trace IH]; simpl; intros n Hnone.
+  - reflexivity.
+  - destruct (sched_trace_global_fifo_rowb entry) eqn:Hrow; try discriminate.
+    apply IH in Hnone.
+    exact Hnone.
+Qed.
+
+Lemma first_non_fifo_sched_trace_index_from_complete :
+  forall n sched_trace,
+    sched_trace_global_fifo_checkb sched_trace = true ->
+    first_non_fifo_sched_trace_index_from n sched_trace = None.
+Proof.
+  intros n sched_trace.
+  revert n.
+  induction sched_trace as [|entry sched_trace IH]; simpl in *; intros n Hcheck.
+  - reflexivity.
+  - apply Bool.andb_true_iff in Hcheck as [Hrow Hrest].
+    rewrite Hrow.
+    apply IH.
+    exact Hrest.
+Qed.
+
+Lemma first_non_fifo_sched_trace_index_none_complete :
+  forall sched_trace,
+    sched_trace_global_fifo_checkb sched_trace = true ->
+    first_non_fifo_sched_trace_index sched_trace = None.
+Proof.
+  intros sched_trace Hcheck.
+  unfold first_non_fifo_sched_trace_index.
+  apply first_non_fifo_sched_trace_index_from_complete.
+  exact Hcheck.
+Qed.
+
+Lemma awk_workload_accepts_global_fifo_sched_trace_sound :
+  forall task_trace sched_trace,
+    awk_workload_accepts_global_fifo_sched_trace task_trace sched_trace = true ->
+    accepted_workload_global_fifo_sched_trace_family task_trace sched_trace.
+Proof.
+  intros task_trace sched_trace Haccept.
+  unfold awk_workload_accepts_global_fifo_sched_trace in Haccept.
+  apply Bool.andb_true_iff in Haccept as [Hfamily Hfifo].
+  split.
+  - apply awk_workload_accepts_sched_trace_sound. exact Hfamily.
+  - apply sched_trace_global_fifo_checkb_sound. exact Hfifo.
+Qed.
+
+Lemma awk_workload_accepts_global_fifo_sched_trace_complete :
+  forall task_trace sched_trace,
+    accepted_workload_global_fifo_sched_trace_family task_trace sched_trace ->
+    awk_workload_accepts_global_fifo_sched_trace task_trace sched_trace = true.
+Proof.
+  intros task_trace sched_trace [Hfamily Hfifo].
+  unfold awk_workload_accepts_global_fifo_sched_trace.
+  rewrite (awk_workload_accepts_sched_trace_complete task_trace sched_trace Hfamily).
+  rewrite (sched_trace_global_fifo_checkb_complete sched_trace Hfifo).
+  reflexivity.
+Qed.
 
 Lemma workload_scheduler_facing_choice_empty :
   workload_scheduler_facing_choice empty_sched_trace_entry = [].
