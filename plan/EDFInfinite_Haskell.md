@@ -23,13 +23,22 @@ tutorial file の compile を先へ進めることである。
 - `cert_candidates_ex_38_spec` は削除済みで、candidate-source spec は
   common helper を直接使う形へ移行済み。
 - `cert_prefix_sched_ex_choose_agrees_before` の hotspot は解消済み。
+- `certified_service_prefix_ex_data_agrees_generated` は通過した。
+- この補題では `service_job_step` と `cpu_count_1_some_eq/neq/none` を使う proof shape を採用した。
+- `cert_slots_ex_data` はこの補題の前後だけ `Local Transparent` / `Local Opaque` で扱う形にした。
+- 未使用だった
+  `generated_edf_backlog_free_before_release_ex_from_completion_targets`
+  は削除した。
+- `generated_edf_backlog_free_before_release_ex_proved` も削除し、
+  classical obligations 側は
+  `generated_edf_backlog_free_before_release_ex_from_generic_prefix_and_transport`
+  を直接参照する形に寄せた。
 - current principal blocker は
-  `certified_service_prefix_ex_data_agrees_generated` である。
-- ただし blocker は proof 全体ではなく、
- いまはその補題内の `Some j'` / `j = j'` 分岐に局所化されている。
-- `change` / `replace` で `service_job` の RHS 1-step 形を固定する方針は試したが、
-  final goal には依然として concrete `sched_upto_ex` 展開
-  (`match t with 0 | 1 | 5 | ...`) が残る。
+  `cert_ex_prefix_completed_by_data_sound` である。
+- current exact failure は
+  `vm_compute` 後の `cert_ex_prefix_completed_by_data` witness が
+  `S (job_abs_deadline (jobs_ex j))` と一致せず、
+  `t` に `39` が残ることにある。
 
 ## Stable Decisions
 
@@ -54,38 +63,36 @@ tutorial file の compile を先へ進めることである。
 対象補題:
 
 ```coq
-Lemma certified_service_prefix_ex_data_agrees_generated :
-  forall j t,
-    t <= 38 ->
-    certified_service_prefix_ex cert_ex_prefix_slots_data j t =
-    service_job 1 (sched_upto_ex 38) j t.
+Lemma cert_ex_prefix_completed_by_data_sound :
+  forall i j t,
+    nth_error cert_ex_prefix_basis_jobs_data i = Some j ->
+    nth_error cert_ex_prefix_completed_by_data i = Some t ->
+    t = S (job_abs_deadline (jobs_ex j)).
 ```
 
 現状:
 
-- 旧安定形の帰納 proof へ戻すところまでは実施済み。
-- compile はこの補題まで進み、
-  `generated_prefix_slot_ex` を使う帰納 proof には戻っている。
-- `Nat.eqb_sym` rewrite failure と単純な `lia` failure は解消した。
-- いまの failure は
-  `Tutorials/EDFInfiniteSchedulability.v`
-  line 958 付近の
-  `Some j'` / `j = j'` 分岐で、
-  subproof では
-  `replace (service_job 1 (sched_upto_ex 38) j' (S t)) with (S (...))`
-  を閉じられるが、
-  その後の main goal で右辺に concrete `sched_upto_ex` 展開が残り、
-  `S (service_job ...)` と一致しないことにある。
+- `certified_service_prefix_ex_data_agrees_generated` は修復済みで、その下流まで compile が進む。
+- 新しい failure は
+  `Tutorials/EDFInfiniteSchedulability.v` line 1004 付近の
+  `cert_ex_prefix_completed_by_data_sound`。
+- `vm_compute in Hjob, Htime` 後に残る具体値は
+  `cert_ex_prefix_basis_jobs_data = [0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12; 14]`
+  と
+  `cert_ex_prefix_completed_by_data = [3; 4; 8; 11; 13; 18; 18; 25; 23; 32; 28; 39; 33; 38]`。
+- failing branch では `Hjob` が `j = 11` を与え、`Htime` が `t = 39` を与える一方、
+  goal は `39 = S (job_abs_deadline (jobs_ex 11))` を要求する。
+- ここでは `S (job_abs_deadline (jobs_ex 11)) = 40` になっており、certificate data 側の値が 1 小さい。
 
 次に試すべき既定方針:
 
-- `generated_prefix_slot_ex` を使う帰納 proof は維持する。
-- 次は `service_job` の RHS を branch ごとに固定するのではなく、
-  main goal 側に残る concrete schedule match を明示的に再束縛する
-  (`remember`, `set`, `change`, `pattern`, あるいは branch-local helper lemma) 方針を取る。
-- 少なくとも現状の `rewrite generated_prefix_slot_ex` だけでは、
-  final goal の concrete `sched_upto_ex` 展開を十分に吸収できない。
-- theorem statement や周辺補題は変えない。
+- まず generated certificate data の意味を確認する。
+- `cert_ex_prefix_completed_by_data` が absolute deadline そのものなのか、
+  `S deadline` を意図した列なのかを generated file と checker semantics から再確認する。
+- もし data が deadline そのものなら、tutorial lemma statement を
+  `t = job_abs_deadline (jobs_ex j)` に合わせるべきかを検討する。
+- もし `S deadline` が正しい interface なら、generated data またはその生成元が 1 off になっている。
+- 修正点は、まず theorem statement / generated data / checker semantics のどれが責務上正しいかを確定してから選ぶ。
 
 変えないもの:
 
@@ -96,12 +103,12 @@ Lemma certified_service_prefix_ex_data_agrees_generated :
 
 ## Next Task
 
-1. `certified_service_prefix_ex_data_agrees_generated` 内の
-   `Some j'` / `j = j'` 分岐で、
-   final goal に残る concrete `sched_upto_ex` 展開全体を再束縛し、
-   `service_job` の 1-step 形と同じ surface syntax に合わせる。
-2. 修復後に tutorial compile を再実行する。
-3. 新しい failure point をこのファイルへ追記する。
+1. `cert_ex_prefix_completed_by_data_sound` の失敗枝を具体化し、
+   `j = 11`, `t = 39` で `job_abs_deadline (jobs_ex j)` がいくつになるかを明示確認する。
+2. `certified_completed_by_ex` / generated completed-by data の intended meaning を再確認し、
+   statement か data のどちらがズレているかを決める。
+3. その判断に基づいて局所修正を入れ、tutorial compile を再実行する。
+4. 新しい failure point をこのファイルへ追記する。
 
 再検証コマンド:
 
@@ -117,7 +124,8 @@ timeout 180s docker exec docker-scheduling_theory-1 zsh -lc \
 
 受け入れ基準:
 
-- `certified_service_prefix_ex_data_agrees_generated` を通過する。
+- `cert_ex_prefix_completed_by_data_sound` の責務が明確になる。
+- 可能ならこの補題を通過する。
 - その後の新しい failure point が分かる。
 - 結果をこのファイルに短く追記する。
 
@@ -129,10 +137,17 @@ timeout 180s docker exec docker-scheduling_theory-1 zsh -lc \
 - old local checker/schema と重い legacy support block は active proof core から外した。
 - `generated_prefix_slots_ex_data_ok` に依存する bulk slot equality path は削除した。
 - その後の stall は `cert_candidates_ex_38_spec` に移り、同 lemma は削除された。
+- `certified_service_prefix_ex_data_agrees_generated` は
+  `service_job_step` と `cpu_count_1_some_eq/neq/none` を使う形で修復され、compile はその先へ進んだ。
+- 未使用の backlog-free completion-target lemma は削除し、
+  `_proved` alias も落として direct reference に寄せた。
+- 新しい blocker は `cert_ex_prefix_completed_by_data_sound` の completed-by witness mismatch である。
 - 次の stall は `cert_prefix_sched_ex_choose_agrees_before` に移ったが、
   proof shape を bridge 側に揃えることで解消した。
 - `certified_service_prefix_ex_data_agrees_generated` は旧帰納形へ戻した。
 - `rewrite Nat.eqb_sym` failure は解消した。
 - `change` / `replace` で `service_job` の RHS 1-step 形を固定する方針も試した。
-- それでも principal blocker は同補題内の
-  `Some j'` / `j = j'` 分岐での concrete `sched_upto_ex` 展開残りにある。
+- その後、`service_job_step` と `cpu_count_1_some_eq/neq/none` へ proof shape を切り替えた。
+- 現在の principal blocker は同補題内の
+  `Some j'` / `j = j'` 分岐での certificate-side term mismatch
+  (`cert_ex_prefix_slots_data` と `cert_slots_ex_data` の surface mismatch) である。

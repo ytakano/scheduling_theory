@@ -5,6 +5,7 @@ From RocqSched Require Import Foundation.Arithmetic.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Semantics.ScheduleLemmas.SchedulePrefix.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleTransform.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
@@ -935,6 +936,8 @@ Proof.
     lia.
 Qed.
 
+Local Transparent cert_slots_ex_data.
+
 Lemma certified_service_prefix_ex_data_agrees_generated :
   forall j t,
     t <= 38 ->
@@ -946,32 +949,31 @@ Proof.
   - reflexivity.
   - cbn [certified_service_prefix_ex].
     rewrite IH by lia.
-    destruct (nth t cert_slots_ex_data None) as [j'|] eqn:Hslot.
+    rewrite service_job_step.
+    destruct (nth t cert_ex_prefix_slots_data None) as [j'|] eqn:Hslot.
     + destruct (Nat.eq_dec j j') as [->|Hneq].
-      * replace (service_job 1 (sched_upto_ex 38) j' (S t))
-          with (S (service_job 1 (sched_upto_ex 38) j' t)).
-        2:{
-          cbn [service_job cpu_count]. unfold runs_on.
-          rewrite generated_prefix_slot_ex by lia. rewrite Hslot. simpl.
-          rewrite Nat.eqb_refl. reflexivity.
-        }
-        simpl. rewrite Nat.add_comm. reflexivity.
-      * replace (service_job 1 (sched_upto_ex 38) j (S t))
-          with (service_job 1 (sched_upto_ex 38) j t).
-        2:{
-          cbn [service_job cpu_count]. unfold runs_on.
-          rewrite generated_prefix_slot_ex by lia. rewrite Hslot. simpl.
-          apply Nat.eqb_neq in Hneq. rewrite Hneq. reflexivity.
-        }
-        simpl. reflexivity.
-    + replace (service_job 1 (sched_upto_ex 38) j (S t))
-        with (service_job 1 (sched_upto_ex 38) j t).
-      2:{
-        cbn [service_job cpu_count]. unfold runs_on.
-        rewrite generated_prefix_slot_ex by lia. rewrite Hslot. reflexivity.
-      }
-      simpl. reflexivity.
+      * replace (cpu_count 1 (sched_upto_ex 38) j' t) with 1.
+        -- simpl. rewrite Nat.eqb_refl. rewrite Nat.add_comm. reflexivity.
+        -- symmetry. apply cpu_count_1_some_eq.
+           rewrite generated_prefix_slot_ex by lia.
+           unfold cert_slots_ex_data.
+           exact Hslot.
+      * replace (cpu_count 1 (sched_upto_ex 38) j t) with 0.
+        -- simpl. apply Nat.eqb_neq in Hneq. rewrite Hneq. reflexivity.
+        -- symmetry. apply cpu_count_1_some_neq with (j' := j').
+           ++ rewrite generated_prefix_slot_ex by lia.
+              unfold cert_slots_ex_data.
+              exact Hslot.
+           ++ exact Hneq.
+    + replace (cpu_count 1 (sched_upto_ex 38) j t) with 0.
+      * simpl. reflexivity.
+      * symmetry. apply cpu_count_1_none.
+        rewrite generated_prefix_slot_ex by lia.
+        unfold cert_slots_ex_data.
+        exact Hslot.
 Qed.
+
+Local Opaque cert_slots_ex_data.
 
 Lemma certified_completed_by_ex_data_generated_sound :
   forall j t,
@@ -2037,51 +2039,6 @@ Proof.
   exact (HP j t Hj eq_refl Htarget Hbound).
 Qed.
 
-Lemma generated_edf_backlog_free_before_release_ex_from_completion_targets :
-  generated_edf_backlog_free_before_release_ex.
-Proof.
-  intros j Hj.
-  eapply periodic_edf_backlog_free_before_release_of_earlier_completion.
-  - apply generated_periodic_edf_schedule_upto_valid_ex.
-  - exact Hj.
-  - intros y Hy Hyrel.
-    assert (Hpy :
-      periodic_jobset T_ex tasks_ex offset_ex jobs_ex y).
-    {
-      split.
-      - exact
-          (periodic_jobset_deadline_between_implies_task_in_scope
-             T_ex tasks_ex offset_ex jobs_ex 0
-             (job_abs_deadline (jobs_ex j)) y Hy).
-      - exact
-          (periodic_jobset_deadline_between_implies_generated
-             T_ex tasks_ex offset_ex jobs_ex 0
-             (job_abs_deadline (jobs_ex j)) y Hy).
-    }
-    destruct (periodic_job_has_completion_target_ex y Hpy) as [ty Hty].
-    assert (Hty_le :
-      ty <= job_release (jobs_ex j)).
-    {
-      eapply completion_target_before_current_release_ex; eauto.
-    }
-    assert (Hty_lt_H :
-      ty < S (job_abs_deadline (jobs_ex j))).
-    {
-      pose proof (periodic_jobset_ex_normalize j Hj) as Hjnorm.
-      destruct Hjnorm as [[k Hj0] | [k Hj1]]; subst j.
-      - rewrite (job_release_of_task0_ex (job_id_of_ex 0 k) k eq_refl) in Hty_le.
-        rewrite (job_deadline_of_task0_ex (job_id_of_ex 0 k) k eq_refl).
-        lia.
-      - rewrite (job_release_of_task1_ex (job_id_of_ex 1 k) k eq_refl) in Hty_le.
-        rewrite (job_deadline_of_task1_ex (job_id_of_ex 1 k) k eq_refl).
-        lia.
-    }
-    pose proof
-      (completed_at_completion_target_ex
-         (S (job_abs_deadline (jobs_ex j))) y ty Hpy Hty Hty_lt_H) as Hdone.
-    eapply completed_monotone; eauto.
-Qed.
-
 Lemma generated_edf_backlog_free_before_release_ex_task0_generic_transport :
   forall q r,
     r < 7 ->
@@ -2210,12 +2167,6 @@ Proof.
       lia.
 Qed.
 
-Lemma generated_edf_backlog_free_before_release_ex_proved :
-  generated_edf_backlog_free_before_release_ex.
-Proof.
-  exact generated_edf_backlog_free_before_release_ex_from_generic_prefix_and_transport.
-Qed.
-
 Section TutorialClassicalProof.
   Definition tutorial_infinite_classical_obligations :
     PeriodicEDFConcreteInfiniteClassicalObligations
@@ -2223,7 +2174,7 @@ Section TutorialClassicalProof.
   Proof.
     pose proof
       (generated_edf_busy_prefix_no_carry_in_bridge_of_backlog_ex
-         generated_edf_backlog_free_before_release_ex_proved)
+         generated_edf_backlog_free_before_release_ex_from_generic_prefix_and_transport)
       as Hbridge.
     refine
       {| periodic_edf_concrete_infinite_tasks_wf := tasks_ex_well_formed;
@@ -2310,7 +2261,7 @@ Section TutorialClassicalProof.
     1: intros τ Hin; reflexivity.
     1: exact
          (generated_edf_busy_prefix_no_carry_in_bridge_of_backlog_ex
-            generated_edf_backlog_free_before_release_ex_proved).
+            generated_edf_backlog_free_before_release_ex_from_generic_prefix_and_transport).
     1: exact cert_ex_dbf_full_sound.
   Qed.
 End TutorialClassicalProof.
