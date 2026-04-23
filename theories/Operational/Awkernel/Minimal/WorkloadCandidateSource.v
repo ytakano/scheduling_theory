@@ -213,11 +213,14 @@ Lemma accepted_workload_candidate_source_sound_from_contract :
 Proof.
   intros P jobs adm C sched_trace table Hcpus Htable Hmatch.
   refine
-    {| lccsc_candidates_visible := _;
-       lccsc_current_in_candidates := _;
-       lccsc_runnable_in_candidates := _;
-       lccsc_dispatch_target_in_candidates := _;
-       lccsc_prefix_extensional := _ |}.
+    (@mkLabeledConcreteCandidateSourceContract
+       AwkernelState
+       P
+       jobs
+       2
+       (candidate_source_of_table table)
+       (olac_execution C)
+       _ _ _ _ _).
   - intros t j Hin.
     pose proof (candidate_source_of_table_in_bounds table t j Hin) as Ht.
     assert (Ht_rows : t < length sched_trace).
