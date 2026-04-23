@@ -345,9 +345,13 @@ Definition accepted_workload_candidate_source_adapter_contract
         jobs
         adm
         2 :=
-  {|
-    olcsac_base := C;
-    olcsac_candidates :=
-      accepted_workload_candidate_source_sound
-        P jobs adm C task_trace sched_trace table Hfamily Hmatch;
-  |}.
+  @mkOSLocalCandidateSourceAdapterContract
+    AwkernelState
+    P
+    (candidate_source_of_table table)
+    jobs
+    adm
+    2
+    C
+    (accepted_workload_candidate_source_sound
+       P jobs adm C task_trace sched_trace table Hfamily Hmatch).
