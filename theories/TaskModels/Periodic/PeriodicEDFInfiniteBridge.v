@@ -79,6 +79,34 @@ Proof.
          T tasks offset jobs enumT codec).
 Qed.
 
+Lemma generated_periodic_edf_enum_candidates_upto_spec :
+  forall T tasks offset jobs H enumT
+         (codec : PeriodicCodec T tasks offset jobs),
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    CandidateSourceSpec
+      (periodic_jobset_upto T tasks offset jobs H)
+      (enum_candidates_of
+         (enum_periodic_jobs_upto
+            T tasks offset jobs H enumT
+            (periodic_finite_horizon_codec_of T tasks offset jobs H codec))).
+Proof.
+  intros T tasks offset jobs H enumT codec
+         Hwf HenumT_complete HenumT_sound.
+  apply enum_candidates_spec.
+  - exact
+      (enum_periodic_jobs_upto_complete
+         T tasks offset jobs H enumT
+         (periodic_finite_horizon_codec_of T tasks offset jobs H codec)
+         Hwf HenumT_complete).
+  - exact
+      (enum_periodic_jobs_upto_sound
+         T tasks offset jobs H enumT
+         (periodic_finite_horizon_codec_of T tasks offset jobs H codec)
+         HenumT_sound).
+Qed.
+
 Lemma generated_periodic_edf_schedule_upto_scheduler_rel :
   forall T tasks offset jobs H enumT
          (codec : PeriodicCodec T tasks offset jobs),
@@ -96,32 +124,24 @@ Lemma generated_periodic_edf_schedule_upto_scheduler_rel :
 Proof.
   intros T tasks offset jobs H enumT codec
          Hwf HenumT_complete HenumT_sound.
-  set (enumJ :=
-         enum_periodic_jobs_upto
-           T tasks offset jobs H enumT
-           (periodic_finite_horizon_codec_of T tasks offset jobs H codec)).
-  assert (Hcand_spec :
-    CandidateSourceSpec (periodic_jobset_upto T tasks offset jobs H)
-      (enum_candidates_of enumJ)).
-  {
-    apply enum_candidates_spec.
-    - exact
-        (enum_periodic_jobs_upto_complete
-           T tasks offset jobs H enumT
-           (periodic_finite_horizon_codec_of T tasks offset jobs H codec)
-           Hwf HenumT_complete).
-    - exact
-        (enum_periodic_jobs_upto_sound
-           T tasks offset jobs H enumT
-           (periodic_finite_horizon_codec_of T tasks offset jobs H codec)
-           HenumT_sound).
-  }
   unfold generated_periodic_edf_schedule_upto.
   eapply generated_schedule_scheduler_rel with
     (J := periodic_jobset_upto T tasks offset jobs H)
-    (cand_spec := Hcand_spec).
+    (cand_spec :=
+       generated_periodic_edf_enum_candidates_upto_spec
+         T tasks offset jobs H enumT codec
+         Hwf HenumT_complete HenumT_sound).
   intros s1 s2 t Hagree.
-  eapply edf_choose_agrees_before; eauto.
+  eapply
+    (edf_choose_agrees_before
+       (periodic_jobset_upto T tasks offset jobs H)
+       (enum_candidates_of
+          (enum_periodic_jobs_upto
+             T tasks offset jobs H enumT
+             (periodic_finite_horizon_codec_of T tasks offset jobs H codec)))
+       (generated_periodic_edf_enum_candidates_upto_spec
+          T tasks offset jobs H enumT codec
+          Hwf HenumT_complete HenumT_sound)); eauto.
 Qed.
 
 Lemma generated_periodic_edf_schedule_upto_valid :

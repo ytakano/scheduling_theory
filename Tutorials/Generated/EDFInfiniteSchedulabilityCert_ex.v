@@ -65,15 +65,13 @@ Definition cert_ex_transport_classes_data : list (EDFTransportClass JobId) :=
     {| transport_rep_job := 8; transport_completion_offset := 1; transport_backlog_offset := 1 |};
     {| transport_rep_job := 9; transport_completion_offset := 1; transport_backlog_offset := 1 |};
     {| transport_rep_job := 10; transport_completion_offset := 1; transport_backlog_offset := 1 |};
-    {| transport_rep_job := 11; transport_completion_offset := 2; transport_backlog_offset := 2 |};
-    {| transport_rep_job := 12; transport_completion_offset := 1; transport_backlog_offset := 1 |};
-    {| transport_rep_job := 14; transport_completion_offset := 1; transport_backlog_offset := 1 |} ].
+    {| transport_rep_job := 12; transport_completion_offset := 1; transport_backlog_offset := 1 |} ].
 
 Definition cert_ex_transport_job_class_data : list nat :=
-  [0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12; 13].
+  [0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11].
 
 Definition cert_ex_transport_job_shift_data : list nat :=
-  [0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0].
+  [7; 5; 7; 5; 7; 5; 7; 5; 7; 5; 7; 7].
 
 Definition cert_ex_dbf_cutoff_data : Time := 0.
 Definition cert_ex_dbf_ok_table_data : list bool := [true].
@@ -87,7 +85,7 @@ Definition cert_ex_prefix_generic : EDFPrefixCert JobId :=
 
 Definition cert_ex_transport_generic : EDFTransportCert JobId :=
   {| transport_period := cert_ex_transport_period_data;
-     transport_basis_jobs := cert_ex_prefix_basis_jobs_data;
+     transport_basis_jobs := [0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 12];
      transport_classes := cert_ex_transport_classes_data;
      transport_job_class := cert_ex_transport_job_class_data;
      transport_job_shift := cert_ex_transport_job_shift_data |}.

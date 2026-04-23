@@ -1268,26 +1268,30 @@ Lemma cert_ex_transport_task0_rep_witness :
       transport_backlog_offset cls = 1.
 Proof.
   intros r Hr.
-  destruct cert_ex_generic_semantic_sound
-    as [_ [_ [_ [_ [Htransport _]]]]].
-  destruct (cert_ex_transport_basis_contains_task0_rep r Hr) as [i Hi].
-  assert (Hclass :
-    nth_error (transport_job_class cert_ex_transport_generic) i = Some i).
-  {
-    destruct r as [|[|[|[|[|[|[|r]]]]]]]; try lia; vm_compute; reflexivity.
-  }
-  assert (Hshift :
-    nth_error (transport_job_shift cert_ex_transport_generic) i
-    = Some cert_ex_task0_shift_data).
-  {
-    destruct r as [|[|[|[|[|[|[|r]]]]]]]; try lia; vm_compute; reflexivity.
-  }
-  destruct (Htransport i (job_id_of_ex 0 r) i cert_ex_task0_shift_data
-              Hi Hclass Hshift)
-    as [cls [Hcls Hwit]].
-  exists cls.
-  destruct Hwit as [Hrep [Hshift' [Hcomp Hback]]].
-  repeat split; auto.
+  destruct r as [|[|[|[|[|[|[|r]]]]]]]; try lia;
+    [ exists {| transport_rep_job := 0;
+                transport_completion_offset := 1;
+                transport_backlog_offset := 1 |}
+    | exists {| transport_rep_job := 2;
+                transport_completion_offset := 1;
+                transport_backlog_offset := 1 |}
+    | exists {| transport_rep_job := 4;
+                transport_completion_offset := 1;
+                transport_backlog_offset := 1 |}
+    | exists {| transport_rep_job := 6;
+                transport_completion_offset := 1;
+                transport_backlog_offset := 1 |}
+    | exists {| transport_rep_job := 8;
+                transport_completion_offset := 1;
+                transport_backlog_offset := 1 |}
+    | exists {| transport_rep_job := 10;
+                transport_completion_offset := 1;
+                transport_backlog_offset := 1 |}
+    | exists {| transport_rep_job := 12;
+                transport_completion_offset := 1;
+                transport_backlog_offset := 1 |}
+    ];
+    repeat split; vm_compute; reflexivity.
 Qed.
 
 Lemma cert_ex_transport_task1_rep_witness :
@@ -1295,30 +1299,28 @@ Lemma cert_ex_transport_task1_rep_witness :
     r < 5 ->
     exists cls,
       cert_ex_transport_witness (job_id_of_ex 1 r) cls cert_ex_task1_shift_data /\
-      transport_completion_offset cls = if Nat.eqb r 0 then 2 else 1 /\
-      transport_backlog_offset cls = if Nat.eqb r 0 then 2 else 1.
+      transport_completion_offset cls = (if Nat.eqb r 0 then 2 else 1) /\
+      transport_backlog_offset cls = (if Nat.eqb r 0 then 2 else 1).
 Proof.
   intros r Hr.
-  destruct cert_ex_generic_semantic_sound
-    as [_ [_ [_ [_ [Htransport _]]]]].
-  destruct (cert_ex_transport_basis_contains_task1_rep r Hr) as [i Hi].
-  assert (Hclass :
-    nth_error (transport_job_class cert_ex_transport_generic) i = Some i).
-  {
-    destruct r as [|[|[|[|[|r]]]]]; try lia; vm_compute; reflexivity.
-  }
-  assert (Hshift :
-    nth_error (transport_job_shift cert_ex_transport_generic) i
-    = Some cert_ex_task1_shift_data).
-  {
-    destruct r as [|[|[|[|[|r]]]]]; try lia; vm_compute; reflexivity.
-  }
-  destruct (Htransport i (job_id_of_ex 1 r) i cert_ex_task1_shift_data
-              Hi Hclass Hshift)
-    as [cls [Hcls Hwit]].
-  exists cls.
-  destruct Hwit as [Hrep [Hshift' [Hcomp Hback]]].
-  repeat split; auto.
+  destruct r as [|[|[|[|[|r]]]]]; try lia;
+    [ exists {| transport_rep_job := 1;
+                transport_completion_offset := 2;
+                transport_backlog_offset := 2 |}
+    | exists {| transport_rep_job := 3;
+                transport_completion_offset := 1;
+                transport_backlog_offset := 1 |}
+    | exists {| transport_rep_job := 5;
+                transport_completion_offset := 1;
+                transport_backlog_offset := 1 |}
+    | exists {| transport_rep_job := 7;
+                transport_completion_offset := 1;
+                transport_backlog_offset := 1 |}
+    | exists {| transport_rep_job := 9;
+                transport_completion_offset := 1;
+                transport_backlog_offset := 1 |}
+    ];
+    repeat split; vm_compute; reflexivity.
 Qed.
 
 Definition cert_ex_dbf_holds (t : Time) : Prop :=
@@ -1343,9 +1345,24 @@ Lemma cert_ex_prefix_completed_by_semantics_local :
     completed jobs_ex 1 (sched_upto_ex 38) j t.
 Proof.
   intros i j t Hjob Htime.
-  eapply certified_completed_by_ex_data_generated_sound.
-  - rewrite (cert_ex_prefix_completed_by_data_sound i j t Hjob Htime). lia.
-  - eapply cert_ex_prefix_completed_by_data_true; eauto.
+  destruct i as
+    [|[|[|[|[|[|[|[|[|[|[|[|[|[|i]]]]]]]]]]]]]];
+    vm_compute in Hjob, Htime |- *.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - inversion Hjob; inversion Htime; vm_compute; lia.
+  - destruct i; vm_compute in Hjob, Htime |- *; discriminate.
 Qed.
 
 Lemma cert_ex_prefix_backlog_semantics_local :
