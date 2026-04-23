@@ -300,6 +300,39 @@ This is an adapter-local bridge built on top of the common contract ladder. It
 does not widen `Operational/Common`, and it still stops before
 `CandidateSourceSpec` and stronger algorithm-facing packaging.
 
+### Constructor-packaging rule in `Operational/Awkernel/Minimal`
+
+The Awkernel minimal stack uses two intentionally different constructor
+families.
+
+Common-layer proof-carrying records use the canonical `mk...` packaging
+constructors from `Operational/Common`. Typical examples are:
+
+- `mkOSProjection`
+- `mkOSLabeledProjection`
+- `mkOSLocalMulticoreAdapterContract`
+- `mkLabeledConcreteCandidateSourceContract`
+- `mkOSLocalCandidateSourceAdapterContract`
+- `mkLabeledConcreteTopMSchedulerRelationContract`
+- `mkOSLocalTopMSchedulerRelationAdapterContract`
+
+These are the points where the Awkernel adapter explicitly packages local
+proof obligations into the common operational contract ladder.
+
+By contrast, Awkernel-local `mkAwkernel...` constructors remain intentional
+direct data constructors. Typical examples are:
+
+- `mkAwkernelState`
+- `mkAwkernelSchedTraceEntry`
+- `mkAwkernelTaskTraceEntry`
+- `mkAwkernelTaskTraceSummary`
+- `mkAwkernelSchedTraceAcceptanceState`
+- `mkAwkExecution`
+
+These constructors build local syntax, trace entries, summaries, or internal
+acceptance state. They do not by themselves establish common operational
+contracts.
+
 ## Public entry points
 
 The stable public entry point for the OS-neutral operational layer is:
@@ -386,6 +419,9 @@ Its responsibilities are:
 
 The current Awkernel minimal modules live here. Their emitted `sched_trace` and
 `task_trace` artifacts are adapter-local observables, not common-layer APIs.
+Within this layer, explicit common `mk...Contract` constructors are the
+canonical packaging points; Awkernel-local `mkAwkernel...` constructors remain
+plain data constructors for local emitted artifacts and proof-side state.
 
 ### Concrete runtime layer
 
@@ -481,7 +517,9 @@ locally.
 - `theories/Operational/Awkernel/Minimal/MinimalProjection.v`
   Reusable Awkernel adapter boundary over the common projection slice.
 - `theories/Operational/Awkernel/Minimal/CapturedTraceSyntax.v`
-  Captured-entry syntax used by the Awkernel minimal-example stack.
+  Captured-entry syntax used by the Awkernel minimal-example stack; this module
+  intentionally defines local data constructors rather than common contract
+  packaging.
 - `theories/Operational/Awkernel/Minimal/WorkloadAcceptance.v`
   Adapter-local accepted workload-family checker.
 - `theories/Operational/Awkernel/Minimal/WorkloadAcceptanceExtraction.v`
@@ -490,7 +528,13 @@ locally.
   Proof-side candidate-table contract for accepted `sched_trace`.
 - `theories/Operational/Awkernel/Minimal/WorkloadCandidateSource.v`
   Adapter-local candidate-source reuse bridge over the accepted workload
-  family.
+  family; this is one of the canonical examples of explicit
+  `mk...Contract`/`mk...AdapterContract` packaging in the Awkernel minimal
+  layer.
+- `theories/Operational/Awkernel/Minimal/WorkloadSchedulerFacing.v`
+  Adapter-local scheduler-facing witness bridge from the accepted workload
+  family to the common top-`m` scheduler-relation contract; this also uses the
+  explicit common packaging constructors.
 - `theories/Operational/Awkernel/Minimal/MulticoreProjection.v`
   Thin 2-CPU Awkernel-facing entry point for the multicore projection bridge.
 - `theories/Operational/Awkernel/Minimal/OperationalMulticoreProjectionExamples.v`
