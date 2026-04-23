@@ -183,7 +183,8 @@ checker state には少なくとも次を持つ。
 
 checker は Rocq で定義され、Haskell へ Extraction される。実際の運用では
 checker を source のまま使うのではなく、extracted checker を serial log に
-対して実行する。
+対して実行する。concrete trace constraint の判定は acceptance lane に集約し、
+Rocq 側で実トレースを個別に再検査しない。
 
 現在の active path は次である。
 
@@ -195,15 +196,19 @@ checker を source のまま使うのではなく、extracted checker を serial
   `scheduling_theory/extracted/haskell/AwkernelWorkloadAcceptance.hs`
 - Haskell runner:
   `awkernel/scripts/haskell/WorkloadAcceptanceMain.hs`
+- candidate-table runner:
+  `awkernel/scripts/haskell/WorkloadCandidateTableMain.hs`
 - Python wrapper:
   `awkernel/scripts/check_workload_acceptance.py`
 
-Haskell runner は serial log から抽出された
+Haskell 側の active path は serial log から抽出された
 
 - rows TSV
 - lifecycle TSV
 
-を読み、extracted checker `awk_workload_accepts_trace lifecycle rows` を呼ぶ。
+を読み、まず extracted checker `awk_workload_accepts_trace lifecycle rows` を呼ぶ。
+その acceptance が通ったあと、rows から candidate table を生成し、同じく extracted な
+rows-only checker で candidate-table local contract を検査する。
 
 現在の failure split は次である。
 
@@ -226,7 +231,8 @@ Haskell runner は serial log から抽出された
 - `BEGIN_TASK_LIFECYCLE ... END_TASK_LIFECYCLE`
 
 を抽出し、Haskell checker に渡して semantic acceptance を行う。
-これは fixture equality に依存しない。
+その後、accepted rows から candidate table を生成し、その local row contract も
+Haskell の extracted checker で確認する。これは fixture equality に依存しない。
 
 ### Regression path
 
@@ -330,8 +336,9 @@ Awkernel が emit しうる全 trace の coverage を意味しない。
 ## Step 7: rows-only local candidate-table contract
 
 Step 6 で proof-facing boundary として受理した finite-task family を起点に、
-Haskell が rows から candidate tables を出力し、Rocq がその rows に対する
-adapter-local な candidate-table contract を検証する。
+Haskell が rows から candidate tables を出力し、concrete trace constraint を
+rows 上で検査する。Rocq は受理済み artifact に対する generic refinement
+obligations を証明する。
 
 この step は adapter layer の内部にとどまり、common layer の event/state interface は
 増やさない。lifecycle は acceptance lane のまま維持され、この手順で受理した current

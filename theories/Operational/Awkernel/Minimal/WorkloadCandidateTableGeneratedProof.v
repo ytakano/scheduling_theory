@@ -7,14 +7,12 @@ From RocqSched Require Import Operational.Awkernel.Minimal.Generated.WorkloadTra
 From RocqSched Require Import Operational.Awkernel.Minimal.Generated.WorkloadCandidateTable.
 
 Definition awk_generated_workload_rows := awk_generated_handoff_rows.
-Definition awk_generated_known_tasks : list JobId := [1; 2].
 
 Definition awk_generated_workload_candidates : CandidateSource :=
   candidate_source_of_table awk_generated_candidate_table.
 
 Example awk_generated_candidate_table_matches_rows :
   candidate_table_matches_rows
-    awk_generated_known_tasks
     awk_generated_workload_rows
     awk_generated_candidate_table = true.
 Proof.
@@ -23,7 +21,6 @@ Qed.
 
 Example awk_generated_candidate_table_contract :
   workload_candidate_table_contract
-    awk_generated_known_tasks
     awk_generated_workload_rows
     awk_generated_candidate_table.
 Proof.

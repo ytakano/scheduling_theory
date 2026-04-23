@@ -57,50 +57,43 @@ Fixpoint all_jobs_includedb
   end.
 
 Definition candidate_row_contractb
-    (known_tasks : list JobId)
     (row : AwkernelCapturedRow) (cand : list JobId) : bool :=
   sorted_nodup_job_listb cand &&
   all_candidates_visibleb row cand &&
   option_candidate_includedb (acr_current row) cand &&
   all_jobs_includedb (acr_runnable row) cand &&
-  option_candidate_includedb (acr_dispatch_target row) cand &&
-  all_jobs_includedb cand known_tasks.
+  option_candidate_includedb (acr_dispatch_target row) cand.
 
 Fixpoint candidate_table_contractb
-    (known_tasks : list JobId)
     (rows : list AwkernelCapturedRow)
     (table : list (list JobId)) : bool :=
   match rows, table with
   | [], [] => true
   | row :: rows', cand :: table' =>
-      candidate_row_contractb known_tasks row cand &&
-      candidate_table_contractb known_tasks rows' table'
+      candidate_row_contractb row cand &&
+      candidate_table_contractb rows' table'
   | _, _ => false
   end.
 
 Definition candidate_table_matches_rows
-    (known_tasks : list JobId)
     (rows : list AwkernelCapturedRow)
     (table : list (list JobId)) : bool :=
   Nat.eqb (length rows) (length table) &&
-  candidate_table_contractb known_tasks rows table.
+  candidate_table_contractb rows table.
 
 Definition workload_candidate_row_contract
-    (known_tasks : list JobId)
     (row : AwkernelCapturedRow) (cand : list JobId) : Prop :=
   sorted_nodup_job_listb cand = true /\
   all_candidates_visibleb row cand = true /\
   option_candidate_includedb (acr_current row) cand = true /\
   all_jobs_includedb (acr_runnable row) cand = true /\
-  option_candidate_includedb (acr_dispatch_target row) cand = true /\
-  all_jobs_includedb cand known_tasks = true.
+  option_candidate_includedb (acr_dispatch_target row) cand = true.
 
 Definition workload_candidate_table_contract
-    (known_tasks : list JobId)
     (rows : list AwkernelCapturedRow)
     (table : list (list JobId)) : Prop :=
   length rows = length table /\
-  Forall2 (workload_candidate_row_contract known_tasks) rows table.
+  Forall2 workload_candidate_row_contract rows table.
 
 Definition candidate_source_of_table
     (table : list (list JobId)) : CandidateSource :=
@@ -116,14 +109,13 @@ Proof.
 Qed.
 
 Lemma candidate_row_contractb_sound :
-  forall known_tasks row cand,
-    candidate_row_contractb known_tasks row cand = true ->
-    workload_candidate_row_contract known_tasks row cand.
+  forall row cand,
+    candidate_row_contractb row cand = true ->
+    workload_candidate_row_contract row cand.
 Proof.
-  intros known_tasks row cand H.
+  intros row cand H.
   unfold candidate_row_contractb in H.
-  apply Bool.andb_true_iff in H as [Hrest Hknown].
-  apply Bool.andb_true_iff in Hrest as [Hrest Hdispatch].
+  apply Bool.andb_true_iff in H as [Hrest Hdispatch].
   apply Bool.andb_true_iff in Hrest as [Hrest Hrunnable].
   apply Bool.andb_true_iff in Hrest as [Hrest Hcurrent].
   apply Bool.andb_true_iff in Hrest as [Hsorted Hvisible].
@@ -131,11 +123,11 @@ Proof.
 Qed.
 
 Lemma candidate_table_contractb_sound :
-  forall known_tasks rows table,
-    candidate_table_contractb known_tasks rows table = true ->
-    Forall2 (workload_candidate_row_contract known_tasks) rows table.
+  forall rows table,
+    candidate_table_contractb rows table = true ->
+    Forall2 workload_candidate_row_contract rows table.
 Proof.
-  intros known_tasks rows.
+  intros rows.
   induction rows as [|row rows IH]; intros table H;
     destruct table as [|cand table]; simpl in H; try discriminate.
   - constructor.
@@ -146,15 +138,15 @@ Proof.
 Qed.
 
 Lemma candidate_table_matches_rows_sound :
-  forall known_tasks rows table,
-    candidate_table_matches_rows known_tasks rows table = true ->
-    workload_candidate_table_contract known_tasks rows table.
+  forall rows table,
+    candidate_table_matches_rows rows table = true ->
+    workload_candidate_table_contract rows table.
 Proof.
-  intros known_tasks rows table Hmatch.
+  intros rows table Hmatch.
   unfold candidate_table_matches_rows, workload_candidate_table_contract in Hmatch |- *.
   apply Bool.andb_true_iff in Hmatch as [Hlen Htable].
   apply Nat.eqb_eq in Hlen.
   split; [exact Hlen|].
-  apply candidate_table_contractb_sound with (known_tasks := known_tasks).
+  apply candidate_table_contractb_sound.
   exact Htable.
 Qed.
