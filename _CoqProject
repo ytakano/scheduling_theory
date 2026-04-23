@@ -117,15 +117,7 @@ theories/Operational/Common/OSAlgorithmAdapterContract.v
 theories/Operational/Common/OSDelayAdapterContract.v
 theories/Operational/Common/OperationalEntryPoints.v
 theories/Operational/Awkernel/MinimalProjection.v
-theories/Operational/Awkernel/BaselineTrace.v
-theories/Operational/Awkernel/CapturedBaselineTrace.v
-theories/Operational/Awkernel/HandoffTrace.v
 theories/Operational/Awkernel/CapturedTraceSyntax.v
-theories/Operational/Awkernel/GeneratedHandoffTraceArtifact.v
-theories/Operational/Awkernel/HandoffTraceFamily.v
-theories/Operational/Awkernel/HandoffAcceptanceExtraction.v
-theories/Operational/Awkernel/CapturedHandoffTrace.v
-theories/Operational/Awkernel/CapturedHandoffCandidateSource.v
 theories/Operational/Awkernel/MulticoreProjection.v
 theories/Examples/OperationalMulticoreProjectionExamples.v
 theories/Refinement/BoundedDelayRefinement.v
