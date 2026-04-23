@@ -38,6 +38,32 @@ workload trace のために common layer へ新しい event や state field は�
 追加するのは Awkernel adapter-local checker と、runtime-local lifecycle export
 だけである。
 
+## Acceptance artifacts: rows と lifecycle
+
+current procedure が checker input として使う emitted artifact は 2 つある。
+
+- `rows`
+  - block marker は `BEGIN_TRACE_ROWS ... END_TRACE_ROWS`
+  - 各行は現在の adapter encoding では
+    `cpu_id, event_tag, event_arg0, event_arg1, current, runnable_csv, need_resched, dispatch_target`
+    の 8 列 TSV である
+  - これは acceptance が読む scheduler-visible row stream であり、Rocq では
+    `AwkernelCapturedRow` に対応する
+- `lifecycle`
+  - block marker は `BEGIN_TASK_LIFECYCLE ... END_TASK_LIFECYCLE`
+  - 各行は現在の adapter encoding では `kind, subject, related`
+    の 3 列 TSV である
+  - `kind` は現在
+    `Spawn`, `Runnable`, `Choose`, `Dispatch`, `Sleep`, `JoinWait`, `Complete`
+    を取る
+  - これは checker が root task、known-task set、join/completion dependency を
+    要約するための task-family fact stream であり、Rocq では
+    `TaskLifecycleRecord` と `WorkloadLifecycleSummary` に対応する
+
+この 2 つは adapter-local emitted artifact であり、common layer に追加された API ではない。
+acceptance lane は serial log からこれらを一時入力として抽出して読み、成功時に
+repo 管理下の artifact として保存しない。
+
 ## Step 1: runtime が workload serial log を出力する
 
 まず runtime で、既存の baseline trace に加えて task lifecycle export を記録する。
