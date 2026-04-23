@@ -1083,10 +1083,17 @@ Proof.
   destruct j as
     [|[|[|[|[|[|[|[|[|[|[|[|[|[|j]]]]]]]]]]]]]];
     vm_compute in Hrow, Hji |- *;
-    first [solve [discriminate Hrow] | solve [discriminate Hji] | idtac];
+    first [solve [discriminate Hrow]
+          | solve [discriminate Hji]
+          | solve [destruct i; vm_compute in Hrow, Hji |- *; discriminate]
+          | idtac];
     inversion Hrow; inversion Hji; subst;
     vm_compute in Hcell, Hjj |- *;
-    first [solve [discriminate Hcell] | solve [discriminate Hjj] | idtac];
+    first [solve [discriminate Hcell]
+          | solve [discriminate Hjj]
+          | solve [destruct i; vm_compute in Hcell, Hjj |- *; discriminate]
+          | solve [destruct j; vm_compute in Hcell, Hjj |- *; discriminate]
+          | idtac];
     inversion Hcell; inversion Hjj; subst;
     apply Nat.ltb_lt; vm_compute; reflexivity.
 Qed.
@@ -1106,10 +1113,17 @@ Proof.
   destruct j as
     [|[|[|[|[|[|[|[|[|[|[|[|[|[|j]]]]]]]]]]]]]];
     vm_compute in Hrow, Hji |- *;
-    first [solve [discriminate Hrow] | solve [discriminate Hji] | idtac];
+    first [solve [discriminate Hrow]
+          | solve [discriminate Hji]
+          | solve [destruct i; vm_compute in Hrow, Hji |- *; discriminate]
+          | idtac];
     inversion Hrow; inversion Hji; subst;
     vm_compute in Hcell, Hjj |- *;
-    first [solve [discriminate Hcell] | solve [discriminate Hjj] | idtac];
+    first [solve [discriminate Hcell]
+          | solve [discriminate Hjj]
+          | solve [destruct i; vm_compute in Hcell, Hjj |- *; discriminate]
+          | solve [destruct j; vm_compute in Hcell, Hjj |- *; discriminate]
+          | idtac];
     inversion Hcell; inversion Hjj; subst;
     vm_compute; reflexivity.
 Qed.
@@ -1134,12 +1148,16 @@ Lemma cert_ex_prefix_backlog_row_exists :
     exists row, nth_error cert_ex_prefix_backlog_matrix_data i = Some row.
 Proof.
   intros i ji Hji.
-  vm_compute in Hji.
-  repeat
-    match goal with
-    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
-    end;
-  eexists; vm_compute; reflexivity.
+  destruct i as
+    [|[|[|[|[|[|[|[|[|[|[|[|[|[|i]]]]]]]]]]]]]];
+    vm_compute in Hji |- *;
+    first [solve [destruct i; vm_compute in Hji |- *; discriminate] | idtac];
+    try discriminate Hji;
+    repeat
+      match goal with
+      | H : Some _ = Some _ |- _ => inversion H; subst; clear H
+      end;
+    eexists; reflexivity.
 Qed.
 
 Lemma cert_ex_prefix_backlog_matrix_true_of_release_order :
@@ -1151,41 +1169,56 @@ Lemma cert_ex_prefix_backlog_matrix_true_of_release_order :
     nth_error row j = Some true.
 Proof.
   intros i row j ji jj Hrow Hji Hjj Hrel.
-  vm_compute in Hrow, Hji, Hjj.
-  repeat
-    match goal with
-    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
-    end;
-  vm_compute in Hrel |- *.
-  destruct j; reflexivity || lia.
+  destruct i as
+    [|[|[|[|[|[|[|[|[|[|[|[|[|[|i]]]]]]]]]]]]]];
+  destruct j as
+    [|[|[|[|[|[|[|[|[|[|[|[|[|[|j]]]]]]]]]]]]]];
+    vm_compute in Hrow, Hji, Hjj, Hrel |- *;
+    first [solve [discriminate Hrow]
+          | solve [discriminate Hji]
+          | solve [discriminate Hjj]
+          | solve [destruct i; vm_compute in Hrow, Hji, Hjj, Hrel |- *; discriminate]
+          | solve [destruct j; vm_compute in Hrow, Hji, Hjj, Hrel |- *; discriminate]
+          | idtac];
+    repeat
+      match goal with
+      | H : Some _ = Some _ |- _ => inversion H; subst; clear H
+      end;
+    reflexivity || lia || exfalso; lia.
 Qed.
 
 Definition cert_ex_transport_witness
     (j : JobId) (cls : EDFTransportClass JobId) (shift : nat) : Prop :=
   transport_rep_job cls = j /\
   shift =
-    if Nat.even j then cert_ex_task0_shift_data else cert_ex_task1_shift_data /\
+    (if Nat.even j then cert_ex_task0_shift_data else cert_ex_task1_shift_data) /\
   transport_completion_offset cls =
-    if Nat.eqb j (job_id_of_ex 1 0) then 2 else 1 /\
+    (if Nat.eqb j (job_id_of_ex 1 0) then 2 else 1) /\
   transport_backlog_offset cls =
-    if Nat.eqb j (job_id_of_ex 1 0) then 2 else 1.
+    (if Nat.eqb j (job_id_of_ex 1 0) then 2 else 1).
 
 Lemma cert_ex_transport_lookup_sound :
   forall i j class_id shift cls,
     nth_error cert_ex_transport_job_class_data i = Some class_id ->
     nth_error cert_ex_transport_job_shift_data i = Some shift ->
-    nth_error cert_ex_prefix_basis_jobs_data i = Some j ->
+    nth_error (transport_basis_jobs cert_ex_transport_generic) i = Some j ->
     nth_error cert_ex_transport_classes_data class_id = Some cls ->
     cert_ex_transport_witness j cls shift.
 Proof.
   intros i j class_id shift cls Hclass Hshift Hjob Hcls.
   unfold cert_ex_transport_witness.
-  vm_compute in Hclass, Hshift, Hjob, Hcls.
-  repeat
-    match goal with
-    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
-    end.
-  repeat split; reflexivity.
+  destruct i as [|[|[|[|[|[|[|[|[|[|[|[|i]]]]]]]]]]]];
+    vm_compute in Hclass, Hshift, Hjob, Hcls |- *;
+    first [solve [discriminate Hclass]
+          | solve [discriminate Hshift]
+          | solve [discriminate Hjob]
+          | solve [destruct i; vm_compute in Hclass, Hshift, Hjob, Hcls |- *; discriminate]
+          | idtac];
+    repeat
+      match goal with
+      | H : Some _ = Some _ |- _ => inversion H; subst; clear H
+      end;
+    repeat split; reflexivity.
 Qed.
 
 Lemma cert_ex_transport_basis_contains_task0_rep :
@@ -1197,7 +1230,15 @@ Lemma cert_ex_transport_basis_contains_task0_rep :
 Proof.
   intros r Hr.
   destruct r as [|[|[|[|[|[|[|r]]]]]]]; try lia;
-    eexists; vm_compute; reflexivity.
+    [ exists 0
+    | exists 2
+    | exists 4
+    | exists 6
+    | exists 8
+    | exists 10
+    | exists 11
+    ];
+    vm_compute; reflexivity.
 Qed.
 
 Lemma cert_ex_transport_basis_contains_task1_rep :
@@ -1209,7 +1250,13 @@ Lemma cert_ex_transport_basis_contains_task1_rep :
 Proof.
   intros r Hr.
   destruct r as [|[|[|[|[|r]]]]]; try lia;
-    eexists; vm_compute; reflexivity.
+    [ exists 1
+    | exists 3
+    | exists 5
+    | exists 7
+    | exists 9
+    ];
+    vm_compute; reflexivity.
 Qed.
 
 Lemma cert_ex_transport_task0_rep_witness :
