@@ -119,16 +119,24 @@ extracted checker `awk_workload_accepts_trace lifecycle rows` を呼ぶ。
 ## Step 5: acceptance outcome を観測する
 
 この procedure の結果は `accept/reject + diagnostics` だけである。
-成功時には `accept` を返し、失敗時には constraint 種別と場所つきの diagnostics を返す。
+成功時には `accept` を返し、失敗時には固定した diagnostics schema で
+constraint 種別と場所つきの diagnostics を返す。
 成功時に repo 管理下の artifact を追加出力しない。
 
 現在の failure split は次である。
 
 - rows block が無い
+- rows block が空
 - lifecycle block が無い
+- lifecycle block が空
 - rows parse failure
 - lifecycle parse failure
 - semantic rejection
+- runner / checker module / runhaskell の起動失敗
+
+negative tests は synthetic serial log を使ってこの diagnostics contract を固定する。
+したがって、failure は Haskell acceptance lane と Python wrapper の境界で速く止まり、
+Rocq 側へ進まない。
 
 ## Acceptance Lane
 
