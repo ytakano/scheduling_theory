@@ -996,12 +996,24 @@ Lemma cert_ex_prefix_completed_by_data_sound :
     t = S (job_abs_deadline (jobs_ex j)).
 Proof.
   intros i j t Hjob Htime.
-  vm_compute in Hjob, Htime.
-  repeat
-    match goal with
-    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
-    end;
-    reflexivity.
+  destruct i as
+    [|[|[|[|[|[|[|[|[|[|[|[|[|[|i]]]]]]]]]]]]]];
+    vm_compute in Hjob, Htime |- *.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - destruct i; vm_compute in Hjob, Htime |- *; discriminate.
 Qed.
 
 Lemma cert_ex_prefix_completed_by_data_true :
@@ -1011,12 +1023,24 @@ Lemma cert_ex_prefix_completed_by_data_true :
     certified_completed_by_ex cert_ex_prefix_slots_data j t = true.
 Proof.
   intros i j t Hjob Htime.
-  vm_compute in Hjob, Htime.
-  repeat
-    match goal with
-    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
-    end;
-  vm_compute; reflexivity.
+  destruct i as
+    [|[|[|[|[|[|[|[|[|[|[|[|[|[|i]]]]]]]]]]]]]];
+    vm_compute in Hjob, Htime |- *.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - inversion Hjob; inversion Htime; reflexivity.
+  - destruct i; vm_compute in Hjob, Htime |- *; discriminate.
 Qed.
 
 Lemma cert_ex_prefix_basis_job_release_le_38 :
@@ -1025,12 +1049,24 @@ Lemma cert_ex_prefix_basis_job_release_le_38 :
     job_release (jobs_ex j) <= 38.
 Proof.
   intros i j Hjob.
-  vm_compute in Hjob.
-  repeat
-    match goal with
-    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
-    end;
-    lia.
+  destruct i as
+    [|[|[|[|[|[|[|[|[|[|[|[|[|[|i]]]]]]]]]]]]]];
+    vm_compute in Hjob |- *.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - inversion Hjob; lia.
+  - destruct i; vm_compute in Hjob |- *; discriminate.
 Qed.
 
 Lemma cert_ex_prefix_backlog_matrix_release_lt :
@@ -1042,12 +1078,17 @@ Lemma cert_ex_prefix_backlog_matrix_release_lt :
     job_release (jobs_ex jj) < job_release (jobs_ex ji).
 Proof.
   intros i row j ji jj Hrow Hcell Hji Hjj.
-  vm_compute in Hrow, Hcell, Hji, Hjj.
-  repeat
-    match goal with
-    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
-    end;
-    lia.
+  destruct i as
+    [|[|[|[|[|[|[|[|[|[|[|[|[|[|i]]]]]]]]]]]]]];
+  destruct j as
+    [|[|[|[|[|[|[|[|[|[|[|[|[|[|j]]]]]]]]]]]]]];
+    vm_compute in Hrow, Hji |- *;
+    first [solve [discriminate Hrow] | solve [discriminate Hji] | idtac];
+    inversion Hrow; inversion Hji; subst;
+    vm_compute in Hcell, Hjj |- *;
+    first [solve [discriminate Hcell] | solve [discriminate Hjj] | idtac];
+    inversion Hcell; inversion Hjj; subst;
+    apply Nat.ltb_lt; vm_compute; reflexivity.
 Qed.
 
 Lemma cert_ex_prefix_backlog_matrix_completed_true :
@@ -1060,12 +1101,17 @@ Lemma cert_ex_prefix_backlog_matrix_completed_true :
       cert_ex_prefix_slots_data jj (job_release (jobs_ex ji)) = true.
 Proof.
   intros i row j ji jj Hrow Hcell Hji Hjj.
-  vm_compute in Hrow, Hcell, Hji, Hjj.
-  repeat
-    match goal with
-    | H : Some _ = Some _ |- _ => inversion H; subst; clear H
-    end;
-  vm_compute; reflexivity.
+  destruct i as
+    [|[|[|[|[|[|[|[|[|[|[|[|[|[|i]]]]]]]]]]]]]];
+  destruct j as
+    [|[|[|[|[|[|[|[|[|[|[|[|[|[|j]]]]]]]]]]]]]];
+    vm_compute in Hrow, Hji |- *;
+    first [solve [discriminate Hrow] | solve [discriminate Hji] | idtac];
+    inversion Hrow; inversion Hji; subst;
+    vm_compute in Hcell, Hjj |- *;
+    first [solve [discriminate Hcell] | solve [discriminate Hjj] | idtac];
+    inversion Hcell; inversion Hjj; subst;
+    vm_compute; reflexivity.
 Qed.
 
 Lemma cert_ex_prefix_basis_job_index_of_in :
