@@ -28,6 +28,12 @@ data Nat =
    O
  | S Nat
 
+nat_rec :: a1 -> (Nat -> a1 -> a1) -> Nat -> a1
+nat_rec o s n =
+  case n of {
+   O -> o;
+   S n0 -> s n0 (nat_rec o s n0)}
+
 data Option a =
    Some a
  | None
@@ -39,11 +45,33 @@ data List a =
    Nil
  | Cons a (List a)
 
+list_rec :: a2 -> (a1 -> (List a1) -> a2 -> a2) -> (List a1) -> a2
+list_rec nil cons l =
+  case l of {
+   Nil -> nil;
+   Cons a l0 -> cons a l0 (list_rec nil cons l0)}
+
+length :: (List a1) -> Nat
+length l =
+  case l of {
+   Nil -> O;
+   Cons _ l' -> S (length l')}
+
 app :: (List a1) -> (List a1) -> List a1
 app l m =
   case l of {
    Nil -> m;
    Cons a l1 -> Cons a (app l1 m)}
+
+data Sumbool =
+   Left
+ | Right
+
+add :: Nat -> Nat -> Nat
+add n m =
+  case n of {
+   O -> m;
+   S p -> S (add p m)}
 
 eqb :: Bool -> Bool -> Bool
 eqb b1 b2 =
@@ -71,9 +99,96 @@ leb n m =
             O -> False;
             S m' -> leb n' m'}}
 
+ltb :: Nat -> Nat -> Bool
+ltb n m =
+  leb (S n) m
+
+eq_dec :: Nat -> Nat -> Sumbool
+eq_dec n =
+  nat_rec (\m -> case m of {
+                  O -> Left;
+                  S _ -> Right})
+    (\_ iHn m -> case m of {
+                  O -> Right;
+                  S n0 -> iHn n0})
+    n
+
+nth :: Nat -> (List a1) -> a1 -> a1
+nth n l default0 =
+  case n of {
+   O -> case l of {
+         Nil -> default0;
+         Cons x _ -> x};
+   S m -> case l of {
+           Nil -> default0;
+           Cons _ l' -> nth m l' default0}}
+
+firstn :: Nat -> (List a1) -> List a1
+firstn n l =
+  case n of {
+   O -> Nil;
+   S n0 -> case l of {
+            Nil -> Nil;
+            Cons a l0 -> Cons a (firstn n0 l0)}}
+
+in_dec :: (a1 -> a1 -> Sumbool) -> a1 -> (List a1) -> Sumbool
+in_dec h a l =
+  list_rec Right (\a0 _ iHl ->
+    let {s = h a0 a} in case s of {
+                         Left -> Left;
+                         Right -> iHl})
+    l
+
+nth_error :: (List a1) -> Nat -> Option a1
+nth_error l n =
+  case n of {
+   O -> case l of {
+         Nil -> None;
+         Cons x _ -> Some x};
+   S n0 -> case l of {
+            Nil -> None;
+            Cons _ l' -> nth_error l' n0}}
+
+filter :: (a1 -> Bool) -> (List a1) -> List a1
+filter f l =
+  case l of {
+   Nil -> Nil;
+   Cons x l0 ->
+    case f x of {
+     True -> Cons x (filter f l0);
+     False -> filter f l0}}
+
+nodup :: (a1 -> a1 -> Sumbool) -> (List a1) -> List a1
+nodup decA l =
+  case l of {
+   Nil -> Nil;
+   Cons x xs ->
+    case in_dec decA x xs of {
+     Left -> nodup decA xs;
+     Right -> Cons x (nodup decA xs)}}
+
 type JobId = Nat
 
+type TaskId = Nat
+
 type CPU = Nat
+
+type Time = Nat
+
+data Job =
+   MkJob TaskId Nat Time Nat Time
+
+job_release :: Job -> Time
+job_release j =
+  case j of {
+   MkJob _ _ job_release0 _ _ -> job_release0}
+
+job_cost :: Job -> Nat
+job_cost j =
+  case j of {
+   MkJob _ _ _ job_cost0 _ -> job_cost0}
+
+type Schedule = Time -> CPU -> Option JobId
 
 data OpEvent =
    EvWakeup JobId
@@ -86,6 +201,42 @@ data OpEvent =
  | EvPreempt CPU JobId JobId
  | EvStutter
  | EvTick
+
+runs_on :: Schedule -> JobId -> Time -> CPU -> Bool
+runs_on sched j t c =
+  case sched t c of {
+   Some j' -> eqb0 j' j;
+   None -> False}
+
+cpu_count :: Nat -> Schedule -> JobId -> Time -> Nat
+cpu_count m sched j t =
+  case m of {
+   O -> O;
+   S m' ->
+    add (case runs_on sched j t m' of {
+          True -> S O;
+          False -> O})
+      (cpu_count m' sched j t)}
+
+service_job :: Nat -> Schedule -> JobId -> Time -> Nat
+service_job m sched j t =
+  case t of {
+   O -> O;
+   S t' -> add (cpu_count m sched j t') (service_job m sched j t')}
+
+eligibleb :: (JobId -> Job) -> Nat -> Schedule -> JobId -> Time -> Bool
+eligibleb jobs m sched j t =
+  andb (leb (job_release (jobs j)) t)
+    (negb (leb (job_cost (jobs j)) (service_job m sched j t)))
+
+type GenericTopMSchedulingAlgorithm =
+  (JobId -> Job) -> Nat -> Schedule -> Time -> (List JobId) -> List JobId
+  -- singleton inductive, whose constructor was mkGenericTopMSchedulingAlgorithm
+  
+choose_top_m :: GenericTopMSchedulingAlgorithm -> (JobId -> Job) -> Nat ->
+                Schedule -> Time -> (List JobId) -> List JobId
+choose_top_m g =
+  g
 
 data AwkernelSchedTraceEntry =
    MkAwkernelSchedTraceEntry CPU OpEvent (Option JobId) (List JobId) 
@@ -531,6 +682,43 @@ awk_workload_accepts_sched_trace task_trace sched_trace =
    Some summary -> sched_trace_family_member summary sched_trace;
    None -> False}
 
+job_in_listb :: JobId -> (List JobId) -> Bool
+job_in_listb j xs =
+  case xs of {
+   Nil -> False;
+   Cons x xs' -> orb (eqb0 j x) (job_in_listb j xs')}
+
+job_in_optionb :: (Option JobId) -> JobId -> Bool
+job_in_optionb oj j =
+  case oj of {
+   Some j' -> eqb0 j j';
+   None -> False}
+
+row_candidate_visibleb :: AwkernelSchedTraceEntry -> JobId -> Bool
+row_candidate_visibleb row j =
+  orb
+    (orb (job_in_optionb (aste_current row) j)
+      (job_in_listb j (aste_runnable row)))
+    (job_in_optionb (aste_dispatch_target row) j)
+
+empty_sched_trace_entry :: AwkernelSchedTraceEntry
+empty_sched_trace_entry =
+  MkAwkernelSchedTraceEntry O EvStutter None Nil False None
+
+fifo_eligible_candidates :: (JobId -> Job) -> Nat -> Schedule -> Time ->
+                            (List JobId) -> List JobId
+fifo_eligible_candidates jobs m sched t candidates =
+  filter (\j -> eligibleb jobs m sched j t) (nodup eq_dec candidates)
+
+choose_top_m_fifo :: (JobId -> Job) -> Nat -> Schedule -> Time -> (List
+                     JobId) -> List JobId
+choose_top_m_fifo jobs m sched t candidates =
+  firstn m (fifo_eligible_candidates jobs m sched t candidates)
+
+global_fifo_top_m_spec :: GenericTopMSchedulingAlgorithm
+global_fifo_top_m_spec =
+  choose_top_m_fifo
+
 option_job_to_list :: (Option JobId) -> List JobId
 option_job_to_list oj =
   case oj of {
@@ -609,4 +797,203 @@ awk_workload_accepts_global_fifo_sched_trace :: (List AwkernelTaskTraceEntry)
 awk_workload_accepts_global_fifo_sched_trace task_trace sched_trace =
   andb (awk_workload_accepts_sched_trace task_trace sched_trace)
     (sched_trace_global_fifo_checkb sched_trace)
+
+job_list_eqb :: (List JobId) -> (List JobId) -> Bool
+job_list_eqb xs ys =
+  case xs of {
+   Nil -> case ys of {
+           Nil -> True;
+           Cons _ _ -> False};
+   Cons x xs' ->
+    case ys of {
+     Nil -> False;
+     Cons y ys' -> andb (eqb0 x y) (job_list_eqb xs' ys')}}
+
+workload_scheduler_relation_candidates :: AwkernelSchedTraceEntry -> List
+                                          JobId
+workload_scheduler_relation_candidates entry =
+  case aste_event entry of {
+   EvChoose cpu _ ->
+    case eqb0 cpu (S O) of {
+     True -> sched_trace_fifo_candidates entry;
+     False -> Nil};
+   _ -> Nil}
+
+workload_scheduler_relation_choice :: AwkernelSchedTraceEntry -> List JobId
+workload_scheduler_relation_choice entry =
+  case aste_event entry of {
+   EvChoose cpu j ->
+    case eqb0 cpu (S O) of {
+     True -> Cons j Nil;
+     False -> Nil};
+   _ -> Nil}
+
+workload_scheduler_relation_schedule :: (List AwkernelSchedTraceEntry) ->
+                                        Schedule
+workload_scheduler_relation_schedule sched_trace t c =
+  case ltb c (S (S O)) of {
+   True ->
+    nth_error
+      (workload_scheduler_relation_choice
+        (nth t sched_trace empty_sched_trace_entry))
+      c;
+   False -> None}
+
+task_trace_has_completeb :: JobId -> (List AwkernelTaskTraceEntry) -> Bool
+task_trace_has_completeb task_id task_trace =
+  case task_trace of {
+   Nil -> False;
+   Cons entry task_trace' ->
+    case atte_kind entry of {
+     LkComplete ->
+      orb (eqb0 (atte_subject entry) task_id)
+        (task_trace_has_completeb task_id task_trace');
+     _ -> task_trace_has_completeb task_id task_trace'}}
+
+count_scheduler_relation_service :: JobId -> (List AwkernelSchedTraceEntry)
+                                    -> Nat
+count_scheduler_relation_service task_id sched_trace =
+  case sched_trace of {
+   Nil -> O;
+   Cons entry sched_trace' ->
+    let {rest = count_scheduler_relation_service task_id sched_trace'} in
+    case workload_scheduler_relation_choice entry of {
+     Nil -> rest;
+     Cons j l ->
+      case l of {
+       Nil -> case eqb0 j task_id of {
+               True -> S rest;
+               False -> rest};
+       Cons _ _ -> rest}}}
+
+first_scheduler_visible_index_from :: Nat -> Nat -> (List
+                                      AwkernelSchedTraceEntry) -> Option 
+                                      Nat
+first_scheduler_visible_index_from task_id n sched_trace =
+  case sched_trace of {
+   Nil -> None;
+   Cons entry sched_trace' ->
+    case row_candidate_visibleb entry task_id of {
+     True -> Some n;
+     False -> first_scheduler_visible_index_from task_id (S n) sched_trace'}}
+
+first_scheduler_visible_index :: JobId -> (List AwkernelSchedTraceEntry) ->
+                                 Option Nat
+first_scheduler_visible_index task_id sched_trace =
+  first_scheduler_visible_index_from task_id O sched_trace
+
+reconstructed_scheduler_relation_release :: JobId -> (List
+                                            AwkernelSchedTraceEntry) -> Nat
+reconstructed_scheduler_relation_release task_id sched_trace =
+  case first_scheduler_visible_index task_id sched_trace of {
+   Some t -> t;
+   None -> O}
+
+reconstructed_scheduler_relation_cost :: (List AwkernelTaskTraceEntry) ->
+                                         (List AwkernelSchedTraceEntry) ->
+                                         JobId -> Nat
+reconstructed_scheduler_relation_cost task_trace sched_trace task_id =
+  let {service = count_scheduler_relation_service task_id sched_trace} in
+  case task_trace_has_completeb task_id task_trace of {
+   True -> case service of {
+            O -> S O;
+            S _ -> service};
+   False -> S service}
+
+reconstructed_scheduler_relation_abs_deadline :: (List
+                                                 AwkernelTaskTraceEntry) ->
+                                                 (List
+                                                 AwkernelSchedTraceEntry) ->
+                                                 JobId -> Nat
+reconstructed_scheduler_relation_abs_deadline task_trace sched_trace task_id =
+  add
+    (add (reconstructed_scheduler_relation_release task_id sched_trace)
+      (reconstructed_scheduler_relation_cost task_trace sched_trace task_id))
+    (length sched_trace)
+
+workload_scheduler_relation_jobs :: (List AwkernelTaskTraceEntry) -> (List
+                                    AwkernelSchedTraceEntry) -> JobId -> Job
+workload_scheduler_relation_jobs task_trace sched_trace task_id =
+  MkJob task_id O
+    (reconstructed_scheduler_relation_release task_id sched_trace)
+    (reconstructed_scheduler_relation_cost task_trace sched_trace task_id)
+    (reconstructed_scheduler_relation_abs_deadline task_trace sched_trace
+      task_id)
+
+workload_global_fifo_scheduler_relation_rowb :: (List AwkernelTaskTraceEntry)
+                                                -> (List
+                                                AwkernelSchedTraceEntry) ->
+                                                Time ->
+                                                AwkernelSchedTraceEntry ->
+                                                Bool
+workload_global_fifo_scheduler_relation_rowb task_trace sched_trace t entry =
+  job_list_eqb
+    (choose_top_m global_fifo_top_m_spec
+      (workload_scheduler_relation_jobs task_trace sched_trace) (S (S O))
+      (workload_scheduler_relation_schedule sched_trace) t
+      (workload_scheduler_relation_candidates entry))
+    (workload_scheduler_relation_choice entry)
+
+sched_trace_global_fifo_scheduler_relation_check_from :: (List
+                                                         AwkernelTaskTraceEntry)
+                                                         -> (List
+                                                         AwkernelSchedTraceEntry)
+                                                         -> Nat -> (List
+                                                         AwkernelSchedTraceEntry)
+                                                         -> Bool
+sched_trace_global_fifo_scheduler_relation_check_from task_trace sched_trace t remaining =
+  case remaining of {
+   Nil -> True;
+   Cons entry remaining' ->
+    andb
+      (workload_global_fifo_scheduler_relation_rowb task_trace sched_trace t
+        entry)
+      (sched_trace_global_fifo_scheduler_relation_check_from task_trace
+        sched_trace (S t) remaining')}
+
+sched_trace_global_fifo_scheduler_relation_checkb :: (List
+                                                     AwkernelTaskTraceEntry)
+                                                     -> (List
+                                                     AwkernelSchedTraceEntry)
+                                                     -> Bool
+sched_trace_global_fifo_scheduler_relation_checkb task_trace sched_trace =
+  sched_trace_global_fifo_scheduler_relation_check_from task_trace
+    sched_trace O sched_trace
+
+first_non_scheduler_relation_sched_trace_index_from :: (List
+                                                       AwkernelTaskTraceEntry)
+                                                       -> (List
+                                                       AwkernelSchedTraceEntry)
+                                                       -> Nat -> (List
+                                                       AwkernelSchedTraceEntry)
+                                                       -> Option Nat
+first_non_scheduler_relation_sched_trace_index_from task_trace sched_trace t remaining =
+  case remaining of {
+   Nil -> None;
+   Cons entry remaining' ->
+    case workload_global_fifo_scheduler_relation_rowb task_trace sched_trace
+           t entry of {
+     True ->
+      first_non_scheduler_relation_sched_trace_index_from task_trace
+        sched_trace (S t) remaining';
+     False -> Some t}}
+
+first_non_scheduler_relation_sched_trace_index :: (List
+                                                  AwkernelTaskTraceEntry) ->
+                                                  (List
+                                                  AwkernelSchedTraceEntry) ->
+                                                  Option Nat
+first_non_scheduler_relation_sched_trace_index task_trace sched_trace =
+  first_non_scheduler_relation_sched_trace_index_from task_trace sched_trace
+    O sched_trace
+
+awk_workload_accepts_global_fifo_scheduler_relation_sched_trace :: (List
+                                                                   AwkernelTaskTraceEntry)
+                                                                   -> (List
+                                                                   AwkernelSchedTraceEntry)
+                                                                   -> Bool
+awk_workload_accepts_global_fifo_scheduler_relation_sched_trace task_trace sched_trace =
+  andb (awk_workload_accepts_sched_trace task_trace sched_trace)
+    (sched_trace_global_fifo_scheduler_relation_checkb task_trace
+      sched_trace)
 
