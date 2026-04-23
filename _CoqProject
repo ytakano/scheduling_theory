@@ -116,10 +116,10 @@ theories/Operational/Common/OSSchedulerRelationContract.v
 theories/Operational/Common/OSAlgorithmAdapterContract.v
 theories/Operational/Common/OSDelayAdapterContract.v
 theories/Operational/Common/OperationalEntryPoints.v
-theories/Operational/Awkernel/MinimalProjection.v
-theories/Operational/Awkernel/CapturedTraceSyntax.v
-theories/Operational/Awkernel/WorkloadAcceptance.v
-theories/Operational/Awkernel/WorkloadAcceptanceExtraction.v
+theories/Operational/Awkernel/Minimal/MinimalProjection.v
+theories/Operational/Awkernel/Minimal/CapturedTraceSyntax.v
+theories/Operational/Awkernel/Minimal/WorkloadAcceptance.v
+theories/Operational/Awkernel/Minimal/WorkloadAcceptanceExtraction.v
 theories/Operational/Awkernel/Minimal/MulticoreProjection.v
 theories/Operational/Awkernel/Minimal/OperationalMulticoreProjectionExamples.v
 theories/Refinement/BoundedDelayRefinement.v

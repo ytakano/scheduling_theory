@@ -11,7 +11,7 @@ From RocqSched Require Import Operational.Common.LabeledExecution.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Refinement.OSRefinementTheorem.
 From RocqSched Require Import Operational.Awkernel.BaselineTrace.
-From RocqSched Require Import Operational.Awkernel.CapturedTraceSyntax.
+From RocqSched Require Import Operational.Awkernel.Minimal.CapturedTraceSyntax.
 From RocqSched Require Import Operational.Awkernel.GeneratedHandoffTraceArtifact.
 From RocqSched Require Import Operational.Awkernel.HandoffTrace.
 From RocqSched Require Import Operational.Awkernel.HandoffTraceFamily.

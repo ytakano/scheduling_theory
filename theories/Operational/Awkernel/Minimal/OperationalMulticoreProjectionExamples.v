@@ -19,7 +19,7 @@ From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.ProjectionLemmas.
 From RocqSched Require Import Operational.Common.ProjectionInvariants.
 From RocqSched Require Import Operational.Common.ProjectionMulticoreValidity.
-From RocqSched Require Import Operational.Awkernel.MinimalProjection.
+From RocqSched Require Import Operational.Awkernel.Minimal.MinimalProjection.
 Import ListNotations.
 
 (** Worked 2-CPU projection examples built on top of the reusable Awkernel

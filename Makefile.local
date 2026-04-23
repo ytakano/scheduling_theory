@@ -4,4 +4,4 @@ extract-handoff-accept-hs::
 
 extract-workload-accept-hs::
 	mkdir -p extracted/haskell
-	$(MAKE) theories/Operational/Awkernel/WorkloadAcceptanceExtraction.vo
+	$(MAKE) theories/Operational/Awkernel/Minimal/WorkloadAcceptanceExtraction.vo

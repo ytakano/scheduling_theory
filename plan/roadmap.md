@@ -872,7 +872,7 @@ Implemented core:
 - `Operational/Common/OSProjectionInterface.v`
 - `Operational/Common/ConcreteExecution.v`
 - `Operational/Common/OperationalEntryPoints.v`
-- `Operational/Awkernel/MinimalProjection.v`
+- `Operational/Awkernel/Minimal/MinimalProjection.v`
   The reusable Awkernel adapter boundary used by the 2-CPU minimal examples in
   `Operational/Awkernel/Minimal/`.
 

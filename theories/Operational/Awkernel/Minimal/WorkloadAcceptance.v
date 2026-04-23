@@ -1,7 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Operational.Common.Step.
-From RocqSched Require Import Operational.Awkernel.CapturedTraceSyntax.
+From RocqSched Require Import Operational.Awkernel.Minimal.CapturedTraceSyntax.
 Import ListNotations.
 
 Inductive TaskLifecycleKind : Type :=

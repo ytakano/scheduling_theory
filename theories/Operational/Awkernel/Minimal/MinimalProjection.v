@@ -36,6 +36,10 @@ From RocqSched Require Import Multicore.Common.PlacementFacts.
 From RocqSched Require Import Multicore.Common.ValidityFacts.
 Import ListNotations.
 
+(** Reusable Awkernel adapter boundary for the 2-CPU minimal-example stack.
+    More specialized minimal examples in this directory should build on this
+    file rather than duplicating the projection boundary. *)
+
 Record AwkernelState : Type := mkAwkernelState {
   awk_current : CPU -> option JobId;
   awk_runnable : list JobId;

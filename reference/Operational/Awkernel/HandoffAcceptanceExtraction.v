@@ -1,5 +1,5 @@
 From Stdlib Require Extraction.
-From RocqSched Require Import Operational.Awkernel.CapturedTraceSyntax.
+From RocqSched Require Import Operational.Awkernel.Minimal.CapturedTraceSyntax.
 From RocqSched Require Import Operational.Awkernel.HandoffTraceFamily.
 
 Extraction Language Haskell.

@@ -84,8 +84,9 @@ boundary with the multicore-common bridge:
   `schedule_respects_admissibility`, and `multicore_semantic_validity`
 
 Concrete OS adapters may then expose OS-specific states and traces outside
-`Operational/Common`. The current `Operational/Awkernel/MinimalProjection.v`
-module is the reusable Awkernel adapter boundary, while
+`Operational/Common`. The current
+`Operational/Awkernel/Minimal/MinimalProjection.v` module is the reusable
+Awkernel adapter boundary, while
 `Operational/Awkernel/Minimal/MulticoreProjection.v` is a 2-CPU minimal
 example entry point built on top of that boundary.
 
@@ -182,8 +183,16 @@ These extensions should continue to project into the same semantic schedule laye
 - `theories/Operational/Common/ProjectionMulticoreValidity.v`
   Trace- and execution-level bridge lemmas from operational projection to
   `Multicore/Common`.
-- `theories/Operational/Awkernel/MinimalProjection.v`
-  Concrete adapter example built on top of the common projection slice.
+- `theories/Operational/Awkernel/Minimal/MinimalProjection.v`
+  Reusable Awkernel adapter boundary built on top of the common projection
+  slice.
+- `theories/Operational/Awkernel/Minimal/CapturedTraceSyntax.v`
+  Captured-row syntax used by the Awkernel minimal-example stack.
+- `theories/Operational/Awkernel/Minimal/WorkloadAcceptance.v`
+  Adapter-local workload acceptance checker for the Awkernel minimal-example
+  stack.
+- `theories/Operational/Awkernel/Minimal/WorkloadAcceptanceExtraction.v`
+  Extraction entry point for the Awkernel workload acceptance checker.
 - `theories/Operational/Awkernel/Minimal/MulticoreProjection.v`
   Thin 2-CPU Awkernel-facing entry point for the multicore projection bridge.
 - `theories/Operational/Awkernel/Minimal/OperationalMulticoreProjectionExamples.v`

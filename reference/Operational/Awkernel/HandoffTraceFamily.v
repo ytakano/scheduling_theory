@@ -2,9 +2,9 @@ From Stdlib Require Import List String Bool Arith Arith.PeanoNat Lia Logic.Funct
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Common.Invariants.
-From RocqSched Require Import Operational.Awkernel.MinimalProjection.
+From RocqSched Require Import Operational.Awkernel.Minimal.MinimalProjection.
 From RocqSched Require Import Operational.Awkernel.BaselineTrace.
-From RocqSched Require Import Operational.Awkernel.CapturedTraceSyntax.
+From RocqSched Require Import Operational.Awkernel.Minimal.CapturedTraceSyntax.
 From RocqSched Require Import Operational.Awkernel.GeneratedHandoffTraceArtifact.
 From RocqSched Require Import Operational.Awkernel.HandoffTrace.
 Import ListNotations.

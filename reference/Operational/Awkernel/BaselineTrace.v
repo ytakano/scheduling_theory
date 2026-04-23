@@ -11,7 +11,7 @@ From RocqSched Require Import Operational.Common.ConcreteExecution.
 From RocqSched Require Import Operational.Common.LabeledExecution.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
-From RocqSched Require Import Operational.Awkernel.MinimalProjection.
+From RocqSched Require Import Operational.Awkernel.Minimal.MinimalProjection.
 Import ListNotations.
 
 Section AwkernelBaselineTrace.

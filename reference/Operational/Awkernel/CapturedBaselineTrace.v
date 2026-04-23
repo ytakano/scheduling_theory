@@ -4,7 +4,7 @@ From RocqSched Require Import Operational.Common.Projection.
 From RocqSched Require Import Operational.Common.ConcreteExecution.
 From RocqSched Require Import Operational.Common.LabeledExecution.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
-From RocqSched Require Import Operational.Awkernel.MinimalProjection.
+From RocqSched Require Import Operational.Awkernel.Minimal.MinimalProjection.
 From RocqSched Require Import Operational.Awkernel.BaselineTrace.
 Import ListNotations.
 Open Scope string_scope.
