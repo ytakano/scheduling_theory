@@ -119,7 +119,11 @@ theories/Operational/Common/OperationalEntryPoints.v
 theories/Operational/Awkernel/Minimal/MinimalProjection.v
 theories/Operational/Awkernel/Minimal/CapturedTraceSyntax.v
 theories/Operational/Awkernel/Minimal/WorkloadAcceptance.v
+theories/Operational/Awkernel/Minimal/WorkloadCandidateTable.v
 theories/Operational/Awkernel/Minimal/WorkloadAcceptanceExtraction.v
+theories/Operational/Awkernel/Minimal/Generated/WorkloadTraceArtifact.v
+theories/Operational/Awkernel/Minimal/Generated/WorkloadCandidateTable.v
+theories/Operational/Awkernel/Minimal/WorkloadCandidateTableGeneratedProof.v
 theories/Operational/Awkernel/Minimal/MulticoreProjection.v
 theories/Operational/Awkernel/Minimal/OperationalMulticoreProjectionExamples.v
 theories/Refinement/BoundedDelayRefinement.v

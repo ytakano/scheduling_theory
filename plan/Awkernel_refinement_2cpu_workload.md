@@ -323,13 +323,27 @@ Awkernel が emit しうる全 trace の coverage を意味しない。
 
 ## この手順の先にある拡張
 
-この手順の次に来る拡張は、実装済みの procedure 本体とは分けて考える。
-順序としては次が妥当である。
+この節では、Step 1 から Step 6 の procedure 本体の先に置く後続拡張だけを記録する。
+ここから先は、現在実際に回している手順ではなく、その accepted family を
+次の refinement reuse へ接続するための段階である。
 
-1. accepted finite-task lifecycle-grammar family を安定化する
-2. その安定化した family の上で candidate-source reuse を入れる
-3. dispatch-latency gap を吸収する adapter-local scheduler-facing witness を入れる
-4. その後で scheduler-relation へ進む
+## Step 7: rows-only local candidate-table contract
 
-したがって、この文書の Step 1 から Step 6 までは「現在実際に行っている
-refinement 手順」を記述し、この節はその手順の先に残る extension を記録する。
+Step 6 で proof-facing boundary として受理した finite-task family を起点に、
+Haskell が rows から candidate tables を出力し、Rocq がその rows に対する
+adapter-local な candidate-table contract を検証する。
+
+この step は adapter layer の内部にとどまり、common layer の event/state interface は
+増やさない。lifecycle は acceptance lane のまま維持され、この手順で受理した current
+lifecycle-grammar family に限られ、all Awkernel traces を covered したと主張するものではない。
+また、この step は scheduler-relation でも common layer の意味論でもない。
+
+## Step 8: scheduler-facing witness
+
+Step 7 の後段では、dispatch-latency gap を吸収する adapter-local
+scheduler-facing witness を導入する。この witness の役割は、accepted workload artifact を
+downstream proof obligation が使える形へ写すことであり、common operational interface 自体を
+変更することではない。
+
+scheduler-relation は、この Step 8 のさらに後段で扱う。したがって、この文書の
+Step 1 から Step 6 は現在の procedure、Step 7 と Step 8 はその先にある番号付き拡張である。
