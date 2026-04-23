@@ -211,10 +211,11 @@ Haskell 側の active path は serial log から抽出された
 - lifecycle parse failure
 - semantic rejection
 
-## Step 5: QEMU/KVM で trace を取得し、accepted / regression の二系統で確認する
+## Step 5: QEMU/KVM で trace を取得し、acceptance lane で確認する
 
 次に QEMU または Linux KVM で representative workload trace を取得する。
-この段階では、runtime が emit した artifact を二つの系統で確認する。
+この段階では、runtime が emit した serial log から rows と lifecycle を抽出し、
+acceptance lane だけを実行する。
 
 ### Acceptance path
 
@@ -226,23 +227,7 @@ Haskell 側の active path は serial log から抽出された
 を抽出し、Haskell checker に渡して semantic acceptance を行う。
 この path が concrete trace constraint の semantic oracle である。
 成功時には `accept` を返し、失敗時には constraint 種別と場所つきの
-diagnostics を返す。成功時に `candidate_table.v`、`rocq.v`、
-`rows.tsv`、`lifecycle.tsv`、`baseline.txt` を acceptance lane から
-追加出力しない。
-
-### Regression path
-
-`check-workload-trace-qemu-2cpu` は QEMU fixture と比較して、
-
-- baseline text
-- rows
-- lifecycle
-- generated Rocq export
-
-の drift を検出する。
-こちらは semantic acceptance ではなく regression/reference check である。
-candidate-table の生成や検査はこの lane では行わず、staging や Rocq proof も
-通常の trace-regression path には入れない。
+diagnostics を返す。成功時に repo 管理下の artifact を追加出力しない。
 
 current runtime capture path は `awkernel/Makefile` にある。
 
@@ -250,37 +235,11 @@ current runtime capture path は `awkernel/Makefile` にある。
 
 - `capture-workload-log-qemu-2cpu`
 - `capture-workload-log-kvm-2cpu`
-- `refresh-workload-trace-fixtures-qemu-2cpu`
-- `check-workload-trace-qemu-2cpu`
 - `check-workload-accept-qemu-2cpu`
 - `check-workload-accept-kvm-2cpu`
 
-QEMU は canonical regression backend であり、
-KVM は smoke backend である。
-
-現在の regression policy は workload ごとに分かれる。
-
-- `single_async`, `nested_spawn`
-  - baseline text, rows, lifecycle, generated Rocq witness export を exact に比較する
-- `multi_async`, `sleep_wakeup`
-  - rows, lifecycle, generated Rocq witness export を exact に比較する
-  - baseline text は representative reference にとどめ、drift を semantic rejection と見なさない
-
-QEMU fixture は現在、
-
-- `awkernel/fixtures/workload_trace/<scenario>/baseline.txt`
-- `awkernel/fixtures/workload_trace/<scenario>/rows.tsv`
-- `awkernel/fixtures/workload_trace/<scenario>/lifecycle.tsv`
-- `awkernel/fixtures/workload_trace/<scenario>/rocq.v`
-
-として保持される。
-
-得られる trace artifact は概略として次の形になる。
-
-1. baseline text
-2. scheduler-visible rows
-3. task lifecycle TSV
-4. generated Rocq witness export
+QEMU と KVM はどちらも acceptance backend であり、current workflow では
+checked-in workload fixture を保持しない。
 
 ## Step 6: acceptance outcome を refinement から分離して解釈する
 
@@ -293,7 +252,6 @@ adapter-local な accepted family に属する、という bool 判定と diagno
 
 - emitted rows/lifecycle が adapter-local generation rules に従う
 - acceptance lane の成功と failure が concrete trace constraint に対して定義されている
-- semantic acceptance と representative regression drift を分けて扱える
 
 この手順ではまだ次を保証しない。
 
@@ -307,7 +265,6 @@ adapter-local な accepted family に属する、という bool 判定と diagno
 
 - runtime が rows + lifecycle artifact を deterministic に emit する
 - extracted Haskell checker がその artifact を受理/棄却できる
-- QEMU fixture を regression reference として保持できる
 - KVM でも smoke acceptance を回せる
 
 ## この手順の現在の限界
