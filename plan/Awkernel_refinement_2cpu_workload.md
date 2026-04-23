@@ -230,8 +230,9 @@ Haskell runner は serial log から抽出された
 - 完全性:
   今の checker が intended family を過不足なく受理すること
 
-ただし現状では、checker は still narrow であり、job 数も small finite range に
-限定されている。したがって完全性を広い意味で達成したとはまだ言えない。
+ただし現状では、checker は still narrow であり、現在の lifecycle-grammar
+family に属する有限 task 集合に対する acceptance を与える段階にとどまる。
+したがって完全性を広い意味で達成したとはまだ言えない。
 
 ## Step 5: QEMU, Linux KVMなどで、Awkernelのトレースを取得する
 
@@ -314,7 +315,9 @@ acceptance 判定する。
 - scheduler-relation
 - bounded-delay / deadline proof
 
-特に今の checker は `try_wakeup 1 .. 8` のような small finite range に依存して
-おり、job 数が増えるとスケールしない。したがって次の task は、
-job-id 固定の narrow checker から、有限 task 集合一般へ持ち上げる
-adapter-local family の設計である。
+現在の checker は fixed job-id の例に依存せず、lifecycle summary が与える
+known task 集合の上で row matching を行う。この段階での主張は
+`current lifecycle-grammar family が受理する任意の有限 task set` に限られ、
+Awkernel が emit しうる全 trace の coverage を意味しない。
+次の task は、この finite accepted family を安定化し、その上で
+candidate-source reuse へ進めることである。

@@ -32,8 +32,17 @@ Fixpoint job_list_contains (j : JobId) (xs : list JobId) : bool :=
   | x :: xs' => Nat.eqb x j || job_list_contains j xs'
   end.
 
+Fixpoint insert_job_sorted (j : JobId) (xs : list JobId) : list JobId :=
+  match xs with
+  | [] => [j]
+  | x :: xs' =>
+      if Nat.eqb j x then x :: xs'
+      else if Nat.leb j x then j :: x :: xs'
+      else x :: insert_job_sorted j xs'
+  end.
+
 Definition add_job_once (j : JobId) (xs : list JobId) : list JobId :=
-  if job_list_contains j xs then xs else j :: xs.
+  insert_job_sorted j xs.
 
 Fixpoint pair_list_contains (x : JobId * JobId) (xs : list (JobId * JobId)) : bool :=
   match xs with
@@ -225,154 +234,53 @@ Definition row_step_after_start
     (row : AwkernelCapturedRow) : option WorkloadRowState :=
   let known := wls_known_tasks summary in
   let deps := wls_completion_deps summary in
-  let try_wakeup (j : JobId) :=
+  let try_wakeup_job (j : JobId) :=
       if row_is_wakeup j row &&
          job_list_contains j known &&
          negb (job_list_contains j (wrs_completed st))
       then Some st
       else None in
-  let try_choose (j : JobId) :=
+  let try_choose_job (j : JobId) :=
       if row_is_choose j row &&
          job_list_contains j known &&
          negb (job_list_contains j (wrs_completed st)) &&
          option_job_eqb (wrs_selected st) None
       then Some (mkWorkloadRowState true (Some j) (wrs_dispatched st) (wrs_completed st))
       else None in
-  let try_dispatch (j : JobId) :=
+  let try_dispatch_job (j : JobId) :=
       if row_is_dispatch j row &&
          option_job_eqb (wrs_selected st) (Some j)
       then Some (mkWorkloadRowState true None (add_job_once j (wrs_dispatched st)) (wrs_completed st))
       else None in
-  let try_complete (j : JobId) :=
+  let try_complete_job (j : JobId) :=
       if row_is_complete j row &&
          job_list_contains j (wrs_dispatched st) &&
          negb (job_list_contains j (wrs_completed st)) &&
          all_dependencies_completed j deps (wrs_completed st)
       then Some (mkWorkloadRowState true None (wrs_dispatched st) (add_job_once j (wrs_completed st)))
       else None in
+  let fix try_known_jobs
+      (f : JobId -> option WorkloadRowState)
+      (jobs : list JobId) : option WorkloadRowState :=
+      match jobs with
+      | [] => None
+      | j :: jobs' =>
+          match f j with
+          | Some st' => Some st'
+          | None => try_known_jobs f jobs'
+          end
+      end in
   if row_is_stutter row
   then Some st
-  else match try_wakeup 1 with
+  else match try_known_jobs try_wakeup_job known with
        | Some st' => Some st'
        | None =>
-           match try_wakeup 2 with
+           match try_known_jobs try_choose_job known with
            | Some st' => Some st'
            | None =>
-               match try_wakeup 3 with
+               match try_known_jobs try_dispatch_job known with
                | Some st' => Some st'
-               | None =>
-                   match try_wakeup 4 with
-                   | Some st' => Some st'
-                   | None =>
-                       match try_wakeup 5 with
-                       | Some st' => Some st'
-                       | None =>
-                           match try_wakeup 6 with
-                           | Some st' => Some st'
-                           | None =>
-                               match try_wakeup 7 with
-                               | Some st' => Some st'
-                               | None =>
-                                   match try_wakeup 8 with
-                                   | Some st' => Some st'
-                                   | None =>
-                                       match try_choose 1 with
-                                       | Some st' => Some st'
-                                       | None =>
-                                           match try_choose 2 with
-                                           | Some st' => Some st'
-                                           | None =>
-                                               match try_choose 3 with
-                                               | Some st' => Some st'
-                                               | None =>
-                                                   match try_choose 4 with
-                                                   | Some st' => Some st'
-                                                   | None =>
-                                                       match try_choose 5 with
-                                                       | Some st' => Some st'
-                                                       | None =>
-                                                           match try_choose 6 with
-                                                           | Some st' => Some st'
-                                                           | None =>
-                                                               match try_choose 7 with
-                                                               | Some st' => Some st'
-                                                               | None =>
-                                                                   match try_choose 8 with
-                                                                   | Some st' => Some st'
-                                                                   | None =>
-                                                                       match try_dispatch 1 with
-                                                                       | Some st' => Some st'
-                                                                       | None =>
-                                                                           match try_dispatch 2 with
-                                                                           | Some st' => Some st'
-                                                                           | None =>
-                                                                               match try_dispatch 3 with
-                                                                               | Some st' => Some st'
-                                                                               | None =>
-                                                                                   match try_dispatch 4 with
-                                                                                   | Some st' => Some st'
-                                                                                   | None =>
-                                                                                       match try_dispatch 5 with
-                                                                                       | Some st' => Some st'
-                                                                                       | None =>
-                                                                                           match try_dispatch 6 with
-                                                                                           | Some st' => Some st'
-                                                                                           | None =>
-                                                                                               match try_dispatch 7 with
-                                                                                               | Some st' => Some st'
-                                                                                               | None =>
-                                                                                                   match try_dispatch 8 with
-                                                                                                   | Some st' => Some st'
-                                                                                                   | None =>
-                                                                                                       match try_complete 1 with
-                                                                                                       | Some st' => Some st'
-                                                                                                       | None =>
-                                                                                                           match try_complete 2 with
-                                                                                                           | Some st' => Some st'
-                                                                                                           | None =>
-                                                                                                               match try_complete 3 with
-                                                                                                               | Some st' => Some st'
-                                                                                                               | None =>
-                                                                                                                   match try_complete 4 with
-                                                                                                                   | Some st' => Some st'
-                                                                                                                   | None =>
-                                                                                                                       match try_complete 5 with
-                                                                                                                       | Some st' => Some st'
-                                                                                                                       | None =>
-                                                                                                                           match try_complete 6 with
-                                                                                                                           | Some st' => Some st'
-                                                                                                                           | None =>
-                                                                                                                               match try_complete 7 with
-                                                                                                                               | Some st' => Some st'
-                                                                                                                               | None => try_complete 8
-                                                                                                                               end
-                                                                                                                           end
-                                                                                                                       end
-                                                                                                                   end
-                                                                                                               end
-                                                                                                           end
-                                                                                                       end
-                                                                                                   end
-                                                                                               end
-                                                                                           end
-                                                                                       end
-                                                                                   end
-                                                                               end
-                                                                           end
-                                                                       end
-                                                                   end
-                                                               end
-                                                           end
-                                                       end
-                                                   end
-                                               end
-                                           end
-                                       end
-                                   end
-                               end
-                           end
-                       end
-                   end
+               | None => try_known_jobs try_complete_job known
                end
            end
        end.
