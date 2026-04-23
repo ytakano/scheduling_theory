@@ -1,11 +1,12 @@
 # Awkernel 2 CPUs Workload Refinement
 
 このメモは、Awkernel の 2 CPU async/await workload trace を、RocqSched の
-既存の operational boundary へつなぐために何を行っているかをまとめる。
+既存の operational boundary へつなぐときに、実際にどの順で何を行い、
+どの artifact をどこで確認しているかをまとめる手順書である。
 ここで扱うのは common layer の拡張ではなく、Awkernel adapter layer と
-concrete runtime layer の narrow な refinement 作業である。
+concrete runtime layer の narrow な refinement 手順である。
 
-現時点の goal は次である。
+この手順の目的は次である。
 
 - Awkernel が emit した workload trace を deterministic artifact として取得する
 - その artifact が adapter-local な generation rules に従っているかを
@@ -13,7 +14,7 @@ concrete runtime layer の narrow な refinement 作業である。
 - accepted workload trace を、既存の projection / replay / adapter-obligation
   path へ入れるための前段境界として整理する
 
-ここではまだ主張しない。
+この手順の範囲外にあるものは次である。
 
 - all Awkernel traces の被覆
 - IPI, timer interrupt, preemption, migration を含む一般 trace family
@@ -21,7 +22,7 @@ concrete runtime layer の narrow な refinement 作業である。
 - ideal scheduler policy との一致
 - bounded-delay / deadline 保証
 
-## Goal
+## Procedure Overview
 
 ### 1. Abstract interface
 
@@ -77,9 +78,11 @@ Awkernel async executor の spawn / runnable / choose / dispatch / sleep /
 join-wait / complete を lifecycle artifact として emit する。
 また scheduler-visible rows を baseline trace hook から抽出する。
 
-## Step 1: Awkernelへのトレースポイント差し込み
+## Step 1: runtime が rows と lifecycle を出力する
 
-runtime では、既存の baseline trace に加えて task lifecycle export を追加する。
+まず runtime で、既存の baseline trace に加えて task lifecycle export を記録する。
+この段階で差し込むのは、後段の checker が finite task set と
+scheduler-visible state を復元するために必要な concrete event source だけである。
 現在の主な差し込み点は次である。
 
 - task spawn
@@ -95,9 +98,10 @@ runtime では、既存の baseline trace に加えて task lifecycle export を
 workload trace 用 feature が有効なときだけ有効になり、通常 runtime path には
 影響を与えない。
 
-また、workload trace VM では root orchestrator task を起動し、
+workload trace VM では root orchestrator task を起動し、
 `arm_dump_on_complete(root_task_id)` によって root task の完了時に dump を
-1 回だけ行う。
+1 回だけ行う。したがって、この段階で得られるのは「workload 全体が終了した時点の
+deterministic artifact」である。
 
 現在の representative workload は 4 つである。
 
@@ -109,17 +113,16 @@ workload trace 用 feature が有効なときだけ有効になり、通常 runt
 これらは semantic family の定義ではなく、runtime artifact を出す
 representative examples である。
 
-## Step 2: 生成規則
+## Step 2: lifecycle summary を構成する
 
-generation rules は Rocq 側で、`rows + lifecycle` を受ける
-adapter-local checker として定義する。
+次に Rocq 側で lifecycle export を読み、finite task set と dependency を
+recover する summary を作る。ここで使うのは `rows + lifecycle` を受ける
+adapter-local checker であり、common layer の interface は広げない。
 
 現在の checker は `Operational/Awkernel/Minimal/WorkloadAcceptance.v` にあり、
 大きく 2 段からなる。
 
-### 2.1 Lifecycle summary
-
-まず lifecycle export を読み、次の summary を作る。
+この summary では、まず lifecycle export を読み、次の情報を構成する。
 
 - root task
 - known tasks
@@ -136,12 +139,14 @@ lifecycle record として現在扱う kind は次である。
 - `Complete`
 
 この段階では、task が存在する前に参照されていないか、
-join wait が既知 task 間で張られているか、などの well-formedness を見る。
+join wait が既知 task 間で張られているか、known task 集合に重複がないか、
+といった well-formedness を確認する。
 
-### 2.2 Row acceptance
+## Step 3: rows を finite-task summary と照合する
 
-次に scheduler-visible rows を読み、summary と照合しながら
-row-state machine を進める。
+その後 scheduler-visible rows を読み、Step 2 で得た summary と照合しながら
+row-state machine を進める。現在の checker は fixed job-id example に依存せず、
+lifecycle summary から復元した known task 集合の上で row matching を行う。
 
 現在見る row pattern は次である。
 
@@ -168,29 +173,11 @@ checker state には少なくとも次を持つ。
 
 ことを要求する。
 
-## Step 3: 生成規則チェッカーの健全性境界
+## Step 4: extracted checker を実行する
 
-この checker が現在意味しているのは、
-`accepted emitted workload artifact` が Awkernel adapter-local な narrow family に
-属する、ということである。
-
-ここでの健全性境界は次までである。
-
-- emitted rows/lifecycle が adapter-local generation rules に従う
-- accepted trace を replay/projection path に入れる前提として使える
-
-ここではまだ次を示していない。
-
-- all valid runtime traces を checker が完全に受理すること
-- accepted trace から generic local adapter contract を end-to-end で作ること
-- scheduler-relation や candidate-source をこの family 全体で与えること
-
-つまり、checker の位置づけは `proof entry gate` であって、
-完全な refinement closure ではない。
-
-## Step 4: 生成規則チェッカーの作成
-
-checker は Rocq で定義され、Haskell へ Extraction される。
+checker は Rocq で定義され、Haskell へ Extraction される。実際の運用では
+checker を source のまま使うのではなく、extracted checker を serial log に
+対して実行する。
 
 現在の active path は次である。
 
@@ -220,58 +207,10 @@ Haskell runner は serial log から抽出された
 - lifecycle parse failure
 - semantic rejection
 
-### 健全性と完全性
+## Step 5: QEMU/KVM で trace を取得し、accepted / regression の二系統で確認する
 
-現時点で文書化できるのは、健全性・完全性の目標と現在の境界である。
-
-- 健全性:
-  checker が受理した artifact は、Awkernel workload trace family の
-  narrow accepted fragment に入っている
-- 完全性:
-  今の checker が intended family を過不足なく受理すること
-
-ただし現状では、checker は still narrow であり、現在の lifecycle-grammar
-family に属する有限 task 集合に対する acceptance を与える段階にとどまる。
-したがって完全性を広い意味で達成したとはまだ言えない。
-
-## Step 5: QEMU, Linux KVMなどで、Awkernelのトレースを取得する
-
-current runtime capture path は `awkernel/Makefile` にある。
-
-代表的な target は次である。
-
-- `capture-workload-log-qemu-2cpu`
-- `capture-workload-log-kvm-2cpu`
-- `refresh-workload-trace-fixtures-qemu-2cpu`
-- `check-workload-trace-qemu-2cpu`
-- `check-workload-accept-qemu-2cpu`
-- `check-workload-accept-kvm-2cpu`
-
-QEMU は canonical fixture owner であり、
-KVM は smoke backend である。
-
-QEMU fixture は現在、
-
-- `awkernel/fixtures/workload_trace/<scenario>/baseline.txt`
-- `awkernel/fixtures/workload_trace/<scenario>/rows.tsv`
-- `awkernel/fixtures/workload_trace/<scenario>/lifecycle.tsv`
-- `awkernel/fixtures/workload_trace/<scenario>/rocq.v`
-
-として保持される。
-
-得られる trace artifact は概略として次の形になる。
-
-1. baseline text
-2. scheduler-visible rows
-3. task lifecycle TSV
-4. generated Rocq witness export
-
-## Step 6: トレースが生成規則に従っているかをチェックする
-
-Step 4 の checker を用いて、Step 5 で取得した emitted workload trace を
-acceptance 判定する。
-
-ここでの役割分担は重要である。
+次に QEMU または Linux KVM で representative workload trace を取得する。
+この段階では、runtime が emit した artifact を二つの系統で確認する。
 
 ### Acceptance path
 
@@ -295,6 +234,54 @@ acceptance 判定する。
 の drift を検出する。
 こちらは semantic acceptance ではなく regression/reference check である。
 
+current runtime capture path は `awkernel/Makefile` にある。
+
+代表的な target は次である。
+
+- `capture-workload-log-qemu-2cpu`
+- `capture-workload-log-kvm-2cpu`
+- `refresh-workload-trace-fixtures-qemu-2cpu`
+- `check-workload-trace-qemu-2cpu`
+- `check-workload-accept-qemu-2cpu`
+- `check-workload-accept-kvm-2cpu`
+
+QEMU は canonical regression backend であり、
+KVM は smoke backend である。
+
+QEMU fixture は現在、
+
+- `awkernel/fixtures/workload_trace/<scenario>/baseline.txt`
+- `awkernel/fixtures/workload_trace/<scenario>/rows.tsv`
+- `awkernel/fixtures/workload_trace/<scenario>/lifecycle.tsv`
+- `awkernel/fixtures/workload_trace/<scenario>/rocq.v`
+
+として保持される。
+
+得られる trace artifact は概略として次の形になる。
+
+1. baseline text
+2. scheduler-visible rows
+3. task lifecycle TSV
+4. generated Rocq witness export
+
+## Step 6: accepted artifact を proof-facing 境界として解釈する
+
+この手順で得られる accepted artifact は、
+`accepted emitted workload artifact` が Awkernel adapter-local な accepted family に
+属する、という意味で使う。ここでの役割は `proof entry gate` であって、
+完全な refinement closure ではない。
+
+この手順が現在保証する境界は次である。
+
+- emitted rows/lifecycle が adapter-local generation rules に従う
+- accepted trace を replay/projection path に入れる前提として使える
+
+この手順ではまだ次を保証しない。
+
+- all valid runtime traces を checker が完全に受理すること
+- accepted trace から generic local adapter contract を end-to-end で作ること
+- scheduler-relation や candidate-source をこの family 全体で与えること
+
 ## 現在の到達点
 
 現在、この 2 CPU workload refinement path でできているのは次である。
@@ -304,11 +291,10 @@ acceptance 判定する。
 - QEMU fixture を regression reference として保持できる
 - KVM でも smoke acceptance を回せる
 
-## 現在の未達項目
+## この手順の現在の限界
 
-まだ未達なのは次である。
+この手順がまだ扱わないものは次である。
 
-- arbitrary number of jobs に自然に拡張できる generic family
 - all Awkernel traces を含む workload family
 - accepted workload trace からの generic candidate-source reuse
 - dispatch-latency gap を吸収する scheduler-facing witness
@@ -319,5 +305,16 @@ acceptance 判定する。
 known task 集合の上で row matching を行う。この段階での主張は
 `current lifecycle-grammar family が受理する任意の有限 task set` に限られ、
 Awkernel が emit しうる全 trace の coverage を意味しない。
-次の task は、この finite accepted family を安定化し、その上で
-candidate-source reuse へ進めることである。
+
+## この手順の先にある拡張
+
+この手順の次に来る拡張は、実装済みの procedure 本体とは分けて考える。
+順序としては次が妥当である。
+
+1. accepted finite-task lifecycle-grammar family を安定化する
+2. その安定化した family の上で candidate-source reuse を入れる
+3. dispatch-latency gap を吸収する adapter-local scheduler-facing witness を入れる
+4. その後で scheduler-relation へ進む
+
+したがって、この文書の Step 1 から Step 6 までは「現在実際に行っている
+refinement 手順」を記述し、この節はその手順の先に残る extension を記録する。
