@@ -314,8 +314,9 @@ membership だけを使う。
 - duplicate spawn を許さない
 - invalid join edge を許さない
 - sleeping / join dependency に反する completion を許さない
-- `cpu=1`, `current=None`, `need_resched=false`, `dispatch_target=None` の
-  narrow shape に限って optional stutter を許す
+- `cpu=1`, `current=None`, `dispatch_target=None` で、projected scheduler-facing state を
+  保存する optional stutter を許す。`need_resched` は common の `EvStutter` と同様に
+  clear / set されるものではなく、row 内で観測された値を保存する
 - trace 末尾で root task が completed に入っている
 
 ## Rocq Proof Role

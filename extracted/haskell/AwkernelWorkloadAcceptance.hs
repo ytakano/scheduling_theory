@@ -481,11 +481,9 @@ sched_trace_is_stutter :: AwkernelSchedTraceEntry -> Bool
 sched_trace_is_stutter entry =
   andb
     (andb
-      (andb
-        (andb (eqb0 (aste_cpu entry) (S O))
-          (sched_trace_event_is_stutter entry))
-        (bool_of_option_none (sched_trace_primary_current entry)))
-      (eqb (sched_trace_primary_need_resched entry) False))
+      (andb (eqb0 (aste_cpu entry) (S O))
+        (sched_trace_event_is_stutter entry))
+      (bool_of_option_none (sched_trace_primary_current entry)))
     (bool_of_option_none (sched_trace_primary_dispatch_target entry))
 
 data AwkernelTaskTraceSummary =

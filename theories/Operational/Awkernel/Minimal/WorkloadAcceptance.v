@@ -165,7 +165,6 @@ Definition sched_trace_is_stutter
   Nat.eqb (aste_cpu entry) 1 &&
   sched_trace_event_is_stutter entry &&
   bool_of_option_none (sched_trace_primary_current entry) &&
-  Bool.eqb (sched_trace_primary_need_resched entry) false &&
   bool_of_option_none (sched_trace_primary_dispatch_target entry).
 
 Record AwkernelTaskTraceSummary : Type := mkAwkernelTaskTraceSummary {
