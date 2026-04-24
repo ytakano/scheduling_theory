@@ -1,0 +1,429 @@
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Analysis.Uniprocessor.BusyWindowSearch.
+From RocqSched Require Import Analysis.Uniprocessor.EDFProcessorDemand.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFCertificate.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFBacklogBridgeChecker.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFGeneratedPrefixChecker.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFInfiniteBridge.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFNoCarryInSupply.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportChecker.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransport.
+From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
+From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
+From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
+
+Import ListNotations.
+
+(** Boolean sidecar checker for generated-window transport witnesses.
+
+    The persistent transport certificate continues to say which target job uses
+    which representative class and shift.  This sidecar certificate records the
+    finite earlier-job correspondences used to justify a shifted window.  The
+    checker proves only finite arithmetic and lookup facts; coverage of all
+    semantically relevant earlier jobs and actual completion transport remain
+    explicit proof obligations for downstream certificate generators. *)
+
+Record EDFWindowTransportPairCert := {
+  window_target_earlier_job : JobId;
+  window_rep_earlier_job : JobId;
+  window_transport_delta : Time
+}.
+
+Record EDFWindowTransportTargetCert := {
+  window_transport_target_job : JobId;
+  window_transport_class_id : nat;
+  window_transport_shift : nat;
+  window_transport_pairs : list EDFWindowTransportPairCert
+}.
+
+Definition check_shifted_job_relation
+    (jobs : JobId -> Job)
+    (rep target : JobId)
+    (p : EDFWindowTransportPairCert) : bool :=
+  let delta := p.(window_transport_delta) in
+  Nat.eqb (job_release (jobs target)) (job_release (jobs rep) + delta)
+  && Nat.eqb
+       (job_abs_deadline (jobs target))
+       (job_abs_deadline (jobs rep) + delta)
+  && Nat.eqb
+       (job_release (jobs p.(window_target_earlier_job)))
+       (job_release (jobs p.(window_rep_earlier_job)) + delta)
+  && Nat.eqb
+       (job_abs_deadline (jobs p.(window_target_earlier_job)))
+       (job_abs_deadline (jobs p.(window_rep_earlier_job)) + delta).
+
+Definition check_window_transport_target
+    (jobs : JobId -> Job)
+    (transport_cert : EDFTransportCert JobId)
+    (target_cert : EDFWindowTransportTargetCert) : bool :=
+  match index_of_job
+          target_cert.(window_transport_target_job)
+          transport_cert.(transport_basis_jobs) with
+  | Some i =>
+      match nth_error transport_cert.(transport_job_class) i,
+            nth_error transport_cert.(transport_job_shift) i,
+            nth_error transport_cert.(transport_classes)
+              target_cert.(window_transport_class_id) with
+      | Some class_id, Some shift, Some cls =>
+          Nat.eqb class_id target_cert.(window_transport_class_id)
+          && Nat.eqb shift target_cert.(window_transport_shift)
+          && forallb
+               (check_shifted_job_relation
+                  jobs cls.(transport_rep_job)
+                  target_cert.(window_transport_target_job))
+               target_cert.(window_transport_pairs)
+      | _, _, _ => false
+      end
+  | None => false
+  end.
+
+Definition check_window_transport_targets
+    (jobs : JobId -> Job)
+    (transport_cert : EDFTransportCert JobId)
+    (target_certs : list EDFWindowTransportTargetCert) : bool :=
+  forallb (check_window_transport_target jobs transport_cert) target_certs.
+
+Lemma check_shifted_job_relation_sound :
+  forall jobs rep target p,
+    check_shifted_job_relation jobs rep target p = true ->
+    ShiftedJobRelation
+      jobs rep target
+      p.(window_rep_earlier_job)
+      p.(window_target_earlier_job)
+      p.(window_transport_delta).
+Proof.
+  intros jobs rep target p Hcheck.
+  unfold check_shifted_job_relation in Hcheck.
+  repeat rewrite andb_true_iff in Hcheck.
+  destruct Hcheck as [[[Htarget_rel Htarget_dl] Hearlier_rel] Hearlier_dl].
+  constructor.
+  - apply Nat.eqb_eq. exact Htarget_rel.
+  - apply Nat.eqb_eq. exact Htarget_dl.
+  - apply Nat.eqb_eq. exact Hearlier_rel.
+  - apply Nat.eqb_eq. exact Hearlier_dl.
+Qed.
+
+Lemma check_window_transport_target_lookup_sound :
+  forall jobs transport_cert target_cert,
+    check_window_transport_target jobs transport_cert target_cert = true ->
+    exists i cls,
+      nth_error transport_cert.(transport_basis_jobs) i =
+        Some target_cert.(window_transport_target_job)
+      /\
+      nth_error transport_cert.(transport_job_class) i =
+        Some target_cert.(window_transport_class_id)
+      /\
+      nth_error transport_cert.(transport_job_shift) i =
+        Some target_cert.(window_transport_shift)
+      /\
+      nth_error transport_cert.(transport_classes)
+        target_cert.(window_transport_class_id) = Some cls
+      /\
+      forall p,
+        In p target_cert.(window_transport_pairs) ->
+        ShiftedJobRelation
+          jobs cls.(transport_rep_job)
+          target_cert.(window_transport_target_job)
+          p.(window_rep_earlier_job)
+          p.(window_target_earlier_job)
+          p.(window_transport_delta).
+Proof.
+  intros jobs transport_cert target_cert Hcheck.
+  unfold check_window_transport_target in Hcheck.
+  destruct (index_of_job
+              target_cert.(window_transport_target_job)
+              transport_cert.(transport_basis_jobs)) as [i|] eqn:Hidx;
+    [|discriminate].
+  destruct (nth_error transport_cert.(transport_job_class) i) as [class_id|]
+    eqn:Hclass; [|discriminate].
+  destruct (nth_error transport_cert.(transport_job_shift) i) as [shift|]
+    eqn:Hshift; [|discriminate].
+  destruct (nth_error transport_cert.(transport_classes)
+              target_cert.(window_transport_class_id)) as [cls|]
+    eqn:Hcls; [|discriminate].
+  repeat rewrite andb_true_iff in Hcheck.
+  destruct Hcheck as [[Hclass_eq Hshift_eq] Hpairs].
+  apply Nat.eqb_eq in Hclass_eq.
+  apply Nat.eqb_eq in Hshift_eq.
+  subst class_id shift.
+  exists i, cls.
+  split.
+  - eapply index_of_job_sound; eauto.
+  - split.
+    + exact Hclass.
+    + split.
+      * exact Hshift.
+      * split.
+        -- reflexivity.
+        -- intros p Hin.
+           apply forallb_forall with (x := p) in Hpairs; [|exact Hin].
+           eapply check_shifted_job_relation_sound; eauto.
+Qed.
+
+Lemma check_window_transport_targets_sound :
+  forall jobs transport_cert target_certs target_cert,
+    check_window_transport_targets jobs transport_cert target_certs = true ->
+    In target_cert target_certs ->
+    check_window_transport_target jobs transport_cert target_cert = true.
+Proof.
+  intros jobs transport_cert target_certs target_cert Hcheck Hin.
+  unfold check_window_transport_targets in Hcheck.
+  eapply forallb_forall; eauto.
+Qed.
+
+Record WindowTransportTargetObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (rep_sched target_sched : Schedule)
+    (rep target : JobId)
+    (target_cert : EDFWindowTransportTargetCert) : Prop := {
+  checked_window_rep_backlog_to_completion :
+    periodic_edf_backlog_free_before_release
+      T tasks offset jobs (job_abs_deadline (jobs rep)) rep_sched rep ->
+    representative_earlier_completion_before_release
+      T tasks offset jobs rep_sched rep;
+  checked_window_target_pair_coverage :
+    forall t1 t2 x,
+      busy_prefix_witness target_sched (job_abs_deadline (jobs target)) t1 t2 ->
+      t1 <= job_release (jobs target) ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs t1 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      exists p,
+        In p target_cert.(window_transport_pairs)
+        /\ p.(window_target_earlier_job) = x
+        /\ periodic_jobset_deadline_between
+             T tasks offset jobs 0 (job_abs_deadline (jobs rep))
+             p.(window_rep_earlier_job)
+        /\ job_release (jobs p.(window_rep_earlier_job)) <
+             job_release (jobs rep);
+  checked_window_pair_completion_transport :
+    forall p,
+      In p target_cert.(window_transport_pairs) ->
+      ShiftedJobRelation
+        jobs rep target
+        p.(window_rep_earlier_job)
+        p.(window_target_earlier_job)
+        p.(window_transport_delta) ->
+      ShiftedCompletionTransport
+        jobs rep_sched target_sched rep target
+        p.(window_rep_earlier_job)
+        p.(window_target_earlier_job)
+}.
+
+Theorem checked_window_transport_target_sound :
+  forall T tasks offset jobs rep_sched target_sched transport_cert target_cert
+         i cls,
+    check_window_transport_target jobs transport_cert target_cert = true ->
+    NoDup transport_cert.(transport_basis_jobs) ->
+    nth_error transport_cert.(transport_basis_jobs) i =
+      Some target_cert.(window_transport_target_job) ->
+    nth_error transport_cert.(transport_job_class) i =
+      Some target_cert.(window_transport_class_id) ->
+    nth_error transport_cert.(transport_job_shift) i =
+      Some target_cert.(window_transport_shift) ->
+    nth_error transport_cert.(transport_classes)
+      target_cert.(window_transport_class_id) = Some cls ->
+    WindowTransportTargetObligation
+      T tasks offset jobs rep_sched target_sched
+      cls.(transport_rep_job)
+      target_cert.(window_transport_target_job)
+      target_cert ->
+    ShiftedBacklogWindowTransport
+      T tasks offset jobs rep_sched target_sched
+      cls.(transport_rep_job)
+      target_cert.(window_transport_target_job).
+Proof.
+  intros T tasks offset jobs rep_sched target_sched transport_cert target_cert
+         i cls Hcheck Hbasis_nodup Hbasis Hclass Hshift Hcls Hobligation.
+  destruct
+    (check_window_transport_target_lookup_sound
+       jobs transport_cert target_cert Hcheck)
+    as [i_lookup [cls_lookup
+          [Hbasis_lookup [Hclass_lookup [Hshift_lookup
+          [Hcls_lookup Hrelations]]]]]].
+  assert (Hi : i_lookup = i).
+  {
+    rewrite NoDup_nth_error in Hbasis_nodup.
+    apply Hbasis_nodup.
+    - apply nth_error_Some.
+      rewrite Hbasis_lookup.
+      discriminate.
+    - rewrite Hbasis_lookup, Hbasis.
+      reflexivity.
+  }
+  subst i_lookup.
+  assert (Hcls_eq : cls_lookup = cls).
+  {
+    rewrite Hclass in Hclass_lookup.
+    inversion Hclass_lookup.
+    subst.
+    rewrite Hcls in Hcls_lookup.
+    inversion Hcls_lookup.
+    reflexivity.
+  }
+  subst cls_lookup.
+  constructor.
+  - exact
+      (checked_window_rep_backlog_to_completion
+         T tasks offset jobs rep_sched target_sched
+         cls.(transport_rep_job)
+         target_cert.(window_transport_target_job)
+         target_cert
+         Hobligation).
+  - intros t1 t2 x Hbusy Ht1 Hbetween Hrelease.
+    destruct
+      (checked_window_target_pair_coverage
+         T tasks offset jobs rep_sched target_sched
+         cls.(transport_rep_job)
+         target_cert.(window_transport_target_job)
+         target_cert Hobligation
+         t1 t2 x Hbusy Ht1 Hbetween Hrelease)
+	    as [p [Hin [Htarget [Hrep_between Hrep_release]]]].
+    exists p.(window_rep_earlier_job).
+    split.
+    + exact Hrep_between.
+    + split.
+      * exact Hrep_release.
+      * rewrite <- Htarget.
+        exact
+        (checked_window_pair_completion_transport
+           T tasks offset jobs rep_sched target_sched
+           cls.(transport_rep_job)
+           target_cert.(window_transport_target_job)
+           target_cert Hobligation p Hin
+           (Hrelations p Hin)).
+Qed.
+
+Record WindowTransportTargetsObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (prefix_cert : EDFPrefixCert JobId)
+    (transport_cert : EDFTransportCert JobId)
+    (target_certs : list EDFWindowTransportTargetCert) : Prop := {
+  checked_window_transport_basis_nodup :
+    NoDup transport_cert.(transport_basis_jobs);
+  checked_window_target_cert_complete :
+    forall target (cls : EDFTransportClass JobId) (shift : nat),
+      exists target_cert i class_id,
+        In target_cert target_certs
+        /\ target_cert.(window_transport_target_job) = target
+        /\ nth_error transport_cert.(transport_basis_jobs) i = Some target
+        /\ nth_error transport_cert.(transport_job_class) i = Some class_id
+        /\ nth_error transport_cert.(transport_job_shift) i = Some shift
+        /\ nth_error transport_cert.(transport_classes) class_id = Some cls
+        /\ target_cert.(window_transport_class_id) = class_id
+        /\ target_cert.(window_transport_shift) = shift;
+  checked_window_target_obligation :
+    forall target_cert i cls,
+      In target_cert target_certs ->
+      nth_error transport_cert.(transport_basis_jobs) i =
+        Some target_cert.(window_transport_target_job) ->
+      nth_error transport_cert.(transport_job_class) i =
+        Some target_cert.(window_transport_class_id) ->
+      nth_error transport_cert.(transport_classes)
+        target_cert.(window_transport_class_id) = Some cls ->
+      WindowTransportTargetObligation
+        T tasks offset jobs
+        (generated_periodic_edf_prefix
+           T tasks offset jobs enumT codec prefix_cert)
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline
+                 (jobs target_cert.(window_transport_target_job)))) enumT codec)
+        cls.(transport_rep_job)
+        target_cert.(window_transport_target_job)
+        target_cert
+}.
+
+Theorem checked_window_transport_targets_obligation_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert transport_cert target_certs,
+    check_window_transport_targets jobs transport_cert target_certs = true ->
+    WindowTransportTargetsObligation
+      T tasks offset jobs enumT codec prefix_cert transport_cert target_certs ->
+    ShiftedGeneratedWindowTransportObligation
+      T tasks offset jobs enumT codec prefix_cert.
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert transport_cert target_certs
+         Hcheck Hobligation.
+  constructor.
+  intros target cls shift.
+  destruct
+    (checked_window_target_cert_complete
+       T tasks offset jobs enumT codec prefix_cert transport_cert target_certs
+       Hobligation target cls shift)
+    as [target_cert [i_cert [class_id Hcomplete]]].
+  destruct Hcomplete as
+    [Hin [Htarget [Hbasis_complete
+    [Hclass_complete [Hshift_complete [Hcls_complete
+    [Htarget_class Htarget_shift]]]]]]].
+  pose proof
+    (check_window_transport_targets_sound
+       jobs transport_cert target_certs target_cert Hcheck Hin)
+    as Htarget_check.
+  assert (Hbasis_target :
+    nth_error transport_cert.(transport_basis_jobs) i_cert =
+      Some target_cert.(window_transport_target_job)).
+  {
+    rewrite Htarget.
+    exact Hbasis_complete.
+  }
+  assert (Hclass_target :
+    nth_error transport_cert.(transport_job_class) i_cert =
+      Some target_cert.(window_transport_class_id)).
+  {
+    rewrite Htarget_class.
+    exact Hclass_complete.
+  }
+  assert (Hshift_target :
+    nth_error transport_cert.(transport_job_shift) i_cert =
+      Some target_cert.(window_transport_shift)).
+  {
+    rewrite Htarget_shift.
+    exact Hshift_complete.
+  }
+  assert (Hcls_target :
+    nth_error transport_cert.(transport_classes)
+      target_cert.(window_transport_class_id) = Some cls).
+  {
+    rewrite Htarget_class.
+    exact Hcls_complete.
+  }
+  assert (Hshifted :
+    ShiftedBacklogWindowTransport
+      T tasks offset jobs
+      (generated_periodic_edf_prefix
+         T tasks offset jobs enumT codec prefix_cert)
+      (generated_periodic_edf_schedule_upto
+         T tasks offset jobs
+         (S (job_abs_deadline
+               (jobs target_cert.(window_transport_target_job)))) enumT codec)
+      cls.(transport_rep_job)
+	      target_cert.(window_transport_target_job)).
+  {
+    eapply checked_window_transport_target_sound.
+    - exact Htarget_check.
+    - exact
+        (checked_window_transport_basis_nodup
+           T tasks offset jobs enumT codec prefix_cert transport_cert
+           target_certs Hobligation).
+    - exact Hbasis_target.
+    - exact Hclass_target.
+    - exact Hshift_target.
+    - exact Hcls_target.
+    - eapply checked_window_target_obligation; eauto.
+  }
+  rewrite Htarget in Hshifted.
+  exact Hshifted.
+Qed.
