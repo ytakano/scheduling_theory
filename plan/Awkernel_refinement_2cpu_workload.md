@@ -107,14 +107,20 @@ workload trace VM では root orchestrator task を起動し、
 1 回だけ行う。したがって、この段階で得られるのは workload 全体が終了した時点の
 serial log である。
 
-現在の representative workload は 4 つである。
+現在の representative workload は 5 つである。
 
 - `single_async_trace_vm`
 - `nested_spawn_trace_vm`
 - `multi_async_trace_vm`
 - `sleep_wakeup_trace_vm`
+- `generic_random` (`generic_trace_vm`)
 
 これらは semantic family の定義ではなく、runtime artifact を出す representative examples である。
+`generic_random` は fixed seed と runtime-local bounds によって有限個の
+spawn / sleep / yield action を生成する。ここでの `yield` は common layer の新しい
+event ではなく、既存の runnable / scheduler trace projection によって観測される。
+seed、PRNG、task 数、depth、sleep 回数などの上限は adapter / runtime-local な
+発行条件であり、common interface には含めない。
 
 ## Step 2: QEMU/KVM で workload log を取得する
 
@@ -372,6 +378,7 @@ adapter-local `os_local_candidate_source_adapter_contract` へ持ち上げる th
 現在、この 2 CPU workload refinement path でできているのは次である。
 
 - runtime が sched_trace + task_trace artifact を含む serial log を deterministic に emit する
+- fixed seed と runtime-local bounds を持つ generated workload を同じ artifact family として emit できる
 - extracted Haskell checker がその log 由来の artifact を受理/棄却できる
 - adapter-local な `sched_trace` interpretation を通じて、logical worker
   capacity `m` に向けた意味づけを文書化できる
@@ -386,6 +393,7 @@ adapter-local `os_local_candidate_source_adapter_contract` へ持ち上げる th
   multiple-worker family 全体で安定化すること
 - scheduler-relation の multiple-worker reuse を family 全体で確立すること
 - bounded-delay / deadline proof
+- generated workload の finite bounds を bounded-delay / deadline bound として解釈すること
 
 現在の checker は fixed job-id の例に依存せず、task_trace summary が与える
 known task 集合の上で sched_trace matching を行う。この段階での主張は
