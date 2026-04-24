@@ -7,3 +7,5 @@
 todo.txt
 skills-lock.json
 .Makefile.d
+scripts/.build/
+scripts/periodic_edf_schedulability_csv

@@ -5,3 +5,18 @@ extract-handoff-accept-hs::
 extract-workload-accept-hs::
 	mkdir -p extracted/haskell
 	$(MAKE) theories/Operational/Awkernel/Minimal/WorkloadAcceptanceExtraction.vo
+
+extract-periodic-edf-sched-hs::
+	mkdir -p extracted/haskell
+	$(MAKE) theories/TaskModels/Periodic/PeriodicEDFExtraction.vo
+
+scripts/periodic_edf_schedulability_csv: scripts/periodic_edf_schedulability_csv.hs extracted/haskell/PeriodicEDFSchedulability.hs
+	ghc -O2 -iextracted/haskell -outputdir scripts/.build -o $@ $<
+
+build-periodic-edf-sched-csv:: extract-periodic-edf-sched-hs scripts/periodic_edf_schedulability_csv
+
+run-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
+	@test -n "$(CSV)" || (echo "usage: make run-periodic-edf-sched-csv CSV=tasks.csv" && exit 2)
+	./scripts/periodic_edf_schedulability_csv "$(CSV)"
+
+.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv run-periodic-edf-sched-csv

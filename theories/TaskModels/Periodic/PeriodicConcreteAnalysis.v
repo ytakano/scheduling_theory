@@ -314,6 +314,51 @@ Proof.
   apply critical_dbf_points_upto_complete; exact Hle.
 Qed.
 
+Definition first_dbf_overload_upto
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (H : Time) : option Time :=
+  find
+    (fun t => negb (taskset_periodic_dbf tasks enumT t <=? t))
+    (critical_dbf_points_upto tasks (fun _ => 0) enumT H).
+
+Lemma first_dbf_overload_upto_some :
+  forall tasks enumT H t,
+    first_dbf_overload_upto tasks enumT H = Some t ->
+    In t (critical_dbf_points_upto tasks (fun _ => 0) enumT H)
+    /\ t < taskset_periodic_dbf tasks enumT t.
+Proof.
+  intros tasks enumT H t Hfind.
+  unfold first_dbf_overload_upto in Hfind.
+  apply find_some in Hfind.
+  destruct Hfind as [Hin Hover].
+  split; [exact Hin|].
+  apply negb_true_iff in Hover.
+  apply Nat.leb_gt in Hover.
+  exact Hover.
+Qed.
+
+Lemma dbf_test_upto_false_overload :
+  forall tasks enumT H,
+    dbf_test_upto tasks enumT H = false ->
+    exists t,
+      In t (critical_dbf_points_upto tasks (fun _ => 0) enumT H)
+      /\ t < taskset_periodic_dbf tasks enumT t.
+Proof.
+  intros tasks enumT H Htest.
+  unfold dbf_test_upto in Htest.
+  induction (critical_dbf_points_upto tasks (fun _ => 0) enumT H) as [|t ts IH].
+  - discriminate.
+  - simpl in Htest.
+    destruct (taskset_periodic_dbf tasks enumT t <=? t) eqn:Hle.
+    + destruct (IH Htest) as [w [Hin Hover]].
+      exists w. split; [now right|exact Hover].
+    + exists t.
+      split; [now left|].
+      apply Nat.leb_gt.
+      exact Hle.
+Qed.
+
 Lemma critical_dbf_windows_upto_sound :
   forall tasks offset enumT H t1 t2,
     window_dbf_test_upto tasks offset enumT H = true ->

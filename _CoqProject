@@ -155,6 +155,8 @@ theories/TaskModels/Periodic/PeriodicWindowDemandBound.v
 theories/TaskModels/Periodic/PeriodicEnumeration.v
 theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicConcreteAnalysis.v
+theories/TaskModels/Periodic/PeriodicEDFExtractionTypes.v
+theories/TaskModels/Periodic/PeriodicEDFExtractionDecision.v
 theories/TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v
 theories/TaskModels/Periodic/PeriodicEDFBridgeCompat.v
@@ -162,9 +164,13 @@ theories/TaskModels/Periodic/PeriodicClassicDBF.v
 theories/TaskModels/Periodic/PeriodicEDFClassicalBridge.v
 theories/TaskModels/Periodic/PeriodicEDFCertificate.v
 theories/TaskModels/Periodic/PeriodicEDFCertificateSoundness.v
+theories/TaskModels/Periodic/PeriodicEDFPrefixChecker.v
+theories/TaskModels/Periodic/PeriodicEDFGeneratedPrefixChecker.v
 theories/TaskModels/Periodic/PeriodicEDFNoCarryInSupply.v
 theories/TaskModels/Periodic/PeriodicEDFPrefixCoherence.v
 theories/TaskModels/Periodic/PeriodicEDFInfiniteBridge.v
+theories/TaskModels/Periodic/PeriodicEDFExtractionSoundness.v
+theories/TaskModels/Periodic/PeriodicEDFExtraction.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v
 theories/TaskModels/Periodic/PeriodicLLFAnalysisBridge.v
 theories/TaskModels/Periodic/PeriodicLLFPrefixCoherence.v
