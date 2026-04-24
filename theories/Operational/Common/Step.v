@@ -7,6 +7,7 @@ Inductive OpEvent : Type :=
 | EvWakeup (j : JobId)
 | EvBlock (j : JobId)
 | EvComplete (j : JobId)
+| EvJoinTargetReady (j : JobId)
 | EvRequestResched (c : CPU)
 | EvHandleResched (c : CPU)
 | EvChoose (c : CPU) (j : JobId)
@@ -119,6 +120,9 @@ Inductive op_step : OpState -> OpEvent -> OpState -> Prop :=
     forall st j,
       op_job_running st j ->
       op_step st (EvComplete j) (clear_current_and_request j st)
+| step_join_target_ready :
+    forall st j,
+      op_step st (EvJoinTargetReady j) st
 | step_request_resched :
     forall st c,
       op_step st (EvRequestResched c) (set_need_resched c true st)

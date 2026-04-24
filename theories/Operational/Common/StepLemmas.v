@@ -397,6 +397,7 @@ Proof.
     apply add_runnable_preserves_struct_inv; assumption.
   - eapply clear_current_and_request_preserves_struct_inv; eauto.
   - eapply clear_current_and_request_preserves_struct_inv; eauto.
+  - exact Hinv.
   - apply set_need_resched_preserves_struct_inv; assumption.
   - apply set_need_resched_preserves_struct_inv; assumption.
   - eapply choose_preserves_struct_inv; eauto.
@@ -426,6 +427,7 @@ Proof.
       rewrite Hcur in Hnone0.
       discriminate.
     + reflexivity.
+  - exact (Hid c Hge).
   - exact (Hid c Hge).
   - exact (Hid c Hge).
   - exact (Hid c Hge).
@@ -461,6 +463,7 @@ Proof.
   - destruct (op_current st c) as [j'|] eqn:Hc; try discriminate.
     destruct (Nat.eqb j' j0) eqn:Ej; try discriminate.
     inversion Hcur; subst. eapply Hadm; eauto.
+  - eapply Hadm; eauto.
   - eapply Hadm; eauto.
   - eapply Hadm; eauto.
   - eapply Hadm; eauto.

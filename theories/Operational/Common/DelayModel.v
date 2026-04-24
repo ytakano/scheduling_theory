@@ -43,4 +43,5 @@ Definition default_event_delay_sources (ev : OpEvent) : list op_delay_source :=
   | EvTick => [DelayTimer]
   | EvBlock _ => []
   | EvComplete _ => []
+  | EvJoinTargetReady _ => []
   end.

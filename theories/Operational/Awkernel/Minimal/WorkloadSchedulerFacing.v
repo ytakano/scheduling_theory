@@ -452,7 +452,7 @@ Proof.
   intros entry.
   unfold sched_trace_global_fifo_rowb, workload_global_fifo_choose_row.
   destruct (aste_event entry) as
-      [j|j|j|c|c|c j|c j|c old new| |] eqn:Hevent; simpl; auto.
+      [j|j|j|j|c|c|c j|c j|c old new| |] eqn:Hevent; simpl; auto.
   intros H.
   apply Bool.andb_true_iff in H as [Hcpu Hhead].
   apply Bool.andb_true_iff in Hcpu as [Hcpu Heqcpu].
@@ -470,7 +470,7 @@ Proof.
   intros entry.
   unfold sched_trace_global_fifo_rowb, workload_global_fifo_choose_row.
   destruct (aste_event entry) as
-      [j|j|j|c|c|c j|c j|c old new| |] eqn:Hevent; simpl; auto.
+      [j|j|j|j|c|c|c j|c j|c old new| |] eqn:Hevent; simpl; auto.
   intros [Hcpu [Heqcpu Hhead]].
   apply Nat.eqb_eq in Hcpu.
   apply Nat.eqb_eq in Heqcpu.

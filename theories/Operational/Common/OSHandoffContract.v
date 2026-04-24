@@ -146,6 +146,7 @@ Proof.
         -- reflexivity.
         -- exact Hneed.
       * exact Hneed.
+    + exact Hneed.
     + unfold set_need_resched. simpl.
       destruct (Nat.eqb_spec c0 c).
       * subst c0. rewrite Nat.eqb_refl. reflexivity.
@@ -189,6 +190,7 @@ Proof.
     destruct (os_step_label P (lce_trace ex t) (lce_trace ex (S t))) eqn:Hev;
       inversion Hstep; subst; clear Hstep;
       simpl in *.
+    + exact Htarget.
     + exact Htarget.
     + exact Htarget.
     + exact Htarget.

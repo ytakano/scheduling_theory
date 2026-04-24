@@ -295,6 +295,7 @@ Proof.
     + exact (released_monotone jobs j t (S t) (Nat.le_succ_diag_r t) (IH j Hin)).
     + exact (released_monotone jobs j t (S t) (Nat.le_succ_diag_r t) (IH j Hin)).
     + exact (released_monotone jobs j t (S t) (Nat.le_succ_diag_r t) (IH j Hin)).
+    + exact (released_monotone jobs j t (S t) (Nat.le_succ_diag_r t) (IH j Hin)).
     + apply remove_job_in in Hin as [Hin _].
       exact (released_monotone jobs j t (S t) (Nat.le_succ_diag_r t) (IH j Hin)).
     + destruct Hin as [Heq|Hin].
@@ -354,6 +355,9 @@ Proof.
       * eapply projected_trace_job_not_running_if_runnable; eauto.
     + apply remove_job_in in Hin as [Hin _].
       eapply visible_job_not_completed_if_not_running_next.
+      * exact (IH j Hin).
+      * eapply projected_trace_job_not_running_if_runnable; eauto.
+    + eapply visible_job_not_completed_if_not_running_next.
       * exact (IH j Hin).
       * eapply projected_trace_job_not_running_if_runnable; eauto.
     + eapply visible_job_not_completed_if_not_running_next.

@@ -68,10 +68,11 @@ current procedure が checker input として使う emitted artifact は 2 つ�
   - 各行は現在の adapter encoding では `kind, subject, related`
     の 3 列 TSV である
   - `kind` は現在
-    `Spawn`, `Runnable`, `Choose`, `Dispatch`, `Sleep`, `JoinWait`, `Complete`
+    `Spawn`, `Runnable`, `Choose`, `Dispatch`, `Sleep`, `JoinWait`,
+    `JoinTargetReady`, `Complete`
     を取る
-  - これは checker が root task、known-task set、join/completion dependency を
-    要約するための task-family fact stream であり、Rocq では
+  - これは checker が root task、known-task set、join dependency、
+    join-target readiness、completion を要約するための task-family fact stream であり、Rocq では
     `AwkernelTaskTraceEntry` と `AwkernelTaskTraceSummary` に対応する
   - `Runnable` は projected task state が runnable になった lifecycle fact であり、
     concrete scheduler queue への enqueue 完了を観測する record ではない
@@ -236,8 +237,8 @@ acceptance lane は `sched_trace + task_trace` を入力に取り、少なくと
   `accepted_workload_sched_trace_family` が「その finite-task family に属する」
   という Prop-level 境界を与える。
 - sched_trace/task_trace consistency  
-  sched_trace 側の wakeup / choose / dispatch / complete が、
-  task_trace から得た known task 集合、completion dependency、
+  sched_trace 側の wakeup / choose / dispatch / join-target-ready / complete が、
+  task_trace から得た known task 集合、join dependency、join-target readiness、
   selected/dispatched/completed state と矛盾しないことを検査する。  
   Rocq では `sched_trace_step_after_start`、`sched_trace_family_member`、
   `accepted_workload_sched_trace_family` がこの整合性を表し、bool 判定との対応は
@@ -297,6 +298,7 @@ membership だけを使う。
 - `Dispatch`
 - `Sleep`
 - `JoinWait`
+- `JoinTargetReady`
 - `Complete`
 
 ### sched_trace 側で見る pattern

@@ -11,6 +11,7 @@ Inductive AwkernelTaskTraceKind : Type :=
 | LkDispatch
 | LkSleep
 | LkJoinWait
+| LkJoinTargetReady
 | LkComplete.
 
 Record AwkernelTaskTraceEntry : Type := mkAwkernelTaskTraceEntry {
@@ -73,17 +74,17 @@ Definition add_pair_once (x : JobId * JobId) (xs : list (JobId * JobId))
     : list (JobId * JobId) :=
   if pair_list_contains x xs then xs else x :: xs.
 
-Fixpoint all_dependencies_completed
+Fixpoint all_dependencies_ready
     (task_id : JobId)
     (deps : list (JobId * JobId))
-    (completed : list JobId) : bool :=
+    (ready_targets : list JobId) : bool :=
   match deps with
   | [] => true
-  | (waiter, child) :: deps' =>
+  | (waiter, target) :: deps' =>
       if Nat.eqb waiter task_id
-      then job_list_contains child completed &&
-           all_dependencies_completed task_id deps' completed
-      else all_dependencies_completed task_id deps' completed
+      then job_list_contains target ready_targets &&
+           all_dependencies_ready task_id deps' ready_targets
+      else all_dependencies_ready task_id deps' ready_targets
   end.
 
 Definition bool_of_option_none (oj : option JobId) : bool :=
@@ -117,6 +118,13 @@ Definition sched_trace_event_is_complete
     (j : JobId) (entry : AwkernelSchedTraceEntry) : bool :=
   match aste_event entry with
   | EvComplete j' => Nat.eqb j' j
+  | _ => false
+  end.
+
+Definition sched_trace_event_is_join_target_ready
+    (j : JobId) (entry : AwkernelSchedTraceEntry) : bool :=
+  match aste_event entry with
+  | EvJoinTargetReady j' => Nat.eqb j' j
   | _ => false
   end.
 
@@ -160,6 +168,11 @@ Definition sched_trace_is_complete
   Bool.eqb (sched_trace_primary_need_resched entry) true &&
   bool_of_option_none (sched_trace_primary_dispatch_target entry).
 
+Definition sched_trace_is_join_target_ready
+    (j : JobId) (entry : AwkernelSchedTraceEntry) : bool :=
+  Nat.eqb (aste_cpu entry) 1 &&
+  sched_trace_event_is_join_target_ready j entry.
+
 Definition sched_trace_is_stutter
     (entry : AwkernelSchedTraceEntry) : bool :=
   Nat.eqb (aste_cpu entry) 1 &&
@@ -171,10 +184,11 @@ Record AwkernelTaskTraceSummary : Type := mkAwkernelTaskTraceSummary {
   atts_root_task : option JobId;
   atts_known_tasks : list JobId;
   atts_completion_deps : list (JobId * JobId);
+  atts_ready_targets : list JobId;
 }.
 
 Definition initial_task_trace_summary : AwkernelTaskTraceSummary :=
-  mkAwkernelTaskTraceSummary None [] [].
+  mkAwkernelTaskTraceSummary None [] [] [].
 
 Definition task_trace_entry_valid
     (summary : AwkernelTaskTraceSummary)
@@ -188,10 +202,17 @@ Definition task_trace_entry_valid
       end
   | LkJoinWait =>
       match atte_related entry with
-      | Some child =>
+      | Some target =>
           job_list_contains (atte_subject entry) (atts_known_tasks summary) &&
-          job_list_contains child (atts_known_tasks summary)
+          job_list_contains target (atts_known_tasks summary)
       | None => false
+      end
+  | LkJoinTargetReady =>
+      match atte_related entry with
+      | None =>
+          job_list_contains (atte_subject entry) (atts_known_tasks summary) &&
+          negb (job_list_contains (atte_subject entry) (atts_ready_targets summary))
+      | Some _ => false
       end
   | _ => job_list_contains (atte_subject entry) (atts_known_tasks summary)
   end.
@@ -208,15 +229,23 @@ Definition task_trace_entry_step
          end)
         (add_job_once (atte_subject entry) (atts_known_tasks summary))
         (atts_completion_deps summary)
+        (atts_ready_targets summary)
   | LkJoinWait =>
       match atte_related entry with
-      | Some child =>
+      | Some target =>
           mkAwkernelTaskTraceSummary
             (atts_root_task summary)
             (atts_known_tasks summary)
-            (add_pair_once (atte_subject entry, child) (atts_completion_deps summary))
+            (add_pair_once (atte_subject entry, target) (atts_completion_deps summary))
+            (atts_ready_targets summary)
       | None => summary
       end
+  | LkJoinTargetReady =>
+      mkAwkernelTaskTraceSummary
+        (atts_root_task summary)
+        (atts_known_tasks summary)
+        (atts_completion_deps summary)
+        (add_job_once (atte_subject entry) (atts_ready_targets summary))
   | _ => summary
   end.
 
@@ -244,10 +273,11 @@ Record AwkernelSchedTraceAcceptanceState : Type := mkAwkernelSchedTraceAcceptanc
   astas_selected : option JobId;
   astas_dispatched : list JobId;
   astas_completed : list JobId;
+  astas_ready_targets : list JobId;
 }.
 
 Definition initial_sched_trace_acceptance_state : AwkernelSchedTraceAcceptanceState :=
-  mkAwkernelSchedTraceAcceptanceState false None [] [].
+  mkAwkernelSchedTraceAcceptanceState false None [] [] [].
 
 Definition sched_trace_step_start
     (summary : AwkernelTaskTraceSummary)
@@ -255,7 +285,7 @@ Definition sched_trace_step_start
   match atts_root_task summary with
   | Some root =>
       if sched_trace_is_wakeup root entry
-      then Some (mkAwkernelSchedTraceAcceptanceState true None [] [])
+      then Some (mkAwkernelSchedTraceAcceptanceState true None [] [] [])
       else None
   | None => None
   end.
@@ -266,6 +296,7 @@ Definition sched_trace_step_after_start
     (entry : AwkernelSchedTraceEntry) : option AwkernelSchedTraceAcceptanceState :=
   let known := atts_known_tasks summary in
   let deps := atts_completion_deps summary in
+  let ready_targets := atts_ready_targets summary in
   let try_wakeup_job (j : JobId) :=
       if sched_trace_is_wakeup j entry &&
          job_list_contains j known &&
@@ -277,19 +308,26 @@ Definition sched_trace_step_after_start
          job_list_contains j known &&
          negb (job_list_contains j (astas_completed st)) &&
          option_job_eqb (astas_selected st) None
-      then Some (mkAwkernelSchedTraceAcceptanceState true (Some j) (astas_dispatched st) (astas_completed st))
+      then Some (mkAwkernelSchedTraceAcceptanceState true (Some j) (astas_dispatched st) (astas_completed st) (astas_ready_targets st))
       else None in
   let try_dispatch_job (j : JobId) :=
       if sched_trace_is_dispatch j entry &&
          option_job_eqb (astas_selected st) (Some j)
-      then Some (mkAwkernelSchedTraceAcceptanceState true None (add_job_once j (astas_dispatched st)) (astas_completed st))
+      then Some (mkAwkernelSchedTraceAcceptanceState true None (add_job_once j (astas_dispatched st)) (astas_completed st) (astas_ready_targets st))
+      else None in
+  let try_join_target_ready (j : JobId) :=
+      if sched_trace_is_join_target_ready j entry &&
+         job_list_contains j known &&
+         job_list_contains j ready_targets &&
+         negb (job_list_contains j (astas_ready_targets st))
+      then Some (mkAwkernelSchedTraceAcceptanceState true None (astas_dispatched st) (astas_completed st) (add_job_once j (astas_ready_targets st)))
       else None in
   let try_complete_job (j : JobId) :=
       if sched_trace_is_complete j entry &&
          job_list_contains j (astas_dispatched st) &&
          negb (job_list_contains j (astas_completed st)) &&
-         all_dependencies_completed j deps (astas_completed st)
-      then Some (mkAwkernelSchedTraceAcceptanceState true None (astas_dispatched st) (add_job_once j (astas_completed st)))
+         all_dependencies_ready j deps (astas_ready_targets st)
+      then Some (mkAwkernelSchedTraceAcceptanceState true None (astas_dispatched st) (add_job_once j (astas_completed st)) (astas_ready_targets st))
       else None in
   if sched_trace_is_stutter entry
   then Some st
@@ -301,7 +339,11 @@ Definition sched_trace_step_after_start
            | None =>
                match first_some try_dispatch_job known with
                | Some st' => Some st'
-               | None => first_some try_complete_job known
+               | None =>
+                   match first_some try_join_target_ready known with
+                   | Some st' => Some st'
+                   | None => first_some try_complete_job known
+                   end
                end
            end
        end.
@@ -439,6 +481,18 @@ Proof.
   lia.
 Qed.
 
+Lemma sched_trace_is_join_target_ready_cpu_in_range :
+  forall j entry,
+    sched_trace_is_join_target_ready j entry = true ->
+    aste_cpu entry < 2.
+Proof.
+  intros j entry H.
+  unfold sched_trace_is_join_target_ready in H.
+  peel_andb_left.
+  apply Nat.eqb_eq in H.
+  lia.
+Qed.
+
 Lemma sched_trace_is_stutter_cpu_in_range :
   forall entry,
     sched_trace_is_stutter entry = true ->
@@ -473,6 +527,7 @@ Proof.
   unfold sched_trace_step_after_start in Hstep.
   set (known := atts_known_tasks summary) in *.
   set (deps := atts_completion_deps summary) in *.
+  set (ready_targets := atts_ready_targets summary) in *.
   set (try_wakeup_job :=
          fun j : JobId =>
            if sched_trace_is_wakeup j entry &&
@@ -491,7 +546,8 @@ Proof.
                      true
                      (Some j)
                      (astas_dispatched st)
-                     (astas_completed st))
+                     (astas_completed st)
+                     (astas_ready_targets st))
            else None) in *.
   set (try_dispatch_job :=
          fun j : JobId =>
@@ -500,18 +556,32 @@ Proof.
            then Some
                   (mkAwkernelSchedTraceAcceptanceState
                      true None (add_job_once j (astas_dispatched st))
-                     (astas_completed st))
+                     (astas_completed st)
+                     (astas_ready_targets st))
+           else None) in *.
+  set (try_join_target_ready :=
+         fun j : JobId =>
+           if sched_trace_is_join_target_ready j entry &&
+              job_list_contains j known &&
+              job_list_contains j ready_targets &&
+              negb (job_list_contains j (astas_ready_targets st))
+           then Some
+                  (mkAwkernelSchedTraceAcceptanceState
+                     true None (astas_dispatched st)
+                     (astas_completed st)
+                     (add_job_once j (astas_ready_targets st)))
            else None) in *.
   set (try_complete_job :=
          fun j : JobId =>
            if sched_trace_is_complete j entry &&
               job_list_contains j (astas_dispatched st) &&
               negb (job_list_contains j (astas_completed st)) &&
-              all_dependencies_completed j deps (astas_completed st)
+              all_dependencies_ready j deps (astas_ready_targets st)
            then Some
                   (mkAwkernelSchedTraceAcceptanceState
                      true None (astas_dispatched st)
-                     (add_job_once j (astas_completed st)))
+                     (add_job_once j (astas_completed st))
+                     (astas_ready_targets st))
            else None) in *.
   destruct (sched_trace_is_stutter entry) eqn:Hstutter.
   - inversion Hstep; subst.
@@ -559,20 +629,36 @@ Proof.
           inversion Hj; subst.
           apply Bool.andb_true_iff in Hcond as [Hdispatch _].
           eapply sched_trace_is_dispatch_cpu_in_range; eauto. }
-        { apply first_some_some in Hstep.
-          destruct Hstep as [j [_ Hj]].
-          unfold try_complete_job in Hj.
-          destruct
-            (sched_trace_is_complete j entry &&
-             job_list_contains j (astas_dispatched st) &&
-             negb (job_list_contains j (astas_completed st)) &&
-             all_dependencies_completed j deps (astas_completed st)) eqn:Hcond;
-            simpl in Hj; try discriminate.
-          inversion Hj; subst.
-          apply Bool.andb_true_iff in Hcond as [Hcomplete _].
-          apply Bool.andb_true_iff in Hcomplete as [Hcomplete _].
-          apply Bool.andb_true_iff in Hcomplete as [Hcomplete _].
-          eapply sched_trace_is_complete_cpu_in_range; eauto. }
+        { destruct (first_some try_join_target_ready known) as [st4|] eqn:Hready.
+          - inversion Hstep; subst.
+            apply first_some_some in Hready.
+            destruct Hready as [j [_ Hj]].
+            unfold try_join_target_ready in Hj.
+            destruct
+              (sched_trace_is_join_target_ready j entry &&
+               job_list_contains j known &&
+               job_list_contains j ready_targets &&
+               negb (job_list_contains j (astas_ready_targets st))) eqn:Hcond;
+              simpl in Hj; try discriminate.
+            inversion Hj; subst.
+            apply Bool.andb_true_iff in Hcond as [Hready_event _].
+            apply Bool.andb_true_iff in Hready_event as [Hready_event _].
+            apply Bool.andb_true_iff in Hready_event as [Hready_event _].
+            eapply sched_trace_is_join_target_ready_cpu_in_range; eauto.
+          - apply first_some_some in Hstep.
+            destruct Hstep as [j [_ Hj]].
+            unfold try_complete_job in Hj.
+            destruct
+              (sched_trace_is_complete j entry &&
+               job_list_contains j (astas_dispatched st) &&
+               negb (job_list_contains j (astas_completed st)) &&
+               all_dependencies_ready j deps (astas_ready_targets st)) eqn:Hcond;
+              simpl in Hj; try discriminate.
+            inversion Hj; subst.
+            apply Bool.andb_true_iff in Hcond as [Hcomplete _].
+            apply Bool.andb_true_iff in Hcomplete as [Hcomplete _].
+            apply Bool.andb_true_iff in Hcomplete as [Hcomplete _].
+            eapply sched_trace_is_complete_cpu_in_range; eauto. }
 Qed.
 
 Lemma sched_trace_step_cpu_in_range :
