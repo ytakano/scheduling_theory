@@ -31,5 +31,9 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   check_window_transport_targets_complete
   check_window_transport_targets_complete_with_pairs
   window_target_relevant_earlier_jobs
+  check_window_target_periodic
+  check_window_target_rep_earlier_membership
+  check_window_generated_pair_semantics
+  check_window_generated_pair_semantics_all
   check_window_target_pair_coverage
   check_periodic_edf_checked_sidecar_extracted.
