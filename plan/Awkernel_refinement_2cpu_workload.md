@@ -409,6 +409,23 @@ current handoff-aware witness では `m = 1` を使うが、future multiple-work
 ### Future Step 10: stronger scheduler-relation reuse
 
 current proof-side witness は `GlobalFIFO` に対する adapter-local bridge までであり、
-その先の stronger algorithm-facing reuse や `CandidateSourceSpec` を伴う packaging は
-Future Step 10 に残る。したがって、この文書の Step 1 から Step 5 は current procedure、
-Step 9 は current proof bridge、Future Step 10 以降はその先にある拡張である。
+current `Minimal` single-worker path では、さらに downstream common
+scheduler-relation theorem を消費して
+`respects_algorithm_spec_at_with fifo_policy` まで到達している。
+したがって、この文書の Step 1 から Step 5 は current procedure、
+Step 9 は current proof bridge 兼 current theorem-reuse boundary であり、
+Future Step 10 以降はその先にある拡張である。
+
+current theorem-reuse surface は次である。
+
+- `accepted_workload_scheduler_facing_scheduler_rel`
+- `accepted_workload_scheduler_facing_respects_fifo_policy_at_with`
+
+したがって Future Step 10 の焦点は、single-worker path 自体の scheduler-relation reuse
+ではなく、
+
+- `CandidateSourceSpec` を伴う stronger packaging
+- admissibility-aware reuse
+- multiple-worker (`m > 1`) reuse
+
+である。

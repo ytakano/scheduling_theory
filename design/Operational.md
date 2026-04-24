@@ -350,11 +350,17 @@ The intended progression is:
    logical worker schedule with capacity `m`; the current Awkernel handoff
    witness uses the `m = 1` instantiation,
 9. `accepted_workload_scheduler_facing_adapter_contract` packages the result
-   as the corresponding OS-local scheduler-relation adapter contract.
+   as the corresponding OS-local scheduler-relation adapter contract,
+10. `accepted_workload_scheduler_facing_scheduler_rel` and
+    `accepted_workload_scheduler_facing_respects_fifo_policy_at_with`
+    consume that package through the common scheduler-relation theorem layer,
+    so the current Minimal `m = 1` path already reaches a downstream
+    algorithm-facing statement.
 
 This is an adapter-local bridge built on top of the common contract ladder. It
 does not widen `Operational/Common`, and it still stops before
-`CandidateSourceSpec` and stronger algorithm-facing packaging.
+`CandidateSourceSpec`, admissibility-aware candidate packages, and
+multiple-worker (`m > 1`) scheduler-relation reuse.
 
 ### Constructor-packaging rule in `Operational/Awkernel/Minimal`
 

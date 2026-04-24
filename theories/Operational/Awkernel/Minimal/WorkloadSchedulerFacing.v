@@ -4,7 +4,10 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleTransform.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.Scheduler.Validity.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
 From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.Step.
@@ -22,6 +25,8 @@ From RocqSched Require Import Operational.Awkernel.Minimal.CapturedTraceSyntax.
 From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadAcceptance.
 From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadCandidateTable.
 From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadCandidateSource.
+From RocqSched Require Import Refinement.SchedulingAlgorithmRefinement.
+From RocqSched Require Import Refinement.OSSchedulerRelationTheorem.
 From RocqSched Require Import Multicore.Global.GlobalFIFO.
 From RocqSched Require Import Uniprocessor.Policies.FIFO.
 
@@ -1414,3 +1419,120 @@ Definition accepted_workload_scheduler_facing_adapter_contract
        P jobs adm table C sched_trace (proj1 (proj2 Hfamily)) Hmatch)
     (accepted_workload_scheduler_facing_sound_from_contract
        P jobs adm table C task_trace sched_trace Hfamily Hmatch).
+
+Definition accepted_workload_scheduler_facing_projected_schedule
+    (P : OSLabeledProjection AwkernelState)
+    jobs adm table
+    (C : awk_local_candidate_source_adapter_contract
+           P
+           (candidate_source_of_table table)
+           jobs
+           adm
+           2)
+    task_trace sched_trace
+    (Hfamily :
+       accepted_workload_scheduler_facing_family
+         task_trace
+         jobs
+         (projected_scheduler_relation_schedule (olac_execution (olcsac_base C)))
+         sched_trace
+         table)
+    (Hmatch :
+       workload_scheduler_facing_execution_matches_sched_trace
+         (olac_execution (olcsac_base C))
+         sched_trace)
+    : Schedule :=
+  project_schedule
+    (osl_to_op_trace P
+       (lce_trace
+          (olac_execution
+             (olcsac_base
+                (olssrac_base
+                   (accepted_workload_scheduler_facing_adapter_contract
+                      P jobs adm table C task_trace sched_trace Hfamily Hmatch)))))).
+
+Lemma accepted_workload_scheduler_facing_scheduler_rel :
+  forall (P : OSLabeledProjection AwkernelState)
+         jobs adm table
+         (C : awk_local_candidate_source_adapter_contract
+                P
+                (candidate_source_of_table table)
+                jobs
+                adm
+                2)
+         task_trace sched_trace
+         (Hfamily :
+            accepted_workload_scheduler_facing_family
+              task_trace
+              jobs
+              (projected_scheduler_relation_schedule (olac_execution (olcsac_base C)))
+              sched_trace
+              table)
+         (Hmatch :
+            workload_scheduler_facing_execution_matches_sched_trace
+              (olac_execution (olcsac_base C))
+              sched_trace),
+    scheduler_rel
+      (single_cpu_algorithm_schedule fifo_generic_spec (candidate_source_of_table table))
+      jobs
+      1
+      (accepted_workload_scheduler_facing_projected_schedule
+         P jobs adm table C task_trace sched_trace Hfamily Hmatch).
+Proof.
+  intros P jobs adm table C task_trace sched_trace Hfamily Hmatch.
+  exact
+    (os_local_single_cpu_scheduler_relation_adapter_contract_implies_scheduler_rel
+       AwkernelState
+       P
+       jobs
+       adm
+       fifo_generic_spec
+       (candidate_source_of_table table)
+       (accepted_workload_scheduler_facing_adapter_contract
+          P jobs adm table C task_trace sched_trace Hfamily Hmatch)).
+Qed.
+
+Lemma accepted_workload_scheduler_facing_respects_fifo_policy_at_with :
+  forall (P : OSLabeledProjection AwkernelState)
+         jobs adm table
+         (C : awk_local_candidate_source_adapter_contract
+                P
+                (candidate_source_of_table table)
+                jobs
+                adm
+                2)
+         task_trace sched_trace t
+         (Hfamily :
+            accepted_workload_scheduler_facing_family
+              task_trace
+              jobs
+              (projected_scheduler_relation_schedule (olac_execution (olcsac_base C)))
+              sched_trace
+              table)
+         (Hmatch :
+            workload_scheduler_facing_execution_matches_sched_trace
+              (olac_execution (olcsac_base C))
+              sched_trace),
+    respects_algorithm_spec_at_with
+      fifo_policy
+      jobs
+      (candidate_source_of_table table)
+      (accepted_workload_scheduler_facing_projected_schedule
+         P jobs adm table C task_trace sched_trace Hfamily Hmatch)
+      t.
+Proof.
+  intros P jobs adm table C task_trace sched_trace t Hfamily Hmatch.
+  exact
+    (os_local_single_cpu_scheduler_relation_adapter_contract_respects_algorithm_spec_at_with
+       AwkernelState
+       P
+       jobs
+       adm
+       fifo_generic_spec
+       fifo_policy
+       (candidate_source_of_table table)
+       t
+       (accepted_workload_scheduler_facing_adapter_contract
+          P jobs adm table C task_trace sched_trace Hfamily Hmatch)
+       choose_fifo_refines_fifo_policy).
+Qed.
