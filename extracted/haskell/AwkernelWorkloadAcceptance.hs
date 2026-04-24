@@ -240,39 +240,52 @@ choose_top_m g =
 
 data AwkernelSchedTraceEntry =
    MkAwkernelSchedTraceEntry CPU OpEvent (Option JobId) (List JobId) 
- Bool (Option JobId)
+ Bool (Option JobId) (List (Option JobId)) (List Bool) (List (Option JobId))
 
 aste_cpu :: AwkernelSchedTraceEntry -> CPU
 aste_cpu a =
   case a of {
-   MkAwkernelSchedTraceEntry aste_cpu0 _ _ _ _ _ -> aste_cpu0}
+   MkAwkernelSchedTraceEntry aste_cpu0 _ _ _ _ _ _ _ _ -> aste_cpu0}
 
 aste_event :: AwkernelSchedTraceEntry -> OpEvent
 aste_event a =
   case a of {
-   MkAwkernelSchedTraceEntry _ aste_event0 _ _ _ _ -> aste_event0}
+   MkAwkernelSchedTraceEntry _ aste_event0 _ _ _ _ _ _ _ -> aste_event0}
 
 aste_current :: AwkernelSchedTraceEntry -> Option JobId
 aste_current a =
   case a of {
-   MkAwkernelSchedTraceEntry _ _ aste_current0 _ _ _ -> aste_current0}
+   MkAwkernelSchedTraceEntry _ _ aste_current0 _ _ _ _ _ _ -> aste_current0}
 
 aste_runnable :: AwkernelSchedTraceEntry -> List JobId
 aste_runnable a =
   case a of {
-   MkAwkernelSchedTraceEntry _ _ _ aste_runnable0 _ _ -> aste_runnable0}
+   MkAwkernelSchedTraceEntry _ _ _ aste_runnable0 _ _ _ _ _ -> aste_runnable0}
 
 aste_need_resched :: AwkernelSchedTraceEntry -> Bool
 aste_need_resched a =
   case a of {
-   MkAwkernelSchedTraceEntry _ _ _ _ aste_need_resched0 _ ->
+   MkAwkernelSchedTraceEntry _ _ _ _ aste_need_resched0 _ _ _ _ ->
     aste_need_resched0}
 
 aste_dispatch_target :: AwkernelSchedTraceEntry -> Option JobId
 aste_dispatch_target a =
   case a of {
-   MkAwkernelSchedTraceEntry _ _ _ _ _ aste_dispatch_target0 ->
+   MkAwkernelSchedTraceEntry _ _ _ _ _ aste_dispatch_target0 _ _ _ ->
     aste_dispatch_target0}
+
+sched_trace_primary_current :: AwkernelSchedTraceEntry -> Option JobId
+sched_trace_primary_current =
+  aste_current
+
+sched_trace_primary_need_resched :: AwkernelSchedTraceEntry -> Bool
+sched_trace_primary_need_resched =
+  aste_need_resched
+
+sched_trace_primary_dispatch_target :: AwkernelSchedTraceEntry -> Option
+                                       JobId
+sched_trace_primary_dispatch_target =
+  aste_dispatch_target
 
 data AwkernelTaskTraceKind =
    LkSpawn
@@ -419,10 +432,10 @@ sched_trace_is_wakeup j entry =
         (andb
           (andb (eqb0 (aste_cpu entry) O)
             (sched_trace_event_is_wakeup j entry))
-          (bool_of_option_none (aste_current entry)))
+          (bool_of_option_none (sched_trace_primary_current entry)))
         (job_list_contains j (aste_runnable entry)))
-      (eqb (aste_need_resched entry) False))
-    (bool_of_option_none (aste_dispatch_target entry))
+      (eqb (sched_trace_primary_need_resched entry) False))
+    (bool_of_option_none (sched_trace_primary_dispatch_target entry))
 
 sched_trace_is_choose :: JobId -> AwkernelSchedTraceEntry -> Bool
 sched_trace_is_choose j entry =
@@ -432,10 +445,10 @@ sched_trace_is_choose j entry =
         (andb
           (andb (eqb0 (aste_cpu entry) (S O))
             (sched_trace_event_is_choose (S O) j entry))
-          (bool_of_option_none (aste_current entry)))
+          (bool_of_option_none (sched_trace_primary_current entry)))
         (job_list_contains j (aste_runnable entry)))
-      (eqb (aste_need_resched entry) False))
-    (option_job_eqb (aste_dispatch_target entry) (Some j))
+      (eqb (sched_trace_primary_need_resched entry) False))
+    (option_job_eqb (sched_trace_primary_dispatch_target entry) (Some j))
 
 sched_trace_is_dispatch :: JobId -> AwkernelSchedTraceEntry -> Bool
 sched_trace_is_dispatch j entry =
@@ -444,9 +457,9 @@ sched_trace_is_dispatch j entry =
       (andb
         (andb (eqb0 (aste_cpu entry) (S O))
           (sched_trace_event_is_dispatch (S O) j entry))
-        (option_job_eqb (aste_current entry) (Some j)))
-      (eqb (aste_need_resched entry) False))
-    (bool_of_option_none (aste_dispatch_target entry))
+        (option_job_eqb (sched_trace_primary_current entry) (Some j)))
+      (eqb (sched_trace_primary_need_resched entry) False))
+    (bool_of_option_none (sched_trace_primary_dispatch_target entry))
 
 sched_trace_is_complete :: JobId -> AwkernelSchedTraceEntry -> Bool
 sched_trace_is_complete j entry =
@@ -455,9 +468,9 @@ sched_trace_is_complete j entry =
       (andb
         (andb (eqb0 (aste_cpu entry) (S O))
           (sched_trace_event_is_complete j entry))
-        (bool_of_option_none (aste_current entry)))
-      (eqb (aste_need_resched entry) True))
-    (bool_of_option_none (aste_dispatch_target entry))
+        (bool_of_option_none (sched_trace_primary_current entry)))
+      (eqb (sched_trace_primary_need_resched entry) True))
+    (bool_of_option_none (sched_trace_primary_dispatch_target entry))
 
 sched_trace_is_stutter :: AwkernelSchedTraceEntry -> Bool
 sched_trace_is_stutter entry =
@@ -466,9 +479,9 @@ sched_trace_is_stutter entry =
       (andb
         (andb (eqb0 (aste_cpu entry) (S O))
           (sched_trace_event_is_stutter entry))
-        (bool_of_option_none (aste_current entry)))
-      (eqb (aste_need_resched entry) False))
-    (bool_of_option_none (aste_dispatch_target entry))
+        (bool_of_option_none (sched_trace_primary_current entry)))
+      (eqb (sched_trace_primary_need_resched entry) False))
+    (bool_of_option_none (sched_trace_primary_dispatch_target entry))
 
 data AwkernelTaskTraceSummary =
    MkAwkernelTaskTraceSummary (Option JobId) (List JobId) (List
@@ -697,13 +710,13 @@ job_in_optionb oj j =
 row_candidate_visibleb :: AwkernelSchedTraceEntry -> JobId -> Bool
 row_candidate_visibleb row j =
   orb
-    (orb (job_in_optionb (aste_current row) j)
+    (orb (job_in_optionb (sched_trace_primary_current row) j)
       (job_in_listb j (aste_runnable row)))
-    (job_in_optionb (aste_dispatch_target row) j)
+    (job_in_optionb (sched_trace_primary_dispatch_target row) j)
 
 empty_sched_trace_entry :: AwkernelSchedTraceEntry
 empty_sched_trace_entry =
-  MkAwkernelSchedTraceEntry O EvStutter None Nil False None
+  MkAwkernelSchedTraceEntry O EvStutter None Nil False None Nil Nil Nil
 
 fifo_eligible_candidates :: (JobId -> Job) -> Nat -> Schedule -> Time ->
                             (List JobId) -> List JobId
@@ -748,9 +761,10 @@ append_option_job_once_preserving acc oj =
 sched_trace_fifo_candidates :: AwkernelSchedTraceEntry -> List JobId
 sched_trace_fifo_candidates entry =
   append_option_job_once_preserving
-    (append_jobs_once_preserving (option_job_to_list (aste_current entry))
+    (append_jobs_once_preserving
+      (option_job_to_list (sched_trace_primary_current entry))
       (aste_runnable entry))
-    (aste_dispatch_target entry)
+    (sched_trace_primary_dispatch_target entry)
 
 sched_trace_fifo_head :: AwkernelSchedTraceEntry -> Option JobId
 sched_trace_fifo_head entry =

@@ -32,6 +32,12 @@ This layer is intentionally modest. It does not yet provide a full OS
 semantics with full interrupt routing, migration behavior, or
 scheduler-relation closure.
 
+The common layer also does not define adapter-local emitted trace formats such
+as Awkernel's `sched_trace` or `task_trace`. Those artifacts live below the
+common interface. Downstream adapters may use them to reconstruct local replay
+states, worker-slot occupancy, or scheduler-facing witnesses, but that
+reconstruction is not itself part of `Operational/Common`.
+
 ## Core definitions
 
 ### Operational state and traces
@@ -133,6 +139,36 @@ The concrete trace carriers used by this boundary are:
 
 These package concrete state streams and their projected operational views.
 They are still common interfaces, not Awkernel-specific runtime formats.
+
+### Adapter-local trace semantics
+
+Some downstream adapters use emitted trace artifacts to drive acceptance and
+refinement. For Awkernel, the relevant artifacts are `sched_trace` and
+`task_trace`.
+
+Their role is intentionally adapter-local:
+
+- `sched_trace` is an emitted scheduler-facing trace artifact, not a common
+  `OpTrace`,
+- `task_trace` is an emitted task-family summary artifact, not a common event
+  interface,
+- and any reconstruction from `sched_trace` into a logical worker schedule
+  belongs to the adapter layer, not to `Operational/Common`.
+
+This distinction matters for multiple-worker support. The common layer already
+supports generic single-CPU and top-`m` scheduler-relation packages. An
+adapter may therefore widen its local `sched_trace` semantics from a
+single-worker interpretation to a capacity-`m` logical worker schedule without
+changing `OpState`, `OpEvent`, `OSProjection`, or `OSLabeledProjection`.
+
+The intended layering is:
+
+- common layer: generic operational state, events, executions, and theorem
+  packages,
+- adapter layer: interpretation of emitted `sched_trace` into worker-slot
+  occupancy, dispatch intervals, and scheduler-facing witnesses,
+- runtime layer: concrete tracepoint placement, buffering, serialization, and
+  other mechanics used to emit those artifacts.
 
 ### Projection back into semantic schedules
 
@@ -243,6 +279,12 @@ The intended progression is:
 This contract ladder is common. Concrete OS-specific witness construction still
 belongs to downstream adapters.
 
+For adapters that rely on emitted trace artifacts, the worker-capacity choice
+also belongs here. The common layer proves the generic top-`m` theorem
+families, but the adapter decides how its emitted `sched_trace` justifies a
+logical worker schedule of capacity `m`, and how that interpretation connects
+to scheduler-facing or candidate-source witnesses.
+
 ### Delay-aware operational surface
 
 The delay-aware theorem surface is intentionally smaller than the projection
@@ -304,10 +346,11 @@ The intended progression is:
    `workload_global_fifo_table_witness` introduce a proof-side
    scheduler-facing witness over the accepted family,
 8. `accepted_workload_scheduler_facing_sound_from_contract` lifts that witness
-   to `labeled_concrete_single_cpu_scheduler_relation_contract` for
-   `GlobalFIFO` over the logical worker schedule with capacity 1,
+   to a scheduler-relation contract for `GlobalFIFO` over the adapter-local
+   logical worker schedule with capacity `m`; the current Awkernel handoff
+   witness uses the `m = 1` instantiation,
 9. `accepted_workload_scheduler_facing_adapter_contract` packages the result
-   as `os_local_single_cpu_scheduler_relation_adapter_contract`.
+   as the corresponding OS-local scheduler-relation adapter contract.
 
 This is an adapter-local bridge built on top of the common contract ladder. It
 does not widen `Operational/Common`, and it still stops before

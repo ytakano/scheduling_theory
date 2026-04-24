@@ -28,14 +28,14 @@ From RocqSched Require Import Uniprocessor.Policies.FIFO.
 Definition workload_scheduler_facing_row_state
     (entry : AwkernelSchedTraceEntry) : OpState :=
   mkOpState
-    (fun c => if Nat.eqb c 0 then aste_current entry else None)
+    (fun c => if Nat.eqb c 0 then sched_trace_primary_current entry else None)
     (aste_runnable entry)
-    (fun c => if Nat.eqb c 0 then aste_need_resched entry else false)
-    (fun c => if Nat.eqb c 0 then aste_dispatch_target entry else None).
+    (fun c => if Nat.eqb c 0 then sched_trace_primary_need_resched entry else false)
+    (fun c => if Nat.eqb c 0 then sched_trace_primary_dispatch_target entry else None).
 
 Definition workload_scheduler_facing_choice
     (entry : AwkernelSchedTraceEntry) : list JobId :=
-  match aste_current entry with
+  match sched_trace_primary_current entry with
   | Some j => [j]
   | None => []
   end.
@@ -74,9 +74,9 @@ Definition sched_trace_fifo_candidates
     (entry : AwkernelSchedTraceEntry) : list JobId :=
   append_option_job_once_preserving
     (append_jobs_once_preserving
-       (option_job_to_list (aste_current entry))
+       (option_job_to_list (sched_trace_primary_current entry))
        (aste_runnable entry))
-    (aste_dispatch_target entry).
+    (sched_trace_primary_dispatch_target entry).
 
 Definition sched_trace_fifo_head
     (entry : AwkernelSchedTraceEntry) : option JobId :=
@@ -721,7 +721,7 @@ Lemma workload_scheduler_facing_row_state_eq_cpu :
 Proof.
   intros entry [|c']; unfold workload_scheduler_facing_row_state,
     workload_scheduler_facing_choice; simpl.
-  - destruct (aste_current entry) as [j|]; reflexivity.
+  - destruct (sched_trace_primary_current entry) as [j|]; reflexivity.
   - reflexivity.
 Qed.
 
@@ -883,7 +883,7 @@ Proof.
       split; [lia|].
       unfold workload_scheduler_facing_row_state.
       simpl.
-      destruct (aste_current row) as [j'|] eqn:Hcur; simpl in Hcurrent; try discriminate.
+      destruct (sched_trace_primary_current row) as [j'|] eqn:Hcur; simpl in Hcurrent; try discriminate.
       apply Nat.eqb_eq in Hcurrent.
       subst j'.
       reflexivity.
@@ -897,7 +897,7 @@ Proof.
     split; [lia|].
     unfold workload_scheduler_facing_row_state.
     simpl.
-    destruct (aste_dispatch_target row) as [j'|] eqn:Htarget;
+    destruct (sched_trace_primary_dispatch_target row) as [j'|] eqn:Htarget;
       simpl in Hdispatch; try discriminate.
     apply Nat.eqb_eq in Hdispatch.
     subst j'.
@@ -907,7 +907,7 @@ Qed.
 Lemma workload_scheduler_facing_state_current_inv :
   forall row c j,
     op_current (workload_scheduler_facing_row_state row) c = Some j ->
-    c = 0 /\ aste_current row = Some j.
+    c = 0 /\ sched_trace_primary_current row = Some j.
 Proof.
   intros row c j Hcur.
   unfold workload_scheduler_facing_row_state in Hcur.
@@ -915,7 +915,7 @@ Proof.
   destruct (Nat.eqb c 0) eqn:Hcpu; simpl in Hcur.
   - apply Nat.eqb_eq in Hcpu.
     subst c.
-    destruct (aste_current row) as [j'|] eqn:Hentry; inversion Hcur; subst.
+    destruct (sched_trace_primary_current row) as [j'|] eqn:Hentry; inversion Hcur; subst.
     split; reflexivity.
   - discriminate.
 Qed.
@@ -923,7 +923,7 @@ Qed.
 Lemma workload_scheduler_facing_state_dispatch_inv :
   forall row c j,
     op_dispatch_target (workload_scheduler_facing_row_state row) c = Some j ->
-    c = 0 /\ aste_dispatch_target row = Some j.
+    c = 0 /\ sched_trace_primary_dispatch_target row = Some j.
 Proof.
   intros row c j Htarget.
   unfold workload_scheduler_facing_row_state in Htarget.
@@ -931,7 +931,7 @@ Proof.
   destruct (Nat.eqb c 0) eqn:Hcpu; simpl in Htarget.
   - apply Nat.eqb_eq in Hcpu.
     subst c.
-    destruct (aste_dispatch_target row) as [j'|] eqn:Hentry; inversion Htarget; subst.
+    destruct (sched_trace_primary_dispatch_target row) as [j'|] eqn:Hentry; inversion Htarget; subst.
     split; reflexivity.
   - discriminate.
 Qed.
@@ -1172,7 +1172,7 @@ Proof.
       rewrite (nth_overflow sched_trace empty_sched_trace_entry) in Hcur by lia.
       unfold workload_scheduler_facing_row_state in Hcur.
       simpl in Hcur.
-      destruct (aste_current empty_sched_trace_entry); discriminate.
+      destruct (sched_trace_primary_current empty_sched_trace_entry); discriminate.
   - intros t j Hrunnable.
     rewrite (workload_scheduler_facing_execution_single_worker_state_eq
                P (olac_execution (olcsac_base C)) t) in Hrunnable.
@@ -1233,7 +1233,7 @@ Proof.
       rewrite (nth_overflow sched_trace empty_sched_trace_entry) in Hdispatch by lia.
       unfold workload_scheduler_facing_row_state in Hdispatch.
       simpl in Hdispatch.
-      destruct (aste_dispatch_target empty_sched_trace_entry); discriminate.
+      destruct (sched_trace_primary_dispatch_target empty_sched_trace_entry); discriminate.
   - intros s1 s2 t Hagree.
     eapply candidate_source_of_table_prefix_extensional.
     exact Hagree.

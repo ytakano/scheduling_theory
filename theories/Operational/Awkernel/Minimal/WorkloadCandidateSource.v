@@ -14,7 +14,7 @@ From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadAcceptance.
 From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadCandidateTable.
 
 Definition empty_sched_trace_entry : AwkernelSchedTraceEntry :=
-  mkAwkernelSchedTraceEntry 0 EvStutter None [] false None.
+  mkAwkernelSchedTraceEntry 0 EvStutter None [] false None [] [] [].
 
 Definition workload_execution_matches_sched_trace
     {P : OSLabeledProjection AwkernelState}
@@ -103,9 +103,9 @@ Proof.
       split; [assumption|].
       unfold awk_sched_trace_entry_to_state, awk_to_op_state.
       simpl.
-      destruct (aste_current row) as [j'|] eqn:Hcur; simpl in Hcurrent; try discriminate.
-      apply Nat.eqb_eq in Hcurrent.
-      subst j'.
+      unfold sched_trace_primary_current in Hcurrent.
+      apply job_in_optionb_sound in Hcurrent.
+      rewrite Hcurrent.
       rewrite Nat.eqb_refl.
       reflexivity.
     + right. left.
@@ -118,10 +118,9 @@ Proof.
     split; [assumption|].
     unfold awk_sched_trace_entry_to_state, awk_to_op_state.
     simpl.
-    destruct (aste_dispatch_target row) as [j'|] eqn:Hdispatch;
-      simpl in Htarget; try discriminate.
-    apply Nat.eqb_eq in Htarget.
-    subst j'.
+    unfold sched_trace_primary_dispatch_target in Htarget.
+    apply job_in_optionb_sound in Htarget.
+    rewrite Htarget.
     rewrite Nat.eqb_refl.
     reflexivity.
 Qed.
@@ -257,6 +256,7 @@ Proof.
       destruct (awk_sched_trace_state_current_inv
                   (nth t sched_trace empty_sched_trace_entry) c j Hcur) as [Hentry _].
       unfold option_candidate_includedb in Hcurrent.
+      unfold sched_trace_primary_current in Hcurrent.
       rewrite Hentry in Hcurrent.
       simpl in Hcurrent.
       apply job_in_listb_sound.
@@ -301,6 +301,7 @@ Proof.
       destruct (awk_sched_trace_state_dispatch_target_inv
                   (nth t sched_trace empty_sched_trace_entry) c j Hdispatch) as [Hentry _].
       unfold option_candidate_includedb in Htarget.
+      unfold sched_trace_primary_dispatch_target in Htarget.
       rewrite Hentry in Htarget.
       simpl in Htarget.
       apply job_in_listb_sound.

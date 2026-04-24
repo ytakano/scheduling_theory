@@ -11,7 +11,22 @@ Record AwkernelSchedTraceEntry : Type := mkAwkernelSchedTraceEntry {
   aste_runnable : list JobId;
   aste_need_resched : bool;
   aste_dispatch_target : option JobId;
+  aste_worker_current : list (option JobId);
+  aste_worker_need_resched : list bool;
+  aste_worker_dispatch_target : list (option JobId);
 }.
+
+Definition sched_trace_primary_current
+    (entry : AwkernelSchedTraceEntry) : option JobId :=
+  aste_current entry.
+
+Definition sched_trace_primary_need_resched
+    (entry : AwkernelSchedTraceEntry) : bool :=
+  aste_need_resched entry.
+
+Definition sched_trace_primary_dispatch_target
+    (entry : AwkernelSchedTraceEntry) : option JobId :=
+  aste_dispatch_target entry.
 
 Definition awk_sched_trace_entry_to_state
     (entry : AwkernelSchedTraceEntry) : AwkernelState :=

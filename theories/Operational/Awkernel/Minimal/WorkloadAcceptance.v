@@ -131,43 +131,43 @@ Definition sched_trace_is_wakeup
     (j : JobId) (entry : AwkernelSchedTraceEntry) : bool :=
   Nat.eqb (aste_cpu entry) 0 &&
   sched_trace_event_is_wakeup j entry &&
-  bool_of_option_none (aste_current entry) &&
+  bool_of_option_none (sched_trace_primary_current entry) &&
   job_list_contains j (aste_runnable entry) &&
-  Bool.eqb (aste_need_resched entry) false &&
-  bool_of_option_none (aste_dispatch_target entry).
+  Bool.eqb (sched_trace_primary_need_resched entry) false &&
+  bool_of_option_none (sched_trace_primary_dispatch_target entry).
 
 Definition sched_trace_is_choose
     (j : JobId) (entry : AwkernelSchedTraceEntry) : bool :=
   Nat.eqb (aste_cpu entry) 1 &&
   sched_trace_event_is_choose 1 j entry &&
-  bool_of_option_none (aste_current entry) &&
+  bool_of_option_none (sched_trace_primary_current entry) &&
   job_list_contains j (aste_runnable entry) &&
-  Bool.eqb (aste_need_resched entry) false &&
-  option_job_eqb (aste_dispatch_target entry) (Some j).
+  Bool.eqb (sched_trace_primary_need_resched entry) false &&
+  option_job_eqb (sched_trace_primary_dispatch_target entry) (Some j).
 
 Definition sched_trace_is_dispatch
     (j : JobId) (entry : AwkernelSchedTraceEntry) : bool :=
   Nat.eqb (aste_cpu entry) 1 &&
   sched_trace_event_is_dispatch 1 j entry &&
-  option_job_eqb (aste_current entry) (Some j) &&
-  Bool.eqb (aste_need_resched entry) false &&
-  bool_of_option_none (aste_dispatch_target entry).
+  option_job_eqb (sched_trace_primary_current entry) (Some j) &&
+  Bool.eqb (sched_trace_primary_need_resched entry) false &&
+  bool_of_option_none (sched_trace_primary_dispatch_target entry).
 
 Definition sched_trace_is_complete
     (j : JobId) (entry : AwkernelSchedTraceEntry) : bool :=
   Nat.eqb (aste_cpu entry) 1 &&
   sched_trace_event_is_complete j entry &&
-  bool_of_option_none (aste_current entry) &&
-  Bool.eqb (aste_need_resched entry) true &&
-  bool_of_option_none (aste_dispatch_target entry).
+  bool_of_option_none (sched_trace_primary_current entry) &&
+  Bool.eqb (sched_trace_primary_need_resched entry) true &&
+  bool_of_option_none (sched_trace_primary_dispatch_target entry).
 
 Definition sched_trace_is_stutter
     (entry : AwkernelSchedTraceEntry) : bool :=
   Nat.eqb (aste_cpu entry) 1 &&
   sched_trace_event_is_stutter entry &&
-  bool_of_option_none (aste_current entry) &&
-  Bool.eqb (aste_need_resched entry) false &&
-  bool_of_option_none (aste_dispatch_target entry).
+  bool_of_option_none (sched_trace_primary_current entry) &&
+  Bool.eqb (sched_trace_primary_need_resched entry) false &&
+  bool_of_option_none (sched_trace_primary_dispatch_target entry).
 
 Record AwkernelTaskTraceSummary : Type := mkAwkernelTaskTraceSummary {
   atts_root_task : option JobId;

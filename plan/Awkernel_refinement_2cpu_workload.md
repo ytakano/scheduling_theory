@@ -38,6 +38,10 @@ workload trace のために common layer へ新しい event や state field は�
 追加するのは Awkernel adapter-local checker と、runtime-local task_trace export
 だけである。
 
+multiple-worker support も同じ方針で扱う。広げるのは common layer ではなく、
+adapter-local な `sched_trace` の意味であり、同じ emitted artifact から
+logical worker capacity `m` の schedule を読む。
+
 ## Acceptance artifacts: sched_trace と task_trace
 
 current procedure が checker input として使う emitted artifact は 2 つある。
@@ -45,10 +49,13 @@ current procedure が checker input として使う emitted artifact は 2 つ�
 - `sched_trace`
   - block marker は `BEGIN_SCHED_TRACE ... END_SCHED_TRACE`
   - 各行は現在の adapter encoding では
-    `cpu_id, event_tag, event_arg0, event_arg1, current, runnable_csv, need_resched, dispatch_target`
-    の 8 列 TSV である
+    `cpu_id, event_tag, event_arg0, event_arg1, current, runnable_csv, need_resched, dispatch_target, worker_current_csv, worker_need_resched_csv, worker_dispatch_target_csv`
+    の 11 列 TSV である
   - これは acceptance が読む scheduler-visible row stream であり、Rocq では
     `AwkernelSchedTraceEntry` に対応する
+  - adapter は同じ emitted `sched_trace` から worker-slot occupancy と
+    dispatch interval を再構成し、logical worker capacity `m` の
+    scheduler-facing schedule を読む
 - `task_trace`
   - block marker は `BEGIN_TASK_TRACE ... END_TASK_TRACE`
   - 各行は現在の adapter encoding では `kind, subject, related`
@@ -62,7 +69,9 @@ current procedure が checker input として使う emitted artifact は 2 つ�
 
 この 2 つは adapter-local emitted artifact であり、common layer に追加された API ではない。
 acceptance lane は serial log からこれらを一時入力として抽出して読み、成功時に
-repo 管理下の artifact として保存しない。
+repo 管理下の artifact として保存しない。single worker から multiple worker への widening も
+`sched_trace` の adapter-local interpretation の変更として扱い、`task_trace` や
+common operational interface の意味は変えない。
 
 ## Step 1: runtime が workload serial log を出力する
 
@@ -141,7 +150,10 @@ Haskell 側では `sched_trace.tsv` と `task_trace.tsv` を読み、
 まず extracted checker `awk_workload_accepts_sched_trace task_trace sched_trace`
 で accepted workload family への membership を判定する。family を通った場合だけ、
 `first_non_scheduler_relation_sched_trace_index task_trace sched_trace` で
-full の `GlobalFIFO` scheduler-relation check を走らせる。relation mismatch が出た場合に限り、
+adapter-local に再構成した logical worker schedule に対する full の `GlobalFIFO`
+scheduler-relation check を走らせる。worker capacity は checker の外で common layer に
+追加するのではなく、同じ emitted `sched_trace` をどう読むかという adapter-local semantics で決める。
+relation mismatch が出た場合に限り、
 `first_non_fifo_sched_trace_index sched_trace` で
 trace-local な `GlobalFIFO` choose-order diagnostic を走らせる。
 この Step が concrete trace analysis そのものであり、Rocq 側で実トレースを
@@ -221,7 +233,9 @@ acceptance lane は `sched_trace + task_trace` を入力に取り、少なくと
 - full GlobalFIFO scheduler-relation check  
   accepted family を通った trace について、scheduler-facing な `GlobalFIFO`
   relation が emitted `sched_trace` から再構成した canonical witness に対して
-  成り立つかを検査する。これは acceptance lane における primary な
+  成り立つかを検査する。multiple-worker widening では、この再構成は
+  capacity `m` の logical worker schedule を返す adapter-local interpretation
+  になる。これは acceptance lane における primary な
   scheduler-policy check である。  
   Rocq では `workload_scheduler_relation_candidates`、
   `workload_scheduler_relation_choice`、
@@ -339,7 +353,8 @@ adapter-local `os_local_candidate_source_adapter_contract` へ持ち上げる th
 この Rocq 側ではまだ次を保証しない。
 
 - all valid runtime traces を checker が完全に受理すること
-- scheduler-facing witness や scheduler-relation をこの family 全体で与えること
+- emitted `sched_trace` から導く multiple-worker interpretation の妥当性を、
+  common layer の外側でない形にまで一般化して与えること
 
 ## 現在の到達点
 
@@ -347,6 +362,8 @@ adapter-local `os_local_candidate_source_adapter_contract` へ持ち上げる th
 
 - runtime が sched_trace + task_trace artifact を含む serial log を deterministic に emit する
 - extracted Haskell checker がその log 由来の artifact を受理/棄却できる
+- adapter-local な `sched_trace` interpretation を通じて、logical worker
+  capacity `m` に向けた意味づけを文書化できる
 - KVM でも smoke acceptance を回せる
 
 ## この手順の現在の限界
@@ -354,8 +371,9 @@ adapter-local `os_local_candidate_source_adapter_contract` へ持ち上げる th
 この手順がまだ扱わないものは次である。
 
 - all Awkernel traces を含む workload family
-- dispatch-latency gap を吸収する scheduler-facing witness
-- scheduler-relation
+- dispatch-latency gap を吸収する scheduler-facing witness を、full な
+  multiple-worker family 全体で安定化すること
+- scheduler-relation の multiple-worker reuse を family 全体で確立すること
 - bounded-delay / deadline proof
 
 現在の checker は fixed job-id の例に依存せず、task_trace summary が与える
@@ -382,10 +400,11 @@ module は `GlobalFIFO` を target にし、
 
 を導入している。ここでの witness は physical 2-CPU projected schedule そのものではなく、
 accepted `sched_trace` から読む logical scheduler-facing row state を、
-capacity 1 の logical worker schedule として解釈する narrow bridge である。
+capacity `m` の logical worker schedule として解釈する narrow bridge である。
 physical 2-CPU runtime のうち、CPU 0 は scheduler/interrupt CPU として残り、
-`GlobalFIFO` relation は worker CPU 1 本分の single-CPU contract に落としている。
-common operational interface は変更しない。
+current handoff-aware witness では `m = 1` を使うが、future multiple-worker support では
+同じ emitted `sched_trace` interpretation だけを widen する。common operational interface は
+変更しない。
 
 ### Future Step 10: stronger scheduler-relation reuse
 

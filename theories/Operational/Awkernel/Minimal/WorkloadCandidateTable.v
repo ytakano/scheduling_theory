@@ -30,9 +30,9 @@ Definition sorted_nodup_job_listb (xs : list JobId) : bool :=
 
 Definition row_candidate_visibleb
     (row : AwkernelSchedTraceEntry) (j : JobId) : bool :=
-  job_in_optionb (aste_current row) j ||
+  job_in_optionb (sched_trace_primary_current row) j ||
   job_in_listb j (aste_runnable row) ||
-  job_in_optionb (aste_dispatch_target row) j.
+  job_in_optionb (sched_trace_primary_dispatch_target row) j.
 
 Fixpoint all_candidates_visibleb
     (row : AwkernelSchedTraceEntry) (cand : list JobId) : bool :=
@@ -60,9 +60,9 @@ Definition candidate_row_contractb
     (row : AwkernelSchedTraceEntry) (cand : list JobId) : bool :=
   sorted_nodup_job_listb cand &&
   all_candidates_visibleb row cand &&
-  option_candidate_includedb (aste_current row) cand &&
+  option_candidate_includedb (sched_trace_primary_current row) cand &&
   all_jobs_includedb (aste_runnable row) cand &&
-  option_candidate_includedb (aste_dispatch_target row) cand.
+  option_candidate_includedb (sched_trace_primary_dispatch_target row) cand.
 
 Fixpoint candidate_table_contractb
     (rows : list AwkernelSchedTraceEntry)
@@ -85,9 +85,9 @@ Definition workload_candidate_row_contract
     (row : AwkernelSchedTraceEntry) (cand : list JobId) : Prop :=
   sorted_nodup_job_listb cand = true /\
   all_candidates_visibleb row cand = true /\
-  option_candidate_includedb (aste_current row) cand = true /\
+  option_candidate_includedb (sched_trace_primary_current row) cand = true /\
   all_jobs_includedb (aste_runnable row) cand = true /\
-  option_candidate_includedb (aste_dispatch_target row) cand = true.
+  option_candidate_includedb (sched_trace_primary_dispatch_target row) cand = true.
 
 Definition workload_candidate_table_contract
     (rows : list AwkernelSchedTraceEntry)
