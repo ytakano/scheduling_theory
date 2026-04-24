@@ -17,6 +17,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFInfiniteBridge.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFNoCarryInSupply.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFPrefixChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFPrefixCoherence.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportAlgebra.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportCoverageChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
@@ -103,6 +104,25 @@ Record TransportClassAlgebraObligation
       transport_class_backlog_holds
         T tasks offset jobs enumT codec j cls shift
 }.
+
+Theorem transport_class_algebra_obligation_of_backlog_algebra :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert,
+    TransportBacklogAlgebraObligation
+      T tasks offset jobs enumT codec prefix_cert ->
+    TransportClassAlgebraObligation
+      T tasks offset jobs enumT codec prefix_cert.
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert Halgebra.
+  constructor.
+  intros j cls shift Hrep.
+  eapply transport_window_algebra_sound.
+  - exact
+      (transport_backlog_window_algebra
+         T tasks offset jobs enumT codec prefix_cert Halgebra j cls shift).
+  - exact Hrep.
+Qed.
 
 Lemma check_transport_classes_rep_backlog_sound :
   forall prefix_cert classes class_relevant_jobs i cls,
