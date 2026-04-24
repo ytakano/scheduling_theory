@@ -177,6 +177,7 @@ theories/TaskModels/Periodic/PeriodicEDFTransportAlgebra.v
 theories/TaskModels/Periodic/PeriodicEDFWindowTransport.v
 theories/TaskModels/Periodic/PeriodicEDFWindowTransportChecker.v
 theories/TaskModels/Periodic/PeriodicEDFTransportWitnessChecker.v
+theories/TaskModels/Periodic/PeriodicEDFFinalCertificateChecker.v
 theories/TaskModels/Periodic/PeriodicEDFCheckedSchedulabilityBridge.v
 theories/TaskModels/Periodic/PeriodicEDFExtraction.v
 theories/TaskModels/Periodic/PeriodicLLFBridge.v
