@@ -3,7 +3,9 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.SchedulePrefix.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
+From RocqSched Require Import Uniprocessor.Generic.SchedulingAlgorithmNormalization.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
+From RocqSched Require Import Uniprocessor.Policies.EDFLemmas.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFCertificate.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFCertificateSoundness.
@@ -57,6 +59,38 @@ Definition check_prefix_slots_match_generated_edf
   check_prefix_slots_match_schedule
     (generated_periodic_edf_prefix T tasks offset jobs enumT codec c)
     c.
+
+(** Execution-oriented checker for generated EDF prefix agreement.
+
+    The older checker compares the certificate against
+    [generated_schedule_prefix].  That term is proof-friendly, but its extracted
+    code repeatedly rebuilds prefixes and service counts.  This checker instead
+    checks the certificate's slot schedule locally: every certified CPU-0 slot
+    must be exactly what EDF would choose when run against the certified prefix
+    schedule itself.  The theorem below transports this local property back to
+    the canonical generated-prefix checker. *)
+Definition check_prefix_slots_match_generated_edf_fast
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (c : EDFPrefixCert JobId) : bool :=
+  check_prefix_cert c
+  && forallb
+       (fun t =>
+          option_job_eqb
+            (nth t c.(prefix_slots) None)
+            (choose_edf
+               jobs
+               1
+               (schedule_of_slots c.(prefix_slots))
+               t
+               (periodic_candidates_before
+                  T tasks offset jobs enumT codec
+                  jobs 1 (schedule_of_slots c.(prefix_slots)) t)))
+       (seq 0 c.(prefix_horizon)).
 
 Lemma option_job_eqb_true_iff :
   forall x y,
@@ -143,6 +177,125 @@ Proof.
   unfold check_prefix_slots_match_schedule in Hcheck.
   apply andb_true_iff in Hcheck.
   exact (proj1 Hcheck).
+Qed.
+
+Lemma check_prefix_slots_match_generated_edf_fast_shape :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs) c,
+    check_prefix_slots_match_generated_edf_fast
+      T tasks offset jobs enumT codec c = true ->
+    check_prefix_cert c = true.
+Proof.
+  intros T tasks offset jobs enumT codec c Hcheck.
+  unfold check_prefix_slots_match_generated_edf_fast in Hcheck.
+  apply andb_true_iff in Hcheck.
+  exact (proj1 Hcheck).
+Qed.
+
+Lemma check_prefix_slots_match_generated_edf_fast_cpu0 :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs) c t,
+    check_prefix_slots_match_generated_edf_fast
+      T tasks offset jobs enumT codec c = true ->
+    t < c.(prefix_horizon) ->
+    schedule_of_slots c.(prefix_slots) t 0 =
+    choose_edf
+      jobs
+      1
+      (schedule_of_slots c.(prefix_slots))
+      t
+      (periodic_candidates_before
+         T tasks offset jobs enumT codec
+         jobs 1 (schedule_of_slots c.(prefix_slots)) t).
+Proof.
+  intros T tasks offset jobs enumT codec c t Hcheck Ht.
+  unfold check_prefix_slots_match_generated_edf_fast in Hcheck.
+  apply andb_true_iff in Hcheck.
+  destruct Hcheck as [_ Hslots].
+  apply forallb_forall with (x := t) in Hslots.
+  - unfold schedule_of_slots.
+    rewrite Nat.eqb_refl.
+    apply option_job_eqb_true_iff.
+    exact Hslots.
+  - rewrite in_seq.
+    lia.
+Qed.
+
+Lemma check_prefix_slots_match_generated_edf_fast_local :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs) c t,
+    check_prefix_slots_match_generated_edf_fast
+      T tasks offset jobs enumT codec c = true ->
+    t < c.(prefix_horizon) ->
+    schedule_of_slots c.(prefix_slots) t 0 =
+      choose_edf
+        jobs
+        1
+        (schedule_of_slots c.(prefix_slots))
+        t
+        (periodic_candidates_before
+           T tasks offset jobs enumT codec
+           jobs 1 (schedule_of_slots c.(prefix_slots)) t)
+    /\
+    forall cpu, 0 < cpu -> schedule_of_slots c.(prefix_slots) t cpu = None.
+Proof.
+  intros T tasks offset jobs enumT codec c t Hcheck Ht.
+  split.
+  - eapply check_prefix_slots_match_generated_edf_fast_cpu0; eauto.
+  - intros cpu Hcpu.
+    unfold schedule_of_slots.
+    destruct (Nat.eqb_spec cpu 0); [lia|reflexivity].
+Qed.
+
+Lemma check_prefix_slots_match_generated_edf_fast_agrees_before :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs) c,
+    check_prefix_slots_match_generated_edf_fast
+      T tasks offset jobs enumT codec c = true ->
+    agrees_before
+      (schedule_of_slots c.(prefix_slots))
+      (generated_periodic_edf_prefix T tasks offset jobs enumT codec c)
+      c.(prefix_horizon).
+Proof.
+  intros T tasks offset jobs enumT codec c Hcheck.
+  unfold generated_periodic_edf_prefix.
+  eapply local_scheduler_matches_generated_schedule_prefix.
+  - unfold ChooseAgreesBefore.
+    intros s1 s2 t Hagree.
+    simpl.
+    rewrite
+      (periodic_candidates_before_prefix_extensional
+         T tasks offset jobs enumT codec jobs 1 s1 s2 t).
+    apply choose_edf_agrees_before.
+    exact Hagree.
+  - intros t Ht.
+    eapply check_prefix_slots_match_generated_edf_fast_local; eauto.
+Qed.
+
+Theorem check_prefix_slots_match_generated_edf_fast_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs) c,
+    check_prefix_slots_match_generated_edf_fast
+      T tasks offset jobs enumT codec c = true ->
+    check_prefix_slots_match_generated_edf
+      T tasks offset jobs enumT codec c = true.
+Proof.
+  intros T tasks offset jobs enumT codec c Hfast.
+  unfold check_prefix_slots_match_generated_edf,
+         check_prefix_slots_match_schedule.
+  apply andb_true_iff.
+  split.
+  - eapply check_prefix_slots_match_generated_edf_fast_shape; eauto.
+  - apply forallb_forall.
+    intros t Ht.
+    rewrite in_seq in Ht.
+    apply option_job_eqb_true_iff.
+    pose proof
+      (check_prefix_slots_match_generated_edf_fast_agrees_before
+         T tasks offset jobs enumT codec c Hfast t 0 (proj2 Ht)) as Hagree.
+    unfold schedule_of_slots in Hagree.
+    rewrite Nat.eqb_refl in Hagree.
+    exact Hagree.
 Qed.
 
 Theorem check_prefix_slots_match_generated_edf_pointwise :

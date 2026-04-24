@@ -86,7 +86,7 @@ Definition check_periodic_edf_checked_sidecar
   check_prefix_cert_semantic
     (extracted_periodic_jobs ts)
     cert.(cert_prefix)
-  && check_prefix_slots_match_generated_edf
+  && check_prefix_slots_match_generated_edf_fast
        (extracted_task_scope ts)
        (extracted_periodic_tasks ts)
        (fun _ => 0)
@@ -160,7 +160,11 @@ Proof.
   intros ts codec cert sidecar Hcheck.
   unfold check_periodic_edf_checked_sidecar in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
-  tauto.
+  destruct Hcheck as
+    [[[[[[Hprefix Hfast] Htransport] Hrep] Hcoverage] Hwindow] Hdec].
+  repeat split; try assumption.
+  eapply check_prefix_slots_match_generated_edf_fast_sound.
+  exact Hfast.
 Qed.
 
 Lemma check_periodic_edf_checked_sidecar_wf :

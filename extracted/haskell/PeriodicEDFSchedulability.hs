@@ -836,6 +836,12 @@ extracted_periodic_jobs ts =
   canonical_periodic_jobs_from_enumT (extracted_periodic_tasks ts) (\_ -> O)
     (enumT_of_extracted_list ts)
 
+schedule_of_slots :: (List (Option JobId)) -> Schedule
+schedule_of_slots slots t c =
+  case eqb c O of {
+   True -> nth t slots None;
+   False -> None}
+
 certified_service_prefix :: (List (Option JobId)) -> JobId -> Time -> Nat
 certified_service_prefix slots j t =
   case t of {
@@ -945,6 +951,20 @@ check_prefix_slots_match_generated_edf :: (TaskId -> Task) -> (TaskId ->
 check_prefix_slots_match_generated_edf tasks offset jobs enumT codec c =
   check_prefix_slots_match_schedule
     (generated_periodic_edf_prefix tasks offset jobs enumT codec c) c
+
+check_prefix_slots_match_generated_edf_fast :: (TaskId -> Task) -> (TaskId ->
+                                               Time) -> (JobId -> Job) ->
+                                               (List TaskId) -> PeriodicCodec
+                                               -> (EDFPrefixCert JobId) ->
+                                               Bool
+check_prefix_slots_match_generated_edf_fast tasks offset jobs enumT codec c =
+  andb (check_prefix_cert c)
+    (forallb (\t ->
+      option_job_eqb (nth t (prefix_slots c) None)
+        (choose_edf jobs (S O) (schedule_of_slots (prefix_slots c)) t
+          (periodic_candidates_before tasks offset jobs enumT codec jobs (S
+            O) (schedule_of_slots (prefix_slots c)) t)))
+      (seq O (prefix_horizon c)))
 
 index_of_job :: JobId -> (List JobId) -> Option Nat
 index_of_job j basis =
@@ -1169,7 +1189,7 @@ check_periodic_edf_checked_sidecar ts codec cert sidecar =
             (andb
               (check_prefix_cert_semantic (extracted_periodic_jobs ts)
                 (cert_prefix cert))
-              (check_prefix_slots_match_generated_edf
+              (check_prefix_slots_match_generated_edf_fast
                 (extracted_periodic_tasks ts) (\_ -> O)
                 (extracted_periodic_jobs ts) (enumT_of_extracted_list ts)
                 codec (cert_prefix cert)))

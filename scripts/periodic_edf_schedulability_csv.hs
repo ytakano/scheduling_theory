@@ -61,9 +61,16 @@ runPrefixCertCheck path = do
             EDF.check_prefix_cert_semantic
               (EDF.extracted_periodic_jobs input)
               cert
-          generatedOk = checkGeneratedPrefixNative tasks cert
+          generatedOk =
+            EDF.check_prefix_slots_match_generated_edf_fast
+              (EDF.extracted_periodic_tasks input)
+              (\_ -> EDF.O)
+              (EDF.extracted_periodic_jobs input)
+              (EDF.enumT_of_extracted_list input)
+              (EDF.extracted_periodic_codec input)
+              cert
       case (semanticOk, generatedOk) of
-        (EDF.True, True) -> do
+        (EDF.True, EDF.True) -> do
           putStrLn "prefix certificate ok"
           exitSuccess
         _ -> do
