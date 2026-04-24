@@ -373,16 +373,12 @@ reuse, and maintain.
 
 ## Compilation
 
-There is **no Rocq compiler in this environment**.
-Do **not** try to compile Rocq files directly on the host.
-**Compile Rocq files by Docker** as follows.
-
 ```
-docker exec docker-scheduling_theory-1 zsh -lc 'cd /scheduling_theory && make -j2'
+cd /awkernel_refinement/scheduling_theory && make -j2
 ```
 
 ```
-docker exec docker-scheduling_theory-1 zsh -lc 'cd /scheduling_theory && make <file>.vo'
+cd /awkernel_refinemet/scheduling_theory && make <file>.vo
 ```
 
 ## Git commits
