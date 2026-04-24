@@ -1,0 +1,194 @@
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
+From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Analysis.Uniprocessor.EDFProcessorDemand.
+From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
+From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
+From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFCertificate.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFCertificateSoundness.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFBacklogBridgeChecker.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFExtractionDecision.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFExtractionSoundness.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFExtractionTypes.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFInfiniteBridge.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFPrefixCoherence.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportChecker.
+From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
+From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import Uniprocessor.Policies.EDF.
+
+Import ListNotations.
+
+(** Boolean coverage layer for transport certificates.
+
+    The checker verifies that a finite candidate-job list is covered by the
+    transport basis.  Semantic completeness of that candidate list remains a
+    small adapter obligation: the common layer does not prescribe how a concrete
+    certificate generator enumerates all periodic jobs it wants to cover. *)
+
+Definition check_transport_coverage_list
+    (transport_cert : EDFTransportCert JobId)
+    (candidate_jobs : list JobId) : bool :=
+  check_transport_jobs_witness transport_cert candidate_jobs.
+
+Definition check_periodic_jobs_covered_by_transport
+    (transport_cert : EDFTransportCert JobId)
+    (candidate_jobs : list JobId) : bool :=
+  check_transport_coverage_list transport_cert candidate_jobs.
+
+Record TransportCoverageObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (candidate_jobs : list JobId) : Prop := {
+  transport_coverage_complete :
+    forall j,
+      periodic_jobset T tasks offset jobs j ->
+      In j candidate_jobs
+}.
+
+Lemma check_transport_coverage_list_sound :
+  forall transport_cert candidate_jobs j,
+    check_transport_coverage_list transport_cert candidate_jobs = true ->
+    In j candidate_jobs ->
+    exists i,
+      nth_error transport_cert.(transport_basis_jobs) i = Some j.
+Proof.
+  intros transport_cert candidate_jobs j Hcheck Hin.
+  unfold check_transport_coverage_list,
+         check_transport_jobs_witness in Hcheck.
+  apply forallb_forall with (x := j) in Hcheck; [|exact Hin].
+  unfold check_transport_job_witness in Hcheck.
+  eapply check_job_in_basis_sound; eauto.
+Qed.
+
+Theorem checked_transport_coverage_sound :
+  forall T tasks offset jobs transport_cert candidate_jobs,
+    TransportCoverageObligation T tasks offset jobs candidate_jobs ->
+    check_periodic_jobs_covered_by_transport
+      transport_cert candidate_jobs = true ->
+    forall j,
+      periodic_jobset T tasks offset jobs j ->
+      In j candidate_jobs /\
+      exists i,
+        nth_error transport_cert.(transport_basis_jobs) i = Some j.
+Proof.
+  intros T tasks offset jobs transport_cert candidate_jobs
+         Hcoverage Hcheck j Hj.
+  pose proof
+    (transport_coverage_complete
+       T tasks offset jobs candidate_jobs Hcoverage j Hj) as Hin.
+  split; [exact Hin|].
+  eapply check_transport_coverage_list_sound; eauto.
+Qed.
+
+Theorem periodic_edf_schedulable_by_classical_dbf_with_checked_transport_coverage :
+  forall T tasks offset enumT jobs
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert candidate_jobs,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall τ, In τ enumT -> offset τ = 0) ->
+    check_transport_cert transport_cert = true ->
+    EDFTransportCertSemantics
+      (transport_class_backlog_holds T tasks offset jobs enumT codec)
+      transport_cert ->
+    TransportCoverageObligation T tasks offset jobs candidate_jobs ->
+    check_periodic_jobs_covered_by_transport
+      transport_cert candidate_jobs = true ->
+    (forall t, taskset_periodic_dbf tasks enumT t <= t) ->
+    schedulable_by_on
+      (periodic_jobset T tasks offset jobs)
+      (edf_scheduler (periodic_candidates_before T tasks offset jobs enumT codec))
+      jobs 1.
+Proof.
+  intros T tasks offset enumT jobs codec transport_cert candidate_jobs
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
+         Htransport_check Htransport_sem Hcoverage Hcoverage_check Hdbf.
+  eapply periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge;
+    eauto.
+  intros j Hj.
+  eapply checked_transport_no_carry_in_for_list_from_backlog.
+  - exact Hwf.
+  - exact HenumT_complete.
+  - exact HenumT_sound.
+  - exact Htransport_check.
+  - exact Htransport_sem.
+  - unfold check_periodic_jobs_covered_by_transport in Hcoverage_check.
+    exact Hcoverage_check.
+  - exact
+      (transport_coverage_complete
+         T tasks offset jobs candidate_jobs Hcoverage j Hj).
+Qed.
+
+Theorem edf_schedulability_decide_schedulable_by_on_with_checked_transport_coverage
+    (ts : list ExtractedPeriodicTask)
+    (codec :
+      PeriodicCodec
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts))
+    (transport_cert : EDFTransportCert JobId)
+    (candidate_jobs : list JobId) :
+  extracted_taskset_wf ts = true ->
+  check_transport_cert transport_cert = true ->
+  EDFTransportCertSemantics
+    (transport_class_backlog_holds
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec)
+    transport_cert ->
+  TransportCoverageObligation
+    (extracted_task_scope ts)
+    (extracted_periodic_tasks ts)
+    (fun _ => 0)
+    (extracted_periodic_jobs ts)
+    candidate_jobs ->
+  check_periodic_jobs_covered_by_transport
+    transport_cert candidate_jobs = true ->
+  edf_schedulability_decide ts = true ->
+  schedulable_by_on
+    (periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts))
+    (edf_scheduler
+       (periodic_candidates_before
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          (extracted_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          codec))
+    (extracted_periodic_jobs ts)
+    1.
+Proof.
+  intros Hwf Htransport_check Htransport_sem Hcoverage Hcoverage_check Hdec.
+  eapply periodic_edf_schedulable_by_classical_dbf_with_checked_transport_coverage.
+  - apply extracted_tasks_well_formed_on_enum.
+    exact Hwf.
+  - apply extracted_periodic_nonblocking.
+  - apply enumT_of_extracted_list_nodup.
+  - apply extracted_enum_complete.
+  - apply extracted_enum_sound.
+  - apply extracted_zero_offset.
+  - exact Htransport_check.
+  - exact Htransport_sem.
+  - exact Hcoverage.
+  - exact Hcoverage_check.
+  - apply edf_schedulability_decide_true_global_dbf_ok.
+    exact Hdec.
+Qed.
