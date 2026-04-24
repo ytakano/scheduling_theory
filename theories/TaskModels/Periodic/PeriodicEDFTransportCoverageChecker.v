@@ -59,6 +59,12 @@ Definition check_periodic_transport_residue_coverage
   Nat.ltb 0 transport_cert.(transport_period)
   && check_transport_jobs_witness transport_cert residue_jobs.
 
+Definition check_transport_residue_shifts
+    (transport_cert : EDFTransportCert JobId) : bool :=
+  forallb
+    (fun shift => Nat.eqb shift transport_cert.(transport_period))
+    transport_cert.(transport_job_shift).
+
 Record TransportCoverageObligation
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
@@ -231,6 +237,19 @@ Proof.
     as [cls Hcls].
   exists i, class_id, cls, shift.
   repeat split; assumption.
+Qed.
+
+Lemma check_transport_residue_shifts_sound :
+  forall transport_cert i shift,
+    check_transport_residue_shifts transport_cert = true ->
+    nth_error transport_cert.(transport_job_shift) i = Some shift ->
+    shift = transport_cert.(transport_period).
+Proof.
+  intros transport_cert i shift Hcheck Hshift.
+  unfold check_transport_residue_shifts in Hcheck.
+  apply forallb_forall with (x := shift) in Hcheck.
+  - apply Nat.eqb_eq. exact Hcheck.
+  - eapply nth_error_In. exact Hshift.
 Qed.
 
 Theorem periodic_edf_schedulable_by_classical_dbf_with_checked_transport_coverage :

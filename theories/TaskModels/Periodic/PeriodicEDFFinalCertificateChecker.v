@@ -127,6 +127,7 @@ Definition check_periodic_edf_checked_sidecar
           (enumT_of_extracted_list ts)
           codec
           cert.(cert_transport).(transport_period))
+  && check_transport_residue_shifts cert.(cert_transport)
   && check_periodic_jobs_covered_by_transport
        cert.(cert_transport)
        sidecar.(checked_candidate_jobs)
@@ -228,6 +229,8 @@ Lemma check_periodic_edf_checked_sidecar_fields :
         codec
         cert.(cert_transport).(transport_period)) = true
     /\
+    check_transport_residue_shifts cert.(cert_transport) = true
+    /\
     check_periodic_jobs_covered_by_transport
       cert.(cert_transport)
       sidecar.(checked_candidate_jobs) = true
@@ -267,8 +270,9 @@ Proof.
   unfold check_periodic_edf_checked_sidecar in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
   destruct Hcheck as
-    [[[[[[[[[[[[Hprefix Hfast] Htransport] Hbasis_nodup] Hrep]
-        Hrep_generated] Hrep_periodic] Hcoverage] Hcandidate_coverage] Hwindow]
+    [[[[[[[[[[[[[Hprefix Hfast] Htransport] Hbasis_nodup] Hrep]
+        Hrep_generated] Hrep_periodic] Hcoverage] Hshifts]
+        Hcandidate_coverage] Hwindow]
         Hpair_semantics] Hpair_completion] Hdec].
   repeat split; try assumption.
   eapply check_prefix_slots_match_generated_edf_fast_sound.
@@ -291,7 +295,7 @@ Proof.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
-    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
+    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
   unfold edf_schedulability_decide in Hdec.
   apply andb_true_iff in Hdec.
   exact (proj1 Hdec).
@@ -359,7 +363,7 @@ Proof.
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
     as (_ & _ & Htransport_check & Hbasis_nodup_check & Hrep_check
-        & Hrep_generated_check & Hrep_periodic_check & _ & Hcandidate_check
+        & Hrep_generated_check & Hrep_periodic_check & _ & _ & Hcandidate_check
         & Hwindow_check & Hpair_semantics & Hpair_completion & Hdec).
   eapply periodic_edf_schedulable_by_classical_dbf_with_checked_window_transport_generated_checks.
   - apply extracted_tasks_well_formed_on_enum.

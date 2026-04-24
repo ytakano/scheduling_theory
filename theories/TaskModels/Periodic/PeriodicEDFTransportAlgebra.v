@@ -188,6 +188,58 @@ Proof.
     exact HrepT.
 Qed.
 
+Lemma periodic_residue_rep_to_job_transport :
+  forall T tasks offset jobs
+         (codec : PeriodicCodec T tasks offset jobs)
+         period j,
+    0 < period ->
+    periodic_jobset T tasks offset jobs j ->
+    let rep :=
+      global_periodic_job_id_of
+        T tasks offset jobs codec
+        (job_task (jobs j))
+        (job_index (jobs j) mod period) in
+    transport_rep_to_target_job
+      T tasks offset jobs codec
+      rep j period (job_index (jobs j) / period).
+Proof.
+  intros T tasks offset jobs codec period j Hperiod Hjob rep.
+  unfold transport_rep_to_target_job, rep.
+  replace
+    (job_task
+       (jobs
+          (global_periodic_job_id_of
+             T tasks offset jobs codec
+             (job_task (jobs j))
+             (job_index (jobs j) mod period))))
+    with (job_task (jobs j)).
+  2: {
+    symmetry.
+    apply codec_job_task.
+    exact (proj1 Hjob).
+  }
+  replace
+    (job_index
+       (jobs
+          (global_periodic_job_id_of
+             T tasks offset jobs codec
+             (job_task (jobs j))
+             (job_index (jobs j) mod period))) +
+     period * (job_index (jobs j) / period))
+    with (job_index (jobs j)).
+  2: {
+    rewrite (codec_job_index
+               T tasks offset jobs codec
+               (job_task (jobs j))
+               (job_index (jobs j) mod period)
+               (proj1 Hjob)).
+    rewrite Nat.add_comm.
+    exact (Nat.div_mod (job_index (jobs j)) period ltac:(lia)).
+  }
+  exact (global_periodic_job_id_of_complete
+           T tasks offset jobs codec j Hjob).
+Qed.
+
 Lemma expected_release_shift :
   forall tasks offset τ k shift q,
     expected_release tasks offset τ (k + shift * q) =

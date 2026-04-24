@@ -66,6 +66,18 @@ Definition transport_class_rep_relevant_jobs
   window_target_relevant_earlier_jobs
     T tasks offset jobs enumT codec cls.(transport_rep_job).
 
+Definition transport_classes_rep_relevant_jobs
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (classes : list (EDFTransportClass JobId)) : list (list JobId) :=
+  map
+    (transport_class_rep_relevant_jobs T tasks offset jobs enumT codec)
+    classes.
+
 Definition check_transport_class_rep_backlog_generated
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
@@ -272,6 +284,48 @@ Proof.
   - eapply checked_prefix_semantics_on_generated_edf; eauto.
   - exact Hrep_check.
   - eapply window_target_relevant_earlier_jobs_complete; eauto.
+Qed.
+
+Theorem transport_class_representative_obligation_of_generated_checks :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert classes,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    valid_schedule jobs 1
+      (generated_periodic_edf_prefix T tasks offset jobs enumT codec prefix_cert) ->
+    check_prefix_cert_semantic jobs prefix_cert = true ->
+    check_prefix_slots_match_generated_edf_fast
+      T tasks offset jobs enumT codec prefix_cert = true ->
+    check_transport_classes_rep_periodic_generated
+      T tasks offset jobs enumT codec classes = true ->
+    TransportClassRepresentativeObligation
+      T tasks offset jobs enumT codec prefix_cert classes
+      (transport_classes_rep_relevant_jobs
+         T tasks offset jobs enumT codec classes).
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert classes
+         Hwf HenumT_complete HenumT_sound Hvalid Hprefix_sem
+         Hprefix_fast Hrep_periodic.
+  constructor.
+  - exact Hvalid.
+  - exact Hprefix_sem.
+  - eapply check_prefix_slots_match_generated_edf_fast_sound.
+    exact Hprefix_fast.
+  - intros i cls relevant Hcls Hrelevant.
+    unfold transport_classes_rep_relevant_jobs in Hrelevant.
+    rewrite nth_error_map in Hrelevant.
+    rewrite Hcls in Hrelevant.
+    inversion Hrelevant; subst relevant.
+    eapply check_transport_classes_rep_periodic_generated_sound; eauto.
+  - intros i cls relevant x Hcls Hrelevant Hbetween Hrelease.
+    unfold transport_classes_rep_relevant_jobs in Hrelevant.
+    rewrite nth_error_map in Hrelevant.
+    rewrite Hcls in Hrelevant.
+    inversion Hrelevant; subst relevant.
+    unfold transport_class_rep_relevant_jobs.
+    eapply window_target_relevant_earlier_jobs_complete; eauto.
 Qed.
 
 Record WindowGeneratedPairSemanticObligation
