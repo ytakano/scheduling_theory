@@ -9,6 +9,7 @@ From RocqSched Require Import Abstractions.Scheduler.Validity.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMSchedulerBridge.
 From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Common.Invariants.
@@ -163,6 +164,20 @@ Definition workload_scheduler_relation_candidates
       if Nat.eqb cpu 1 then sched_trace_fifo_candidates entry else []
   | _ => []
   end.
+
+Definition workload_fifo_candidate_row_contract
+    (entry : AwkernelSchedTraceEntry) (cand : list JobId) : Prop :=
+  cand = workload_scheduler_relation_candidates entry.
+
+Definition workload_fifo_candidate_table
+    (sched_trace : list AwkernelSchedTraceEntry) : list (list JobId) :=
+  map workload_scheduler_relation_candidates sched_trace.
+
+Definition workload_fifo_candidate_table_contract
+    (sched_trace : list AwkernelSchedTraceEntry)
+    (table : list (list JobId)) : Prop :=
+  length sched_trace = length table /\
+  Forall2 workload_fifo_candidate_row_contract sched_trace table.
 
 Definition workload_scheduler_relation_choice
     (entry : AwkernelSchedTraceEntry) : list JobId :=
@@ -762,6 +777,87 @@ Lemma choose_top_m_global_fifo_nil :
 Proof.
   intros jobs sched t.
   reflexivity.
+Qed.
+
+Lemma workload_fifo_candidate_table_contract_canonical :
+  forall sched_trace,
+    workload_fifo_candidate_table_contract
+      sched_trace
+      (workload_fifo_candidate_table sched_trace).
+Proof.
+  intros sched_trace.
+  unfold workload_fifo_candidate_table_contract,
+    workload_fifo_candidate_table.
+  split.
+  - rewrite length_map. reflexivity.
+  - induction sched_trace as [|entry sched_trace IH]; simpl.
+    + constructor.
+    + constructor.
+      * unfold workload_fifo_candidate_row_contract. reflexivity.
+      * exact IH.
+Qed.
+
+Lemma workload_fifo_candidate_table_contract_eq :
+  forall sched_trace table,
+    workload_fifo_candidate_table_contract sched_trace table ->
+    table = workload_fifo_candidate_table sched_trace.
+Proof.
+  intros sched_trace table [_ Hrows].
+  induction Hrows as [|entry cand sched_trace table Hrow _ IH]; simpl.
+  - reflexivity.
+  - unfold workload_fifo_candidate_row_contract in Hrow.
+    subst cand.
+    rewrite IH.
+    reflexivity.
+Qed.
+
+Lemma workload_fifo_candidate_source_matches_relation_candidates :
+  forall sched_trace jobs m sched t,
+    candidate_source_of_table
+      (workload_fifo_candidate_table sched_trace)
+      jobs m sched t =
+    workload_scheduler_relation_candidates
+      (nth t sched_trace empty_sched_trace_entry).
+Proof.
+  intros sched_trace jobs m sched t.
+  revert sched_trace.
+  induction t as [|t IH]; intros [|entry sched_trace]; simpl; try reflexivity.
+  apply IH.
+Qed.
+
+Lemma sched_trace_global_fifo_scheduler_relation_family_from_nth :
+  forall task_trace sched_trace remaining t k entry,
+    sched_trace_global_fifo_scheduler_relation_family_from
+      task_trace sched_trace t remaining ->
+    nth_error remaining k = Some entry ->
+    workload_global_fifo_scheduler_relation_row
+      task_trace sched_trace (t + k) entry.
+Proof.
+  intros task_trace sched_trace remaining.
+  induction remaining as [|row remaining IH];
+    intros t k entry Hfamily Hnth; destruct k as [|k]; simpl in Hnth;
+  try discriminate.
+  - inversion Hnth; subst.
+    replace (t + 0) with t by lia.
+    exact (proj1 Hfamily).
+  - replace (t + S k) with (S t + k) by lia.
+    eapply IH.
+    + exact (proj2 Hfamily).
+    + exact Hnth.
+Qed.
+
+Lemma sched_trace_global_fifo_scheduler_relation_family_nth :
+  forall task_trace sched_trace t entry,
+    sched_trace_global_fifo_scheduler_relation_family task_trace sched_trace ->
+    nth_error sched_trace t = Some entry ->
+    workload_global_fifo_scheduler_relation_row
+      task_trace sched_trace t entry.
+Proof.
+  intros task_trace sched_trace t entry Hfamily Hnth.
+  replace t with (0 + t) by lia.
+  eapply sched_trace_global_fifo_scheduler_relation_family_from_nth.
+  - exact Hfamily.
+  - exact Hnth.
 Qed.
 
 Lemma op_struct_inv_two_implies_one :
@@ -1563,6 +1659,72 @@ Proof.
   split.
   - exact Haccepted.
   - split; assumption.
+Qed.
+
+Lemma awk_workload_checker_acceptance_global_fifo_scheduler_rel_from_fifo_table :
+  forall task_trace sched_trace table,
+    awk_workload_accepts_global_fifo_scheduler_relation_sched_trace
+      task_trace sched_trace = true ->
+    workload_fifo_candidate_table_contract sched_trace table ->
+    scheduler_rel
+      (top_m_algorithm_schedule global_fifo_top_m_spec
+         (candidate_source_of_table table))
+      (workload_scheduler_relation_jobs task_trace sched_trace)
+      1
+      (workload_scheduler_relation_schedule sched_trace).
+Proof.
+  intros task_trace sched_trace table Haccept Htable.
+  pose proof
+    (awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_sound
+       task_trace sched_trace Haccept)
+    as [_ Hrelation].
+  pose proof
+    (workload_fifo_candidate_table_contract_eq
+       sched_trace table Htable) as Htable_eq.
+  subst table.
+  unfold top_m_algorithm_schedule.
+  simpl.
+  intros t c.
+  unfold workload_scheduler_relation_schedule.
+  destruct (c <? 1) eqn:Hcpu; [|reflexivity].
+  rewrite workload_fifo_candidate_source_matches_relation_candidates.
+  destruct (lt_dec t (length sched_trace)) as [Ht | Ht].
+  - assert
+      (Hentry :
+         nth_error sched_trace t =
+         Some (nth t sched_trace empty_sched_trace_entry)).
+    { apply nth_error_nth'. exact Ht. }
+    pose proof
+      (sched_trace_global_fifo_scheduler_relation_family_nth
+         task_trace
+         sched_trace
+         t
+         (nth t sched_trace empty_sched_trace_entry)
+         Hrelation
+         Hentry) as Hrow.
+    unfold workload_global_fifo_scheduler_relation_row in Hrow.
+    rewrite <- Hrow.
+    reflexivity.
+  - rewrite nth_overflow by lia.
+    reflexivity.
+Qed.
+
+Lemma awk_workload_checker_acceptance_global_fifo_scheduler_rel :
+  forall task_trace sched_trace,
+    awk_workload_accepts_global_fifo_scheduler_relation_sched_trace
+      task_trace sched_trace = true ->
+    scheduler_rel
+      (top_m_algorithm_schedule global_fifo_top_m_spec
+         (candidate_source_of_table
+            (workload_fifo_candidate_table sched_trace)))
+      (workload_scheduler_relation_jobs task_trace sched_trace)
+      1
+      (workload_scheduler_relation_schedule sched_trace).
+Proof.
+  intros task_trace sched_trace Haccept.
+  eapply awk_workload_checker_acceptance_global_fifo_scheduler_rel_from_fifo_table.
+  - exact Haccept.
+  - apply workload_fifo_candidate_table_contract_canonical.
 Qed.
 
 Lemma awk_workload_checker_acceptance_scheduler_rel :

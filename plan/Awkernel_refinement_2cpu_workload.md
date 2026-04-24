@@ -362,6 +362,13 @@ candidate-table 側では、
 - `candidate_table_matches_rows_complete`
 
 が sched_trace-only local contract に対する theorem surface を与える。
+この sorted/nodup candidate-table contract は既存 candidate-source bridge 用に
+残す。FIFO order を checker 側の evidence として使う箇所では、別系統の
+`workload_fifo_candidate_table_contract` と canonical
+`workload_fifo_candidate_table` を使う。この FIFO-order table は
+emitted `sched_trace` から導かれる adapter-local artifact であり、
+candidate identifiers を sort せず、checker が検査する reconstructed
+`GlobalFIFO` relation の candidate order を保存する。
 candidate-source reuse 側では、
 
 - `accepted_workload_candidate_source_family`
@@ -381,6 +388,10 @@ common layer の新しい仮定へ変換するものではない。wrapper が�
 adapter が別途与える execution/sched_trace correspondence evidence と、
 accepted workload family / candidate table の generic soundness を組み合わせて、
 既存の common-facing adapter contract を満たす adapter-local witness を構成することである。
+一方で `awk_workload_checker_acceptance_global_fifo_scheduler_rel` は、checker が
+受理した `sched_trace` と trace-derived FIFO-order candidate table から、
+checker reconstructed schedule が `top_m_algorithm_schedule global_fifo_top_m_spec`
+の `scheduler_rel` を満たすことを直接述べる入口定理である。
 したがって `sched_trace` / `task_trace` の emitted format、serial capture、
 worker-slot interpretation、runtime hook placement は adapter / concrete runtime layer に残る。
 
