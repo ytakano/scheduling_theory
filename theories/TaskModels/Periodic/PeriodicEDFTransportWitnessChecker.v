@@ -738,6 +738,188 @@ Proof.
   - eapply window_completion_only_obligation_of_generated_completion_check; eauto.
 Qed.
 
+Theorem checked_window_transport_row_shifted_backlog_of_generated_checks :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert transport_cert target_certs class_relevant_jobs
+         i target class_id shift cls target_cert,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    TransportClassRepresentativeObligation
+      T tasks offset jobs enumT codec
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs ->
+    check_transport_classes_rep_backlog_generated
+      T tasks offset jobs enumT codec prefix_cert
+      transport_cert.(transport_classes) = true ->
+    check_window_transport_targets_complete_with_pairs
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_semantics_all
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_completion_all
+      T tasks offset jobs enumT codec target_certs = true ->
+    check_transport_classes_rep_periodic_generated
+      T tasks offset jobs enumT codec
+      transport_cert.(transport_classes) = true ->
+    NoDup transport_cert.(transport_basis_jobs) ->
+    nth_error transport_cert.(transport_basis_jobs) i = Some target ->
+    nth_error transport_cert.(transport_job_class) i = Some class_id ->
+    nth_error transport_cert.(transport_job_shift) i = Some shift ->
+    nth_error transport_cert.(transport_classes) class_id = Some cls ->
+    In target_cert target_certs ->
+    target_cert.(window_transport_target_job) = target ->
+    target_cert.(window_transport_class_id) = class_id ->
+    target_cert.(window_transport_shift) = shift ->
+    check_window_transport_target jobs transport_cert target_cert = true ->
+    ShiftedBacklogWindowTransport
+      T tasks offset jobs
+      (generated_periodic_edf_prefix
+         T tasks offset jobs enumT codec prefix_cert)
+      (generated_periodic_edf_schedule_upto
+         T tasks offset jobs
+         (S (job_abs_deadline (jobs target))) enumT codec)
+      cls.(transport_rep_job)
+      target.
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert transport_cert target_certs
+         class_relevant_jobs i target class_id shift cls target_cert
+         Hwf HenumT_complete HenumT_sound Hrep Hrep_generated_check
+         Hwindow_check Hpair_semantics Hpair_completion Hrep_periodic_check Hnodup
+         Hbasis Hclass Hshift Hcls Hin Htarget Htarget_class
+         Htarget_shift Htarget_check.
+  assert (Hbasis_target :
+    nth_error transport_cert.(transport_basis_jobs) i =
+      Some target_cert.(window_transport_target_job)).
+  {
+    rewrite Htarget.
+    exact Hbasis.
+  }
+  assert (Hclass_target :
+    nth_error transport_cert.(transport_job_class) i =
+      Some target_cert.(window_transport_class_id)).
+  {
+    rewrite Htarget_class.
+    exact Hclass.
+  }
+  assert (Hshift_target :
+    nth_error transport_cert.(transport_job_shift) i =
+      Some target_cert.(window_transport_shift)).
+  {
+    rewrite Htarget_shift.
+    exact Hshift.
+  }
+  assert (Hcls_target :
+    nth_error transport_cert.(transport_classes)
+      target_cert.(window_transport_class_id) = Some cls).
+  {
+    rewrite Htarget_class.
+    exact Hcls.
+  }
+  assert (Htarget_periodic :
+    periodic_jobset
+      T tasks offset jobs target_cert.(window_transport_target_job)).
+  {
+    destruct
+      (check_window_generated_pair_semantics_all_sound
+         T tasks offset jobs enumT codec transport_cert target_certs
+         target_cert cls HenumT_sound Hpair_semantics Hin Hcls_target)
+      as [Hperiodic _].
+    exact Hperiodic.
+  }
+  assert (Htarget_obligation :
+    WindowTransportTargetObligation
+      T tasks offset jobs
+      (generated_periodic_edf_prefix
+         T tasks offset jobs enumT codec prefix_cert)
+      (generated_periodic_edf_schedule_upto
+         T tasks offset jobs
+         (S (job_abs_deadline
+               (jobs target_cert.(window_transport_target_job)))) enumT codec)
+      cls.(transport_rep_job)
+      target_cert.(window_transport_target_job)
+      target_cert).
+  {
+    eapply window_transport_target_obligation_of_generated_completion.
+    - exact Hwf.
+    - exact HenumT_complete.
+    - exact HenumT_sound.
+    - intros _.
+      eapply checked_transport_class_rep_completion_generated_sound.
+      + exact Hwf.
+      + exact HenumT_complete.
+      + exact
+          (transport_rep_prefix_valid
+             T tasks offset jobs enumT codec prefix_cert
+             transport_cert.(transport_classes) class_relevant_jobs Hrep).
+      + eapply check_transport_classes_rep_periodic_generated_sound; eauto.
+      + exact
+          (transport_rep_prefix_semantic_check
+             T tasks offset jobs enumT codec prefix_cert
+             transport_cert.(transport_classes) class_relevant_jobs Hrep).
+      + exact
+          (transport_rep_prefix_matches_generated
+             T tasks offset jobs enumT codec prefix_cert
+             transport_cert.(transport_classes) class_relevant_jobs Hrep).
+      + exact Hrep_generated_check.
+      + exact Hcls.
+    - intros t1 t2 x _ _ Hbetween Hrelease.
+      assert (Hbetween0 :
+        periodic_jobset_deadline_between
+          T tasks offset jobs 0
+          (job_abs_deadline
+             (jobs target_cert.(window_transport_target_job))) x).
+      {
+        destruct Hbetween as [HT [Hgen [_ Hdeadline]]].
+        split; [exact HT|].
+        split; [exact Hgen|].
+        split; [lia|exact Hdeadline].
+      }
+      pose proof
+        (window_target_relevant_earlier_jobs_complete
+           T tasks offset jobs enumT codec
+           target_cert.(window_transport_target_job) x
+           Hwf HenumT_complete Hbetween0 Hrelease)
+        as Hrelevant.
+      destruct
+        (check_window_transport_targets_complete_with_pairs_coverage_sound
+           T tasks offset jobs enumT codec transport_cert target_certs
+           target_cert cls x Hwindow_check Hin Hcls_target Hrelevant)
+        as [p [Hp_in [Hx [Hrep_release [_ _]]]]].
+      exists p.
+      split; [exact Hp_in|].
+      split; [exact Hx|].
+      split.
+      + destruct
+          (check_window_generated_pair_semantics_all_sound
+             T tasks offset jobs enumT codec transport_cert target_certs
+             target_cert cls HenumT_sound Hpair_semantics Hin Hcls_target)
+          as [_ Hrep_between].
+        exact (Hrep_between p Hp_in).
+      + exact Hrep_release.
+    - constructor.
+      + exact Htarget_periodic.
+      + intros p Hp.
+        eapply check_window_generated_pair_completion_all_sound.
+        * exact Hwf.
+        * exact HenumT_complete.
+        * exact HenumT_sound.
+        * exact Htarget_periodic.
+        * exact Hpair_completion.
+        * exact Hin.
+        * reflexivity.
+        * exact Hp.
+  }
+  rewrite <- Htarget.
+  eapply checked_window_transport_target_sound.
+  - exact Htarget_check.
+  - exact Hnodup.
+  - exact Hbasis_target.
+  - exact Hclass_target.
+  - exact Hshift_target.
+  - exact Hcls_target.
+  - exact Htarget_obligation.
+Qed.
+
 Theorem checked_transport_class_rep_backlog_sound :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs)
@@ -1054,6 +1236,122 @@ Proof.
   - exact Hwindow_obligation.
   - apply edf_schedulability_decide_true_global_dbf_ok.
     exact Hdec.
+Qed.
+
+Theorem periodic_edf_schedulable_by_classical_dbf_with_checked_window_transport_generated_checks :
+  forall T tasks offset enumT jobs
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert transport_cert candidate_jobs
+         class_relevant_jobs target_certs,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall τ, In τ enumT -> offset τ = 0) ->
+    check_transport_cert transport_cert = true ->
+    check_transport_basis_nodup transport_cert = true ->
+    TransportClassRepresentativeObligation
+      T tasks offset jobs enumT codec
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs ->
+    check_transport_classes_rep_backlog
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs = true ->
+    check_transport_classes_rep_backlog_generated
+      T tasks offset jobs enumT codec prefix_cert
+      transport_cert.(transport_classes) = true ->
+    check_transport_classes_rep_periodic_generated
+      T tasks offset jobs enumT codec
+      transport_cert.(transport_classes) = true ->
+    TransportCoverageObligation T tasks offset jobs candidate_jobs ->
+    check_periodic_jobs_covered_by_transport
+      transport_cert candidate_jobs = true ->
+    check_window_transport_targets_complete_with_pairs
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_semantics_all
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_completion_all
+      T tasks offset jobs enumT codec target_certs = true ->
+    (forall t, taskset_periodic_dbf tasks enumT t <= t) ->
+    schedulable_by_on
+      (periodic_jobset T tasks offset jobs)
+      (edf_scheduler (periodic_candidates_before T tasks offset jobs enumT codec))
+      jobs 1.
+Proof.
+  intros T tasks offset enumT jobs codec prefix_cert transport_cert
+         candidate_jobs class_relevant_jobs target_certs
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
+         Htransport_check Hbasis_nodup_check Hrep Hrep_check
+         Hrep_generated_check Hrep_periodic_check Hcoverage Hcoverage_check
+         Hwindow_check Hpair_semantics Hpair_completion Hdbf.
+  eapply periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge;
+    eauto.
+  intros j Hj.
+  destruct
+    (checked_transport_coverage_sound
+       T tasks offset jobs transport_cert candidate_jobs
+       Hcoverage Hcoverage_check j Hj)
+    as [_ [i Hbasis]].
+  pose proof (check_transport_cert_fields JobId transport_cert Htransport_check)
+    as [_ [Hclass_len [Hshift_len Hclass_bound]]].
+  assert (Hi : i < length transport_cert.(transport_basis_jobs)).
+  {
+    apply nth_error_Some.
+    intro Hnone.
+    rewrite Hbasis in Hnone.
+    discriminate.
+  }
+  assert (Hclass_lt : i < length transport_cert.(transport_job_class)) by lia.
+  assert (Hshift_lt : i < length transport_cert.(transport_job_shift)) by lia.
+  destruct
+    (nth_error_exists_of_lt nat transport_cert.(transport_job_class)
+       i Hclass_lt)
+    as [class_id Hclass].
+  destruct
+    (nth_error_exists_of_lt nat transport_cert.(transport_job_shift)
+       i Hshift_lt)
+    as [shift Hshift].
+  assert (Hclass_id_in : In class_id transport_cert.(transport_job_class)).
+  { eapply nth_error_In. exact Hclass. }
+  pose proof (Hclass_bound class_id Hclass_id_in) as Hclass_id_lt.
+  destruct
+    (nth_error_exists_of_lt (EDFTransportClass JobId)
+       transport_cert.(transport_classes) class_id Hclass_id_lt)
+    as [cls Hcls].
+  destruct
+    (check_window_transport_targets_complete_with_pairs_basis_sound
+       T tasks offset jobs enumT codec transport_cert target_certs
+       i j class_id shift cls Hwindow_check Hbasis Hclass Hshift Hcls)
+    as [target_cert
+        [Hin [Htarget [Htarget_class [Htarget_shift Htarget_check]]]]].
+  eapply periodic_edf_no_carry_in_bridge_of_backlog_free.
+  - apply generated_periodic_edf_schedule_upto_valid; eauto.
+  - pose proof
+      (checked_transport_class_rep_backlog_sound
+         T tasks offset jobs enumT codec prefix_cert
+         transport_cert.(transport_classes) class_relevant_jobs
+         class_id cls Hrep Hrep_check Hcls) as Hrep_backlog.
+    pose proof
+      (checked_window_transport_row_shifted_backlog_of_generated_checks
+         T tasks offset jobs enumT codec prefix_cert transport_cert target_certs
+         class_relevant_jobs i j class_id shift cls target_cert
+         Hwf HenumT_complete HenumT_sound Hrep Hrep_generated_check
+         Hwindow_check Hpair_semantics Hpair_completion Hrep_periodic_check
+         (check_transport_basis_nodup_sound transport_cert Hbasis_nodup_check)
+         Hbasis Hclass Hshift Hcls Hin Htarget Htarget_class Htarget_shift
+         Htarget_check) as Hshifted.
+    exact
+      (shifted_backlog_window_transport_sound
+         T tasks offset jobs
+         (generated_periodic_edf_prefix
+            T tasks offset jobs enumT codec prefix_cert)
+         (generated_periodic_edf_schedule_upto
+            T tasks offset jobs (S (job_abs_deadline (jobs j))) enumT codec)
+         cls.(transport_rep_job)
+         j
+         Hshifted
+         Hrep_backlog).
 Qed.
 
 Theorem periodic_edf_schedulable_by_classical_dbf_with_periodic_transport_coverage :
