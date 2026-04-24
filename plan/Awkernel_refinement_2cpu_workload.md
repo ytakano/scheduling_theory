@@ -82,6 +82,14 @@ repo 管理下の artifact として保存しない。single worker から multi
 `sched_trace` の adapter-local interpretation の変更として扱い、`task_trace` や
 common operational interface の意味は変えない。
 
+この artifact が concrete runtime execution の正しい projection であることは
+common layer の仮定ではなく、Awkernel adapter layer の obligation である。Rocq では
+`workload_trace_matches_execution` がこの境界を明文化する。これは
+`sched_trace` が `labeled_concrete_execution` の projected scheduler-visible state stream と
+一致すること、および `task_trace` が well-formed な lifecycle fact stream として
+要約できることを要求する最小の adapter-local Prop である。具体的な queue layout、
+trace buffer、`event_id` ordering、serial capture backend はこの Prop の外側に残す。
+
 ## Step 1: runtime が workload serial log を出力する
 
 まず runtime で、既存の baseline trace に加えて task lifecycle export を記録する。
@@ -360,6 +368,12 @@ candidate-source reuse 側では、
 
 が accepted family, candidate table, execution/sched_trace correspondence を
 adapter-local `os_local_candidate_source_adapter_contract` へ持ち上げる theorem surface を与える。
+この execution/sched_trace correspondence は common layer の契約ではなく、
+Awkernel adapter が与える evidence obligation である。adapter は
+`workload_trace_matches_execution` によって、artifact-level には `sched_trace` の
+projection 一致と `task_trace` の well-formedness を束ねられる。ただし既存の
+candidate-source bridge が直接使うのは、その sched-trace projection 成分である
+`workload_execution_matches_sched_trace` である。
 
 この Rocq 側が現在保証する境界は次である。
 

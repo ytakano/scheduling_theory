@@ -25,6 +25,36 @@ Definition workload_execution_matches_sched_trace
     awk_to_op_state
       (awk_sched_trace_entry_to_state (nth t sched_trace empty_sched_trace_entry)).
 
+Definition workload_trace_matches_execution
+    {P : OSLabeledProjection AwkernelState}
+    (ex : labeled_concrete_execution P 2)
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : Prop :=
+  workload_execution_matches_sched_trace ex sched_trace /\
+  task_trace_well_formed task_trace = true.
+
+Lemma workload_trace_matches_execution_sched :
+  forall (P : OSLabeledProjection AwkernelState)
+         (ex : labeled_concrete_execution P 2)
+         task_trace sched_trace,
+    workload_trace_matches_execution ex task_trace sched_trace ->
+    workload_execution_matches_sched_trace ex sched_trace.
+Proof.
+  intros P ex task_trace sched_trace [Hmatch _].
+  exact Hmatch.
+Qed.
+
+Lemma workload_trace_matches_execution_task_wf :
+  forall (P : OSLabeledProjection AwkernelState)
+         (ex : labeled_concrete_execution P 2)
+         task_trace sched_trace,
+    workload_trace_matches_execution ex task_trace sched_trace ->
+    task_trace_well_formed task_trace = true.
+Proof.
+  intros P ex task_trace sched_trace [_ Hwf].
+  exact Hwf.
+Qed.
+
 Definition accepted_workload_candidate_source_family
     (task_trace : list AwkernelTaskTraceEntry)
     (sched_trace : list AwkernelSchedTraceEntry)
