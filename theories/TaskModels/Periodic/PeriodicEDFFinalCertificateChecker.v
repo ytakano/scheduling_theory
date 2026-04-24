@@ -34,6 +34,45 @@ Record PeriodicEDFCheckedSidecarCert := {
   checked_window_target_certs : list EDFWindowTransportTargetCert
 }.
 
+Definition extracted_taskset_nonempty
+    (ts : list ExtractedPeriodicTask) : bool :=
+  Nat.ltb 0 (length ts).
+
+Definition extracted_periodic_codec
+    (ts : list ExtractedPeriodicTask) :
+  PeriodicCodec
+    (extracted_task_scope ts)
+    (extracted_periodic_tasks ts)
+    (fun _ => 0)
+    (extracted_periodic_jobs ts).
+Proof.
+  destruct ts as [|τ ts'].
+  - refine
+      (mkPeriodicCodec
+         (extracted_task_scope [])
+         (extracted_periodic_tasks [])
+         (fun _ => 0)
+         (extracted_periodic_jobs [])
+         (fun _ _ => 0)
+         _ _).
+    + intros τ k Hτ.
+      unfold extracted_task_scope in Hτ.
+      cbn in Hτ.
+      lia.
+    + intros j Hj.
+      unfold periodic_jobset, extracted_task_scope in Hj.
+      cbn in Hj.
+      lia.
+  - apply zero_offset_periodic_codec_of_tasks.
+    + apply enumT_of_extracted_list_nodup.
+    + apply extracted_enum_complete.
+    + apply extracted_enum_sound.
+    + unfold enumT_of_extracted_list.
+      rewrite length_seq.
+      cbn.
+      lia.
+Defined.
+
 Definition check_periodic_edf_checked_sidecar
     (ts : list ExtractedPeriodicTask)
     (codec :
@@ -68,6 +107,14 @@ Definition check_periodic_edf_checked_sidecar
        cert.(cert_transport)
        sidecar.(checked_window_target_certs)
   && edf_schedulability_decide ts.
+
+Definition check_periodic_edf_checked_sidecar_extracted
+    (ts : list ExtractedPeriodicTask)
+    (cert : EDFInfiniteCert JobId)
+    (sidecar : PeriodicEDFCheckedSidecarCert) : bool :=
+  extracted_taskset_nonempty ts
+  && check_periodic_edf_checked_sidecar
+       ts (extracted_periodic_codec ts) cert sidecar.
 
 Lemma check_periodic_edf_checked_sidecar_fields :
   forall ts
@@ -136,6 +183,20 @@ Proof.
   unfold edf_schedulability_decide in Hdec.
   apply andb_true_iff in Hdec.
   exact (proj1 Hdec).
+Qed.
+
+Lemma check_periodic_edf_checked_sidecar_extracted_fields :
+  forall ts cert sidecar,
+    check_periodic_edf_checked_sidecar_extracted ts cert sidecar = true ->
+    extracted_taskset_nonempty ts = true
+    /\
+    check_periodic_edf_checked_sidecar
+      ts (extracted_periodic_codec ts) cert sidecar = true.
+Proof.
+  intros ts cert sidecar Hcheck.
+  unfold check_periodic_edf_checked_sidecar_extracted in Hcheck.
+  apply andb_true_iff in Hcheck.
+  exact Hcheck.
 Qed.
 
 Theorem check_periodic_edf_checked_sidecar_sound :
@@ -207,4 +268,58 @@ Proof.
   - exact Hwindow_check.
   - exact Hwindow.
   - exact Hdec.
+Qed.
+
+Theorem check_periodic_edf_checked_sidecar_extracted_sound :
+  forall ts cert sidecar,
+    check_periodic_edf_checked_sidecar_extracted ts cert sidecar = true ->
+    TransportClassRepresentativeObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      cert.(cert_prefix)
+      cert.(cert_transport).(transport_classes)
+      sidecar.(checked_class_relevant_jobs) ->
+    TransportCoverageObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      sidecar.(checked_candidate_jobs) ->
+    WindowTransportTargetsObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      cert.(cert_prefix)
+      cert.(cert_transport)
+      sidecar.(checked_window_target_certs) ->
+    schedulable_by_on
+      (periodic_jobset
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts))
+      (edf_scheduler
+         (periodic_candidates_before
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts)
+            (enumT_of_extracted_list ts)
+            (extracted_periodic_codec ts)))
+      (extracted_periodic_jobs ts)
+      1.
+Proof.
+  intros ts cert sidecar Hcheck Hrep Hcoverage Hwindow.
+  destruct
+    (check_periodic_edf_checked_sidecar_extracted_fields
+       ts cert sidecar Hcheck)
+    as [_ Hchecked].
+  eapply check_periodic_edf_checked_sidecar_sound; eauto.
 Qed.

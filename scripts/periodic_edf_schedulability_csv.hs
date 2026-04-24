@@ -4,6 +4,7 @@ import qualified PeriodicEDFSchedulability as EDF
 
 import Control.Monad (forM)
 import Data.Char (isSpace, toLower)
+import Data.List (foldl')
 import System.Environment (getArgs)
 import System.Exit (exitFailure, exitSuccess)
 import Text.Read (readMaybe)
@@ -19,8 +20,12 @@ main = do
   args <- getArgs
   case args of
     [path] -> run path
+    ["--check-prefix-cert", path] -> runPrefixCertCheck path
+    ["--check-prefix-cert-extracted", path] -> runExtractedPrefixCertCheck path
     _ -> do
-      putStrLn "usage: scripts/run_periodic_edf_schedulability TASKS.csv"
+      putStrLn "usage: scripts/periodic_edf_schedulability_csv TASKS.csv"
+      putStrLn "       scripts/periodic_edf_schedulability_csv --check-prefix-cert TASKS.csv"
+      putStrLn "       scripts/periodic_edf_schedulability_csv --check-prefix-cert-extracted TASKS.csv"
       putStrLn "CSV columns: cost,period,deadline"
       exitFailure
 
@@ -42,6 +47,55 @@ run path = do
             EDF.None -> pure ()
             EDF.Some t ->
               putStrLn ("DBF overload witness t=" ++ show (fromNat t))
+          exitFailure
+
+runPrefixCertCheck :: FilePath -> IO ()
+runPrefixCertCheck path = do
+  content <- readFile path
+  case parseCsv content of
+    Left err -> putStrLn err >> exitFailure
+    Right tasks -> do
+      let input = toEDFList (map toEDFTask tasks)
+          cert = generatePrefixCert tasks
+          semanticOk =
+            EDF.check_prefix_cert_semantic
+              (EDF.extracted_periodic_jobs input)
+              cert
+          generatedOk = checkGeneratedPrefixNative tasks cert
+      case (semanticOk, generatedOk) of
+        (EDF.True, True) -> do
+          putStrLn "prefix certificate ok"
+          exitSuccess
+        _ -> do
+          putStrLn "prefix certificate check failed"
+          exitFailure
+
+runExtractedPrefixCertCheck :: FilePath -> IO ()
+runExtractedPrefixCertCheck path = do
+  content <- readFile path
+  case parseCsv content of
+    Left err -> putStrLn err >> exitFailure
+    Right tasks -> do
+      let input = toEDFList (map toEDFTask tasks)
+          cert = generatePrefixCert tasks
+          semanticOk =
+            EDF.check_prefix_cert_semantic
+              (EDF.extracted_periodic_jobs input)
+              cert
+          generatedOk =
+            EDF.check_prefix_slots_match_generated_edf
+              (EDF.extracted_periodic_tasks input)
+              (\_ -> EDF.O)
+              (EDF.extracted_periodic_jobs input)
+              (EDF.enumT_of_extracted_list input)
+              (EDF.extracted_periodic_codec input)
+              cert
+      case (semanticOk, generatedOk) of
+        (EDF.True, EDF.True) -> do
+          putStrLn "prefix certificate ok"
+          exitSuccess
+        _ -> do
+          putStrLn "prefix certificate check failed"
           exitFailure
 
 parseCsv :: String -> Either String [ParsedTask]
@@ -99,6 +153,135 @@ parsePositive lineNo name text =
     Just _ -> Left ("line " ++ show lineNo ++ ": " ++ name ++ " must be positive")
     Nothing -> Left ("line " ++ show lineNo ++ ": invalid " ++ name ++ ": " ++ text)
 
+data PrefixJob = PrefixJob
+  { prefixJobId :: Int
+  , prefixJobTask :: Int
+  , prefixJobIndex :: Int
+  , prefixJobRelease :: Int
+  , prefixJobCost :: Int
+  , prefixJobDeadline :: Int
+  }
+
+generatePrefixCert :: [ParsedTask] -> EDF.EDFPrefixCert EDF.JobId
+generatePrefixCert tasks =
+  let horizon = prefixHorizon tasks
+      jobs = prefixBasisJobs tasks horizon
+      slots = simulateEDFPrefix jobs horizon
+      completedBy = map (completionTime slots) jobs
+      backlog = [[completionTime slots earlier <= prefixJobRelease target | earlier <- jobs] | target <- jobs]
+  in EDF.Build_EDFPrefixCert
+       (toNat horizon)
+       (toEDFList (map (toNat . prefixJobId) jobs))
+       (toEDFList (map toEDFSlot slots))
+       (toEDFList (map toNat completedBy))
+       (toEDFList (map (toEDFList . map toEDFBool) backlog))
+
+checkGeneratedPrefixNative :: [ParsedTask] -> EDF.EDFPrefixCert EDF.JobId -> Bool
+checkGeneratedPrefixNative tasks cert =
+  let horizon = prefixHorizon tasks
+      jobs = prefixBasisJobs tasks horizon
+      slots = simulateEDFPrefix jobs horizon
+  in fromNat (EDF.prefix_horizon cert) == horizon
+       && map fromEDFSlot (fromEDFList (EDF.prefix_slots cert)) == slots
+       && length slots == horizon
+
+prefixHorizon :: [ParsedTask] -> Int
+prefixHorizon [] = 0
+prefixHorizon tasks =
+  hyperperiod tasks + maximum (map parsedDeadline tasks)
+
+hyperperiod :: [ParsedTask] -> Int
+hyperperiod =
+  foldl' lcm 1 . map parsedPeriod
+
+prefixBasisJobs :: [ParsedTask] -> Int -> [PrefixJob]
+prefixBasisJobs tasks horizon =
+  concat
+    [ jobsForTask taskIndex task
+    | (taskIndex, task) <- zip [0 ..] tasks
+    ]
+  where
+    taskCount = length tasks
+    jobsForTask taskIndex task =
+      [ PrefixJob
+          { prefixJobId = taskIndex + taskCount * jobIndex
+          , prefixJobTask = taskIndex
+          , prefixJobIndex = jobIndex
+          , prefixJobRelease = release
+          , prefixJobCost = parsedCost task
+          , prefixJobDeadline = release + parsedDeadline task
+          }
+      | jobIndex <- takeWhile (\k -> k * parsedPeriod task < horizon) [0 ..]
+      , let release = jobIndex * parsedPeriod task
+      ]
+
+simulateEDFPrefix :: [PrefixJob] -> Int -> [Maybe Int]
+simulateEDFPrefix jobs horizon =
+  go 0 initialRemaining []
+  where
+    initialRemaining = [(prefixJobId job, prefixJobCost job) | job <- jobs]
+
+    go t remaining acc
+      | t >= horizon = reverse acc
+      | otherwise =
+          case chooseJob t remaining of
+            Nothing -> go (t + 1) remaining (Nothing : acc)
+            Just job ->
+              let remaining' = decrementRemaining (prefixJobId job) remaining
+              in go (t + 1) remaining' (Just (prefixJobId job) : acc)
+
+    chooseJob t remaining =
+      chooseByDeadline
+        [ job
+        | job <- jobs
+        , prefixJobRelease job <= t
+        , remainingOf (prefixJobId job) remaining > 0
+        ]
+
+    chooseByDeadline [] = Nothing
+    chooseByDeadline (job : rest) =
+      Just (foldl' earlierDeadline job rest)
+
+    earlierDeadline best job
+      | prefixJobDeadline job < prefixJobDeadline best = job
+      | otherwise = best
+
+remainingOf :: Int -> [(Int, Int)] -> Int
+remainingOf _ [] = 0
+remainingOf jobId ((jobId', remaining) : rest)
+  | jobId == jobId' = remaining
+  | otherwise = remainingOf jobId rest
+
+decrementRemaining :: Int -> [(Int, Int)] -> [(Int, Int)]
+decrementRemaining _ [] = []
+decrementRemaining jobId ((jobId', remaining) : rest)
+  | jobId == jobId' = (jobId', max 0 (remaining - 1)) : rest
+  | otherwise = (jobId', remaining) : decrementRemaining jobId rest
+
+completionTime :: [Maybe Int] -> PrefixJob -> Int
+completionTime slots job =
+  go 0 0 slots
+  where
+    go t service remainingSlots
+      | service >= prefixJobCost job = t
+      | otherwise =
+          case remainingSlots of
+            [] -> length slots
+            slot : rest ->
+              let service' =
+                    case slot of
+                      Just jobId | jobId == prefixJobId job -> service + 1
+                      _ -> service
+              in go (t + 1) service' rest
+
+toEDFSlot :: Maybe Int -> EDF.Option EDF.JobId
+toEDFSlot Nothing = EDF.None
+toEDFSlot (Just jobId) = EDF.Some (toNat jobId)
+
+toEDFBool :: Bool -> EDF.Bool
+toEDFBool True = EDF.True
+toEDFBool False = EDF.False
+
 toEDFTask :: ParsedTask -> EDF.ExtractedPeriodicTask
 toEDFTask task =
   EDF.MkExtractedPeriodicTask
@@ -109,6 +292,14 @@ toEDFTask task =
 toEDFList :: [a] -> EDF.List a
 toEDFList =
   foldr EDF.Cons EDF.Nil
+
+fromEDFList :: EDF.List a -> [a]
+fromEDFList EDF.Nil = []
+fromEDFList (EDF.Cons x xs) = x : fromEDFList xs
+
+fromEDFSlot :: EDF.Option EDF.JobId -> Maybe Int
+fromEDFSlot EDF.None = Nothing
+fromEDFSlot (EDF.Some jobId) = Just (fromNat jobId)
 
 toNat :: Int -> EDF.Nat
 toNat n
