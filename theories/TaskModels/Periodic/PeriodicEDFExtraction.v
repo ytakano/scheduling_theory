@@ -25,4 +25,5 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   check_prefix_slots_match_generated_edf_fast
   periodic_transport_residue_jobs
   check_periodic_transport_residue_coverage
+  check_window_transport_targets_complete
   check_periodic_edf_checked_sidecar_extracted.

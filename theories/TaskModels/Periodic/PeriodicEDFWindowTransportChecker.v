@@ -86,6 +86,49 @@ Definition check_window_transport_targets
     (target_certs : list EDFWindowTransportTargetCert) : bool :=
   forallb (check_window_transport_target jobs transport_cert) target_certs.
 
+Definition check_window_transport_target_entry
+    (jobs : JobId -> Job)
+    (transport_cert : EDFTransportCert JobId)
+    (target class_id shift : nat)
+    (target_cert : EDFWindowTransportTargetCert) : bool :=
+  Nat.eqb target_cert.(window_transport_target_job) target
+  && Nat.eqb target_cert.(window_transport_class_id) class_id
+  && Nat.eqb target_cert.(window_transport_shift) shift
+  && check_window_transport_target jobs transport_cert target_cert.
+
+Fixpoint check_window_transport_target_rows_complete
+    (jobs : JobId -> Job)
+    (transport_cert : EDFTransportCert JobId)
+    (target_certs : list EDFWindowTransportTargetCert)
+    (basis : list JobId)
+    (classes shifts : list nat) : bool :=
+  match basis, classes, shifts with
+  | [], [], [] => true
+  | target :: basis', class_id :: classes', shift :: shifts' =>
+      match nth_error transport_cert.(transport_classes) class_id with
+      | Some _ =>
+          existsb
+            (check_window_transport_target_entry
+               jobs transport_cert target class_id shift)
+            target_certs
+          && check_window_transport_target_rows_complete
+               jobs transport_cert target_certs basis' classes' shifts'
+      | None => false
+      end
+  | _, _, _ => false
+  end.
+
+Definition check_window_transport_targets_complete
+    (jobs : JobId -> Job)
+    (transport_cert : EDFTransportCert JobId)
+    (target_certs : list EDFWindowTransportTargetCert) : bool :=
+  check_window_transport_targets jobs transport_cert target_certs
+  && check_window_transport_target_rows_complete
+       jobs transport_cert target_certs
+       transport_cert.(transport_basis_jobs)
+       transport_cert.(transport_job_class)
+       transport_cert.(transport_job_shift).
+
 Lemma check_shifted_job_relation_sound :
   forall jobs rep target p,
     check_shifted_job_relation jobs rep target p = true ->
@@ -172,6 +215,119 @@ Proof.
   intros jobs transport_cert target_certs target_cert Hcheck Hin.
   unfold check_window_transport_targets in Hcheck.
   eapply forallb_forall; eauto.
+Qed.
+
+Lemma check_window_transport_targets_complete_targets :
+  forall jobs transport_cert target_certs,
+    check_window_transport_targets_complete
+      jobs transport_cert target_certs = true ->
+    check_window_transport_targets jobs transport_cert target_certs = true.
+Proof.
+  intros jobs transport_cert target_certs Hcheck.
+  unfold check_window_transport_targets_complete in Hcheck.
+  apply andb_true_iff in Hcheck.
+  exact (proj1 Hcheck).
+Qed.
+
+Lemma check_window_transport_target_entry_sound :
+  forall jobs transport_cert target class_id shift target_cert,
+    check_window_transport_target_entry
+      jobs transport_cert target class_id shift target_cert = true ->
+    target_cert.(window_transport_target_job) = target
+    /\
+    target_cert.(window_transport_class_id) = class_id
+    /\
+    target_cert.(window_transport_shift) = shift
+    /\
+    check_window_transport_target jobs transport_cert target_cert = true.
+Proof.
+  intros jobs transport_cert target class_id shift target_cert Hcheck.
+  unfold check_window_transport_target_entry in Hcheck.
+  repeat rewrite andb_true_iff in Hcheck.
+  destruct Hcheck as [[[Htarget Hclass] Hshift] Htarget_check].
+  repeat split.
+  - apply Nat.eqb_eq. exact Htarget.
+  - apply Nat.eqb_eq. exact Hclass.
+  - apply Nat.eqb_eq. exact Hshift.
+  - exact Htarget_check.
+Qed.
+
+Lemma check_window_transport_target_rows_complete_sound :
+  forall jobs transport_cert target_certs basis classes shifts
+         i target class_id shift cls,
+    check_window_transport_target_rows_complete
+      jobs transport_cert target_certs basis classes shifts = true ->
+    nth_error basis i = Some target ->
+    nth_error classes i = Some class_id ->
+    nth_error shifts i = Some shift ->
+    nth_error transport_cert.(transport_classes) class_id = Some cls ->
+    exists target_cert,
+      In target_cert target_certs
+      /\
+      target_cert.(window_transport_target_job) = target
+      /\
+      target_cert.(window_transport_class_id) = class_id
+      /\
+      target_cert.(window_transport_shift) = shift
+      /\
+      check_window_transport_target jobs transport_cert target_cert = true.
+Proof.
+  intros jobs transport_cert target_certs basis.
+  induction basis as [|target0 basis IH];
+    intros classes shifts i target class_id shift cls
+           Hcheck Hbasis Hclass Hshift Hcls.
+  - destruct i; discriminate.
+  - destruct classes as [|class0 classes]; [discriminate|].
+    destruct shifts as [|shift0 shifts]; [discriminate|].
+    destruct i as [|i].
+    + cbn in Hbasis, Hclass, Hshift.
+      inversion Hbasis; inversion Hclass; inversion Hshift; subst.
+      cbn in Hcheck.
+      rewrite Hcls in Hcheck.
+      apply andb_true_iff in Hcheck.
+      destruct Hcheck as [Hexists _].
+      apply existsb_exists in Hexists.
+      destruct Hexists as [target_cert [Hin Hentry]].
+      exists target_cert.
+      destruct
+        (check_window_transport_target_entry_sound
+           jobs transport_cert target class_id shift target_cert Hentry)
+        as [Htarget [Hclass' [Hshift' Htarget_check]]].
+      repeat split; assumption.
+    + cbn in Hbasis, Hclass, Hshift.
+      cbn in Hcheck.
+      destruct (nth_error transport_cert.(transport_classes) class0) as [cls0|]
+        eqn:Hcls0; [|discriminate].
+      apply andb_true_iff in Hcheck.
+      destruct Hcheck as [_ Htail].
+      eapply IH; eauto.
+Qed.
+
+Lemma check_window_transport_targets_complete_basis_sound :
+  forall jobs transport_cert target_certs i target class_id shift cls,
+    check_window_transport_targets_complete
+      jobs transport_cert target_certs = true ->
+    nth_error transport_cert.(transport_basis_jobs) i = Some target ->
+    nth_error transport_cert.(transport_job_class) i = Some class_id ->
+    nth_error transport_cert.(transport_job_shift) i = Some shift ->
+    nth_error transport_cert.(transport_classes) class_id = Some cls ->
+    exists target_cert,
+      In target_cert target_certs
+      /\
+      target_cert.(window_transport_target_job) = target
+      /\
+      target_cert.(window_transport_class_id) = class_id
+      /\
+      target_cert.(window_transport_shift) = shift
+      /\
+      check_window_transport_target jobs transport_cert target_cert = true.
+Proof.
+  intros jobs transport_cert target_certs i target class_id shift cls
+         Hcheck Hbasis Hclass Hshift Hcls.
+  unfold check_window_transport_targets_complete in Hcheck.
+  apply andb_true_iff in Hcheck.
+  destruct Hcheck as [_ Hrows].
+  eapply check_window_transport_target_rows_complete_sound; eauto.
 Qed.
 
 Record WindowTransportTargetObligation

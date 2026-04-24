@@ -109,7 +109,7 @@ Definition check_periodic_edf_checked_sidecar
           (enumT_of_extracted_list ts)
           codec
           cert.(cert_transport).(transport_period))
-  && check_window_transport_targets
+  && check_window_transport_targets_complete
        (extracted_periodic_jobs ts)
        cert.(cert_transport)
        sidecar.(checked_window_target_certs)
@@ -164,7 +164,7 @@ Lemma check_periodic_edf_checked_sidecar_fields :
         codec
         cert.(cert_transport).(transport_period)) = true
     /\
-    check_window_transport_targets
+    check_window_transport_targets_complete
       (extracted_periodic_jobs ts)
       cert.(cert_transport)
       sidecar.(checked_window_target_certs) = true
@@ -279,7 +279,8 @@ Proof.
     + exact Htransport_check.
     + apply extracted_enum_complete.
     + exact Hcoverage_check.
-  - exact Hwindow_check.
+  - eapply check_window_transport_targets_complete_targets.
+    exact Hwindow_check.
   - exact Hwindow.
   - exact Hdec.
 Qed.

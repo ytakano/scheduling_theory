@@ -12,6 +12,12 @@ andb b1 b2 =
    True -> b2;
    False -> False}
 
+orb :: Bool -> Bool -> Bool
+orb b1 b2 =
+  case b1 of {
+   True -> True;
+   False -> b2}
+
 negb :: Bool -> Bool
 negb b =
   case b of {
@@ -210,6 +216,12 @@ flat_map f l =
   case l of {
    Nil -> Nil;
    Cons x l0 -> app (f x) (flat_map f l0)}
+
+existsb :: (a1 -> Bool) -> (List a1) -> Bool
+existsb f l =
+  case l of {
+   Nil -> False;
+   Cons a l0 -> orb (f a) (existsb f l0)}
 
 forallb :: (a1 -> Bool) -> (List a1) -> Bool
 forallb f l =
@@ -1123,6 +1135,60 @@ check_window_transport_targets :: (JobId -> Job) -> (EDFTransportCert
 check_window_transport_targets jobs transport_cert target_certs =
   forallb (check_window_transport_target jobs transport_cert) target_certs
 
+check_window_transport_target_entry :: (JobId -> Job) -> (EDFTransportCert
+                                       JobId) -> Nat -> Nat -> Nat ->
+                                       EDFWindowTransportTargetCert -> Bool
+check_window_transport_target_entry jobs transport_cert target class_id shift target_cert =
+  andb
+    (andb
+      (andb (eqb (window_transport_target_job target_cert) target)
+        (eqb (window_transport_class_id target_cert) class_id))
+      (eqb (window_transport_shift target_cert) shift))
+    (check_window_transport_target jobs transport_cert target_cert)
+
+check_window_transport_target_rows_complete :: (JobId -> Job) ->
+                                               (EDFTransportCert JobId) ->
+                                               (List
+                                               EDFWindowTransportTargetCert)
+                                               -> (List JobId) -> (List 
+                                               Nat) -> (List Nat) -> Bool
+check_window_transport_target_rows_complete jobs transport_cert target_certs basis classes shifts =
+  case basis of {
+   Nil ->
+    case classes of {
+     Nil -> case shifts of {
+             Nil -> True;
+             Cons _ _ -> False};
+     Cons _ _ -> False};
+   Cons target basis' ->
+    case classes of {
+     Nil -> False;
+     Cons class_id classes' ->
+      case shifts of {
+       Nil -> False;
+       Cons shift shifts' ->
+        case nth_error (transport_classes transport_cert) class_id of {
+         Some _ ->
+          andb
+            (existsb
+              (check_window_transport_target_entry jobs transport_cert target
+                class_id shift)
+              target_certs)
+            (check_window_transport_target_rows_complete jobs transport_cert
+              target_certs basis' classes' shifts');
+         None -> False}}}}
+
+check_window_transport_targets_complete :: (JobId -> Job) ->
+                                           (EDFTransportCert JobId) -> (List
+                                           EDFWindowTransportTargetCert) ->
+                                           Bool
+check_window_transport_targets_complete jobs transport_cert target_certs =
+  andb (check_window_transport_targets jobs transport_cert target_certs)
+    (check_window_transport_target_rows_complete jobs transport_cert
+      target_certs (transport_basis_jobs transport_cert)
+      (transport_job_class transport_cert)
+      (transport_job_shift transport_cert))
+
 check_transport_class_rep_backlog :: (EDFPrefixCert JobId) ->
                                      (EDFTransportClass JobId) -> (List
                                      JobId) -> Bool
@@ -1201,7 +1267,7 @@ check_periodic_edf_checked_sidecar ts codec cert sidecar =
             (\_ -> O) (extracted_periodic_jobs ts)
             (enumT_of_extracted_list ts) codec
             (transport_period (cert_transport cert)))))
-      (check_window_transport_targets (extracted_periodic_jobs ts)
+      (check_window_transport_targets_complete (extracted_periodic_jobs ts)
         (cert_transport cert) (checked_window_target_certs sidecar)))
     (edf_schedulability_decide ts)
 
