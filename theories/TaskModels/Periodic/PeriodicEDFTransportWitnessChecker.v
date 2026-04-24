@@ -20,6 +20,8 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFPrefixCoherence.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportAlgebra.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportCoverageChecker.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransport.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransportChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
@@ -122,6 +124,23 @@ Proof.
       (transport_backlog_window_algebra
          T tasks offset jobs enumT codec prefix_cert Halgebra j cls shift).
   - exact Hrep.
+Qed.
+
+Theorem transport_class_algebra_obligation_of_checked_window_transport :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert transport_cert target_certs,
+    check_window_transport_targets jobs transport_cert target_certs = true ->
+    WindowTransportTargetsObligation
+      T tasks offset jobs enumT codec prefix_cert transport_cert target_certs ->
+    TransportClassAlgebraObligation
+      T tasks offset jobs enumT codec prefix_cert.
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert transport_cert target_certs
+         Hcheck Hobligation.
+  apply transport_class_algebra_obligation_of_backlog_algebra.
+  apply transport_backlog_algebra_of_shifted_generated_window.
+  eapply checked_window_transport_targets_obligation_sound; eauto.
 Qed.
 
 Lemma check_transport_classes_rep_backlog_sound :
@@ -333,6 +352,139 @@ Proof.
   - exact Hrep_check.
   - exact Hcoverage.
   - exact Hcoverage_check.
+  - apply edf_schedulability_decide_true_global_dbf_ok.
+    exact Hdec.
+Qed.
+
+Theorem periodic_edf_schedulable_by_classical_dbf_with_checked_window_transport_witnesses :
+  forall T tasks offset enumT jobs
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert transport_cert candidate_jobs
+         class_relevant_jobs target_certs,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall τ, In τ enumT -> offset τ = 0) ->
+    check_transport_cert transport_cert = true ->
+    TransportClassRepresentativeObligation
+      T tasks offset jobs enumT codec
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs ->
+    check_transport_classes_rep_backlog
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs = true ->
+    TransportCoverageObligation T tasks offset jobs candidate_jobs ->
+    check_periodic_jobs_covered_by_transport
+      transport_cert candidate_jobs = true ->
+    check_window_transport_targets jobs transport_cert target_certs = true ->
+    WindowTransportTargetsObligation
+      T tasks offset jobs enumT codec prefix_cert transport_cert target_certs ->
+    (forall t, taskset_periodic_dbf tasks enumT t <= t) ->
+    schedulable_by_on
+      (periodic_jobset T tasks offset jobs)
+      (edf_scheduler (periodic_candidates_before T tasks offset jobs enumT codec))
+      jobs 1.
+Proof.
+  intros T tasks offset enumT jobs codec prefix_cert transport_cert
+         candidate_jobs class_relevant_jobs target_certs
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
+         Htransport_check Hrep Hrep_check Hcoverage Hcoverage_check
+         Hwindow_check Hwindow_obligation Hdbf.
+  eapply periodic_edf_schedulable_by_classical_dbf_with_checked_transport_witnesses.
+  - exact Hwf.
+  - exact Hnonblocked.
+  - exact HnodupT.
+  - exact HenumT_complete.
+  - exact HenumT_sound.
+  - exact Hoff.
+  - exact Htransport_check.
+  - exact Hrep.
+  - eapply transport_class_algebra_obligation_of_checked_window_transport;
+      eauto.
+  - exact Hrep_check.
+  - exact Hcoverage.
+  - exact Hcoverage_check.
+  - exact Hdbf.
+Qed.
+
+Theorem edf_schedulability_decide_schedulable_by_on_with_checked_window_transport_witnesses
+    (ts : list ExtractedPeriodicTask)
+    (codec :
+      PeriodicCodec
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts))
+    (prefix_cert : EDFPrefixCert JobId)
+    (transport_cert : EDFTransportCert JobId)
+    (candidate_jobs : list JobId)
+    (class_relevant_jobs : list (list JobId))
+    (target_certs : list EDFWindowTransportTargetCert) :
+  extracted_taskset_wf ts = true ->
+  check_transport_cert transport_cert = true ->
+  TransportClassRepresentativeObligation
+    (extracted_task_scope ts)
+    (extracted_periodic_tasks ts)
+    (fun _ => 0)
+    (extracted_periodic_jobs ts)
+    (enumT_of_extracted_list ts)
+    codec prefix_cert transport_cert.(transport_classes) class_relevant_jobs ->
+  check_transport_classes_rep_backlog
+    prefix_cert transport_cert.(transport_classes) class_relevant_jobs = true ->
+  TransportCoverageObligation
+    (extracted_task_scope ts)
+    (extracted_periodic_tasks ts)
+    (fun _ => 0)
+    (extracted_periodic_jobs ts)
+    candidate_jobs ->
+  check_periodic_jobs_covered_by_transport
+    transport_cert candidate_jobs = true ->
+  check_window_transport_targets
+    (extracted_periodic_jobs ts) transport_cert target_certs = true ->
+  WindowTransportTargetsObligation
+    (extracted_task_scope ts)
+    (extracted_periodic_tasks ts)
+    (fun _ => 0)
+    (extracted_periodic_jobs ts)
+    (enumT_of_extracted_list ts)
+    codec prefix_cert transport_cert target_certs ->
+  edf_schedulability_decide ts = true ->
+  schedulable_by_on
+    (periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts))
+    (edf_scheduler
+       (periodic_candidates_before
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          (extracted_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          codec))
+    (extracted_periodic_jobs ts)
+    1.
+Proof.
+  intros Hwf Htransport_check Hrep Hrep_check
+         Hcoverage Hcoverage_check Hwindow_check Hwindow_obligation Hdec.
+  eapply periodic_edf_schedulable_by_classical_dbf_with_checked_window_transport_witnesses.
+  - apply extracted_tasks_well_formed_on_enum.
+    exact Hwf.
+  - apply extracted_periodic_nonblocking.
+  - apply enumT_of_extracted_list_nodup.
+  - apply extracted_enum_complete.
+  - apply extracted_enum_sound.
+  - apply extracted_zero_offset.
+  - exact Htransport_check.
+  - exact Hrep.
+  - exact Hrep_check.
+  - exact Hcoverage.
+  - exact Hcoverage_check.
+  - exact Hwindow_check.
+  - exact Hwindow_obligation.
   - apply edf_schedulability_decide_true_global_dbf_ok.
     exact Hdec.
 Qed.
