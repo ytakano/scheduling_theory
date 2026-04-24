@@ -1,6 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Analysis.Uniprocessor.BusyWindowSearch.
 From RocqSched Require Import Analysis.Uniprocessor.EDFProcessorDemand.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFCertificate.
@@ -231,6 +232,51 @@ Definition check_window_generated_pair_semantics_all
   forallb
     (check_window_generated_pair_semantics
        T tasks offset jobs enumT codec transport_cert)
+    target_certs.
+
+Definition check_generated_window_pair_target_completed
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (target : JobId)
+    (p : EDFWindowTransportPairCert) : bool :=
+  Nat.leb
+    (job_cost (jobs p.(window_target_earlier_job)))
+    (service_job 1
+       (generated_periodic_edf_schedule_upto
+          T tasks offset jobs
+          (S (job_abs_deadline (jobs target))) enumT codec)
+       p.(window_target_earlier_job)
+       (job_release (jobs target))).
+
+Definition check_window_generated_pair_completion
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (target_cert : EDFWindowTransportTargetCert) : bool :=
+  forallb
+    (check_generated_window_pair_target_completed
+       T tasks offset jobs enumT codec
+       target_cert.(window_transport_target_job))
+    target_cert.(window_transport_pairs).
+
+Definition check_window_generated_pair_completion_all
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (target_certs : list EDFWindowTransportTargetCert) : bool :=
+  forallb
+    (check_window_generated_pair_completion
+       T tasks offset jobs enumT codec)
     target_certs.
 
 Definition check_window_transport_pair_for_target_earlier
@@ -778,6 +824,102 @@ Proof.
   unfold check_window_generated_pair_semantics_all in Hcheck.
   apply forallb_forall with (x := target_cert) in Hcheck; [|exact Hin].
   eapply check_window_generated_pair_semantics_sound; eauto.
+Qed.
+
+Lemma check_generated_window_pair_target_completed_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         target p,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    periodic_jobset T tasks offset jobs target ->
+    check_generated_window_pair_target_completed
+      T tasks offset jobs enumT codec target p = true ->
+    completed jobs 1
+      (generated_periodic_edf_schedule T tasks offset jobs enumT codec)
+      p.(window_target_earlier_job)
+      (job_release (jobs target)).
+Proof.
+  intros T tasks offset jobs enumT codec target p
+         Hwf HenumT_complete HenumT_sound Htarget Hcheck.
+  assert (Htarget_release :
+    job_release (jobs target) < S (job_abs_deadline (jobs target))).
+  {
+    destruct Htarget as [_ Hgen].
+    pose proof (generated_job_deadline tasks offset jobs target Hgen).
+    lia.
+  }
+  pose proof
+    (generated_periodic_edf_schedule_upto_completed_iff_generated_before
+       T tasks offset jobs enumT codec
+       (S (job_abs_deadline (jobs target)))
+       p.(window_target_earlier_job)
+       (job_release (jobs target))
+       Hwf HenumT_complete HenumT_sound Htarget_release)
+    as Hiff.
+  apply (proj1 Hiff).
+  rewrite completed_iff_service_ge_cost.
+  unfold check_generated_window_pair_target_completed in Hcheck.
+  apply Nat.leb_le in Hcheck.
+  exact Hcheck.
+Qed.
+
+Lemma check_window_generated_pair_completion_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert rep target target_cert,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    periodic_jobset T tasks offset jobs target ->
+    check_window_generated_pair_completion
+      T tasks offset jobs enumT codec target_cert = true ->
+    target = target_cert.(window_transport_target_job) ->
+    forall p,
+      In p target_cert.(window_transport_pairs) ->
+      GeneratedShiftedCompletionTransport
+        T tasks offset jobs enumT codec prefix_cert
+        rep target
+        p.(window_rep_earlier_job)
+        p.(window_target_earlier_job).
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert rep target target_cert
+         Hwf HenumT_complete HenumT_sound Htarget Hcheck Htarget_eq p Hin.
+  constructor.
+  intros _.
+  subst target.
+  unfold check_window_generated_pair_completion in Hcheck.
+  apply forallb_forall with (x := p) in Hcheck; [|exact Hin].
+  eapply check_generated_window_pair_target_completed_sound; eauto.
+Qed.
+
+Lemma check_window_generated_pair_completion_all_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert target_certs target_cert rep target,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    periodic_jobset T tasks offset jobs target ->
+    check_window_generated_pair_completion_all
+      T tasks offset jobs enumT codec target_certs = true ->
+    In target_cert target_certs ->
+    target = target_cert.(window_transport_target_job) ->
+    forall p,
+      In p target_cert.(window_transport_pairs) ->
+      GeneratedShiftedCompletionTransport
+        T tasks offset jobs enumT codec prefix_cert
+        rep target
+        p.(window_rep_earlier_job)
+        p.(window_target_earlier_job).
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert target_certs target_cert
+         rep target Hwf HenumT_complete HenumT_sound Htarget Hcheck Hin
+         Htarget_eq p Hp.
+  unfold check_window_generated_pair_completion_all in Hcheck.
+  apply forallb_forall with (x := target_cert) in Hcheck; [|exact Hin].
+  eapply check_window_generated_pair_completion_sound; eauto.
 Qed.
 
 Lemma check_window_transport_target_entry_sound :

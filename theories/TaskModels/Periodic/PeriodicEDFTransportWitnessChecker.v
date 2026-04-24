@@ -387,6 +387,64 @@ Record WindowGeneratedPairCompletionOnlyObligation
         p.(window_target_earlier_job)
 }.
 
+Theorem window_completion_only_obligation_of_generated_completion_check :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert transport_cert target_certs,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    NoDup transport_cert.(transport_basis_jobs) ->
+    (forall target (cls : EDFTransportClass JobId) (shift : nat),
+      exists target_cert i class_id,
+        In target_cert target_certs
+        /\ target_cert.(window_transport_target_job) = target
+        /\ nth_error transport_cert.(transport_basis_jobs) i = Some target
+        /\ nth_error transport_cert.(transport_job_class) i = Some class_id
+        /\ nth_error transport_cert.(transport_job_shift) i = Some shift
+        /\ nth_error transport_cert.(transport_classes) class_id = Some cls
+        /\ target_cert.(window_transport_class_id) = class_id
+        /\ target_cert.(window_transport_shift) = shift) ->
+    (forall target_cert i cls,
+      In target_cert target_certs ->
+      nth_error transport_cert.(transport_basis_jobs) i =
+        Some target_cert.(window_transport_target_job) ->
+      nth_error transport_cert.(transport_job_class) i =
+        Some target_cert.(window_transport_class_id) ->
+      nth_error transport_cert.(transport_classes)
+        target_cert.(window_transport_class_id) = Some cls ->
+      periodic_jobset T tasks offset jobs cls.(transport_rep_job)) ->
+    check_window_generated_pair_semantics_all
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_completion_all
+      T tasks offset jobs enumT codec target_certs = true ->
+    WindowGeneratedPairCompletionOnlyObligation
+      T tasks offset jobs enumT codec prefix_cert transport_cert target_certs.
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert transport_cert target_certs
+         Hwf HenumT_complete HenumT_sound Hnodup Hcomplete Hrep_periodic
+         Hpair_semantics Hpair_completion.
+  constructor.
+  - exact Hnodup.
+  - exact Hcomplete.
+  - exact Hrep_periodic.
+  - intros target_cert i cls p Hin Hbasis Hclass Hcls Hp.
+    destruct
+      (check_window_generated_pair_semantics_all_sound
+         T tasks offset jobs enumT codec transport_cert target_certs
+         target_cert cls HenumT_sound Hpair_semantics Hin Hcls)
+      as [Htarget_periodic _].
+    eapply check_window_generated_pair_completion_all_sound.
+    + exact Hwf.
+    + exact HenumT_complete.
+    + exact HenumT_sound.
+    + exact Htarget_periodic.
+    + exact Hpair_completion.
+    + exact Hin.
+    + reflexivity.
+    + exact Hp.
+Qed.
+
 Theorem window_generated_pair_semantic_obligation_of_completion_only :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs)
@@ -546,6 +604,63 @@ Proof.
          Hrep_generated_check Hwindow_check Hpair_check Hcompletion_only.
   eapply checked_window_transport_targets_obligation_of_generated_checks; eauto.
   eapply window_generated_pair_semantic_obligation_of_completion_only; eauto.
+Qed.
+
+Theorem checked_window_transport_targets_obligation_of_generated_completion_check :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert transport_cert target_certs class_relevant_jobs,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    TransportClassRepresentativeObligation
+      T tasks offset jobs enumT codec
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs ->
+    check_transport_classes_rep_backlog_generated
+      T tasks offset jobs enumT codec prefix_cert
+      transport_cert.(transport_classes) = true ->
+    check_window_transport_targets_complete_with_pairs
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_semantics_all
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_completion_all
+      T tasks offset jobs enumT codec target_certs = true ->
+    NoDup transport_cert.(transport_basis_jobs) ->
+    (forall target (cls : EDFTransportClass JobId) (shift : nat),
+      exists target_cert i class_id,
+        In target_cert target_certs
+        /\ target_cert.(window_transport_target_job) = target
+        /\ nth_error transport_cert.(transport_basis_jobs) i = Some target
+        /\ nth_error transport_cert.(transport_job_class) i = Some class_id
+        /\ nth_error transport_cert.(transport_job_shift) i = Some shift
+        /\ nth_error transport_cert.(transport_classes) class_id = Some cls
+        /\ target_cert.(window_transport_class_id) = class_id
+        /\ target_cert.(window_transport_shift) = shift) ->
+    (forall target_cert i cls,
+      In target_cert target_certs ->
+      nth_error transport_cert.(transport_basis_jobs) i =
+        Some target_cert.(window_transport_target_job) ->
+      nth_error transport_cert.(transport_job_class) i =
+        Some target_cert.(window_transport_class_id) ->
+      nth_error transport_cert.(transport_classes)
+        target_cert.(window_transport_class_id) = Some cls ->
+      periodic_jobset T tasks offset jobs cls.(transport_rep_job)) ->
+    WindowTransportTargetsObligation
+      T tasks offset jobs enumT codec prefix_cert transport_cert target_certs.
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert transport_cert target_certs
+         class_relevant_jobs Hwf HenumT_complete HenumT_sound Hrep
+         Hrep_generated_check Hwindow_check Hpair_semantics Hpair_completion
+         Hnodup Htarget_complete Hrep_periodic.
+  eapply checked_window_transport_targets_obligation_of_completion_only_checks.
+  - exact Hwf.
+  - exact HenumT_complete.
+  - exact HenumT_sound.
+  - exact Hrep.
+  - exact Hrep_generated_check.
+  - exact Hwindow_check.
+  - exact Hpair_semantics.
+  - eapply window_completion_only_obligation_of_generated_completion_check; eauto.
 Qed.
 
 Theorem checked_transport_class_rep_backlog_sound :

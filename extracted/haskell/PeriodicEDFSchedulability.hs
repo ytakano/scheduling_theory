@@ -551,6 +551,10 @@ choose g =
 type CandidateSource =
   (JobId -> Job) -> Nat -> Schedule -> Time -> List JobId
 
+enum_candidates_of :: (List JobId) -> CandidateSource
+enum_candidates_of enumJ _ _ _ _ =
+  enumJ
+
 expected_release :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId -> Nat ->
                     Time
 expected_release tasks offset _UU03c4_ k =
@@ -673,6 +677,11 @@ generated_schedule_prefix alg candidates_of jobs h =
          False -> None};
        False -> None}})}
 
+generated_schedule :: GenericSchedulingAlgorithm -> CandidateSource -> (JobId
+                      -> Job) -> Schedule
+generated_schedule alg candidates_of jobs t c =
+  generated_schedule_prefix alg candidates_of jobs (S t) t c
+
 min_metric_job :: (JobId -> Z) -> (List JobId) -> Option JobId
 min_metric_job metric l =
   case l of {
@@ -709,6 +718,16 @@ periodic_candidates_before :: (TaskId -> Task) -> (TaskId -> Time) -> (JobId
                               CandidateSource
 periodic_candidates_before tasks offset jobs enumT codec _ _ _ t =
   enum_periodic_jobs_before tasks offset jobs enumT codec (S t)
+
+generated_periodic_edf_schedule_upto :: (TaskId -> Task) -> (TaskId -> Time)
+                                        -> (JobId -> Job) -> Time -> (List
+                                        TaskId) -> PeriodicCodec -> Schedule
+generated_periodic_edf_schedule_upto tasks offset jobs h enumT codec =
+  generated_schedule edf_generic_spec
+    (enum_candidates_of
+      (enum_periodic_jobs_upto tasks offset jobs h enumT
+        (periodic_finite_horizon_codec_of tasks offset jobs h codec)))
+    jobs
 
 bounded_time_points :: Time -> List Time
 bounded_time_points h =
@@ -1262,6 +1281,41 @@ check_window_generated_pair_semantics_all tasks offset jobs enumT codec transpor
       transport_cert)
     target_certs
 
+check_generated_window_pair_target_completed :: (TaskId -> Task) -> (TaskId
+                                                -> Time) -> (JobId -> Job) ->
+                                                (List TaskId) ->
+                                                PeriodicCodec -> JobId ->
+                                                EDFWindowTransportPairCert ->
+                                                Bool
+check_generated_window_pair_target_completed tasks offset jobs enumT codec target p =
+  leb (job_cost (jobs (window_target_earlier_job p)))
+    (service_job (S O)
+      (generated_periodic_edf_schedule_upto tasks offset jobs (S
+        (job_abs_deadline (jobs target))) enumT codec)
+      (window_target_earlier_job p) (job_release (jobs target)))
+
+check_window_generated_pair_completion :: (TaskId -> Task) -> (TaskId ->
+                                          Time) -> (JobId -> Job) -> (List
+                                          TaskId) -> PeriodicCodec ->
+                                          EDFWindowTransportTargetCert ->
+                                          Bool
+check_window_generated_pair_completion tasks offset jobs enumT codec target_cert =
+  forallb
+    (check_generated_window_pair_target_completed tasks offset jobs enumT
+      codec (window_transport_target_job target_cert))
+    (window_transport_pairs target_cert)
+
+check_window_generated_pair_completion_all :: (TaskId -> Task) -> (TaskId ->
+                                              Time) -> (JobId -> Job) ->
+                                              (List TaskId) -> PeriodicCodec
+                                              -> (List
+                                              EDFWindowTransportTargetCert)
+                                              -> Bool
+check_window_generated_pair_completion_all tasks offset jobs enumT codec target_certs =
+  forallb
+    (check_window_generated_pair_completion tasks offset jobs enumT codec)
+    target_certs
+
 check_window_transport_pair_for_target_earlier :: (JobId -> Job) -> JobId ->
                                                   JobId -> JobId ->
                                                   EDFWindowTransportPairCert
@@ -1426,28 +1480,39 @@ check_periodic_edf_checked_sidecar ts codec cert sidecar =
           (andb
             (andb
               (andb
-                (check_prefix_cert_semantic (extracted_periodic_jobs ts)
-                  (cert_prefix cert))
-                (check_prefix_slots_match_generated_edf_fast
-                  (extracted_periodic_tasks ts) (\_ -> O)
-                  (extracted_periodic_jobs ts) (enumT_of_extracted_list ts)
-                  codec (cert_prefix cert)))
-              (check_transport_cert (cert_transport cert)))
-            (check_transport_classes_rep_backlog (cert_prefix cert)
-              (transport_classes (cert_transport cert))
-              (checked_class_relevant_jobs sidecar)))
-          (check_transport_classes_rep_backlog_generated
+                (andb
+                  (andb
+                    (check_prefix_cert_semantic (extracted_periodic_jobs ts)
+                      (cert_prefix cert))
+                    (check_prefix_slots_match_generated_edf_fast
+                      (extracted_periodic_tasks ts) (\_ -> O)
+                      (extracted_periodic_jobs ts)
+                      (enumT_of_extracted_list ts) codec (cert_prefix cert)))
+                  (check_transport_cert (cert_transport cert)))
+                (check_transport_classes_rep_backlog (cert_prefix cert)
+                  (transport_classes (cert_transport cert))
+                  (checked_class_relevant_jobs sidecar)))
+              (check_transport_classes_rep_backlog_generated
+                (extracted_periodic_tasks ts) (\_ -> O)
+                (extracted_periodic_jobs ts) (enumT_of_extracted_list ts)
+                codec (cert_prefix cert)
+                (transport_classes (cert_transport cert))))
+            (check_periodic_transport_residue_coverage (cert_transport cert)
+              (periodic_transport_residue_jobs (extracted_periodic_tasks ts)
+                (\_ -> O) (extracted_periodic_jobs ts)
+                (enumT_of_extracted_list ts) codec
+                (transport_period (cert_transport cert)))))
+          (check_window_transport_targets_complete_with_pairs
             (extracted_periodic_tasks ts) (\_ -> O)
             (extracted_periodic_jobs ts) (enumT_of_extracted_list ts) codec
-            (cert_prefix cert) (transport_classes (cert_transport cert))))
-        (check_periodic_transport_residue_coverage (cert_transport cert)
-          (periodic_transport_residue_jobs (extracted_periodic_tasks ts)
-            (\_ -> O) (extracted_periodic_jobs ts)
-            (enumT_of_extracted_list ts) codec
-            (transport_period (cert_transport cert)))))
-      (check_window_transport_targets_complete_with_pairs
+            (cert_transport cert) (checked_window_target_certs sidecar)))
+        (check_window_generated_pair_semantics_all
+          (extracted_periodic_tasks ts) (\_ -> O)
+          (extracted_periodic_jobs ts) (enumT_of_extracted_list ts) codec
+          (cert_transport cert) (checked_window_target_certs sidecar)))
+      (check_window_generated_pair_completion_all
         (extracted_periodic_tasks ts) (\_ -> O) (extracted_periodic_jobs ts)
-        (enumT_of_extracted_list ts) codec (cert_transport cert)
+        (enumT_of_extracted_list ts) codec
         (checked_window_target_certs sidecar)))
     (edf_schedulability_decide ts)
 
