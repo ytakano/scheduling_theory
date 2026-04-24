@@ -167,6 +167,7 @@ theories/TaskModels/Periodic/PeriodicEDFCertificateSoundness.v
 theories/TaskModels/Periodic/PeriodicEDFPrefixChecker.v
 theories/TaskModels/Periodic/PeriodicEDFGeneratedPrefixChecker.v
 theories/TaskModels/Periodic/PeriodicEDFNoCarryInSupply.v
+theories/TaskModels/Periodic/PeriodicEDFBacklogBridgeChecker.v
 theories/TaskModels/Periodic/PeriodicEDFPrefixCoherence.v
 theories/TaskModels/Periodic/PeriodicEDFInfiniteBridge.v
 theories/TaskModels/Periodic/PeriodicEDFExtractionSoundness.v
