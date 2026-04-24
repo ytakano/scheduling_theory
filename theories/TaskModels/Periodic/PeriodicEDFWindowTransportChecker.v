@@ -12,6 +12,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransport.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
+From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
@@ -495,6 +496,52 @@ Proof.
   apply forallb_forall with (x := target_cert) in Htargets; [|exact Hin].
   eapply check_window_transport_target_complete_with_pairs_coverage_sound;
     eauto.
+Qed.
+
+Lemma window_target_relevant_earlier_jobs_complete :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         target x,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    periodic_jobset_deadline_between
+      T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+    job_release (jobs x) < job_release (jobs target) ->
+    In x
+      (window_target_relevant_earlier_jobs
+         T tasks offset jobs enumT codec target).
+Proof.
+  intros T tasks offset jobs enumT codec target x
+         Hwf HenumT_complete Hbetween Hrelease.
+  unfold window_target_relevant_earlier_jobs.
+  apply filter_In.
+  split.
+  - unfold window_target_candidate_jobs.
+    apply enum_periodic_jobs_upto_complete; [exact Hwf|exact HenumT_complete|].
+    unfold periodic_jobset_upto.
+    pose proof
+      (periodic_jobset_deadline_between_implies_task_in_scope
+         T tasks offset jobs 0 (job_abs_deadline (jobs target)) x Hbetween)
+      as HT.
+    pose proof
+      (periodic_jobset_deadline_between_implies_generated
+         T tasks offset jobs 0 (job_abs_deadline (jobs target)) x Hbetween)
+      as Hgen.
+    pose proof
+      (periodic_jobset_deadline_between_implies_deadline_le
+         T tasks offset jobs 0 (job_abs_deadline (jobs target)) x Hbetween)
+      as Hdeadline.
+    split; [exact HT|].
+    split; [exact Hgen|].
+    pose proof (generated_job_deadline tasks offset jobs x Hgen) as Hdeadline_eq.
+    lia.
+  - apply andb_true_iff.
+    split.
+    + apply Nat.ltb_lt. exact Hrelease.
+    + apply Nat.leb_le.
+      exact (periodic_jobset_deadline_between_implies_deadline_le
+               T tasks offset jobs 0 (job_abs_deadline (jobs target))
+               x Hbetween).
 Qed.
 
 Lemma check_window_transport_target_entry_sound :

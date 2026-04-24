@@ -55,6 +55,49 @@ Fixpoint check_transport_classes_rep_backlog
   | _, _ => false
   end.
 
+Definition transport_class_rep_relevant_jobs
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (cls : EDFTransportClass JobId) : list JobId :=
+  window_target_relevant_earlier_jobs
+    T tasks offset jobs enumT codec cls.(transport_rep_job).
+
+Definition check_transport_class_rep_backlog_generated
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (prefix_cert : EDFPrefixCert JobId)
+    (cls : EDFTransportClass JobId) : bool :=
+  check_transport_class_rep_backlog
+    prefix_cert cls
+    (transport_class_rep_relevant_jobs
+       T tasks offset jobs enumT codec cls).
+
+Fixpoint check_transport_classes_rep_backlog_generated
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (prefix_cert : EDFPrefixCert JobId)
+    (classes : list (EDFTransportClass JobId)) : bool :=
+  match classes with
+  | [] => true
+  | cls :: classes' =>
+      check_transport_class_rep_backlog_generated
+        T tasks offset jobs enumT codec prefix_cert cls
+      && check_transport_classes_rep_backlog_generated
+           T tasks offset jobs enumT codec prefix_cert classes'
+  end.
+
 Record TransportClassRepresentativeObligation
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
@@ -169,6 +212,66 @@ Proof.
       destruct Hcheck as [_ Htail].
       cbn.
       eapply IH; eauto.
+Qed.
+
+Lemma check_transport_classes_rep_backlog_generated_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert classes i cls,
+    check_transport_classes_rep_backlog_generated
+      T tasks offset jobs enumT codec prefix_cert classes = true ->
+    nth_error classes i = Some cls ->
+    check_transport_class_rep_backlog_generated
+      T tasks offset jobs enumT codec prefix_cert cls = true.
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert classes.
+  induction classes as [|cls0 classes IH]; intros i cls Hcheck Hcls.
+  - destruct i; discriminate.
+  - destruct i as [|i].
+    + cbn in Hcheck, Hcls.
+      inversion Hcls; subst.
+      apply andb_true_iff in Hcheck.
+      exact (proj1 Hcheck).
+    + cbn in Hcheck, Hcls.
+      apply andb_true_iff in Hcheck.
+      destruct Hcheck as [_ Htail].
+      eapply IH; eauto.
+Qed.
+
+Theorem checked_transport_class_rep_completion_generated_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert classes i cls,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    valid_schedule jobs 1
+      (generated_periodic_edf_prefix T tasks offset jobs enumT codec prefix_cert) ->
+    periodic_jobset T tasks offset jobs cls.(transport_rep_job) ->
+    check_prefix_cert_semantic jobs prefix_cert = true ->
+    check_prefix_slots_match_generated_edf
+      T tasks offset jobs enumT codec prefix_cert = true ->
+    check_transport_classes_rep_backlog_generated
+      T tasks offset jobs enumT codec prefix_cert classes = true ->
+    nth_error classes i = Some cls ->
+    representative_earlier_completion_before_release
+      T tasks offset jobs
+      (generated_periodic_edf_prefix T tasks offset jobs enumT codec prefix_cert)
+      cls.(transport_rep_job).
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert classes i cls
+         Hwf HenumT_complete Hvalid Hrep Hcert Hmatch Hcheck Hcls.
+  pose proof
+    (check_transport_classes_rep_backlog_generated_sound
+       T tasks offset jobs enumT codec prefix_cert classes i cls Hcheck Hcls)
+    as Hrep_check.
+  unfold check_transport_class_rep_backlog_generated,
+         check_transport_class_rep_backlog,
+         transport_class_rep_relevant_jobs in Hrep_check.
+  intros x Hbetween Hrelease.
+  eapply check_prefix_backlog_free_before_release_sound.
+  - eapply checked_prefix_semantics_on_generated_edf; eauto.
+  - exact Hrep_check.
+  - eapply window_target_relevant_earlier_jobs_complete; eauto.
 Qed.
 
 Theorem checked_transport_class_rep_backlog_sound :

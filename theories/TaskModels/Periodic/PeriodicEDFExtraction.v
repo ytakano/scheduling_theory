@@ -4,6 +4,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFExtractionDecision.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFExtractionTypes.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFFinalCertificateChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFGeneratedPrefixChecker.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportWitnessChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportCoverageChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransportChecker.
 
@@ -23,6 +24,8 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   edf_schedulability_counterexample
   check_prefix_slots_match_generated_edf
   check_prefix_slots_match_generated_edf_fast
+  transport_class_rep_relevant_jobs
+  check_transport_classes_rep_backlog_generated
   periodic_transport_residue_jobs
   check_periodic_transport_residue_coverage
   check_window_transport_targets_complete

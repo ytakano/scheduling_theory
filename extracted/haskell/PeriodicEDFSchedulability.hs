@@ -1293,6 +1293,42 @@ check_transport_classes_rep_backlog prefix_cert classes class_relevant_jobs =
       andb (check_transport_class_rep_backlog prefix_cert cls relevant)
         (check_transport_classes_rep_backlog prefix_cert classes' relevant')}}
 
+transport_class_rep_relevant_jobs :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                     (JobId -> Job) -> (List TaskId) ->
+                                     PeriodicCodec -> (EDFTransportClass
+                                     JobId) -> List JobId
+transport_class_rep_relevant_jobs tasks offset jobs enumT codec cls =
+  window_target_relevant_earlier_jobs tasks offset jobs enumT codec
+    (transport_rep_job cls)
+
+check_transport_class_rep_backlog_generated :: (TaskId -> Task) -> (TaskId ->
+                                               Time) -> (JobId -> Job) ->
+                                               (List TaskId) -> PeriodicCodec
+                                               -> (EDFPrefixCert JobId) ->
+                                               (EDFTransportClass JobId) ->
+                                               Bool
+check_transport_class_rep_backlog_generated tasks offset jobs enumT codec prefix_cert cls =
+  check_transport_class_rep_backlog prefix_cert cls
+    (transport_class_rep_relevant_jobs tasks offset jobs enumT codec cls)
+
+check_transport_classes_rep_backlog_generated :: (TaskId -> Task) -> (TaskId
+                                                 -> Time) -> (JobId -> Job)
+                                                 -> (List TaskId) ->
+                                                 PeriodicCodec ->
+                                                 (EDFPrefixCert JobId) ->
+                                                 (List
+                                                 (EDFTransportClass JobId))
+                                                 -> Bool
+check_transport_classes_rep_backlog_generated tasks offset jobs enumT codec prefix_cert classes =
+  case classes of {
+   Nil -> True;
+   Cons cls classes' ->
+    andb
+      (check_transport_class_rep_backlog_generated tasks offset jobs enumT
+        codec prefix_cert cls)
+      (check_transport_classes_rep_backlog_generated tasks offset jobs enumT
+        codec prefix_cert classes')}
+
 data PeriodicEDFCheckedSidecarCert =
    Build_PeriodicEDFCheckedSidecarCert (List JobId) (List (List JobId)) 
  (List EDFWindowTransportTargetCert)
@@ -1334,16 +1370,21 @@ check_periodic_edf_checked_sidecar ts codec cert sidecar =
         (andb
           (andb
             (andb
-              (check_prefix_cert_semantic (extracted_periodic_jobs ts)
-                (cert_prefix cert))
-              (check_prefix_slots_match_generated_edf_fast
-                (extracted_periodic_tasks ts) (\_ -> O)
-                (extracted_periodic_jobs ts) (enumT_of_extracted_list ts)
-                codec (cert_prefix cert)))
-            (check_transport_cert (cert_transport cert)))
-          (check_transport_classes_rep_backlog (cert_prefix cert)
-            (transport_classes (cert_transport cert))
-            (checked_class_relevant_jobs sidecar)))
+              (andb
+                (check_prefix_cert_semantic (extracted_periodic_jobs ts)
+                  (cert_prefix cert))
+                (check_prefix_slots_match_generated_edf_fast
+                  (extracted_periodic_tasks ts) (\_ -> O)
+                  (extracted_periodic_jobs ts) (enumT_of_extracted_list ts)
+                  codec (cert_prefix cert)))
+              (check_transport_cert (cert_transport cert)))
+            (check_transport_classes_rep_backlog (cert_prefix cert)
+              (transport_classes (cert_transport cert))
+              (checked_class_relevant_jobs sidecar)))
+          (check_transport_classes_rep_backlog_generated
+            (extracted_periodic_tasks ts) (\_ -> O)
+            (extracted_periodic_jobs ts) (enumT_of_extracted_list ts) codec
+            (cert_prefix cert) (transport_classes (cert_transport cert))))
         (check_periodic_transport_residue_coverage (cert_transport cert)
           (periodic_transport_residue_jobs (extracted_periodic_tasks ts)
             (\_ -> O) (extracted_periodic_jobs ts)
