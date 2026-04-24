@@ -375,6 +375,14 @@ projection 一致と `task_trace` の well-formedness を束ねられる。た�
 candidate-source bridge が直接使うのは、その sched-trace projection 成分である
 `workload_execution_matches_sched_trace` である。
 
+checker-acceptance-to-common-contract wrapper theorem は、checker の成功を
+common layer の新しい仮定へ変換するものではない。wrapper が行うのは、
+adapter が別途与える execution/sched_trace correspondence evidence と、
+accepted workload family / candidate table の generic soundness を組み合わせて、
+既存の common-facing adapter contract を満たす adapter-local witness を構成することである。
+したがって `sched_trace` / `task_trace` の emitted format、serial capture、
+worker-slot interpretation、runtime hook placement は adapter / concrete runtime layer に残る。
+
 この Rocq 側が現在保証する境界は次である。
 
 - emitted sched_trace/task_trace が adapter-local generation rules に従うことを generic に述べられる

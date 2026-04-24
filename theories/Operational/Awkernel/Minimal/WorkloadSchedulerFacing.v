@@ -1545,3 +1545,176 @@ Proof.
           P jobs adm table C task_trace sched_trace Hfamily Hmatch)
        choose_fifo_refines_fifo_policy).
 Qed.
+
+Lemma awk_workload_accepts_scheduler_facing_family_from_checker_acceptance :
+  forall task_trace sched_trace jobs sched table,
+    awk_workload_accepts_global_fifo_scheduler_relation_sched_trace
+      task_trace sched_trace = true ->
+    workload_candidate_table_contract sched_trace table ->
+    workload_global_fifo_table_witness jobs sched sched_trace table ->
+    accepted_workload_scheduler_facing_family
+      task_trace jobs sched sched_trace table.
+Proof.
+  intros task_trace sched_trace jobs sched table Haccept Htable Hfifo.
+  pose proof
+    (awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_sound
+       task_trace sched_trace Haccept)
+    as [Haccepted _].
+  split.
+  - exact Haccepted.
+  - split; assumption.
+Qed.
+
+Lemma awk_workload_checker_acceptance_scheduler_rel :
+  forall (P : OSLabeledProjection AwkernelState)
+         jobs adm table
+         (C : awk_local_candidate_source_adapter_contract
+                P
+                (candidate_source_of_table table)
+                jobs
+                adm
+                2)
+         task_trace sched_trace
+         (Haccept :
+            awk_workload_accepts_global_fifo_scheduler_relation_sched_trace
+              task_trace sched_trace = true)
+         (Htrace :
+            workload_trace_matches_execution
+              (olac_execution (olcsac_base C))
+              task_trace
+              sched_trace)
+         (Hmatch :
+            workload_scheduler_facing_execution_matches_sched_trace
+              (olac_execution (olcsac_base C))
+              sched_trace)
+         (Htable : workload_candidate_table_contract sched_trace table)
+         (Hfifo :
+            workload_global_fifo_table_witness
+              jobs
+              (projected_scheduler_relation_schedule
+                 (olac_execution (olcsac_base C)))
+              sched_trace
+              table),
+    let Hfamily :=
+      awk_workload_accepts_scheduler_facing_family_from_checker_acceptance
+        task_trace
+        sched_trace
+        jobs
+        (projected_scheduler_relation_schedule
+           (olac_execution (olcsac_base C)))
+        table
+        Haccept
+        Htable
+        Hfifo in
+    scheduler_rel
+      (single_cpu_algorithm_schedule fifo_generic_spec (candidate_source_of_table table))
+      jobs
+      1
+      (accepted_workload_scheduler_facing_projected_schedule
+         P jobs adm table C task_trace sched_trace Hfamily Hmatch).
+Proof.
+  intros P jobs adm table C task_trace sched_trace
+         Haccept Htrace Hmatch Htable Hfifo.
+  pose proof
+    (workload_trace_matches_execution_sched
+       P (olac_execution (olcsac_base C)) task_trace sched_trace Htrace)
+    as _.
+  exact
+    (accepted_workload_scheduler_facing_scheduler_rel
+       P
+       jobs
+       adm
+       table
+       C
+       task_trace
+       sched_trace
+       (awk_workload_accepts_scheduler_facing_family_from_checker_acceptance
+          task_trace
+          sched_trace
+          jobs
+          (projected_scheduler_relation_schedule
+             (olac_execution (olcsac_base C)))
+          table
+          Haccept
+          Htable
+          Hfifo)
+       Hmatch).
+Qed.
+
+Lemma awk_workload_checker_acceptance_respects_fifo_policy_at_with :
+  forall (P : OSLabeledProjection AwkernelState)
+         jobs adm table
+         (C : awk_local_candidate_source_adapter_contract
+                P
+                (candidate_source_of_table table)
+                jobs
+                adm
+                2)
+         task_trace sched_trace t
+         (Haccept :
+            awk_workload_accepts_global_fifo_scheduler_relation_sched_trace
+              task_trace sched_trace = true)
+         (Htrace :
+            workload_trace_matches_execution
+              (olac_execution (olcsac_base C))
+              task_trace
+              sched_trace)
+         (Hmatch :
+            workload_scheduler_facing_execution_matches_sched_trace
+              (olac_execution (olcsac_base C))
+              sched_trace)
+         (Htable : workload_candidate_table_contract sched_trace table)
+         (Hfifo :
+            workload_global_fifo_table_witness
+              jobs
+              (projected_scheduler_relation_schedule
+                 (olac_execution (olcsac_base C)))
+              sched_trace
+              table),
+    let Hfamily :=
+      awk_workload_accepts_scheduler_facing_family_from_checker_acceptance
+        task_trace
+        sched_trace
+        jobs
+        (projected_scheduler_relation_schedule
+           (olac_execution (olcsac_base C)))
+        table
+        Haccept
+        Htable
+        Hfifo in
+    respects_algorithm_spec_at_with
+      fifo_policy
+      jobs
+      (candidate_source_of_table table)
+      (accepted_workload_scheduler_facing_projected_schedule
+         P jobs adm table C task_trace sched_trace Hfamily Hmatch)
+      t.
+Proof.
+  intros P jobs adm table C task_trace sched_trace t
+         Haccept Htrace Hmatch Htable Hfifo.
+  pose proof
+    (workload_trace_matches_execution_task_wf
+       P (olac_execution (olcsac_base C)) task_trace sched_trace Htrace)
+    as _.
+  exact
+    (accepted_workload_scheduler_facing_respects_fifo_policy_at_with
+       P
+       jobs
+       adm
+       table
+       C
+       task_trace
+       sched_trace
+       t
+       (awk_workload_accepts_scheduler_facing_family_from_checker_acceptance
+          task_trace
+          sched_trace
+          jobs
+          (projected_scheduler_relation_schedule
+             (olac_execution (olcsac_base C)))
+          table
+          Haccept
+          Htable
+          Hfifo)
+       Hmatch).
+Qed.
