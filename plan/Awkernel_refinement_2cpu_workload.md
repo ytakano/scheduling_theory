@@ -58,6 +58,8 @@ current procedure が checker input として使う emitted artifact は 2 つ�
     の 11 列 TSV である
   - これは acceptance が読む scheduler-visible row stream であり、Rocq では
     `AwkernelSchedTraceEntry` に対応する
+  - `runnable` column は adapter が projection した runnable view であり、
+    concrete scheduler queue の dump ではない
   - adapter は同じ emitted `sched_trace` から worker-slot occupancy と
     dispatch interval を再構成し、logical worker capacity `m` の
     scheduler-facing schedule を読む
@@ -71,6 +73,8 @@ current procedure が checker input として使う emitted artifact は 2 つ�
   - これは checker が root task、known-task set、join/completion dependency を
     要約するための task-family fact stream であり、Rocq では
     `AwkernelTaskTraceEntry` と `AwkernelTaskTraceSummary` に対応する
+  - `Runnable` は projected task state が runnable になった lifecycle fact であり、
+    concrete scheduler queue への enqueue 完了を観測する record ではない
 
 この 2 つは adapter-local emitted artifact であり、common layer に追加された API ではない。
 acceptance lane は serial log からこれらを一時入力として抽出して読み、成功時に
@@ -86,6 +90,8 @@ common operational interface の意味は変えない。
 
 - task spawn
 - task becomes runnable
+  (Awkernel では `TaskInfo` state transition の観測であり、
+  scheduler queue insertion の観測ではない)
 - scheduler choose
 - scheduler dispatch
 - task sleep
