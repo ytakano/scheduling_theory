@@ -26,4 +26,7 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   periodic_transport_residue_jobs
   check_periodic_transport_residue_coverage
   check_window_transport_targets_complete
+  check_window_transport_targets_complete_with_pairs
+  window_target_relevant_earlier_jobs
+  check_window_target_pair_coverage
   check_periodic_edf_checked_sidecar_extracted.

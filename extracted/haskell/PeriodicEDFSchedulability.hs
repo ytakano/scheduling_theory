@@ -1189,6 +1189,88 @@ check_window_transport_targets_complete jobs transport_cert target_certs =
       (transport_job_class transport_cert)
       (transport_job_shift transport_cert))
 
+window_target_candidate_jobs :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                (JobId -> Job) -> (List TaskId) ->
+                                PeriodicCodec -> JobId -> List JobId
+window_target_candidate_jobs tasks offset jobs enumT codec target =
+  let {h = S (job_abs_deadline (jobs target))} in
+  enum_periodic_jobs_upto tasks offset jobs h enumT
+    (periodic_finite_horizon_codec_of tasks offset jobs h codec)
+
+window_target_relevant_earlier_jobs :: (TaskId -> Task) -> (TaskId -> Time)
+                                       -> (JobId -> Job) -> (List TaskId) ->
+                                       PeriodicCodec -> JobId -> List 
+                                       JobId
+window_target_relevant_earlier_jobs tasks offset jobs enumT codec target =
+  filter (\x ->
+    andb (ltb (job_release (jobs x)) (job_release (jobs target)))
+      (leb (job_abs_deadline (jobs x)) (job_abs_deadline (jobs target))))
+    (window_target_candidate_jobs tasks offset jobs enumT codec target)
+
+check_window_transport_pair_for_target_earlier :: (JobId -> Job) -> JobId ->
+                                                  JobId -> JobId ->
+                                                  EDFWindowTransportPairCert
+                                                  -> Bool
+check_window_transport_pair_for_target_earlier jobs rep target x p =
+  andb
+    (andb
+      (andb (eqb (window_target_earlier_job p) x)
+        (ltb (job_release (jobs (window_rep_earlier_job p)))
+          (job_release (jobs rep))))
+      (leb (job_abs_deadline (jobs (window_rep_earlier_job p)))
+        (job_abs_deadline (jobs rep))))
+    (check_shifted_job_relation jobs rep target p)
+
+check_window_target_pair_coverage :: (JobId -> Job) -> JobId ->
+                                     EDFWindowTransportTargetCert -> (List
+                                     JobId) -> Bool
+check_window_target_pair_coverage jobs rep target_cert target_earlier_jobs =
+  forallb (\x ->
+    existsb
+      (check_window_transport_pair_for_target_earlier jobs rep
+        (window_transport_target_job target_cert) x)
+      (window_transport_pairs target_cert))
+    target_earlier_jobs
+
+check_window_transport_target_complete_with_pairs :: (TaskId -> Task) ->
+                                                     (TaskId -> Time) ->
+                                                     (JobId -> Job) -> (List
+                                                     TaskId) -> PeriodicCodec
+                                                     -> (EDFTransportCert
+                                                     JobId) ->
+                                                     EDFWindowTransportTargetCert
+                                                     -> Bool
+check_window_transport_target_complete_with_pairs tasks offset jobs enumT codec transport_cert target_cert =
+  case nth_error (transport_classes transport_cert)
+         (window_transport_class_id target_cert) of {
+   Some cls ->
+    andb (check_window_transport_target jobs transport_cert target_cert)
+      (check_window_target_pair_coverage jobs (transport_rep_job cls)
+        target_cert
+        (window_target_relevant_earlier_jobs tasks offset jobs enumT codec
+          (window_transport_target_job target_cert)));
+   None -> False}
+
+check_window_transport_targets_complete_with_pairs :: (TaskId -> Task) ->
+                                                      (TaskId -> Time) ->
+                                                      (JobId -> Job) -> (List
+                                                      TaskId) ->
+                                                      PeriodicCodec ->
+                                                      (EDFTransportCert
+                                                      JobId) -> (List
+                                                      EDFWindowTransportTargetCert)
+                                                      -> Bool
+check_window_transport_targets_complete_with_pairs tasks offset jobs enumT codec transport_cert target_certs =
+  andb
+    (forallb
+      (check_window_transport_target_complete_with_pairs tasks offset jobs
+        enumT codec transport_cert)
+      target_certs)
+    (check_window_transport_target_rows_complete jobs transport_cert
+      target_certs (transport_basis_jobs transport_cert)
+      (transport_job_class transport_cert)
+      (transport_job_shift transport_cert))
+
 check_transport_class_rep_backlog :: (EDFPrefixCert JobId) ->
                                      (EDFTransportClass JobId) -> (List
                                      JobId) -> Bool
@@ -1267,8 +1349,10 @@ check_periodic_edf_checked_sidecar ts codec cert sidecar =
             (\_ -> O) (extracted_periodic_jobs ts)
             (enumT_of_extracted_list ts) codec
             (transport_period (cert_transport cert)))))
-      (check_window_transport_targets_complete (extracted_periodic_jobs ts)
-        (cert_transport cert) (checked_window_target_certs sidecar)))
+      (check_window_transport_targets_complete_with_pairs
+        (extracted_periodic_tasks ts) (\_ -> O) (extracted_periodic_jobs ts)
+        (enumT_of_extracted_list ts) codec (cert_transport cert)
+        (checked_window_target_certs sidecar)))
     (edf_schedulability_decide ts)
 
 check_periodic_edf_checked_sidecar_extracted :: (List ExtractedPeriodicTask)

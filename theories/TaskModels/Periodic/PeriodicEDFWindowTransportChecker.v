@@ -11,6 +11,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFNoCarryInSupply.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransport.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
@@ -129,6 +130,100 @@ Definition check_window_transport_targets_complete
        transport_cert.(transport_job_class)
        transport_cert.(transport_job_shift).
 
+Definition window_target_candidate_jobs
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (target : JobId) : list JobId :=
+  let H := S (job_abs_deadline (jobs target)) in
+  enum_periodic_jobs_upto
+    T tasks offset jobs H enumT
+    (periodic_finite_horizon_codec_of T tasks offset jobs H codec).
+
+Definition window_target_relevant_earlier_jobs
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (target : JobId) : list JobId :=
+  filter
+    (fun x =>
+       Nat.ltb (job_release (jobs x)) (job_release (jobs target))
+       && Nat.leb (job_abs_deadline (jobs x))
+            (job_abs_deadline (jobs target)))
+    (window_target_candidate_jobs T tasks offset jobs enumT codec target).
+
+Definition check_window_transport_pair_for_target_earlier
+    (jobs : JobId -> Job)
+    (rep target x : JobId)
+    (p : EDFWindowTransportPairCert) : bool :=
+  Nat.eqb p.(window_target_earlier_job) x
+  && Nat.ltb
+       (job_release (jobs p.(window_rep_earlier_job)))
+       (job_release (jobs rep))
+  && Nat.leb
+       (job_abs_deadline (jobs p.(window_rep_earlier_job)))
+       (job_abs_deadline (jobs rep))
+  && check_shifted_job_relation jobs rep target p.
+
+Definition check_window_target_pair_coverage
+    (jobs : JobId -> Job)
+    (rep : JobId)
+    (target_cert : EDFWindowTransportTargetCert)
+    (target_earlier_jobs : list JobId) : bool :=
+  forallb
+    (fun x =>
+       existsb
+         (check_window_transport_pair_for_target_earlier
+            jobs rep target_cert.(window_transport_target_job) x)
+         target_cert.(window_transport_pairs))
+    target_earlier_jobs.
+
+Definition check_window_transport_target_complete_with_pairs
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId)
+    (target_cert : EDFWindowTransportTargetCert) : bool :=
+  match nth_error transport_cert.(transport_classes)
+          target_cert.(window_transport_class_id) with
+  | Some cls =>
+      check_window_transport_target jobs transport_cert target_cert
+      && check_window_target_pair_coverage
+           jobs cls.(transport_rep_job) target_cert
+           (window_target_relevant_earlier_jobs
+              T tasks offset jobs enumT codec
+              target_cert.(window_transport_target_job))
+  | None => false
+  end.
+
+Definition check_window_transport_targets_complete_with_pairs
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId)
+    (target_certs : list EDFWindowTransportTargetCert) : bool :=
+  forallb
+    (check_window_transport_target_complete_with_pairs
+       T tasks offset jobs enumT codec transport_cert)
+    target_certs
+  && check_window_transport_target_rows_complete
+       jobs transport_cert target_certs
+       transport_cert.(transport_basis_jobs)
+       transport_cert.(transport_job_class)
+       transport_cert.(transport_job_shift).
+
 Lemma check_shifted_job_relation_sound :
   forall jobs rep target p,
     check_shifted_job_relation jobs rep target p = true ->
@@ -227,6 +322,179 @@ Proof.
   unfold check_window_transport_targets_complete in Hcheck.
   apply andb_true_iff in Hcheck.
   exact (proj1 Hcheck).
+Qed.
+
+Lemma check_window_transport_targets_complete_with_pairs_targets :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert target_certs,
+    check_window_transport_targets_complete_with_pairs
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_transport_targets jobs transport_cert target_certs = true.
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert target_certs Hcheck.
+  unfold check_window_transport_targets_complete_with_pairs in Hcheck.
+  apply andb_true_iff in Hcheck.
+  destruct Hcheck as [Htargets _].
+  unfold check_window_transport_targets.
+  apply forallb_forall.
+  intros target_cert Hin.
+  apply forallb_forall with (x := target_cert) in Htargets; [|exact Hin].
+  unfold check_window_transport_target_complete_with_pairs in Htargets.
+  destruct (nth_error transport_cert.(transport_classes)
+              target_cert.(window_transport_class_id)) as [cls|];
+    [|discriminate].
+  apply andb_true_iff in Htargets.
+  exact (proj1 Htargets).
+Qed.
+
+Lemma check_window_transport_pair_for_target_earlier_sound :
+  forall jobs rep target x p,
+    check_window_transport_pair_for_target_earlier jobs rep target x p = true ->
+    p.(window_target_earlier_job) = x
+    /\
+    job_release (jobs p.(window_rep_earlier_job)) <
+      job_release (jobs rep)
+    /\
+    job_abs_deadline (jobs p.(window_rep_earlier_job)) <=
+      job_abs_deadline (jobs rep)
+    /\
+    ShiftedJobRelation
+      jobs rep target
+      p.(window_rep_earlier_job)
+      p.(window_target_earlier_job)
+      p.(window_transport_delta).
+Proof.
+  intros jobs rep target x p Hcheck.
+  unfold check_window_transport_pair_for_target_earlier in Hcheck.
+  repeat rewrite andb_true_iff in Hcheck.
+  destruct Hcheck as [[[Htarget Hrelease] Hdeadline] Hshifted].
+  split.
+  - apply Nat.eqb_eq. exact Htarget.
+  - split.
+    + apply Nat.ltb_lt. exact Hrelease.
+    + split.
+      * apply Nat.leb_le. exact Hdeadline.
+      * eapply check_shifted_job_relation_sound; eauto.
+Qed.
+
+Lemma check_window_target_pair_coverage_sound :
+  forall jobs rep target_cert target_earlier_jobs x,
+    check_window_target_pair_coverage
+      jobs rep target_cert target_earlier_jobs = true ->
+    In x target_earlier_jobs ->
+    exists p,
+      In p target_cert.(window_transport_pairs)
+      /\
+      p.(window_target_earlier_job) = x
+      /\
+      job_release (jobs p.(window_rep_earlier_job)) <
+        job_release (jobs rep)
+      /\
+      job_abs_deadline (jobs p.(window_rep_earlier_job)) <=
+        job_abs_deadline (jobs rep)
+      /\
+      ShiftedJobRelation
+        jobs rep target_cert.(window_transport_target_job)
+        p.(window_rep_earlier_job)
+        p.(window_target_earlier_job)
+        p.(window_transport_delta).
+Proof.
+  intros jobs rep target_cert target_earlier_jobs x Hcheck Hin.
+  unfold check_window_target_pair_coverage in Hcheck.
+  apply forallb_forall with (x := x) in Hcheck; [|exact Hin].
+  apply existsb_exists in Hcheck.
+  destruct Hcheck as [p [Hin_pair Hpair_check]].
+  exists p.
+  destruct
+    (check_window_transport_pair_for_target_earlier_sound
+       jobs rep target_cert.(window_transport_target_job) x p Hpair_check)
+    as [Htarget [Hrelease [Hdeadline Hshifted]]].
+  split; [exact Hin_pair|].
+  split; [exact Htarget|].
+  split; [exact Hrelease|].
+  split; [exact Hdeadline|].
+  exact Hshifted.
+Qed.
+
+Lemma check_window_transport_target_complete_with_pairs_coverage_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert target_cert cls x,
+    check_window_transport_target_complete_with_pairs
+      T tasks offset jobs enumT codec transport_cert target_cert = true ->
+    nth_error transport_cert.(transport_classes)
+      target_cert.(window_transport_class_id) = Some cls ->
+    In x
+      (window_target_relevant_earlier_jobs
+         T tasks offset jobs enumT codec
+         target_cert.(window_transport_target_job)) ->
+    exists p,
+      In p target_cert.(window_transport_pairs)
+      /\
+      p.(window_target_earlier_job) = x
+      /\
+      job_release (jobs p.(window_rep_earlier_job)) <
+        job_release (jobs cls.(transport_rep_job))
+      /\
+      job_abs_deadline (jobs p.(window_rep_earlier_job)) <=
+        job_abs_deadline (jobs cls.(transport_rep_job))
+      /\
+      ShiftedJobRelation
+        jobs cls.(transport_rep_job)
+        target_cert.(window_transport_target_job)
+        p.(window_rep_earlier_job)
+        p.(window_target_earlier_job)
+        p.(window_transport_delta).
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert target_cert cls x
+         Hcheck Hcls Hin.
+  unfold check_window_transport_target_complete_with_pairs in Hcheck.
+  rewrite Hcls in Hcheck.
+  apply andb_true_iff in Hcheck.
+  destruct Hcheck as [_ Hcoverage].
+  eapply check_window_target_pair_coverage_sound; eauto.
+Qed.
+
+Lemma check_window_transport_targets_complete_with_pairs_coverage_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert target_certs target_cert cls x,
+    check_window_transport_targets_complete_with_pairs
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    In target_cert target_certs ->
+    nth_error transport_cert.(transport_classes)
+      target_cert.(window_transport_class_id) = Some cls ->
+    In x
+      (window_target_relevant_earlier_jobs
+         T tasks offset jobs enumT codec
+         target_cert.(window_transport_target_job)) ->
+    exists p,
+      In p target_cert.(window_transport_pairs)
+      /\
+      p.(window_target_earlier_job) = x
+      /\
+      job_release (jobs p.(window_rep_earlier_job)) <
+        job_release (jobs cls.(transport_rep_job))
+      /\
+      job_abs_deadline (jobs p.(window_rep_earlier_job)) <=
+        job_abs_deadline (jobs cls.(transport_rep_job))
+      /\
+      ShiftedJobRelation
+        jobs cls.(transport_rep_job)
+        target_cert.(window_transport_target_job)
+        p.(window_rep_earlier_job)
+        p.(window_target_earlier_job)
+        p.(window_transport_delta).
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert target_certs
+         target_cert cls x Hcheck Hin Hcls Hx.
+  unfold check_window_transport_targets_complete_with_pairs in Hcheck.
+  apply andb_true_iff in Hcheck.
+  destruct Hcheck as [Htargets _].
+  apply forallb_forall with (x := target_cert) in Htargets; [|exact Hin].
+  eapply check_window_transport_target_complete_with_pairs_coverage_sound;
+    eauto.
 Qed.
 
 Lemma check_window_transport_target_entry_sound :
