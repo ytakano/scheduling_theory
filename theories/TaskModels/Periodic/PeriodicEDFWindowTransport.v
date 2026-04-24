@@ -64,6 +64,68 @@ Record ShiftedCompletionTransport
     completed jobs 1 target_sched x (job_release (jobs target))
 }.
 
+Record GeneratedShiftedCompletionTransport
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (prefix_cert : EDFPrefixCert JobId)
+    (rep target x_rep x : JobId) : Prop := {
+  generated_shifted_completion_at_release :
+    completed jobs 1
+      (generated_periodic_edf_prefix
+         T tasks offset jobs enumT codec prefix_cert)
+      x_rep (job_release (jobs rep)) ->
+    completed jobs 1
+      (generated_periodic_edf_schedule T tasks offset jobs enumT codec)
+      x (job_release (jobs target))
+}.
+
+Theorem generated_shifted_completion_transport_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert rep target x_rep x,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    periodic_jobset T tasks offset jobs target ->
+    GeneratedShiftedCompletionTransport
+      T tasks offset jobs enumT codec prefix_cert rep target x_rep x ->
+    ShiftedCompletionTransport
+      jobs
+      (generated_periodic_edf_prefix
+         T tasks offset jobs enumT codec prefix_cert)
+      (generated_periodic_edf_schedule_upto
+         T tasks offset jobs (S (job_abs_deadline (jobs target))) enumT codec)
+      rep target x_rep x.
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert rep target x_rep x
+         Hwf HenumT_complete HenumT_sound Htarget Htransport.
+  constructor.
+  intros Hrep_completed.
+  assert (Htarget_release :
+    job_release (jobs target) < S (job_abs_deadline (jobs target))).
+  {
+    destruct Htarget as [_ Hgen].
+    pose proof (generated_job_deadline tasks offset jobs target Hgen).
+    lia.
+  }
+  pose proof
+    (generated_periodic_edf_schedule_upto_completed_iff_generated_before
+       T tasks offset jobs enumT codec
+       (S (job_abs_deadline (jobs target)))
+       x (job_release (jobs target))
+       Hwf HenumT_complete HenumT_sound Htarget_release)
+    as Hiff.
+  apply (proj2 Hiff).
+  exact
+    (generated_shifted_completion_at_release
+       T tasks offset jobs enumT codec prefix_cert
+       rep target x_rep x Htransport Hrep_completed).
+Qed.
+
 Record ShiftedBacklogWindowTransport
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)

@@ -687,6 +687,127 @@ Record WindowTransportTargetObligation
         p.(window_target_earlier_job)
 }.
 
+Record WindowPairGeneratedCompletionTransportObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (prefix_cert : EDFPrefixCert JobId)
+    (rep target : JobId)
+    (target_cert : EDFWindowTransportTargetCert) : Prop := {
+  checked_window_completion_target_periodic :
+    periodic_jobset T tasks offset jobs target;
+  checked_window_pair_generated_completion_transport :
+    forall p,
+      In p target_cert.(window_transport_pairs) ->
+      GeneratedShiftedCompletionTransport
+        T tasks offset jobs enumT codec prefix_cert
+        rep target
+        p.(window_rep_earlier_job)
+        p.(window_target_earlier_job)
+}.
+
+Theorem checked_window_pair_generated_completion_transport_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert rep target target_cert,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    WindowPairGeneratedCompletionTransportObligation
+      T tasks offset jobs enumT codec prefix_cert rep target target_cert ->
+    forall p,
+      In p target_cert.(window_transport_pairs) ->
+      ShiftedJobRelation
+        jobs rep target
+        p.(window_rep_earlier_job)
+        p.(window_target_earlier_job)
+        p.(window_transport_delta) ->
+      ShiftedCompletionTransport
+        jobs
+        (generated_periodic_edf_prefix
+           T tasks offset jobs enumT codec prefix_cert)
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs (S (job_abs_deadline (jobs target))) enumT codec)
+        rep target
+        p.(window_rep_earlier_job)
+        p.(window_target_earlier_job).
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert rep target target_cert
+         Hwf HenumT_complete HenumT_sound Hobligation p Hin _.
+  eapply generated_shifted_completion_transport_sound.
+  - exact Hwf.
+  - exact HenumT_complete.
+  - exact HenumT_sound.
+  - exact
+      (checked_window_completion_target_periodic
+         T tasks offset jobs enumT codec prefix_cert
+         rep target target_cert Hobligation).
+  - exact
+      (checked_window_pair_generated_completion_transport
+         T tasks offset jobs enumT codec prefix_cert
+         rep target target_cert Hobligation p Hin).
+Qed.
+
+Theorem window_transport_target_obligation_of_generated_completion :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert rep target target_cert,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (periodic_edf_backlog_free_before_release
+       T tasks offset jobs
+       (job_abs_deadline (jobs rep))
+       (generated_periodic_edf_prefix
+          T tasks offset jobs enumT codec prefix_cert)
+       rep ->
+     representative_earlier_completion_before_release
+       T tasks offset jobs
+       (generated_periodic_edf_prefix
+          T tasks offset jobs enumT codec prefix_cert)
+       rep) ->
+    (forall t1 t2 x,
+      busy_prefix_witness
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs target))) enumT codec)
+        (job_abs_deadline (jobs target)) t1 t2 ->
+      t1 <= job_release (jobs target) ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs t1 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      exists p,
+        In p target_cert.(window_transport_pairs)
+        /\ p.(window_target_earlier_job) = x
+        /\ periodic_jobset_deadline_between
+             T tasks offset jobs 0 (job_abs_deadline (jobs rep))
+             p.(window_rep_earlier_job)
+        /\ job_release (jobs p.(window_rep_earlier_job)) <
+             job_release (jobs rep)) ->
+    WindowPairGeneratedCompletionTransportObligation
+      T tasks offset jobs enumT codec prefix_cert rep target target_cert ->
+    WindowTransportTargetObligation
+      T tasks offset jobs
+      (generated_periodic_edf_prefix
+         T tasks offset jobs enumT codec prefix_cert)
+      (generated_periodic_edf_schedule_upto
+         T tasks offset jobs
+         (S (job_abs_deadline (jobs target))) enumT codec)
+      rep target target_cert.
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert rep target target_cert
+         Hwf HenumT_complete HenumT_sound Hrep_completion
+         Hpair_coverage Hgenerated_completion.
+  constructor.
+  - exact Hrep_completion.
+  - exact Hpair_coverage.
+  - intros p Hin Hshifted.
+    eapply checked_window_pair_generated_completion_transport_sound; eauto.
+Qed.
+
 Theorem checked_window_transport_target_sound :
   forall T tasks offset jobs rep_sched target_sched transport_cert target_cert
          i cls,
