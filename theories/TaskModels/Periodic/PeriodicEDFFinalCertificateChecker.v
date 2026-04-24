@@ -128,9 +128,6 @@ Definition check_periodic_edf_checked_sidecar
           codec
           cert.(cert_transport).(transport_period))
   && check_transport_residue_shifts cert.(cert_transport)
-  && check_periodic_jobs_covered_by_transport
-       cert.(cert_transport)
-       sidecar.(checked_candidate_jobs)
   && check_window_transport_targets_complete_with_pairs
        (extracted_task_scope ts)
        (extracted_periodic_tasks ts)
@@ -231,10 +228,6 @@ Lemma check_periodic_edf_checked_sidecar_fields :
     /\
     check_transport_residue_shifts cert.(cert_transport) = true
     /\
-    check_periodic_jobs_covered_by_transport
-      cert.(cert_transport)
-      sidecar.(checked_candidate_jobs) = true
-    /\
     check_window_transport_targets_complete_with_pairs
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
@@ -270,10 +263,9 @@ Proof.
   unfold check_periodic_edf_checked_sidecar in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
   destruct Hcheck as
-    [[[[[[[[[[[[[Hprefix Hfast] Htransport] Hbasis_nodup] Hrep]
+    [[[[[[[[[[[[Hprefix Hfast] Htransport] Hbasis_nodup] Hrep]
         Hrep_generated] Hrep_periodic] Hcoverage] Hshifts]
-        Hcandidate_coverage] Hwindow]
-        Hpair_semantics] Hpair_completion] Hdec].
+        Hwindow] Hpair_semantics] Hpair_completion] Hdec].
   repeat split; try assumption.
   eapply check_prefix_slots_match_generated_edf_fast_sound.
   exact Hfast.
@@ -295,7 +287,7 @@ Proof.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
-    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
+    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
   unfold edf_schedulability_decide in Hdec.
   apply andb_true_iff in Hdec.
   exact (proj1 Hdec).
@@ -335,12 +327,14 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    TransportCoverageObligation
+    PeriodicResidueWindowTransportLiftObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
       (extracted_periodic_jobs ts)
-      sidecar.(checked_candidate_jobs) ->
+      (enumT_of_extracted_list ts)
+      codec
+      cert.(cert_transport) ->
     schedulable_by_on
       (periodic_jobset
         (extracted_task_scope ts)
@@ -358,14 +352,15 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts codec cert sidecar Hcheck Hrep Hcoverage.
+  intros ts codec cert sidecar Hcheck Hrep Hresidue_lift.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
     as (_ & _ & Htransport_check & Hbasis_nodup_check & Hrep_check
-        & Hrep_generated_check & Hrep_periodic_check & _ & _ & Hcandidate_check
+        & Hrep_generated_check & Hrep_periodic_check
+        & Hresidue_check & Hshift_check
         & Hwindow_check & Hpair_semantics & Hpair_completion & Hdec).
-  eapply periodic_edf_schedulable_by_classical_dbf_with_checked_window_transport_generated_checks.
+  eapply periodic_edf_schedulable_by_classical_dbf_with_periodic_transport_generated_checks.
   - apply extracted_tasks_well_formed_on_enum.
     eapply check_periodic_edf_checked_sidecar_wf; eauto.
   - apply extracted_periodic_nonblocking.
@@ -373,17 +368,23 @@ Proof.
   - apply extracted_enum_complete.
   - apply extracted_enum_sound.
   - apply extracted_zero_offset.
+  - eapply check_periodic_transport_residue_coverage_period_pos.
+    exact Hresidue_check.
   - exact Htransport_check.
   - exact Hbasis_nodup_check.
   - exact Hrep.
   - exact Hrep_check.
   - exact Hrep_generated_check.
   - exact Hrep_periodic_check.
-  - exact Hcoverage.
-  - exact Hcandidate_check.
+  - eapply checked_periodic_transport_residue_coverage_sound.
+    + exact Htransport_check.
+    + apply extracted_enum_complete.
+    + exact Hresidue_check.
+  - exact Hshift_check.
   - exact Hwindow_check.
   - exact Hpair_semantics.
   - exact Hpair_completion.
+  - exact Hresidue_lift.
   - apply edf_schedulability_decide_true_global_dbf_ok.
     exact Hdec.
 Qed.
@@ -401,12 +402,14 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    TransportCoverageObligation
+    PeriodicResidueWindowTransportLiftObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
       (extracted_periodic_jobs ts)
-      sidecar.(checked_candidate_jobs) ->
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      cert.(cert_transport) ->
     schedulable_by_on
       (periodic_jobset
         (extracted_task_scope ts)
@@ -424,7 +427,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts cert sidecar Hcheck Hrep Hcoverage.
+  intros ts cert sidecar Hcheck Hrep Hresidue_lift.
   destruct
     (check_periodic_edf_checked_sidecar_extracted_fields
        ts cert sidecar Hcheck)

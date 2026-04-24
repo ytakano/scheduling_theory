@@ -65,6 +65,19 @@ Definition check_transport_residue_shifts
     (fun shift => Nat.eqb shift transport_cert.(transport_period))
     transport_cert.(transport_job_shift).
 
+Lemma check_periodic_transport_residue_coverage_period_pos :
+  forall transport_cert residue_jobs,
+    check_periodic_transport_residue_coverage transport_cert residue_jobs = true ->
+    0 < transport_cert.(transport_period).
+Proof.
+  intros transport_cert residue_jobs Hcheck.
+  unfold check_periodic_transport_residue_coverage in Hcheck.
+  apply andb_true_iff in Hcheck.
+  destruct Hcheck as [Hperiod _].
+  apply Nat.ltb_lt.
+  exact Hperiod.
+Qed.
+
 Record TransportCoverageObligation
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)

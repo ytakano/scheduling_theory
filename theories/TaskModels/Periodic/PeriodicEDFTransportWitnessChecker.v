@@ -974,6 +974,41 @@ Proof.
   - exact Htarget_obligation.
 Qed.
 
+(** Schedule-level bridge from a checked residue representative window to an
+    arbitrary periodic job in the same residue class.  The boolean checker
+    proves the finite residue coverage and the row-level window transport; this
+    obligation isolates the remaining semantic fact that generated EDF windows
+    can be transported repeatedly across equal-period residue steps. *)
+Record PeriodicResidueWindowTransportLiftObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId) : Prop := {
+  periodic_residue_window_transport_lift :
+    forall residue target q,
+      periodic_jobset T tasks offset jobs target ->
+      transport_rep_to_target_job
+        T tasks offset jobs codec residue target
+        transport_cert.(transport_period) q ->
+      periodic_edf_backlog_free_before_release
+        T tasks offset jobs
+        (S (job_abs_deadline (jobs residue)))
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs residue))) enumT codec)
+        residue ->
+      periodic_edf_backlog_free_before_release
+        T tasks offset jobs
+        (S (job_abs_deadline (jobs target)))
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs target))) enumT codec)
+        target
+}.
+
 Theorem checked_transport_class_rep_backlog_sound :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs)
@@ -1010,6 +1045,110 @@ Proof.
   - exact Hrep_check.
   - intros x Hbetween Hrelease.
     eapply transport_rep_relevant_coverage; eauto.
+Qed.
+
+Theorem periodic_edf_no_carry_in_bridge_of_periodic_residue_transport :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert transport_cert target_certs class_relevant_jobs j,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    0 < transport_cert.(transport_period) ->
+    check_transport_cert transport_cert = true ->
+    check_transport_basis_nodup transport_cert = true ->
+    TransportClassRepresentativeObligation
+      T tasks offset jobs enumT codec
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs ->
+    check_transport_classes_rep_backlog
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs = true ->
+    check_transport_classes_rep_backlog_generated
+      T tasks offset jobs enumT codec prefix_cert
+      transport_cert.(transport_classes) = true ->
+    check_transport_classes_rep_periodic_generated
+      T tasks offset jobs enumT codec
+      transport_cert.(transport_classes) = true ->
+    PeriodicTransportCoverageObligation
+      T tasks offset jobs codec transport_cert ->
+    check_transport_residue_shifts transport_cert = true ->
+    check_window_transport_targets_complete_with_pairs
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_semantics_all
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_completion_all
+      T tasks offset jobs enumT codec target_certs = true ->
+    PeriodicResidueWindowTransportLiftObligation
+      T tasks offset jobs enumT codec transport_cert ->
+    periodic_jobset T tasks offset jobs j ->
+    periodic_edf_busy_prefix_no_carry_in_bridge
+      T tasks offset jobs
+      (S (job_abs_deadline (jobs j)))
+      (generated_periodic_edf_schedule_upto
+         T tasks offset jobs
+         (S (job_abs_deadline (jobs j))) enumT codec)
+      j.
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert transport_cert
+         target_certs class_relevant_jobs j
+         Hwf HenumT_complete HenumT_sound Hperiod Htransport_check
+         Hbasis_nodup_check Hrep Hrep_check Hrep_generated_check
+         Hrep_periodic_check Hcoverage Hshift_check Hwindow_check
+         Hpair_semantics Hpair_completion Hresidue_lift Hj.
+  destruct
+    (periodic_transport_coverage_complete
+       T tasks offset jobs codec transport_cert Hcoverage j Hj)
+    as [i [class_id [cls [shift
+        [Hbasis [Hclass [Hcls Hshift]]]]]]].
+  pose proof
+    (check_transport_residue_shifts_sound
+       transport_cert i shift Hshift_check Hshift) as Hshift_period.
+  subst shift.
+  set (residue :=
+    global_periodic_job_id_of
+      T tasks offset jobs codec
+      (job_task (jobs j))
+      (job_index (jobs j) mod transport_cert.(transport_period))).
+  destruct
+    (check_window_transport_targets_complete_with_pairs_basis_sound
+       T tasks offset jobs enumT codec transport_cert target_certs
+       i residue class_id transport_cert.(transport_period) cls
+       Hwindow_check Hbasis Hclass Hshift Hcls)
+    as [target_cert
+        [Hin [Htarget [Htarget_class [Htarget_shift Htarget_check]]]]].
+  eapply periodic_edf_no_carry_in_bridge_of_backlog_free.
+  - apply generated_periodic_edf_schedule_upto_valid; eauto.
+  - pose proof
+      (checked_transport_class_rep_backlog_sound
+         T tasks offset jobs enumT codec prefix_cert
+         transport_cert.(transport_classes) class_relevant_jobs
+         class_id cls Hrep Hrep_check Hcls) as Hclass_rep_backlog.
+    pose proof
+      (checked_window_transport_row_shifted_backlog_of_generated_checks
+         T tasks offset jobs enumT codec prefix_cert transport_cert target_certs
+         class_relevant_jobs i residue class_id
+         transport_cert.(transport_period) cls target_cert
+         Hwf HenumT_complete HenumT_sound Hrep Hrep_generated_check
+         Hwindow_check Hpair_semantics Hpair_completion Hrep_periodic_check
+         (check_transport_basis_nodup_sound transport_cert Hbasis_nodup_check)
+         Hbasis Hclass Hshift Hcls Hin Htarget Htarget_class Htarget_shift
+         Htarget_check) as Hshifted_residue.
+    pose proof
+      (shifted_backlog_window_transport_sound
+         T tasks offset jobs
+         (generated_periodic_edf_prefix
+            T tasks offset jobs enumT codec prefix_cert)
+         (generated_periodic_edf_schedule_upto
+            T tasks offset jobs
+            (S (job_abs_deadline (jobs residue))) enumT codec)
+         cls.(transport_rep_job)
+         residue
+         Hshifted_residue Hclass_rep_backlog) as Hresidue_backlog.
+    eapply periodic_residue_window_transport_lift.
+    + exact Hresidue_lift.
+    + exact Hj.
+    + subst residue.
+      eapply periodic_residue_rep_to_job_transport; eauto.
+    + exact Hresidue_backlog.
 Qed.
 
 Theorem checked_transport_cert_semantics_from_rep_backlog :
@@ -1466,6 +1605,61 @@ Proof.
       (transport_class_algebra_sound
          T tasks offset jobs enumT codec prefix_cert
          Halgebra j cls shift Hrep_backlog).
+Qed.
+
+Theorem periodic_edf_schedulable_by_classical_dbf_with_periodic_transport_generated_checks :
+  forall T tasks offset enumT jobs
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert transport_cert class_relevant_jobs target_certs,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall τ, In τ enumT -> offset τ = 0) ->
+    0 < transport_cert.(transport_period) ->
+    check_transport_cert transport_cert = true ->
+    check_transport_basis_nodup transport_cert = true ->
+    TransportClassRepresentativeObligation
+      T tasks offset jobs enumT codec
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs ->
+    check_transport_classes_rep_backlog
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs = true ->
+    check_transport_classes_rep_backlog_generated
+      T tasks offset jobs enumT codec prefix_cert
+      transport_cert.(transport_classes) = true ->
+    check_transport_classes_rep_periodic_generated
+      T tasks offset jobs enumT codec
+      transport_cert.(transport_classes) = true ->
+    PeriodicTransportCoverageObligation
+      T tasks offset jobs codec transport_cert ->
+    check_transport_residue_shifts transport_cert = true ->
+    check_window_transport_targets_complete_with_pairs
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_semantics_all
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_completion_all
+      T tasks offset jobs enumT codec target_certs = true ->
+    PeriodicResidueWindowTransportLiftObligation
+      T tasks offset jobs enumT codec transport_cert ->
+    (forall t, taskset_periodic_dbf tasks enumT t <= t) ->
+    schedulable_by_on
+      (periodic_jobset T tasks offset jobs)
+      (edf_scheduler (periodic_candidates_before T tasks offset jobs enumT codec))
+      jobs 1.
+Proof.
+  intros T tasks offset enumT jobs codec prefix_cert transport_cert
+         class_relevant_jobs target_certs
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
+         Hperiod Htransport_check Hbasis_nodup_check Hrep Hrep_check
+         Hrep_generated_check Hrep_periodic_check Hcoverage Hshift_check
+         Hwindow_check Hpair_semantics Hpair_completion Hresidue_lift Hdbf.
+  eapply periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge;
+    eauto.
+  intros j Hj.
+  eapply periodic_edf_no_carry_in_bridge_of_periodic_residue_transport; eauto.
 Qed.
 
 Theorem edf_schedulability_decide_schedulable_by_on_with_periodic_transport_coverage
