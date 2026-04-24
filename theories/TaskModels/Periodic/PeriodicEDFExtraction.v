@@ -28,6 +28,8 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   check_transport_classes_rep_backlog_generated
   periodic_transport_residue_jobs
   check_periodic_transport_residue_coverage
+  check_transport_basis_nodup
+  check_transport_classes_rep_periodic_generated
   check_window_transport_targets_complete
   check_window_transport_targets_complete_with_pairs
   window_target_relevant_earlier_jobs

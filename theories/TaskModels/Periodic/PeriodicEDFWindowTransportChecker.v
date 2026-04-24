@@ -345,6 +345,43 @@ Definition check_window_transport_targets_complete_with_pairs
        transport_cert.(transport_job_class)
        transport_cert.(transport_job_shift).
 
+Definition check_jobid_not_in (j : JobId) (xs : list JobId) : bool :=
+  forallb (fun x => negb (Nat.eqb j x)) xs.
+
+Fixpoint check_jobid_list_nodup (xs : list JobId) : bool :=
+  match xs with
+  | [] => true
+  | x :: xs' => check_jobid_not_in x xs' && check_jobid_list_nodup xs'
+  end.
+
+Definition check_transport_basis_nodup
+    (transport_cert : EDFTransportCert JobId) : bool :=
+  check_jobid_list_nodup transport_cert.(transport_basis_jobs).
+
+Definition check_transport_class_rep_periodic_generated
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (cls : EDFTransportClass JobId) : bool :=
+  check_window_target_periodic
+    T tasks offset jobs enumT codec cls.(transport_rep_job).
+
+Definition check_transport_classes_rep_periodic_generated
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (classes : list (EDFTransportClass JobId)) : bool :=
+  forallb
+    (check_transport_class_rep_periodic_generated
+       T tasks offset jobs enumT codec)
+    classes.
+
 Lemma check_shifted_job_relation_sound :
   forall jobs rep target p,
     check_shifted_job_relation jobs rep target p = true ->
@@ -1050,6 +1087,76 @@ Proof.
   apply andb_true_iff in Hcheck.
   destruct Hcheck as [_ Hrows].
   eapply check_window_transport_target_rows_complete_sound; eauto.
+Qed.
+
+Lemma check_jobid_not_in_sound :
+  forall j xs,
+    check_jobid_not_in j xs = true ->
+    ~ In j xs.
+Proof.
+  intros j xs Hcheck Hin.
+  unfold check_jobid_not_in in Hcheck.
+  apply forallb_forall with (x := j) in Hcheck; [|exact Hin].
+  apply Bool.negb_true_iff in Hcheck.
+  apply Nat.eqb_neq in Hcheck.
+  contradiction.
+Qed.
+
+Lemma check_jobid_list_nodup_sound :
+  forall xs,
+    check_jobid_list_nodup xs = true ->
+    NoDup xs.
+Proof.
+  induction xs as [|x xs IH]; intros Hcheck.
+  - constructor.
+  - cbn in Hcheck.
+    apply andb_true_iff in Hcheck.
+    destruct Hcheck as [Hnotin Htail].
+    constructor.
+    + eapply check_jobid_not_in_sound; eauto.
+    + apply IH. exact Htail.
+Qed.
+
+Lemma check_transport_basis_nodup_sound :
+  forall transport_cert,
+    check_transport_basis_nodup transport_cert = true ->
+    NoDup transport_cert.(transport_basis_jobs).
+Proof.
+  intros transport_cert Hcheck.
+  unfold check_transport_basis_nodup in Hcheck.
+  eapply check_jobid_list_nodup_sound; eauto.
+Qed.
+
+Lemma check_transport_class_rep_periodic_generated_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         cls,
+    (forall τ, In τ enumT -> T τ) ->
+    check_transport_class_rep_periodic_generated
+      T tasks offset jobs enumT codec cls = true ->
+    periodic_jobset T tasks offset jobs cls.(transport_rep_job).
+Proof.
+  intros T tasks offset jobs enumT codec cls HenumT_sound Hcheck.
+  unfold check_transport_class_rep_periodic_generated in Hcheck.
+  eapply check_window_target_periodic_sound; eauto.
+Qed.
+
+Lemma check_transport_classes_rep_periodic_generated_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         classes i cls,
+    (forall τ, In τ enumT -> T τ) ->
+    check_transport_classes_rep_periodic_generated
+      T tasks offset jobs enumT codec classes = true ->
+    nth_error classes i = Some cls ->
+    periodic_jobset T tasks offset jobs cls.(transport_rep_job).
+Proof.
+  intros T tasks offset jobs enumT codec classes i cls
+         HenumT_sound Hcheck Hcls.
+  unfold check_transport_classes_rep_periodic_generated in Hcheck.
+  apply forallb_forall with (x := cls) in Hcheck.
+  - eapply check_transport_class_rep_periodic_generated_sound; eauto.
+  - eapply nth_error_In; eauto.
 Qed.
 
 Record WindowTransportTargetObligation

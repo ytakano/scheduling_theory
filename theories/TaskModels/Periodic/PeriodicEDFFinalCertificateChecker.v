@@ -95,6 +95,7 @@ Definition check_periodic_edf_checked_sidecar
        codec
        cert.(cert_prefix)
   && check_transport_cert cert.(cert_transport)
+  && check_transport_basis_nodup cert.(cert_transport)
   && check_transport_classes_rep_backlog
        cert.(cert_prefix)
        cert.(cert_transport).(transport_classes)
@@ -107,6 +108,14 @@ Definition check_periodic_edf_checked_sidecar
        (enumT_of_extracted_list ts)
        codec
        cert.(cert_prefix)
+       cert.(cert_transport).(transport_classes)
+  && check_transport_classes_rep_periodic_generated
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec
        cert.(cert_transport).(transport_classes)
   && check_periodic_transport_residue_coverage
        cert.(cert_transport)
@@ -179,6 +188,8 @@ Lemma check_periodic_edf_checked_sidecar_fields :
     /\
     check_transport_cert cert.(cert_transport) = true
     /\
+    check_transport_basis_nodup cert.(cert_transport) = true
+    /\
     check_transport_classes_rep_backlog
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
@@ -192,6 +203,15 @@ Lemma check_periodic_edf_checked_sidecar_fields :
       (enumT_of_extracted_list ts)
       codec
       cert.(cert_prefix)
+      cert.(cert_transport).(transport_classes) = true
+    /\
+    check_transport_classes_rep_periodic_generated
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec
       cert.(cert_transport).(transport_classes) = true
     /\
     check_periodic_transport_residue_coverage
@@ -240,8 +260,9 @@ Proof.
   unfold check_periodic_edf_checked_sidecar in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
   destruct Hcheck as
-    [[[[[[[[[Hprefix Hfast] Htransport] Hrep] Hrep_generated]
-        Hcoverage] Hwindow] Hpair_semantics] Hpair_completion] Hdec].
+    [[[[[[[[[[[Hprefix Hfast] Htransport] Hbasis_nodup] Hrep]
+        Hrep_generated] Hrep_periodic] Hcoverage] Hwindow]
+        Hpair_semantics] Hpair_completion] Hdec].
   repeat split; try assumption.
   eapply check_prefix_slots_match_generated_edf_fast_sound.
   exact Hfast.
@@ -263,7 +284,7 @@ Proof.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
-    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
+    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
   unfold edf_schedulability_decide in Hdec.
   apply andb_true_iff in Hdec.
   exact (proj1 Hdec).
@@ -334,8 +355,8 @@ Proof.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
-    as (_ & _ & Htransport_check & Hrep_check & _ & Hcoverage_check
-        & Hwindow_check & _ & _ & Hdec).
+    as (_ & _ & Htransport_check & _ & Hrep_check & _ & _
+        & Hcoverage_check & Hwindow_check & _ & _ & Hdec).
   eapply edf_schedulability_decide_schedulable_by_on_with_periodic_transport_coverage.
   - eapply check_periodic_edf_checked_sidecar_wf; eauto.
   - exact Htransport_check.

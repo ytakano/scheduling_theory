@@ -387,6 +387,81 @@ Record WindowGeneratedPairCompletionOnlyObligation
         p.(window_target_earlier_job)
 }.
 
+Record WindowGeneratedPairCheckedStructuralObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId)
+    (target_certs : list EDFWindowTransportTargetCert) : Prop := {
+  window_checked_structural_transport_basis_nodup :
+    NoDup transport_cert.(transport_basis_jobs);
+  window_checked_structural_target_cert_complete_rows :
+    forall i target class_id shift cls,
+      nth_error transport_cert.(transport_basis_jobs) i = Some target ->
+      nth_error transport_cert.(transport_job_class) i = Some class_id ->
+      nth_error transport_cert.(transport_job_shift) i = Some shift ->
+      nth_error transport_cert.(transport_classes) class_id = Some cls ->
+      exists target_cert,
+        In target_cert target_certs
+        /\ target_cert.(window_transport_target_job) = target
+        /\ target_cert.(window_transport_class_id) = class_id
+        /\ target_cert.(window_transport_shift) = shift
+        /\ check_window_transport_target jobs transport_cert target_cert = true;
+  window_checked_structural_rep_periodic :
+    forall class_id cls,
+      nth_error transport_cert.(transport_classes) class_id = Some cls ->
+      periodic_jobset T tasks offset jobs cls.(transport_rep_job)
+}.
+
+Theorem window_checked_structural_obligation_of_checks :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert target_certs,
+    (forall τ, In τ enumT -> T τ) ->
+    check_transport_cert transport_cert = true ->
+    check_transport_basis_nodup transport_cert = true ->
+    check_window_transport_targets_complete_with_pairs
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_transport_classes_rep_periodic_generated
+      T tasks offset jobs enumT codec
+      transport_cert.(transport_classes) = true ->
+    WindowGeneratedPairCheckedStructuralObligation
+      T tasks offset jobs enumT codec transport_cert target_certs.
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert target_certs
+         HenumT_sound Htransport_check Hbasis_nodup_check
+         Htarget_complete_check Hrep_periodic_check.
+  constructor.
+  - eapply check_transport_basis_nodup_sound; eauto.
+  - intros i target class_id shift cls Hbasis Hclass Hshift Hcls.
+    eapply check_window_transport_targets_complete_with_pairs_basis_sound; eauto.
+  - intros class_id cls Hcls.
+    eapply check_transport_classes_rep_periodic_generated_sound; eauto.
+Qed.
+
+Theorem window_checked_structural_rep_periodic_for_target_cert :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert target_certs target_cert i cls,
+    WindowGeneratedPairCheckedStructuralObligation
+      T tasks offset jobs enumT codec transport_cert target_certs ->
+    In target_cert target_certs ->
+    nth_error transport_cert.(transport_basis_jobs) i =
+      Some target_cert.(window_transport_target_job) ->
+    nth_error transport_cert.(transport_job_class) i =
+      Some target_cert.(window_transport_class_id) ->
+    nth_error transport_cert.(transport_classes)
+      target_cert.(window_transport_class_id) = Some cls ->
+    periodic_jobset T tasks offset jobs cls.(transport_rep_job).
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert target_certs
+         target_cert i cls Hstruct _ _ _ Hcls.
+  eapply window_checked_structural_rep_periodic; eauto.
+Qed.
+
 Theorem window_completion_only_obligation_of_generated_completion_check :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs)
