@@ -831,7 +831,7 @@ workload_scheduler_relation_choice entry =
 workload_scheduler_relation_schedule :: (List AwkernelSchedTraceEntry) ->
                                         Schedule
 workload_scheduler_relation_schedule sched_trace t c =
-  case ltb c (S (S O)) of {
+  case ltb c (S O) of {
    True ->
     nth_error
       (workload_scheduler_relation_choice
@@ -929,7 +929,7 @@ workload_global_fifo_scheduler_relation_rowb :: (List AwkernelTaskTraceEntry)
 workload_global_fifo_scheduler_relation_rowb task_trace sched_trace t entry =
   job_list_eqb
     (choose_top_m global_fifo_top_m_spec
-      (workload_scheduler_relation_jobs task_trace sched_trace) (S (S O))
+      (workload_scheduler_relation_jobs task_trace sched_trace) (S O)
       (workload_scheduler_relation_schedule sched_trace) t
       (workload_scheduler_relation_candidates entry))
     (workload_scheduler_relation_choice entry)

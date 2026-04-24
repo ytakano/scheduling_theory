@@ -304,9 +304,10 @@ The intended progression is:
    `workload_global_fifo_table_witness` introduce a proof-side
    scheduler-facing witness over the accepted family,
 8. `accepted_workload_scheduler_facing_sound_from_contract` lifts that witness
-   to `labeled_concrete_top_m_scheduler_relation_contract` for `GlobalFIFO`,
+   to `labeled_concrete_single_cpu_scheduler_relation_contract` for
+   `GlobalFIFO` over the logical worker schedule with capacity 1,
 9. `accepted_workload_scheduler_facing_adapter_contract` packages the result
-   as `os_local_top_m_scheduler_relation_adapter_contract`.
+   as `os_local_single_cpu_scheduler_relation_adapter_contract`.
 
 This is an adapter-local bridge built on top of the common contract ladder. It
 does not widen `Operational/Common`, and it still stops before

@@ -2,14 +2,20 @@ From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 Import ListNotations.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleTransform.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.TopMInterface.
 From RocqSched Require Import Operational.Common.State.
 From RocqSched Require Import Operational.Common.Step.
+From RocqSched Require Import Operational.Common.Invariants.
 From RocqSched Require Import Operational.Common.Projection.
+From RocqSched Require Import Operational.Common.ProjectionInvariants.
 From RocqSched Require Import Operational.Common.OSProjectionInterface.
 From RocqSched Require Import Operational.Common.ConcreteExecution.
 From RocqSched Require Import Operational.Common.OSCandidateSourceContract.
 From RocqSched Require Import Operational.Common.OSLocalAdapterContract.
+From RocqSched Require Import Operational.Common.OSSchedulerViewContract.
 From RocqSched Require Import Operational.Common.OSSchedulerRelationContract.
 From RocqSched Require Import Operational.Awkernel.Minimal.MinimalProjection.
 From RocqSched Require Import Operational.Awkernel.Minimal.CapturedTraceSyntax.
@@ -17,6 +23,7 @@ From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadAcceptance.
 From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadCandidateTable.
 From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadCandidateSource.
 From RocqSched Require Import Multicore.Global.GlobalFIFO.
+From RocqSched Require Import Uniprocessor.Policies.FIFO.
 
 Definition workload_scheduler_facing_row_state
     (entry : AwkernelSchedTraceEntry) : OpState :=
@@ -32,6 +39,10 @@ Definition workload_scheduler_facing_choice
   | Some j => [j]
   | None => []
   end.
+
+Definition workload_scheduler_facing_choice_head
+    (entry : AwkernelSchedTraceEntry) : option JobId :=
+  nth_error (workload_scheduler_facing_choice entry) 0.
 
 Definition option_job_to_list (oj : option JobId) : list JobId :=
   match oj with
@@ -159,7 +170,7 @@ Definition workload_scheduler_relation_choice
 Definition workload_scheduler_relation_schedule
     (sched_trace : list AwkernelSchedTraceEntry) : Schedule :=
   fun t c =>
-    if c <? 2 then
+    if c <? 1 then
       nth_error
         (workload_scheduler_relation_choice
            (nth t sched_trace empty_sched_trace_entry))
@@ -253,7 +264,7 @@ Definition workload_global_fifo_scheduler_relation_row
   choose_top_m
     global_fifo_top_m_spec
     (workload_scheduler_relation_jobs task_trace sched_trace)
-    2
+    1
     (workload_scheduler_relation_schedule sched_trace)
     t
     (workload_scheduler_relation_candidates entry) =
@@ -268,7 +279,7 @@ Definition workload_global_fifo_scheduler_relation_rowb
     (choose_top_m
        global_fifo_top_m_spec
        (workload_scheduler_relation_jobs task_trace sched_trace)
-       2
+       1
        (workload_scheduler_relation_schedule sched_trace)
        t
        (workload_scheduler_relation_candidates entry))
@@ -377,8 +388,8 @@ Definition workload_global_fifo_row_witness
     (t : Time)
     (entry : AwkernelSchedTraceEntry)
     (cand : list JobId) : Prop :=
-  choose_top_m global_fifo_top_m_spec jobs 2 sched t cand =
-  workload_scheduler_facing_choice entry.
+  choose fifo_generic_spec jobs 1 sched t cand =
+  workload_scheduler_facing_choice_head entry.
 
 Definition workload_global_fifo_table_witness
     (jobs : JobId -> Job)
@@ -695,16 +706,21 @@ Proof.
   reflexivity.
 Qed.
 
+Lemma workload_scheduler_facing_choice_head_empty :
+  workload_scheduler_facing_choice_head empty_sched_trace_entry = None.
+Proof.
+  reflexivity.
+Qed.
+
 Lemma workload_scheduler_facing_row_state_eq_cpu :
   forall entry c,
     op_current (workload_scheduler_facing_row_state entry) c =
-    if c <? 2
+    if c <? 1
     then nth_error (workload_scheduler_facing_choice entry) c
     else None.
 Proof.
-  intros entry [|[|c']]; unfold workload_scheduler_facing_row_state,
+  intros entry [|c']; unfold workload_scheduler_facing_row_state,
     workload_scheduler_facing_choice; simpl.
-  - destruct (aste_current entry) as [j|]; reflexivity.
   - destruct (aste_current entry) as [j|]; reflexivity.
   - reflexivity.
 Qed.
@@ -712,7 +728,7 @@ Qed.
 Lemma candidate_source_of_table_nth_error :
   forall table jobs sched t cand,
     nth_error table t = Some cand ->
-    candidate_source_of_table table jobs 2 sched t = cand.
+    candidate_source_of_table table jobs 1 sched t = cand.
 Proof.
   intros table jobs sched t.
   revert table.
@@ -726,7 +742,7 @@ Qed.
 Lemma candidate_source_of_table_overflow_nil :
   forall table jobs sched t,
     length table <= t ->
-    candidate_source_of_table table jobs 2 sched t = [].
+    candidate_source_of_table table jobs 1 sched t = [].
 Proof.
   intros table jobs sched t Hlen.
   unfold candidate_source_of_table.
@@ -736,11 +752,533 @@ Qed.
 
 Lemma choose_top_m_global_fifo_nil :
   forall jobs sched t,
-    choose_top_m global_fifo_top_m_spec jobs 2 sched t [] = [].
+    choose_top_m global_fifo_top_m_spec jobs 1 sched t [] = [].
 Proof.
   intros jobs sched t.
   reflexivity.
 Qed.
+
+Lemma op_struct_inv_two_implies_one :
+  forall st,
+    op_struct_inv 2 st ->
+    op_struct_inv 1 st.
+Proof.
+  intros st Hinv.
+  destruct Hinv as [Hnodup Hrunnable Hcurrent Hdispatch Hdispatch_from].
+  constructor.
+  - intros j c1 c2 Hlt1 Hlt2.
+    eapply Hnodup; lia.
+  - exact Hrunnable.
+  - exact Hcurrent.
+  - intros j c1 c2 Hlt1 Hlt2.
+    eapply Hdispatch; lia.
+  - intros c j Hlt.
+    eapply Hdispatch_from; lia.
+Qed.
+
+Definition workload_scheduler_facing_execution_single_worker
+    {P : OSLabeledProjection AwkernelState}
+    (ex : labeled_concrete_execution P 2)
+    : labeled_concrete_execution P 1 :=
+  @mkLabeledConcreteExecution
+    AwkernelState
+    P
+    1
+    (lce_trace ex)
+    (lce_init ex)
+    (lce_stepwise ex)
+    (fun t => op_struct_inv_two_implies_one _ (lce_struct_inv ex t)).
+
+Lemma workload_scheduler_facing_execution_single_worker_state_eq :
+  forall (P : OSLabeledProjection AwkernelState)
+         (ex : labeled_concrete_execution P 2)
+         t,
+    os_to_op_state (osl_to_os_projection P)
+      (lce_trace (workload_scheduler_facing_execution_single_worker ex) t) =
+    os_to_op_state (osl_to_os_projection P)
+      (lce_trace ex t).
+Proof.
+  reflexivity.
+Qed.
+
+Lemma workload_scheduler_facing_cpu_outside_worker_idle :
+  forall (P : OSLabeledProjection AwkernelState)
+         (ex : labeled_concrete_execution P 2)
+         sched_trace t c,
+    workload_scheduler_facing_execution_matches_sched_trace ex sched_trace ->
+    0 < c ->
+    projected_scheduler_relation_schedule ex t c = None.
+Proof.
+  intros P ex sched_trace t c Hmatch Hgt.
+  unfold projected_scheduler_relation_schedule, project_schedule.
+  rewrite osl_to_op_trace_unfold.
+  rewrite Hmatch.
+  rewrite workload_scheduler_facing_row_state_eq_cpu.
+  destruct c; [lia|].
+  reflexivity.
+Qed.
+
+Lemma workload_scheduler_facing_cpu_count_two_eq_one :
+  forall (P : OSLabeledProjection AwkernelState)
+         (ex : labeled_concrete_execution P 2)
+         sched_trace j t,
+    workload_scheduler_facing_execution_matches_sched_trace ex sched_trace ->
+    cpu_count 2 (projected_scheduler_relation_schedule ex) j t =
+    cpu_count 1 (projected_scheduler_relation_schedule ex) j t.
+Proof.
+  intros P ex sched_trace j t Hmatch.
+  simpl.
+  unfold runs_on.
+  rewrite (workload_scheduler_facing_cpu_outside_worker_idle
+             P ex sched_trace t 1 Hmatch ltac:(lia)).
+  reflexivity.
+Qed.
+
+Lemma workload_scheduler_facing_service_two_eq_one :
+  forall (P : OSLabeledProjection AwkernelState)
+         (ex : labeled_concrete_execution P 2)
+         sched_trace j t,
+    workload_scheduler_facing_execution_matches_sched_trace ex sched_trace ->
+    service_job 2 (projected_scheduler_relation_schedule ex) j t =
+    service_job 1 (projected_scheduler_relation_schedule ex) j t.
+Proof.
+  intros P ex sched_trace j t Hmatch.
+  induction t as [|t IH].
+  - reflexivity.
+  - rewrite !service_job_unfold.
+    rewrite (workload_scheduler_facing_cpu_count_two_eq_one
+               P ex sched_trace j t Hmatch).
+    rewrite IH by exact Hmatch.
+    reflexivity.
+Qed.
+
+Lemma workload_scheduler_facing_completed_two_iff_one :
+  forall (P : OSLabeledProjection AwkernelState)
+         (ex : labeled_concrete_execution P 2)
+         jobs sched_trace j t,
+    workload_scheduler_facing_execution_matches_sched_trace ex sched_trace ->
+    (completed jobs 2 (projected_scheduler_relation_schedule ex) j t <->
+     completed jobs 1 (projected_scheduler_relation_schedule ex) j t).
+Proof.
+  intros P ex jobs sched_trace j t Hmatch.
+  unfold completed.
+  rewrite (workload_scheduler_facing_service_two_eq_one
+             P ex sched_trace j t Hmatch).
+  tauto.
+Qed.
+
+Lemma workload_scheduler_facing_row_candidate_visible_sound :
+  forall row j,
+    row_candidate_visibleb row j = true ->
+    op_job_visible 1 (workload_scheduler_facing_row_state row) j.
+Proof.
+  intros row j Hvisible.
+  unfold row_candidate_visibleb in Hvisible.
+  apply Bool.orb_true_iff in Hvisible.
+  destruct Hvisible as [Hvisible | Hdispatch].
+  - apply Bool.orb_true_iff in Hvisible.
+    destruct Hvisible as [Hcurrent | Hrunnable].
+    + left.
+      exists 0.
+      split; [lia|].
+      unfold workload_scheduler_facing_row_state.
+      simpl.
+      destruct (aste_current row) as [j'|] eqn:Hcur; simpl in Hcurrent; try discriminate.
+      apply Nat.eqb_eq in Hcurrent.
+      subst j'.
+      reflexivity.
+    + right. left.
+      unfold workload_scheduler_facing_row_state.
+      simpl.
+      apply job_in_listb_sound.
+      exact Hrunnable.
+  - right. right.
+    exists 0.
+    split; [lia|].
+    unfold workload_scheduler_facing_row_state.
+    simpl.
+    destruct (aste_dispatch_target row) as [j'|] eqn:Htarget;
+      simpl in Hdispatch; try discriminate.
+    apply Nat.eqb_eq in Hdispatch.
+    subst j'.
+    reflexivity.
+Qed.
+
+Lemma workload_scheduler_facing_state_current_inv :
+  forall row c j,
+    op_current (workload_scheduler_facing_row_state row) c = Some j ->
+    c = 0 /\ aste_current row = Some j.
+Proof.
+  intros row c j Hcur.
+  unfold workload_scheduler_facing_row_state in Hcur.
+  simpl in Hcur.
+  destruct (Nat.eqb c 0) eqn:Hcpu; simpl in Hcur.
+  - apply Nat.eqb_eq in Hcpu.
+    subst c.
+    destruct (aste_current row) as [j'|] eqn:Hentry; inversion Hcur; subst.
+    split; reflexivity.
+  - discriminate.
+Qed.
+
+Lemma workload_scheduler_facing_state_dispatch_inv :
+  forall row c j,
+    op_dispatch_target (workload_scheduler_facing_row_state row) c = Some j ->
+    c = 0 /\ aste_dispatch_target row = Some j.
+Proof.
+  intros row c j Htarget.
+  unfold workload_scheduler_facing_row_state in Htarget.
+  simpl in Htarget.
+  destruct (Nat.eqb c 0) eqn:Hcpu; simpl in Htarget.
+  - apply Nat.eqb_eq in Hcpu.
+    subst c.
+    destruct (aste_dispatch_target row) as [j'|] eqn:Hentry; inversion Htarget; subst.
+    split; reflexivity.
+  - discriminate.
+Qed.
+
+Lemma option_candidate_includedb_sound :
+  forall oj cand j,
+    option_candidate_includedb oj cand = true ->
+    oj = Some j ->
+    In j cand.
+Proof.
+  intros oj cand j Hinc Hoj.
+  unfold option_candidate_includedb in Hinc.
+  rewrite Hoj in Hinc.
+  apply job_in_listb_sound.
+  exact Hinc.
+Qed.
+
+Lemma local_projection_sound_single_worker_from_two :
+  forall (P : OSLabeledProjection AwkernelState)
+         jobs adm table
+         (C : awk_local_candidate_source_adapter_contract
+                P
+                (candidate_source_of_table table)
+                jobs
+                adm
+                2)
+         sched_trace,
+    workload_scheduler_facing_execution_matches_sched_trace
+      (olac_execution (olcsac_base C))
+      sched_trace ->
+    local_labeled_concrete_multicore_projection_sound
+      jobs
+      adm
+      1
+      (workload_scheduler_facing_execution_single_worker
+         (olac_execution (olcsac_base C))).
+Proof.
+  intros P jobs adm table C sched_trace Hmatch.
+  pose proof (olac_sound (olcsac_base C)) as Hsound2.
+  pose proof (llcmps_projection_sound Hsound2) as Hproj2.
+  refine
+    (@mkLocalLabeledConcreteMulticoreProjectionSound
+       AwkernelState
+       P
+       jobs
+       adm
+       1
+       (workload_scheduler_facing_execution_single_worker
+          (olac_execution (olcsac_base C)))
+       _ _ _).
+  - refine
+      (@mkLocalLabeledConcreteProjectionSound
+         AwkernelState
+         P
+         jobs
+         1
+         (workload_scheduler_facing_execution_single_worker
+            (olac_execution (olcsac_base C)))
+         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _).
+    + intros c j Hlt Hcur.
+      apply (llcps_init_release Hproj2 c j); [lia|assumption].
+    + intros c j Hlt Hcur Hdone.
+      pose proof (llcps_init_completion Hproj2 c j ltac:(lia) Hcur) as Hdone2.
+      apply Hdone2.
+      apply (proj2 (workload_scheduler_facing_completed_two_iff_one
+                      P (olac_execution (olcsac_base C)) jobs sched_trace j 0 Hmatch)).
+      exact Hdone.
+    + exact (llcps_init_runnable_release Hproj2).
+    + intros j Hrunnable Hdone.
+      pose proof (llcps_init_runnable_completion Hproj2 j Hrunnable) as Hdone2.
+      apply Hdone2.
+      apply (proj2 (workload_scheduler_facing_completed_two_iff_one
+                      P (olac_execution (olcsac_base C)) jobs sched_trace j 0 Hmatch)).
+      exact Hdone.
+    + intros t c j Hlt Hcur.
+      apply (llcps_current_origin Hproj2 t c j); [lia|assumption].
+    + intros t c j Hlt Hdispatch.
+      apply (llcps_dispatch_release Hproj2 t c j); [lia|assumption].
+    + exact (llcps_wakeup_release Hproj2).
+    + intros t j Hwakeup Hdone.
+      pose proof (llcps_wakeup_completion Hproj2 t j Hwakeup) as Hdone2.
+      apply Hdone2.
+      apply (proj2 (workload_scheduler_facing_completed_two_iff_one
+                      P (olac_execution (olcsac_base C)) jobs sched_trace j (S t) Hmatch)).
+      exact Hdone.
+    + intros t c j Hlt Hcur1 Hcur2 Hdone.
+      pose proof
+        (llcps_persistent_completion Hproj2 t c j ltac:(lia) Hcur1 Hcur2)
+        as Hdone2.
+      apply Hdone2.
+      apply (proj2 (workload_scheduler_facing_completed_two_iff_one
+                      P (olac_execution (olcsac_base C)) jobs sched_trace j (S t) Hmatch)).
+      exact Hdone.
+    + intros t c Hlt Hreq.
+      apply (llcps_request_sets_need_resched Hproj2 t c); [lia|assumption].
+    + intros t c Hlt Hhandle.
+      apply (llcps_handle_sets_need_resched Hproj2 t c); [lia|assumption].
+    + intros t c j Hlt Hchoose.
+      apply (llcps_choose_sets_dispatch_target Hproj2 t c j); [lia|assumption].
+    + intros t c j Hlt Hchoose.
+      apply (llcps_choose_from_runnable Hproj2 t c j); [lia|assumption].
+    + intros t c j Hlt Hdispatch Hdone.
+      pose proof
+        (llcps_dispatch_completion Hproj2 t c j ltac:(lia) Hdispatch)
+        as Hdone2.
+      apply Hdone2.
+      apply (proj2 (workload_scheduler_facing_completed_two_iff_one
+                      P (olac_execution (olcsac_base C)) jobs sched_trace j (S t) Hmatch)).
+      exact Hdone.
+    + exact (llcps_block_clears_current Hproj2).
+    + exact (llcps_block_clears_runnable Hproj2).
+    + intros t c j Hlt Hblock.
+      apply (llcps_block_clears_dispatch_target Hproj2 t c j); [lia|assumption].
+    + intros t j Hcomplete.
+      pose proof (llcps_complete_sets_completed Hproj2 t j Hcomplete) as Hdone2.
+      apply (proj1 (workload_scheduler_facing_completed_two_iff_one
+                      P (olac_execution (olcsac_base C)) jobs sched_trace j (S t) Hmatch)).
+      exact Hdone2.
+    + intros t c old new Hlt Hpreempt.
+      apply (llcps_preempt_release Hproj2 t c old new); [lia|assumption].
+    + intros t c old new Hlt Hpreempt Hdone.
+      pose proof
+        (llcps_preempt_completion Hproj2 t c old new ltac:(lia) Hpreempt)
+        as Hdone2.
+      apply Hdone2.
+      apply (proj2 (workload_scheduler_facing_completed_two_iff_one
+                      P (olac_execution (olcsac_base C)) jobs sched_trace new (S t) Hmatch)).
+      exact Hdone.
+    + intros t c old new Hlt Hpreempt Hdone.
+      pose proof
+        (llcps_preempt_old_completion Hproj2 t c old new ltac:(lia) Hpreempt)
+        as Hdone2.
+      apply Hdone2.
+      apply (proj2 (workload_scheduler_facing_completed_two_iff_one
+                      P (olac_execution (olcsac_base C)) jobs sched_trace old (S t) Hmatch)).
+      exact Hdone.
+  - intros t c Hge.
+    unfold awk_idle_outside_range, op_idle_outside_range.
+    change
+      (op_current
+         (os_to_op_state (osl_to_os_projection P)
+            (lce_trace (olac_execution (olcsac_base C)) t)) c = None).
+    rewrite (Hmatch t).
+    unfold workload_scheduler_facing_row_state.
+    simpl.
+    destruct c; [lia|].
+    reflexivity.
+  - intros t c j Hlt Hrun.
+    apply (llcmps_placement Hsound2 t c j); [lia|assumption].
+Qed.
+
+Lemma workload_candidate_source_sound_single_worker :
+  forall (P : OSLabeledProjection AwkernelState)
+         jobs adm table
+         (C : awk_local_candidate_source_adapter_contract
+                P
+                (candidate_source_of_table table)
+                jobs
+                adm
+                2)
+         sched_trace,
+    workload_candidate_table_contract sched_trace table ->
+    workload_scheduler_facing_execution_matches_sched_trace
+      (olac_execution (olcsac_base C))
+      sched_trace ->
+    awk_labeled_concrete_candidate_source_contract
+      P
+      jobs
+      1
+      (candidate_source_of_table table)
+      (workload_scheduler_facing_execution_single_worker
+         (olac_execution (olcsac_base C))).
+Proof.
+  intros P jobs adm table C sched_trace Htable Hmatch.
+  refine
+    (@mkLabeledConcreteCandidateSourceContract
+       AwkernelState
+       P
+       jobs
+       1
+       (candidate_source_of_table table)
+       (workload_scheduler_facing_execution_single_worker
+          (olac_execution (olcsac_base C)))
+       _ _ _ _ _).
+  - intros t j Hin.
+    assert (Ht : t < length table).
+    { eapply candidate_source_of_table_in_bounds.
+      exact Hin. }
+    assert (Hrow_t : t < length sched_trace).
+    { rewrite (proj1 Htable). exact Ht. }
+    assert (Hrow :
+      nth_error sched_trace t = Some (nth t sched_trace empty_sched_trace_entry)).
+    { apply nth_error_nth'. exact Hrow_t. }
+    assert (Hcand :
+      nth_error table t = Some (nth t table [])).
+    { apply nth_error_nth'. exact Ht. }
+    pose proof (workload_candidate_table_contract_nth
+                  sched_trace table t
+                  (nth t sched_trace empty_sched_trace_entry)
+                  (nth t table [])
+                  Htable Hrow Hcand) as Hrow_contract.
+    destruct Hrow_contract as [_ [Hvisible [_ [_ _]]]].
+    rewrite (workload_scheduler_facing_execution_single_worker_state_eq
+               P (olac_execution (olcsac_base C)) t).
+    rewrite (Hmatch t).
+    eapply workload_scheduler_facing_row_candidate_visible_sound.
+    eapply all_candidates_visibleb_sound.
+    * exact Hvisible.
+    * exact Hin.
+  - intros t c j Hlt Hcur.
+    rewrite (workload_scheduler_facing_execution_single_worker_state_eq
+               P (olac_execution (olcsac_base C)) t) in Hcur.
+    rewrite (Hmatch t) in Hcur.
+    destruct (lt_dec t (length sched_trace)) as [Ht | Ht].
+    + assert (Hrow :
+        nth_error sched_trace t = Some (nth t sched_trace empty_sched_trace_entry)).
+      { apply nth_error_nth'. exact Ht. }
+      assert (Ht_table : t < length table).
+      { rewrite <- (proj1 Htable). exact Ht. }
+      assert (Hcand :
+        nth_error table t = Some (nth t table [])).
+      { apply nth_error_nth'. exact Ht_table. }
+      pose proof (workload_candidate_table_contract_nth
+                    sched_trace table t
+                    (nth t sched_trace empty_sched_trace_entry)
+                    (nth t table [])
+                    Htable Hrow Hcand) as Hrow_contract.
+      destruct Hrow_contract as [_ [_ [Hcurrent [_ _]]]].
+      destruct (workload_scheduler_facing_state_current_inv
+                  (nth t sched_trace empty_sched_trace_entry) c j Hcur)
+        as [_ Hentry].
+      eapply option_candidate_includedb_sound.
+      * exact Hcurrent.
+      * exact Hentry.
+    + exfalso.
+      assert (c = 0) by lia.
+      subst c.
+      rewrite (nth_overflow sched_trace empty_sched_trace_entry) in Hcur by lia.
+      unfold workload_scheduler_facing_row_state in Hcur.
+      simpl in Hcur.
+      destruct (aste_current empty_sched_trace_entry); discriminate.
+  - intros t j Hrunnable.
+    rewrite (workload_scheduler_facing_execution_single_worker_state_eq
+               P (olac_execution (olcsac_base C)) t) in Hrunnable.
+    rewrite (Hmatch t) in Hrunnable.
+    destruct (lt_dec t (length sched_trace)) as [Ht | Ht].
+    + assert (Hrow :
+        nth_error sched_trace t = Some (nth t sched_trace empty_sched_trace_entry)).
+      { apply nth_error_nth'. exact Ht. }
+      assert (Ht_table : t < length table).
+      { rewrite <- (proj1 Htable). exact Ht. }
+      assert (Hcand :
+        nth_error table t = Some (nth t table [])).
+      { apply nth_error_nth'. exact Ht_table. }
+      pose proof (workload_candidate_table_contract_nth
+                    sched_trace table t
+                    (nth t sched_trace empty_sched_trace_entry)
+                    (nth t table [])
+                    Htable Hrow Hcand) as Hrow_contract.
+      destruct Hrow_contract as [_ [_ [_ [Hrunnable_in _]]]].
+      unfold workload_scheduler_facing_row_state in Hrunnable.
+      simpl in Hrunnable.
+      eapply all_jobs_includedb_sound.
+      * exact Hrunnable_in.
+      * exact Hrunnable.
+    + exfalso.
+      rewrite (nth_overflow sched_trace empty_sched_trace_entry) in Hrunnable by lia.
+      unfold workload_scheduler_facing_row_state in Hrunnable.
+      simpl in Hrunnable.
+      contradiction.
+  - intros t c j Hlt Hdispatch.
+    rewrite (workload_scheduler_facing_execution_single_worker_state_eq
+               P (olac_execution (olcsac_base C)) t) in Hdispatch.
+    rewrite (Hmatch t) in Hdispatch.
+    destruct (lt_dec t (length sched_trace)) as [Ht | Ht].
+    + assert (Hrow :
+        nth_error sched_trace t = Some (nth t sched_trace empty_sched_trace_entry)).
+      { apply nth_error_nth'. exact Ht. }
+      assert (Ht_table : t < length table).
+      { rewrite <- (proj1 Htable). exact Ht. }
+      assert (Hcand :
+        nth_error table t = Some (nth t table [])).
+      { apply nth_error_nth'. exact Ht_table. }
+      pose proof (workload_candidate_table_contract_nth
+                    sched_trace table t
+                    (nth t sched_trace empty_sched_trace_entry)
+                    (nth t table [])
+                    Htable Hrow Hcand) as Hrow_contract.
+      destruct Hrow_contract as [_ [_ [_ [_ Hdispatch_in]]]].
+      destruct (workload_scheduler_facing_state_dispatch_inv
+                  (nth t sched_trace empty_sched_trace_entry) c j Hdispatch)
+        as [_ Hentry].
+      eapply option_candidate_includedb_sound.
+      * exact Hdispatch_in.
+      * exact Hentry.
+    + exfalso.
+      assert (c = 0) by lia.
+      subst c.
+      rewrite (nth_overflow sched_trace empty_sched_trace_entry) in Hdispatch by lia.
+      unfold workload_scheduler_facing_row_state in Hdispatch.
+      simpl in Hdispatch.
+      destruct (aste_dispatch_target empty_sched_trace_entry); discriminate.
+  - intros s1 s2 t Hagree.
+    eapply candidate_source_of_table_prefix_extensional.
+    exact Hagree.
+Qed.
+
+Definition accepted_workload_scheduler_facing_candidate_source_adapter_contract
+    (P : OSLabeledProjection AwkernelState)
+    jobs adm table
+    (C : awk_local_candidate_source_adapter_contract
+           P
+           (candidate_source_of_table table)
+           jobs
+           adm
+           2)
+    sched_trace
+    (Htable : workload_candidate_table_contract sched_trace table)
+    (Hmatch :
+       workload_scheduler_facing_execution_matches_sched_trace
+         (olac_execution (olcsac_base C))
+         sched_trace)
+    : awk_local_candidate_source_adapter_contract
+        P
+        (candidate_source_of_table table)
+        jobs
+        adm
+        1 :=
+  @mkOSLocalCandidateSourceAdapterContract
+    AwkernelState
+    P
+    (candidate_source_of_table table)
+    jobs
+    adm
+    1
+    (@mkOSLocalMulticoreAdapterContract
+       AwkernelState
+       P
+       jobs
+       adm
+       1
+       (workload_scheduler_facing_execution_single_worker
+          (olac_execution (olcsac_base C)))
+       (local_projection_sound_single_worker_from_two
+          P jobs adm table C sched_trace Hmatch))
+    (workload_candidate_source_sound_single_worker
+       P jobs adm table C sched_trace Htable Hmatch).
 
 Lemma accepted_workload_scheduler_facing_sound_from_contract :
   forall (P : OSLabeledProjection AwkernelState)
@@ -762,39 +1300,35 @@ Lemma accepted_workload_scheduler_facing_sound_from_contract :
     workload_scheduler_facing_execution_matches_sched_trace
       (olac_execution (olcsac_base C))
       sched_trace ->
-    awk_labeled_concrete_top_m_scheduler_relation_contract
+    awk_labeled_concrete_single_cpu_scheduler_relation_contract
       P
       jobs
-      2
-      global_fifo_top_m_spec
+      fifo_generic_spec
       (candidate_source_of_table table)
-      (olac_execution (olcsac_base C)).
+      (workload_scheduler_facing_execution_single_worker
+         (olac_execution (olcsac_base C))).
 Proof.
   intros P jobs adm table C task_trace sched_trace
-         [_ [_ [Hlen Hfifo]]] Hmatch.
+         [_ [Htable [Hlen Hfifo]]] Hmatch.
   refine
-    (@mkLabeledConcreteTopMSchedulerRelationContract
+    (@mkLabeledConcreteSingleCPUSchedulerRelationContract
        AwkernelState
        P
        jobs
-       2
-       global_fifo_top_m_spec
+       fifo_generic_spec
        (candidate_source_of_table table)
-       (olac_execution (olcsac_base C))
-       _).
-  intros t c.
-  destruct c as [|[|c']].
-  - change
-      (projected_scheduler_relation_schedule (olac_execution (olcsac_base C)) t 0 =
-       nth_error
-         (choose_top_m global_fifo_top_m_spec jobs 2
-            (projected_scheduler_relation_schedule (olac_execution (olcsac_base C))) t
-            (candidate_source_of_table table jobs 2
-               (projected_scheduler_relation_schedule (olac_execution (olcsac_base C))) t)) 0).
+       (workload_scheduler_facing_execution_single_worker
+          (olac_execution (olcsac_base C)))
+       _ _).
+  - intros t.
     unfold projected_scheduler_relation_schedule, project_schedule.
     rewrite osl_to_op_trace_unfold.
+    rewrite (workload_scheduler_facing_execution_single_worker_state_eq
+               P (olac_execution (olcsac_base C)) t).
     rewrite (Hmatch t).
     rewrite workload_scheduler_facing_row_state_eq_cpu.
+    unfold workload_scheduler_facing_choice.
+    simpl.
     destruct (lt_dec t (length sched_trace)) as [Ht | Ht].
     + assert (Hentry :
           nth_error sched_trace t =
@@ -810,83 +1344,36 @@ Proof.
                     (nth t table [])
                     Hentry Hcand) as Hrow.
       unfold workload_global_fifo_row_witness in Hrow.
-      unfold projected_scheduler_relation_schedule in Hrow.
-      pose proof (f_equal (fun l => nth_error l 0) Hrow) as Hnth.
+      unfold projected_candidate_list.
       unfold candidate_source_of_table.
-      change
-        (nth_error
-           (workload_scheduler_facing_choice
-              (nth t sched_trace empty_sched_trace_entry)) 0 =
-         nth_error
-           (choose_top_m global_fifo_top_m_spec jobs 2
-              (project_schedule
-                 (osl_to_op_trace P (lce_trace (olac_execution (olcsac_base C)))))
-              t
-              (nth t table [])) 0).
+      simpl in Hrow.
       symmetry.
-      exact Hnth.
+      exact Hrow.
     + rewrite (nth_overflow sched_trace empty_sched_trace_entry) by lia.
-      rewrite workload_scheduler_facing_choice_empty.
-      unfold candidate_source_of_table.
-      rewrite (nth_overflow table []) by (rewrite <- Hlen; lia).
-      reflexivity.
-  - change
-      (projected_scheduler_relation_schedule (olac_execution (olcsac_base C)) t 1 =
-       nth_error
-         (choose_top_m global_fifo_top_m_spec jobs 2
-            (projected_scheduler_relation_schedule (olac_execution (olcsac_base C))) t
-            (candidate_source_of_table table jobs 2
-               (projected_scheduler_relation_schedule (olac_execution (olcsac_base C))) t)) 1).
+      unfold projected_candidate_list.
+      assert
+        (Hempty :
+           candidate_source_of_table table jobs 1
+             (project_schedule
+                (osl_to_op_trace P
+                   (lce_trace
+                      (workload_scheduler_facing_execution_single_worker
+                         (olac_execution (olcsac_base C))))))
+             t = []).
+      { unfold candidate_source_of_table.
+        rewrite (nth_overflow table []) by (rewrite <- Hlen; lia).
+        reflexivity. }
+      rewrite Hempty.
+      unfold fifo_generic_spec; reflexivity.
+  - intros t c Hgt.
     unfold projected_scheduler_relation_schedule, project_schedule.
     rewrite osl_to_op_trace_unfold.
+    rewrite (workload_scheduler_facing_execution_single_worker_state_eq
+               P (olac_execution (olcsac_base C)) t).
     rewrite (Hmatch t).
     rewrite workload_scheduler_facing_row_state_eq_cpu.
-    destruct (lt_dec t (length sched_trace)) as [Ht | Ht].
-    + assert (Hentry :
-          nth_error sched_trace t =
-          Some (nth t sched_trace empty_sched_trace_entry)).
-      { apply nth_error_nth'. exact Ht. }
-      assert (Htable_t : t < length table).
-      { rewrite <- Hlen. exact Ht. }
-      assert (Hcand :
-          nth_error table t = Some (nth t table [])).
-      { apply nth_error_nth'. exact Htable_t. }
-      pose proof (Hfifo t
-                    (nth t sched_trace empty_sched_trace_entry)
-                    (nth t table [])
-                    Hentry Hcand) as Hrow.
-      unfold workload_global_fifo_row_witness in Hrow.
-      unfold projected_scheduler_relation_schedule in Hrow.
-      pose proof (f_equal (fun l => nth_error l 1) Hrow) as Hnth.
-      unfold candidate_source_of_table.
-      change
-        (nth_error
-           (workload_scheduler_facing_choice
-              (nth t sched_trace empty_sched_trace_entry)) 1 =
-         nth_error
-           (choose_top_m global_fifo_top_m_spec jobs 2
-              (project_schedule
-                 (osl_to_op_trace P (lce_trace (olac_execution (olcsac_base C)))))
-              t
-              (nth t table [])) 1).
-      symmetry.
-      exact Hnth.
-    + rewrite (nth_overflow sched_trace empty_sched_trace_entry) by lia.
-      rewrite workload_scheduler_facing_choice_empty.
-      unfold candidate_source_of_table.
-      rewrite (nth_overflow table []) by (rewrite <- Hlen; lia).
-      reflexivity.
-  - change
-      (projected_scheduler_relation_schedule (olac_execution (olcsac_base C)) t (S (S c')) = None).
-    unfold projected_scheduler_relation_schedule, project_schedule.
-    rewrite osl_to_op_trace_unfold.
-    rewrite (Hmatch t).
-    rewrite workload_scheduler_facing_row_state_eq_cpu.
-    unfold candidate_source_of_table.
-    destruct (lt_dec t (length table)) as [Hlt | Hge].
-    + reflexivity.
-    + rewrite nth_overflow by lia.
-      reflexivity.
+    destruct c; [lia|].
+    reflexivity.
 Qed.
 
 Definition accepted_workload_scheduler_facing_adapter_contract
@@ -910,21 +1397,20 @@ Definition accepted_workload_scheduler_facing_adapter_contract
        workload_scheduler_facing_execution_matches_sched_trace
          (olac_execution (olcsac_base C))
          sched_trace)
-    : awk_local_top_m_scheduler_relation_adapter_contract
+    : awk_local_single_cpu_scheduler_relation_adapter_contract
         P
-        global_fifo_top_m_spec
+        fifo_generic_spec
         (candidate_source_of_table table)
         jobs
-        adm
-        2 :=
-  @mkOSLocalTopMSchedulerRelationAdapterContract
+        adm :=
+  @mkOSLocalSingleCPUSchedulerRelationAdapterContract
     AwkernelState
     P
-    global_fifo_top_m_spec
+    fifo_generic_spec
     (candidate_source_of_table table)
     jobs
     adm
-    2
-    C
+    (accepted_workload_scheduler_facing_candidate_source_adapter_contract
+       P jobs adm table C sched_trace (proj1 (proj2 Hfamily)) Hmatch)
     (accepted_workload_scheduler_facing_sound_from_contract
        P jobs adm table C task_trace sched_trace Hfamily Hmatch).

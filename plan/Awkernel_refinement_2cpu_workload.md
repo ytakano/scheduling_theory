@@ -381,7 +381,10 @@ module は `GlobalFIFO` を target にし、
 - `accepted_workload_scheduler_facing_adapter_contract`
 
 を導入している。ここでの witness は physical 2-CPU projected schedule そのものではなく、
-accepted `sched_trace` から logical scheduler-facing row state を読む narrow bridge である。
+accepted `sched_trace` から読む logical scheduler-facing row state を、
+capacity 1 の logical worker schedule として解釈する narrow bridge である。
+physical 2-CPU runtime のうち、CPU 0 は scheduler/interrupt CPU として残り、
+`GlobalFIFO` relation は worker CPU 1 本分の single-CPU contract に落としている。
 common operational interface は変更しない。
 
 ### Future Step 10: stronger scheduler-relation reuse
