@@ -91,6 +91,7 @@ Lemma os_local_candidate_source_adapter_contract_candidate_implies_eligible :
          candidates_of jobs adm m
          (C : os_local_candidate_source_adapter_contract
                 P candidates_of jobs adm m) t j,
+    ~ blocked jobs j t ->
     In j
        (projected_candidate_list
           jobs
@@ -106,14 +107,16 @@ Lemma os_local_candidate_source_adapter_contract_candidate_implies_eligible :
       j
       t.
 Proof.
-  intros CState P candidates_of jobs adm m C t j Hin.
+  intros CState P candidates_of jobs adm m C t j Hnot_blocked Hin.
   pose proof (os_local_multicore_adapter_contract_to_scheduler_view_contract
                 CState P jobs adm m (olcsac_base C)) as Hview.
   pose proof (lccsc_candidates_visible (olcsac_candidates C) t j Hin) as Hvisible.
   apply eligible_iff_released_and_not_completed.
   split.
   - exact (lcsv_visible_released Hview t j Hvisible).
-  - exact (lcsv_visible_not_completed Hview t j Hvisible).
+  - split.
+    + exact (lcsv_visible_not_completed Hview t j Hvisible).
+    + exact Hnot_blocked.
 Qed.
 
 Lemma os_local_candidate_source_adapter_contract_visible_in_candidates :

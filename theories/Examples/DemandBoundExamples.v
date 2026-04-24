@@ -131,7 +131,8 @@ Definition dbf_ex_job : Job := {|
   job_index        := 0;
   job_release      := 0;
   job_cost         := 2;
-  job_abs_deadline := 4
+  job_abs_deadline := 4;
+  job_blocked      := fun _ => false
 |}.
 
 Definition dbf_ex_jobs : JobId -> Job := fun _ => dbf_ex_job.
@@ -192,7 +193,8 @@ Definition dbf_sp_job : Job := {|
   job_index        := 0;
   job_release      := 1;
   job_cost         := 2;
-  job_abs_deadline := 5    (* = release (1) + rel_deadline (4) *)
+  job_abs_deadline := 5;   (* = release (1) + rel_deadline (4) *)
+  job_blocked      := fun _ => false
 |}.
 
 (* A null job used to fill all other job IDs; its deadline is wrong so it
@@ -202,7 +204,8 @@ Definition dbf_sp_null_job : Job := {|
   job_index        := 1;
   job_release      := 0;
   job_cost         := 0;
-  job_abs_deadline := 0    (* ≠ 0 + 4 = release + rel_deadline, so not generated *)
+  job_abs_deadline := 0;   (* ≠ 0 + 4 = release + rel_deadline, so not generated *)
+  job_blocked      := fun _ => false
 |}.
 
 Definition dbf_sp_jobs (j : JobId) : Job :=

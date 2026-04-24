@@ -89,30 +89,38 @@ Qed.
    Placed here because readyb_iff uses cpu_count_zero_iff_not_executed. *)
 Definition readyb (jobs : JobId -> Job) (m : nat) (sched : Schedule)
                    (j : JobId) (t : Time) : bool :=
-  (job_release (jobs j) <=? t) &&
-  negb (job_cost (jobs j) <=? service_job m sched j t) &&
+  (((job_release (jobs j) <=? t) &&
+    negb (job_cost (jobs j) <=? service_job m sched j t)) &&
+   negb (job_blocked (jobs j) t)) &&
   (cpu_count m sched j t =? 0).
 
 Lemma readyb_iff : forall jobs m sched j t,
     readyb jobs m sched j t = true <-> ready jobs m sched j t.
 Proof.
   intros jobs m sched j t.
-  unfold readyb, ready, eligible, running, released, completed.
-  rewrite Bool.andb_true_iff, Bool.andb_true_iff, Nat.leb_le,
-          Bool.negb_true_iff, Nat.eqb_eq.
+  unfold readyb, ready, eligible, blocked, running, released, completed.
+  rewrite Bool.andb_true_iff, Bool.andb_true_iff, Bool.andb_true_iff,
+          Nat.leb_le, Bool.negb_true_iff, Bool.negb_true_iff, Nat.eqb_eq.
   split.
-  - intros [[H1 H2] H3]. split.
+  - intros [[[H1 H2] Hblocked] H3].
+    split.
     + split.
       * exact H1.
-      * intro Hge. apply Nat.leb_le in Hge. rewrite Hge in H2. discriminate.
+      * split.
+        -- intro Hge. apply Nat.leb_le in Hge. rewrite Hge in H2. discriminate.
+        -- intro Hblock. rewrite Hblock in Hblocked. discriminate.
     + intros [c [Hlt Hc]].
       apply (proj1 (cpu_count_zero_iff_not_executed m sched j t) H3 c Hlt).
       exact Hc.
-  - intros [[H1 H2] H3]. split; [split|].
-    + exact H1.
-    + apply Bool.not_true_iff_false. intro H. apply Nat.leb_le in H. exact (H2 H).
+  - intros [[H1 [H2 Hblocked]] H3].
+    split.
+    + split.
+      * split.
+        -- exact H1.
+        -- apply Bool.not_true_iff_false. intro H. apply Nat.leb_le in H. exact (H2 H).
+      * apply Bool.not_true_iff_false. intro H. exact (Hblocked H).
     + apply (proj2 (cpu_count_zero_iff_not_executed m sched j t)).
-      intros c Hlt Hc. apply H3. exists c. split. exact Hlt. exact Hc.
+       intros c Hlt Hc. apply H3. exists c. split. exact Hlt. exact Hc.
 Qed.
 
 (* Boolean version of eligible: like readyb but without the cpu_count = 0 check.
@@ -120,22 +128,29 @@ Qed.
    eligibleb_iff proves eligibleb j t = true <-> eligible j t. *)
 Definition eligibleb (jobs : JobId -> Job) (m : nat) (sched : Schedule)
                      (j : JobId) (t : Time) : bool :=
-  (job_release (jobs j) <=? t) &&
-  negb (job_cost (jobs j) <=? service_job m sched j t).
+  ((job_release (jobs j) <=? t) &&
+   negb (job_cost (jobs j) <=? service_job m sched j t)) &&
+  negb (job_blocked (jobs j) t).
 
 Lemma eligibleb_iff : forall jobs m sched j t,
     eligibleb jobs m sched j t = true <-> eligible jobs m sched j t.
 Proof.
   intros jobs m sched j t.
-  unfold eligibleb, eligible, released, completed.
-  rewrite Bool.andb_true_iff, Nat.leb_le, Bool.negb_true_iff.
+  unfold eligibleb, eligible, blocked, released, completed.
+  rewrite Bool.andb_true_iff, Bool.andb_true_iff, Nat.leb_le,
+          Bool.negb_true_iff, Bool.negb_true_iff.
   split.
-  - intros [H1 H2]. split.
+  - intros [[H1 H2] Hblocked]. split.
     + exact H1.
-    + intro Hge. apply Nat.leb_le in Hge. rewrite Hge in H2. discriminate.
-  - intros [H1 H2]. split.
-    + exact H1.
-    + apply Bool.not_true_iff_false. intro H. apply Nat.leb_le in H. exact (H2 H).
+    + split.
+      * intro Hge. apply Nat.leb_le in Hge. rewrite Hge in H2. discriminate.
+      * intro Hblock. rewrite Hblock in Hblocked. discriminate.
+  - intros [H1 [H2 Hblocked]].
+    split.
+    + split.
+      * exact H1.
+      * apply Bool.not_true_iff_false. intro H. apply Nat.leb_le in H. exact (H2 H).
+    + apply Bool.not_true_iff_false. intro H. exact (Hblocked H).
 Qed.
 
 Lemma cpu_count_pos_iff_executed : forall m sched j t,
@@ -306,7 +321,7 @@ Lemma completed_not_ready : forall jobs m sched j t,
     completed jobs m sched j t -> ~ready jobs m sched j t.
 Proof.
   unfold completed, ready, eligible.
-  intros jobs m sched j t Hcomp [[_ Hnot] _].
+  intros jobs m sched j t Hcomp [[_ [Hnot _]] _].
   exact (Hnot Hcomp).
 Qed.
 
@@ -321,7 +336,14 @@ Lemma ready_implies_not_completed : forall jobs m sched j t,
     ready jobs m sched j t -> ~completed jobs m sched j t.
 Proof.
   unfold ready, eligible.
-  intros jobs m sched j t Hr. exact (proj2 (proj1 Hr)).
+  intros jobs m sched j t Hr. exact (proj1 (proj2 (proj1 Hr))).
+Qed.
+
+Lemma ready_implies_not_blocked : forall jobs m sched j t,
+    ready jobs m sched j t -> ~ blocked jobs j t.
+Proof.
+  unfold ready, eligible.
+  intros jobs m sched j t Hr. exact (proj2 (proj2 (proj1 Hr))).
 Qed.
 
 Lemma not_ready_before_release : forall jobs m sched j t,
@@ -342,11 +364,18 @@ Proof.
   apply service_job_monotone. exact Hle.
 Qed.
 
-Lemma eligible_iff_released_and_not_completed : forall jobs m sched j t,
+Lemma eligible_iff_released_not_completed_not_blocked : forall jobs m sched j t,
     eligible jobs m sched j t <->
-    released jobs j t /\ ~completed jobs m sched j t.
+    released jobs j t /\ ~completed jobs m sched j t /\ ~ blocked jobs j t.
 Proof.
   unfold eligible. tauto.
+Qed.
+
+Lemma eligible_iff_released_and_not_completed : forall jobs m sched j t,
+    eligible jobs m sched j t <->
+    released jobs j t /\ ~completed jobs m sched j t /\ ~ blocked jobs j t.
+Proof.
+  apply eligible_iff_released_not_completed_not_blocked.
 Qed.
 
 Lemma ready_iff_eligible_and_not_running : forall jobs m sched j t,
@@ -377,7 +406,18 @@ Lemma valid_no_run_after_completion : forall jobs m sched j t c,
 Proof.
   unfold valid_schedule, eligible.
   intros jobs m sched j t c Hv Hlt Hrun.
-  exact (proj2 (Hv j t c Hlt Hrun)).
+  exact (proj1 (proj2 (Hv j t c Hlt Hrun))).
+Qed.
+
+Lemma valid_no_run_while_blocked : forall jobs m sched j t c,
+    valid_schedule jobs m sched ->
+    c < m ->
+    sched t c = Some j ->
+    ~ blocked jobs j t.
+Proof.
+  unfold valid_schedule, eligible.
+  intros jobs m sched j t c Hv Hlt Hrun.
+  exact (proj2 (proj2 (Hv j t c Hlt Hrun))).
 Qed.
 
 (* valid_schedule directly implies eligible for any running job.
@@ -433,7 +473,7 @@ Lemma completed_not_eligible : forall jobs m sched j t,
     ~eligible jobs m sched j t.
 Proof.
   unfold completed, eligible.
-  intros jobs m sched j t Hcomp [_ Hnot].
+  intros jobs m sched j t Hcomp [_ [Hnot _]].
   exact (Hnot Hcomp).
 Qed.
 
@@ -841,7 +881,8 @@ Proof.
   intros J jobs sched j t HJj Hvalid Hfeas Helig.
   (* Step 1: eligible → service at t < cost *)
   assert (Hlt_cost : service_job 1 sched j t < job_cost (jobs j)).
-  { apply not_completed_iff_service_lt_cost. exact (proj2 Helig). }
+  { apply not_completed_iff_service_lt_cost.
+    exact (proj1 (proj2 Helig)). }
   (* Step 2: feasible + J j → service at deadline >= cost (constructive: proof by negation) *)
   assert (Hge_cost : job_cost (jobs j) <= service_job 1 sched j (job_abs_deadline (jobs j))).
   { destruct (le_lt_dec (job_cost (jobs j)) (service_job 1 sched j (job_abs_deadline (jobs j))))

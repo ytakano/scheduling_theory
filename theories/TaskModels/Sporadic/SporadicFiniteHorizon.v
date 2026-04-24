@@ -1,5 +1,6 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
 From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Sporadic.SporadicTasks.
 From RocqSched Require Import Analysis.Common.WorkloadAggregation.
@@ -13,7 +14,9 @@ From RocqSched Require Import Analysis.Common.WorkloadAggregation.
    - their release time is strictly before H
 
    Unlike periodic_jobset_upto, releases are constrained by a lower bound only.
-   The minimum inter-arrival constraint is tracked separately in sporadic_job_model_on. *)
+   The minimum inter-arrival constraint is tracked separately in sporadic_job_model_on.
+   This remains part of the classic non-blocking analysis path; concrete wait
+   causes are intentionally outside the sporadic jobset model. *)
 Definition sporadic_jobset_upto
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
@@ -23,6 +26,15 @@ Definition sporadic_jobset_upto
     T (job_task (jobs j)) /\
     generated_by_sporadic_task tasks jobs j /\
     job_release (jobs j) < H.
+
+Definition sporadic_jobset_nonblocking
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (jobs : JobId -> Job)
+    (H : Time) : Prop :=
+  forall j t,
+    sporadic_jobset_upto T tasks jobs H j ->
+    ~ blocked jobs j t.
 
 (* Boolean version for use with CandidateSourceSpec / enum_candidates_spec. *)
 Definition sporadic_jobset_upto_bool

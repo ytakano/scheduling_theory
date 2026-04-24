@@ -31,12 +31,14 @@ Theorem periodic_finite_optimality_lift :
                             (cands : CandidateSource)
                             (cand_spec : CandidateSourceSpec J cands) jobs,
                        (forall x, J_bool x = true <-> J x) ->
+                       (forall j t, J j -> ~ blocked jobs j t) ->
                        (forall j, J j -> In j enumJ) ->
                        (forall j, In j enumJ -> J j) ->
                        feasible_on J jobs 1 ->
                        schedulable_by_on J (local_scheduler cands) jobs 1)
          T T_bool tasks offset H enumJ jobs,
     (forall τ, T_bool τ = true <-> T τ) ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     (forall j, periodic_jobset_upto T tasks offset jobs H j -> In j enumJ) ->
     (forall j, In j enumJ -> periodic_jobset_upto T tasks offset jobs H j) ->
     feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1 ->
@@ -46,7 +48,7 @@ Theorem periodic_finite_optimality_lift :
       jobs 1.
 Proof.
   intros local_scheduler Hoptimal T T_bool tasks offset H enumJ jobs
-         HTbool Henum_complete Henum_sound Hfeas.
+         HTbool Hnonblocked Henum_complete Henum_sound Hfeas.
   apply (Hoptimal
     (periodic_jobset_upto T tasks offset jobs H)
     (periodic_jobset_upto_bool T_bool tasks offset jobs H)
@@ -60,6 +62,8 @@ Proof.
     jobs).
   - intros j.
     exact (periodic_jobset_upto_bool_spec T T_bool tasks offset jobs H HTbool j).
+  - intros j t Hj.
+    exact (Hnonblocked j t Hj).
   - exact Henum_complete.
   - exact Henum_sound.
   - exact Hfeas.
@@ -76,6 +80,7 @@ Theorem periodic_finite_optimality_lift_auto :
                             (cands : CandidateSource)
                             (cand_spec : CandidateSourceSpec J cands) jobs,
                        (forall x, J_bool x = true <-> J x) ->
+                       (forall j t, J j -> ~ blocked jobs j t) ->
                        (forall j, J j -> In j enumJ) ->
                        (forall j, In j enumJ -> J j) ->
                        feasible_on J jobs 1 ->
@@ -83,6 +88,7 @@ Theorem periodic_finite_optimality_lift_auto :
          T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),
     well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
     feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1 ->
@@ -94,11 +100,12 @@ Theorem periodic_finite_optimality_lift_auto :
       jobs 1.
 Proof.
   intros local_scheduler Hoptimal T tasks offset H enumT jobs codec
-         Hwf HenumT_complete HenumT_sound Hfeas.
+         Hwf Hnonblocked HenumT_complete HenumT_sound Hfeas.
   eapply periodic_finite_optimality_lift with (T_bool := task_in_list_b enumT).
   - exact Hoptimal.
   - intros τ. rewrite task_in_list_b_spec.
     split; [apply HenumT_sound | apply HenumT_complete].
+  - exact Hnonblocked.
   - apply enum_periodic_jobs_upto_complete; assumption.
   - apply enum_periodic_jobs_upto_sound; assumption.
   - exact Hfeas.

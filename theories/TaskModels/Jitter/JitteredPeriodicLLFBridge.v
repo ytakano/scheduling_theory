@@ -18,6 +18,7 @@ Theorem jittered_periodic_llf_optimality_on_finite_horizon :
          (w : FiniteHorizonWitness
                 (jittered_periodic_jobset_upto T tasks offset jitter jobs H)),
     (forall τ, T_bool τ = true <-> T τ) ->
+    jittered_periodic_jobset_nonblocking T tasks offset jitter jobs H ->
     feasible_on (jittered_periodic_jobset_upto T tasks offset jitter jobs H) jobs 1 ->
     schedulable_by_on
       (jittered_periodic_jobset_upto T tasks offset jitter jobs H)
@@ -26,9 +27,9 @@ Theorem jittered_periodic_llf_optimality_on_finite_horizon :
             (jittered_periodic_jobset_upto T tasks offset jitter jobs H) w))
       jobs 1.
 Proof.
-  intros T T_bool tasks offset jitter H jobs w HTbool Hfeas.
+  intros T T_bool tasks offset jitter H jobs w HTbool Hnonblocked Hfeas.
   exact (jittered_periodic_finite_optimality_lift_with_witness llf_scheduler
-    (fun J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf =>
-      llf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf)
-    T T_bool tasks offset jitter H jobs w HTbool Hfeas).
+    (fun J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf =>
+      llf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf)
+    T T_bool tasks offset jitter H jobs w HTbool Hnonblocked Hfeas).
 Qed.

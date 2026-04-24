@@ -66,9 +66,9 @@ Definition job_id_of_ex (tau : TaskId) (k : nat) : JobId :=
 
 Definition jobs_ex (j : JobId) : Job :=
   if Nat.even j then
-    mkJob 0 (Nat.div2 j) (5 * Nat.div2 j) 1 (5 * Nat.div2 j + 2)
+    mkJob 0 (Nat.div2 j) (5 * Nat.div2 j) 1 (5 * Nat.div2 j + 2) (fun _ => false)
   else
-    mkJob 1 (Nat.div2 j) (7 * Nat.div2 j) 1 (7 * Nat.div2 j + 3).
+    mkJob 1 (Nat.div2 j) (7 * Nat.div2 j) 1 (7 * Nat.div2 j + 3) (fun _ => false).
 
 Lemma tasks_ex_well_formed :
   well_formed_periodic_tasks_on T_ex tasks_ex.
@@ -111,7 +111,7 @@ Qed.
 
 Lemma jobs_ex_task0 :
   forall k,
-    jobs_ex (2 * k) = mkJob 0 k (5 * k) 1 (5 * k + 2).
+    jobs_ex (2 * k) = mkJob 0 k (5 * k) 1 (5 * k + 2) (fun _ => false).
 Proof.
   intros k.
   unfold jobs_ex.
@@ -125,7 +125,7 @@ Qed.
 
 Lemma jobs_ex_task1 :
   forall k,
-    jobs_ex (S (2 * k)) = mkJob 1 k (7 * k) 1 (7 * k + 3).
+    jobs_ex (S (2 * k)) = mkJob 1 k (7 * k) 1 (7 * k + 3) (fun _ => false).
 Proof.
   intros k.
   unfold jobs_ex.
@@ -149,6 +149,16 @@ Proof.
     symmetry; apply Nat.div2_succ_double.
   }
   reflexivity.
+Qed.
+
+Lemma jobs_ex_nonblocking_infinite :
+  forall j t,
+    periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+    ~ blocked jobs_ex j t.
+Proof.
+  intros j t _.
+  unfold blocked, jobs_ex.
+  destruct (Nat.even j); simpl; discriminate.
 Qed.
 
 Lemma codec_ex_sound :
@@ -2291,6 +2301,7 @@ Section TutorialClassicalProof.
          periodic_edf_concrete_infinite_enumT_nodup := enumT_ex_nodup;
          periodic_edf_concrete_infinite_enumT_complete := enumT_ex_complete;
          periodic_edf_concrete_infinite_enumT_sound := enumT_ex_sound;
+         periodic_edf_concrete_infinite_nonblocking := jobs_ex_nonblocking_infinite;
          periodic_edf_concrete_infinite_offset_zero := _;
          periodic_edf_concrete_infinite_no_carry_in_bridge := Hbridge;
          periodic_edf_concrete_infinite_dbf_test_by_cutoff :=
@@ -2303,7 +2314,7 @@ Section TutorialClassicalProof.
     ~ missed_deadline jobs_ex 1 sched_inf_ex 0.
   Proof.
     pose proof tutorial_infinite_classical_obligations as Hobl.
-    destruct Hobl as [Hwf Hnodup Hcomplete Hsound Hoff Hbridge' Hdbf].
+    destruct Hobl as [Hwf Hnodup Hcomplete Hsound Hnonblocked Hoff Hbridge' Hdbf].
     pose proof
       (global_periodic_job_id_of_sound
          T_ex tasks_ex offset_ex jobs_ex codec_ex 0 0

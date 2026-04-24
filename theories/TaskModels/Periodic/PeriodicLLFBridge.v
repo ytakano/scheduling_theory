@@ -16,6 +16,7 @@ Import ListNotations.
 Theorem periodic_llf_optimality_on_finite_horizon :
   forall T T_bool tasks offset H enumJ jobs,
     (forall τ, T_bool τ = true <-> T τ) ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     (forall j, periodic_jobset_upto T tasks offset jobs H j -> In j enumJ) ->
     (forall j, In j enumJ -> periodic_jobset_upto T tasks offset jobs H j) ->
     feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1 ->
@@ -24,11 +25,12 @@ Theorem periodic_llf_optimality_on_finite_horizon :
       (llf_scheduler (enum_candidates_of enumJ))
       jobs 1.
 Proof.
-  intros T T_bool tasks offset H enumJ jobs HTbool Henum_complete Henum_sound Hfeas.
+  intros T T_bool tasks offset H enumJ jobs
+         HTbool Hnonblocked Henum_complete Henum_sound Hfeas.
   exact (periodic_finite_optimality_lift llf_scheduler
-    (fun J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf =>
-      llf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf)
-    T T_bool tasks offset H enumJ jobs HTbool Henum_complete Henum_sound Hfeas).
+    (fun J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf =>
+      llf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf)
+    T T_bool tasks offset H enumJ jobs HTbool Hnonblocked Henum_complete Henum_sound Hfeas).
 Qed.
 
 (* Auto version: derive the job enumeration from a task list and a codec. *)
@@ -38,6 +40,7 @@ Theorem periodic_llf_optimality_on_finite_horizon_auto :
     well_formed_periodic_tasks_on T tasks ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     feasible_on (periodic_jobset_upto T tasks offset jobs H) jobs 1 ->
     schedulable_by_on
       (periodic_jobset_upto T tasks offset jobs H)
@@ -46,9 +49,10 @@ Theorem periodic_llf_optimality_on_finite_horizon_auto :
             (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
       jobs 1.
 Proof.
-  intros T tasks offset H enumT jobs codec Hwf HenumT_complete HenumT_sound Hfeas.
+  intros T tasks offset H enumT jobs codec
+         Hwf HenumT_complete HenumT_sound Hnonblocked Hfeas.
   exact (periodic_finite_optimality_lift_auto llf_scheduler
-    (fun J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf =>
-      llf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf)
-    T tasks offset H enumT jobs codec Hwf HenumT_complete HenumT_sound Hfeas).
+    (fun J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf =>
+      llf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf)
+    T tasks offset H enumT jobs codec Hwf Hnonblocked HenumT_complete HenumT_sound Hfeas).
 Qed.

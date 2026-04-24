@@ -49,6 +49,7 @@ Theorem partitioned_periodic_finite_optimality_lift :
            (cands : CandidateSource)
            (cand_spec : CandidateSourceSpec J cands) jobs,
        (forall x, J_bool x = true <-> J x) ->
+       (forall j t, J j -> ~ blocked jobs j t) ->
        (forall j, J j -> In j enumJ) ->
        (forall j, In j enumJ -> J j) ->
        feasible_on J jobs 1 ->
@@ -57,6 +58,7 @@ Theorem partitioned_periodic_finite_optimality_lift :
            (valid_assignment : forall j, assign j < m)
            T T_bool tasks offset H enumJ jobs,
       (forall τ, T_bool τ = true <-> T τ) ->
+      periodic_jobset_nonblocking T tasks offset jobs H ->
       (forall j, periodic_jobset_upto T tasks offset jobs H j -> In j enumJ) ->
       (forall j, In j enumJ -> periodic_jobset_upto T tasks offset jobs H j) ->
       (forall c, c < m ->
@@ -70,7 +72,7 @@ Theorem partitioned_periodic_finite_optimality_lift :
 Proof.
   intros local_scheduler spec Hscheduler Hoptimal
          assign m valid_assignment T T_bool tasks offset H enumJ jobs
-         HTbool Henum_complete Henum_sound Hlocal_feasible.
+         HTbool Hnonblocked Henum_complete Henum_sound Hlocal_feasible.
   apply (partitioned_finite_optimality_lift local_scheduler spec Hscheduler Hoptimal
            assign m valid_assignment
            (periodic_jobset_upto T tasks offset jobs H)
@@ -78,6 +80,7 @@ Proof.
            enumJ jobs).
   - intros j.
     exact (periodic_jobset_upto_bool_spec T T_bool tasks offset jobs H HTbool j).
+  - exact Hnonblocked.
   - exact Henum_complete.
   - exact Henum_sound.
   - exact Hlocal_feasible.

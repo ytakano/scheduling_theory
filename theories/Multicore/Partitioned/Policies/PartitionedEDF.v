@@ -95,6 +95,7 @@ Theorem partitioned_edf_schedulable_by_on_of_local_feasible :
            (J_bool : JobId -> bool)
            enumJ jobs,
       (forall x, J_bool x = true <-> J x) ->
+      (forall j t, J j -> ~ blocked jobs j t) ->
       (forall j, J j -> In j enumJ) ->
       (forall j, In j enumJ -> J j) ->
       (forall c, c < m ->
@@ -105,11 +106,11 @@ Theorem partitioned_edf_schedulable_by_on_of_local_feasible :
         jobs m.
 Proof.
   intros assign m valid_assignment J J_bool enumJ jobs
-         HJbool Henum_complete Henum_sound Hlocal_feasible.
+         HJbool HJ_nonblocked Henum_complete Henum_sound Hlocal_feasible.
   unfold partitioned_edf_scheduler.
   exact (partitioned_finite_optimality_lift
            edf_scheduler edf_generic_spec (fun _ => eq_refl)
            edf_optimality_on_finite_jobs
            assign m valid_assignment J J_bool enumJ jobs
-           HJbool Henum_complete Henum_sound Hlocal_feasible).
+           HJbool HJ_nonblocked Henum_complete Henum_sound Hlocal_feasible).
 Qed.

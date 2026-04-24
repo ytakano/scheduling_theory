@@ -23,6 +23,7 @@ Theorem periodic_classical_dbf_implies_generated_edf_no_deadline_miss_with_busy_
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
          j,
     well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -47,7 +48,7 @@ Theorem periodic_classical_dbf_implies_generated_edf_no_deadline_miss_with_busy_
         j.
 Proof.
   intros T tasks offset H enumT jobs codec j
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
          Hj Hj_H Hbridge Hdbf_classical.
   eapply periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_busy_prefix_bridge; eauto.
   intros t1 t2 Hle12 HleH.
@@ -63,6 +64,7 @@ Theorem periodic_classical_dbf_implies_generated_edf_no_deadline_miss_on_finite_
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
          j,
     well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -87,7 +89,7 @@ Theorem periodic_classical_dbf_implies_generated_edf_no_deadline_miss_on_finite_
         j.
 Proof.
   intros T tasks offset H enumT jobs codec j
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff Hdbf_classical
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff Hdbf_classical
          Hj Hj_H Hbridge.
   eapply periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_busy_prefix_bridge; eauto.
   intros t1 t2 Hle12 HleH.
@@ -103,6 +105,7 @@ Theorem periodic_classical_dbf_implies_generated_edf_schedulable_with_busy_prefi
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),
     well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -127,7 +130,7 @@ Theorem periodic_classical_dbf_implies_generated_edf_schedulable_with_busy_prefi
       jobs 1.
 Proof.
   intros T tasks offset H enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff Hdbf_classical Hjob_bridge.
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff Hdbf_classical Hjob_bridge.
   eapply periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge; eauto.
   intros t1 t2 Hle12 HleH.
   eapply Nat.le_trans.
@@ -141,6 +144,7 @@ Theorem periodic_classical_dbf_implies_generated_edf_schedulable_on_finite_horiz
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),
     well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -165,7 +169,7 @@ Theorem periodic_classical_dbf_implies_generated_edf_schedulable_on_finite_horiz
       jobs 1.
 Proof.
   intros T tasks offset H enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff Hdbf_classical Hjob_bridge.
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff Hdbf_classical Hjob_bridge.
   eapply periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge; eauto.
   intros t1 t2 Hle12 HleH.
   eapply Nat.le_trans.
@@ -179,6 +183,7 @@ Theorem periodic_classical_dbf_implies_generated_edf_schedulable_with_no_carry_i
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),
     well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -203,7 +208,7 @@ Theorem periodic_classical_dbf_implies_generated_edf_schedulable_with_no_carry_i
       jobs 1.
 Proof.
   intros T tasks offset H enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff Hdbf_classical Hjob_bridge.
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff Hdbf_classical Hjob_bridge.
   eapply periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_no_carry_in_bridge; eauto.
   intros t1 t2 Hle12 HleH.
   eapply Nat.le_trans.
@@ -217,6 +222,7 @@ Theorem periodic_classical_dbf_implies_generated_edf_schedulable_on_finite_horiz
   forall T tasks offset H enumT jobs
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H),
     well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -241,6 +247,6 @@ Theorem periodic_classical_dbf_implies_generated_edf_schedulable_on_finite_horiz
       jobs 1.
 Proof.
   intros T tasks offset H enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff Hdbf_classical Hjob_bridge.
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff Hdbf_classical Hjob_bridge.
   eapply periodic_classical_dbf_implies_generated_edf_schedulable_with_no_carry_in_bridge; eauto.
 Qed.

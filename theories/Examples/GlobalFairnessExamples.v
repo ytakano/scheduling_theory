@@ -30,9 +30,9 @@ Section GlobalFairnessExamples.
       assert (t = 1) by lia.
       subst t.
       split.
-      + unfold eligible, released, completed, llf_example_jobs, llf_job2.
+      + unfold eligible, released, completed, blocked, llf_example_jobs, llf_job2.
         simpl.
-        lia.
+        repeat split; lia || discriminate.
       + intros [cpu [Hlt Hrun]].
         destruct cpu as [|[|cpu']]; simpl in Hrun; discriminate.
     - intros t Hrange c j Hc Hrun.
@@ -56,9 +56,9 @@ Section GlobalFairnessExamples.
     - intros t Hrange.
       assert (t = 0) by lia.
       subst t.
-      unfold eligible, released, completed, example_jobs, example_job.
+      unfold eligible, released, completed, blocked, example_jobs, example_job.
       simpl.
-      lia.
+      repeat split; lia || discriminate.
     - intros t Hrange Hnotrun c Hc j Hrun.
       assert (t = 0) by lia.
       subst t.

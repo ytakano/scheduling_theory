@@ -43,7 +43,12 @@ Definition earliest_sporadic_release
    - its release is at or after earliest_sporadic_release (lower bound, not equality)
    - it satisfies valid_job_of_task (deadline and cost local consistency)
    Unlike generated_by_periodic_task, the release time is a lower bound,
-   reflecting that sporadic tasks may arrive later than the minimum inter-arrival. *)
+   reflecting that sporadic tasks may arrive later than the minimum inter-arrival.
+
+   This is still a classic schedulability-theory job model. It specializes the
+   common blocking-aware semantics to jobs whose analysis behavior is treated as
+   non-blocking, while concrete sleep/join/wait behavior remains outside this
+   task-model layer and belongs to adapter-local workload reasoning. *)
 Definition generated_by_sporadic_task
     (tasks : TaskId -> Task)
     (jobs : JobId -> Job)

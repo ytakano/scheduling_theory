@@ -72,6 +72,18 @@ Definition periodic_infinite_codec_canonical_ex :
 
 Section InfinitePeriodicEDFCanonicalPackageExample.
 
+  Let periodic_infinite_nonblocking_canonical_ex :
+    forall j t,
+      periodic_jobset T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex j ->
+      ~ blocked periodic_infinite_jobs_canonical_ex j t.
+  Proof.
+    intros j t _.
+    unfold blocked, periodic_infinite_jobs_canonical_ex,
+           canonical_periodic_jobs_from_enumT.
+    destruct (decode_job_id_from_enumT enumT_ex j) as [pos k].
+    destruct (nth_error enumT_ex pos); simpl; discriminate.
+  Qed.
+
   Hypothesis backlog_free_canonical_ex :
     forall j,
       periodic_jobset T_ex tasks_ex offset_ex periodic_infinite_jobs_canonical_ex j ->
@@ -116,6 +128,8 @@ Section InfinitePeriodicEDFCanonicalPackageExample.
          periodic_edf_concrete_infinite_enumT_nodup := enumT_ex_nodup;
          periodic_edf_concrete_infinite_enumT_complete := T_ex_in_enumT_ex;
          periodic_edf_concrete_infinite_enumT_sound := in_enumT_ex_implies_T_ex;
+         periodic_edf_concrete_infinite_nonblocking :=
+           periodic_infinite_nonblocking_canonical_ex;
          periodic_edf_concrete_infinite_offset_zero := _;
          periodic_edf_concrete_infinite_no_carry_in_bridge :=
            busy_prefix_bridge_canonical_ex;
@@ -149,6 +163,7 @@ Section InfinitePeriodicEDFCanonicalPackageExample.
   Proof.
     eapply periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge.
     1: exact tasks_ex_well_formed.
+    1: exact periodic_infinite_nonblocking_canonical_ex.
     1: exact enumT_ex_nodup.
     1: exact T_ex_in_enumT_ex.
     1: exact in_enumT_ex_implies_T_ex.
@@ -164,6 +179,31 @@ End InfinitePeriodicEDFCanonicalPackageExample.
 Section InfinitePeriodicEDFExample.
 
   Variable codec_inf_ex : PeriodicCodec T_ex tasks_ex offset_ex jobs_ex.
+
+  Let periodic_infinite_nonblocking_ex :
+    forall j t,
+      periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+      ~ blocked jobs_ex j t.
+  Proof.
+    intros j t Hj.
+    unfold periodic_jobset, T_ex, jobs_ex in Hj.
+    destruct j as [|[|[|[|j']]]].
+    - unfold blocked, jobs_ex, job0_ex.
+      cbn.
+      discriminate.
+    - unfold blocked, jobs_ex, job1_ex.
+      cbn.
+      discriminate.
+    - unfold blocked, jobs_ex, job2_ex.
+      cbn.
+      discriminate.
+    - unfold blocked, jobs_ex, job3_ex.
+      cbn.
+      discriminate.
+    - destruct Hj as [HT _].
+      cbn in HT.
+      destruct HT as [HT | HT]; discriminate.
+  Qed.
 
   Hypothesis backlog_free_ex :
     forall j,
@@ -210,6 +250,7 @@ Section InfinitePeriodicEDFExample.
   Proof.
     apply periodic_edf_no_deadline_miss_from_window_dbf_with_no_carry_in_bridge.
     - exact tasks_ex_well_formed.
+    - exact periodic_infinite_nonblocking_ex.
     - exact enumT_ex_nodup.
     - exact T_ex_in_enumT_ex.
     - exact in_enumT_ex_implies_T_ex.
@@ -235,6 +276,7 @@ Section InfinitePeriodicEDFExample.
   Proof.
     eapply periodic_edf_schedulable_by_on_with_no_carry_in_bridge.
     1: exact tasks_ex_well_formed.
+    1: exact periodic_infinite_nonblocking_ex.
     1: exact enumT_ex_nodup.
     1: exact T_ex_in_enumT_ex.
     1: exact in_enumT_ex_implies_T_ex.
@@ -252,6 +294,7 @@ Section InfinitePeriodicEDFExample.
   Proof.
     eapply periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge.
     1: exact tasks_ex_well_formed.
+    1: exact periodic_infinite_nonblocking_ex.
     1: exact enumT_ex_nodup.
     1: exact T_ex_in_enumT_ex.
     1: exact in_enumT_ex_implies_T_ex.
@@ -268,6 +311,7 @@ Section InfinitePeriodicEDFExample.
   Proof.
     apply periodic_edf_no_deadline_miss_from_classical_dbf_with_no_carry_in_bridge.
     - exact tasks_ex_well_formed.
+    - exact periodic_infinite_nonblocking_ex.
     - exact enumT_ex_nodup.
     - exact T_ex_in_enumT_ex.
     - exact in_enumT_ex_implies_T_ex.

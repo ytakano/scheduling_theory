@@ -68,7 +68,7 @@ Proof.
                   J jobs sched j t HJj Hvalid Hfeas Helig_j)
         as [u [Htu [Hud _Hrunu]]].
       lia. }
-    assert (Hncomp_j : ~ completed jobs 1 sched j t) by exact (proj2 Helig_j).
+    assert (Hncomp_j : ~ completed jobs 1 sched j t) by exact (proj1 (proj2 Helig_j)).
     assert (Hrem_j_pos : remaining_cost jobs 1 sched j t > 0).
     { exact (not_completed_implies_remaining_cost_pos jobs 1 sched j t Hncomp_j). }
     assert (Hgap : (job_abs_deadline (jobs j') - job_abs_deadline (jobs j)
@@ -131,6 +131,7 @@ Lemma repair_non_canonical_at_llf_common :
   forall J (candidates_of : CandidateSource)
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs sched t j j',
+    (forall j0 t', J j0 -> ~ blocked jobs j0 t') ->
     valid_schedule jobs 1 sched ->
     feasible_schedule_on J jobs 1 sched ->
     (forall t' j0, sched t' 0 = Some j0 -> J j0) ->
@@ -149,7 +150,7 @@ Lemma repair_non_canonical_at_llf_common :
       matches_choose_llf_at_with jobs candidates_of sched' t.
 Proof.
   intros J candidates_of cand_spec jobs sched t j j'
-         Hvalid Hfeas HJonly Hcpu1 Hrun Hchoose Helig' Hle Hneq.
+         HJ_nonblocked Hvalid Hfeas HJonly Hcpu1 Hrun Hchoose Helig' Hle Hneq.
   assert (HJj : J j) by (exact (HJonly t j Hrun)).
   assert (HJj' : J j').
   { destruct cand_spec as [Hsound _ _].
@@ -166,7 +167,8 @@ Proof.
     right. split; intro Heq; subst u; lia. }
   refine (conj _ (conj _ (conj _ (conj _ (conj _ _))))).
   - exact (swap_at_preserves_valid_schedule_ne jobs sched j j' t t'
-             Hvalid Hrun Hrun' Helig' Htt' (fun Heq => Hneq (eq_sym Heq))).
+             Hvalid Hrun Hrun' Helig' Htt' (fun Heq => Hneq (eq_sym Heq))
+             (HJ_nonblocked j t' HJj)).
   - exact (swap_at_preserves_feasible_schedule_on_before_both_deadlines
              J jobs sched j j' t t' Hfeas HJj HJj' Hrun Hrun' Htt' Hlt_j Hlt_j').
   - intros t'' j0 Hrun0.
@@ -195,6 +197,7 @@ Lemma repair_non_canonical_at_llf_tie :
   forall J (candidates_of : CandidateSource)
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs sched t j j',
+    (forall j0 t', J j0 -> ~ blocked jobs j0 t') ->
     valid_schedule jobs 1 sched ->
     feasible_schedule_on J jobs 1 sched ->
     (forall t' j0, sched t' 0 = Some j0 -> J j0) ->
@@ -213,7 +216,7 @@ Lemma repair_non_canonical_at_llf_tie :
       matches_choose_llf_at_with jobs candidates_of sched' t.
 Proof.
   intros J candidates_of cand_spec jobs sched t j j'
-         Hvalid Hfeas HJonly Hcpu1 Hrun Hchoose Helig' Heq Hneq.
+         HJ_nonblocked Hvalid Hfeas HJonly Hcpu1 Hrun Hchoose Helig' Heq Hneq.
   eapply repair_non_canonical_at_llf_common; eauto.
   lia.
 Qed.
@@ -222,6 +225,7 @@ Lemma repair_non_canonical_at_llf_strict :
   forall J (candidates_of : CandidateSource)
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs sched t j j',
+    (forall j0 t', J j0 -> ~ blocked jobs j0 t') ->
     valid_schedule jobs 1 sched ->
     feasible_schedule_on J jobs 1 sched ->
     (forall t' j0, sched t' 0 = Some j0 -> J j0) ->
@@ -240,7 +244,7 @@ Lemma repair_non_canonical_at_llf_strict :
       matches_choose_llf_at_with jobs candidates_of sched' t.
 Proof.
   intros J candidates_of cand_spec jobs sched t j j'
-         Hvalid Hfeas HJonly Hcpu1 Hrun Hchoose Helig' Hlt Hneq.
+         HJ_nonblocked Hvalid Hfeas HJonly Hcpu1 Hrun Hchoose Helig' Hlt Hneq.
   eapply repair_non_canonical_at_llf_common; eauto.
   lia.
 Qed.
@@ -250,6 +254,7 @@ Lemma repair_non_canonical_at_llf :
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs sched t,
     (forall x, J_bool x = true <-> J x) ->
+    (forall j t', J j -> ~ blocked jobs j t') ->
     valid_schedule jobs 1 sched ->
     feasible_schedule_on J jobs 1 sched ->
     (forall t' j, sched t' 0 = Some j -> J j) ->
@@ -264,7 +269,7 @@ Lemma repair_non_canonical_at_llf :
       matches_choose_llf_at_with jobs candidates_of sched' t.
 Proof.
   intros J J_bool candidates_of cand_spec jobs sched t
-         _HJbool Hvalid Hfeas HJonly Hcpu1 Hnot.
+         _HJbool HJ_nonblocked Hvalid Hfeas HJonly Hcpu1 Hnot.
   destruct (sched t 0) as [j|] eqn:Hst0.
   - assert (HJj : J j) by (exact (HJonly t j Hst0)).
     destruct (canonical_non_llf_step_has_other_min_or_better_eligible_job

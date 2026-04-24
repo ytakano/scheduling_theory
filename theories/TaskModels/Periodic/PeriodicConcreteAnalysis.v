@@ -124,6 +124,8 @@ Record PeriodicEDFConcreteWindowObligations
     forall τ, T τ -> In τ enumT;
   periodic_edf_concrete_enumT_sound :
     forall τ, In τ enumT -> T τ;
+  periodic_edf_concrete_nonblocking :
+    periodic_jobset_nonblocking T tasks offset jobs H;
   periodic_edf_concrete_deadline_and_no_carry_in :
     forall j,
       periodic_jobset_upto T tasks offset jobs H j ->
@@ -418,6 +420,10 @@ Record PeriodicEDFConcreteInfiniteClassicalObligations
     forall τ, T τ -> In τ enumT;
   periodic_edf_concrete_infinite_enumT_sound :
     forall τ, In τ enumT -> T τ;
+  periodic_edf_concrete_infinite_nonblocking :
+    forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t;
   periodic_edf_concrete_infinite_offset_zero :
     forall τ, In τ enumT -> offset τ = 0;
   periodic_edf_concrete_infinite_no_carry_in_bridge :

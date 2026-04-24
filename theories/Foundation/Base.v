@@ -37,6 +37,7 @@ Record Job : Type := mkJob {
   job_release      : Time;   (* absolute release time *)
   job_cost         : nat;    (* execution time required by this job *)
   job_abs_deadline : Time;   (* absolute deadline *)
+  job_blocked      : Time -> bool;  (* abstract blocking hook for common eligibility *)
 }.
 
 (* time -> CPU -> option JobId: multicore schedule.

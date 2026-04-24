@@ -16,6 +16,7 @@ Theorem witness_finite_optimality_lift :
                             (cands : CandidateSource)
                             (cand_spec : CandidateSourceSpec J cands) jobs,
                        (forall x, J_bool x = true <-> J x) ->
+                       (forall j t, J j -> ~ blocked jobs j t) ->
                        (forall j, J j -> In j enumJ) ->
                        (forall j, In j enumJ -> J j) ->
                        feasible_on J jobs 1 ->
@@ -25,13 +26,14 @@ Theorem witness_finite_optimality_lift :
          jobs
          (w : FiniteHorizonWitness J),
     (forall x, J_bool x = true <-> J x) ->
+    (forall j t, J j -> ~ blocked jobs j t) ->
     feasible_on J jobs 1 ->
     schedulable_by_on
       J
       (local_scheduler (witness_candidates_of J w))
       jobs 1.
 Proof.
-  intros local_scheduler Hoptimal J J_bool jobs w HJbool Hfeas.
+  intros local_scheduler Hoptimal J J_bool jobs w HJbool HJ_nonblocked Hfeas.
   apply (Hoptimal
     J J_bool
     (witness_enumJ J w)
@@ -39,6 +41,7 @@ Proof.
     (witness_candidates_spec J w)
     jobs).
   - exact HJbool.
+  - exact HJ_nonblocked.
   - exact (witness_enum_complete J w).
   - exact (witness_enum_sound J w).
   - exact Hfeas.
@@ -53,6 +56,7 @@ Theorem partitioned_witness_finite_optimality_lift :
            (cands : CandidateSource)
            (cand_spec : CandidateSourceSpec J cands) jobs,
        (forall x, J_bool x = true <-> J x) ->
+       (forall j t, J j -> ~ blocked jobs j t) ->
        (forall j, J j -> In j enumJ) ->
        (forall j, In j enumJ -> J j) ->
        feasible_on J jobs 1 ->
@@ -64,6 +68,7 @@ Theorem partitioned_witness_finite_optimality_lift :
            jobs
            (w : FiniteHorizonWitness J),
       (forall x, J_bool x = true <-> J x) ->
+      (forall j t, J j -> ~ blocked jobs j t) ->
       (forall c, c < m ->
          feasible_on (local_jobset assign J c) jobs 1) ->
       schedulable_by_on
@@ -74,10 +79,11 @@ Theorem partitioned_witness_finite_optimality_lift :
 Proof.
   intros local_scheduler spec Hscheduler Hoptimal
          assign m valid_assignment J J_bool jobs w
-         HJbool Hlocal_feasible.
+         HJbool HJ_nonblocked Hlocal_feasible.
   apply (partitioned_finite_optimality_lift local_scheduler spec Hscheduler Hoptimal
            assign m valid_assignment J J_bool (witness_enumJ J w) jobs).
   - exact HJbool.
+  - exact HJ_nonblocked.
   - exact (witness_enum_complete J w).
   - exact (witness_enum_sound J w).
   - exact Hlocal_feasible.

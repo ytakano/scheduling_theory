@@ -11,7 +11,7 @@ From RocqSched Require Import Multicore.Common.LaxityFacts.
 
 Section GlobalServiceExamples.
 
-  Definition migrating_job : Job := mkJob 0 0 0 2 3.
+  Definition migrating_job : Job := mkJob 0 0 0 2 3 (fun _ => false).
 
   Definition migrating_jobs (_ : JobId) : Job := migrating_job.
 

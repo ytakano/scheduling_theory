@@ -17,6 +17,11 @@ Definition generated_by_jittered_periodic_task
     (jitter τ) /\
   valid_job_of_task tasks jobs j.
 
+(* This is the jitter-aware classic analysis model. It varies release time
+   within the permitted jitter envelope, but it does not model OS-level
+   blocking as part of the job-generation predicate. That blocking-aware
+   interpretation remains adapter-local. *)
+
 Definition generated_by_jittered_periodic_task_b
     (tasks : TaskId -> Task)
     (offset : TaskId -> Time)

@@ -38,6 +38,11 @@ workload trace のために common layer へ新しい event や state field は�
 追加するのは Awkernel adapter-local checker と、runtime-local task_trace export
 だけである。
 
+ただし common semantics では、released な job でも abstract に blocked なら
+eligible でなくなりうる。この abstract blocking effect 自体は common layer が
+固定するが、`Sleep` や `JoinWait` のような concrete cause をどう読むかは
+Awkernel adapter layer の責務である。
+
 multiple-worker support も同じ方針で扱う。広げるのは common layer ではなく、
 adapter-local な `sched_trace` の意味であり、同じ emitted artifact から
 logical worker capacity `m` の schedule を読む。

@@ -36,12 +36,13 @@ Qed.
 Theorem llf_schedulable_by_on_of_feasible_on_finite_jobs :
   forall J (J_bool : JobId -> bool) enumJ jobs,
     (forall x, J_bool x = true <-> J x) ->
+    (forall j t, J j -> ~ blocked jobs j t) ->
     (forall j, J j -> In j enumJ) ->
     (forall j, In j enumJ -> J j) ->
     feasible_on J jobs 1 ->
     schedulable_by_on J (llf_scheduler (enum_candidates_of enumJ)) jobs 1.
 Proof.
-  intros J J_bool enumJ jobs HJbool Hcomplete Hsound Hfeas.
+  intros J J_bool enumJ jobs HJbool HJ_nonblocked Hcomplete Hsound Hfeas.
   eapply llf_optimality_on_finite_jobs; eauto.
   apply enum_candidates_spec; assumption.
 Qed.

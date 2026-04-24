@@ -23,6 +23,11 @@ Record projectable_trace
       c < m ->
       op_current (tr t) c = Some j ->
       ~ completed jobs m (project_schedule tr) j t;
+  pt_not_blocked :
+    forall t c j,
+      c < m ->
+      op_current (tr t) c = Some j ->
+      ~ blocked jobs j t;
 }.
 
 Record execution_projection_sound
@@ -38,6 +43,11 @@ Record execution_projection_sound
         c < m ->
         op_current (ex_trace ex t) c = Some j ->
         ~ completed jobs m (project_schedule (ex_trace ex)) j t;
+    eps_block_sound :
+      forall t c j,
+        c < m ->
+        op_current (ex_trace ex t) c = Some j ->
+        ~ blocked jobs j t;
   }.
 
 Record labeled_execution_projection_sound
@@ -53,6 +63,11 @@ Record labeled_execution_projection_sound
         c < m ->
         op_current (lex_trace ex t) c = Some j ->
         ~ completed jobs m (project_schedule (lex_trace ex)) j t;
+    leps_block_sound :
+      forall t c j,
+        c < m ->
+        op_current (lex_trace ex t) c = Some j ->
+        ~ blocked jobs j t;
   }.
 
 Lemma current_implies_projected_running :
@@ -96,7 +111,9 @@ Proof.
   intros jobs m tr t c j Hproj Hlt Hrun.
   split.
   - eapply pt_released; eauto.
-  - eapply pt_not_completed; eauto.
+  - split.
+    + eapply pt_not_completed; eauto.
+    + eapply pt_not_blocked; eauto.
 Qed.
 
 Lemma execution_projection_sound_implies_projectable :
@@ -105,13 +122,15 @@ Lemma execution_projection_sound_implies_projectable :
     projectable_trace jobs m (ex_trace ex).
 Proof.
   intros jobs m ex Hsound.
-  refine (mkProjectableTrace jobs m (ex_trace ex) _ _ _).
+  refine (mkProjectableTrace jobs m (ex_trace ex) _ _ _ _).
   - intros t.
     exact (osi_no_dup _ _ (ex_struct_inv ex t)).
   - intros t c j Hlt Hrun.
     exact (eps_release_sound _ _ _ Hsound t c j Hlt Hrun).
   - intros t c j Hlt Hrun.
     exact (eps_completion_sound _ _ _ Hsound t c j Hlt Hrun).
+  - intros t c j Hlt Hrun.
+    exact (eps_block_sound _ _ _ Hsound t c j Hlt Hrun).
 Qed.
 
 Lemma execution_projection_sound_implies_valid_schedule :
@@ -122,7 +141,9 @@ Proof.
   intros jobs m ex Hsound j t c Hlt Hrun.
   split.
   - exact (eps_release_sound _ _ _ Hsound t c j Hlt Hrun).
-  - exact (eps_completion_sound _ _ _ Hsound t c j Hlt Hrun).
+  - split.
+    + exact (eps_completion_sound _ _ _ Hsound t c j Hlt Hrun).
+    + exact (eps_block_sound _ _ _ Hsound t c j Hlt Hrun).
 Qed.
 
 Lemma projectable_trace_implies_valid_schedule :
@@ -145,6 +166,8 @@ Proof.
     exact (leps_release_sound _ _ _ Hsound t c j Hlt Hrun).
   - intros t c j Hlt Hrun.
     exact (leps_completion_sound _ _ _ Hsound t c j Hlt Hrun).
+  - intros t c j Hlt Hrun.
+    exact (leps_block_sound _ _ _ Hsound t c j Hlt Hrun).
 Qed.
 
 Lemma labeled_execution_projection_sound_implies_projectable :
@@ -153,13 +176,15 @@ Lemma labeled_execution_projection_sound_implies_projectable :
     projectable_trace jobs m (lex_trace ex).
 Proof.
   intros jobs m ex Hsound.
-  refine (mkProjectableTrace jobs m (lex_trace ex) _ _ _).
+  refine (mkProjectableTrace jobs m (lex_trace ex) _ _ _ _).
   - intros t.
     exact (osi_no_dup _ _ (lex_struct_inv ex t)).
   - intros t c j Hlt Hrun.
     exact (leps_release_sound _ _ _ Hsound t c j Hlt Hrun).
   - intros t c j Hlt Hrun.
     exact (leps_completion_sound _ _ _ Hsound t c j Hlt Hrun).
+  - intros t c j Hlt Hrun.
+    exact (leps_block_sound _ _ _ Hsound t c j Hlt Hrun).
 Qed.
 
 Lemma labeled_execution_projection_sound_implies_valid_schedule :

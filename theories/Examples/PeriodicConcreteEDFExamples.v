@@ -120,6 +120,7 @@ Proof.
   eapply periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_busy_prefix_bridge
     with (enumT := enumT_ex); eauto.
   - exact tasks_ex_well_formed.
+  - exact periodic_nonblocking_ex.
   - exact enumT_ex_nodup.
   - exact T_ex_in_enumT_ex.
   - exact in_enumT_ex_implies_T_ex.
@@ -187,6 +188,7 @@ Proof.
   eapply periodic_llf_schedulable_by_window_dbf_on_finite_horizon_auto_with_busy_prefix_bridge
     with (enumT := enumT_ex) (sched := sched); eauto.
   - exact tasks_ex_well_formed.
+  - exact periodic_nonblocking_ex.
   - exact enumT_ex_nodup.
   - exact T_ex_in_enumT_ex.
   - exact in_enumT_ex_implies_T_ex.

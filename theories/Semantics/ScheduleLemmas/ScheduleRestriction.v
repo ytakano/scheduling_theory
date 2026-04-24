@@ -49,10 +49,13 @@ Proof.
   assert (Hc0 : c = 0) by lia. subst c.
   rewrite mk_single_cpu_cpu0 in Hrun.
   assert (Helig : eligible jobs 1 sched j t) by exact (Hvalid j t 0 Hc Hrun).
+  destruct Helig as [Hrel [Hncomp Hnblocked]].
   split.
-  - exact (proj1 Helig).
-  - intro Hcomp. apply (proj2 Helig). unfold completed in *.
-    rewrite mk_single_cpu_service in Hcomp. exact Hcomp.
+  - exact Hrel.
+  - split.
+    + intro Hcomp. apply Hncomp. unfold completed in *.
+      rewrite mk_single_cpu_service in Hcomp. exact Hcomp.
+    + exact Hnblocked.
 Qed.
 
 Lemma mk_single_cpu_feasible : forall J jobs sched,
@@ -168,11 +171,14 @@ Proof.
     + injection Hrun as Heq. subst j'.
       assert (HJj : J j) by (apply HJbool; exact EJj').
       assert (Helig : eligible jobs 1 sched j t) by exact (Hvalid j t 0 Hc Ht0).
+      destruct Helig as [Hrel [Hncomp Hnblocked]].
       split.
-      * exact (proj1 Helig).
-      * intro Hcomp. apply (proj2 Helig). unfold completed in *.
-        rewrite (J_restrict_service_J J_bool J sched j _ HJbool HJj) in Hcomp.
-        exact Hcomp.
+      * exact Hrel.
+      * split.
+        -- intro Hcomp. apply Hncomp. unfold completed in *.
+           rewrite (J_restrict_service_J J_bool J sched j _ HJbool HJj) in Hcomp.
+           exact Hcomp.
+        -- exact Hnblocked.
     + discriminate.
   - discriminate.
 Qed.

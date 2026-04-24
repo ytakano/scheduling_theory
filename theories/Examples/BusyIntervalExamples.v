@@ -93,9 +93,9 @@ Definition periodic_tasks_ex (_ : TaskId) : Task := periodic_task_ex.
 
 Definition periodic_offset_ex (_ : TaskId) : Time := 0.
 
-Definition periodic_job0 : Job := mkJob 0 0 0 1 2.
-Definition periodic_job1 : Job := mkJob 0 1 2 1 4.
-Definition periodic_other_job : Job := mkJob 0 10 20 1 22.
+Definition periodic_job0 : Job := mkJob 0 0 0 1 2 (fun _ => false).
+Definition periodic_job1 : Job := mkJob 0 1 2 1 4 (fun _ => false).
+Definition periodic_other_job : Job := mkJob 0 10 20 1 22 (fun _ => false).
 
 Definition periodic_jobs_ex (j : JobId) : Job :=
   match j with

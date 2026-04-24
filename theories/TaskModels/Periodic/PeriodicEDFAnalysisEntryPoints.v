@@ -67,9 +67,10 @@ Theorem periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_from_
 Proof.
   intros T tasks offset H enumT jobs codec Hobl.
   destruct Hobl as
-      [Hwf HnodupT HenumT_complete HenumT_sound Hjob_bridge Hwindow_test].
+      [Hwf HnodupT HenumT_complete HenumT_sound Hnonblocked Hjob_bridge Hwindow_test].
   eapply periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_with_no_carry_in_bridge.
   - exact Hwf.
+  - exact Hnonblocked.
   - exact HnodupT.
   - exact HenumT_complete.
   - exact HenumT_sound.
@@ -96,9 +97,10 @@ Proof.
   intros T tasks jobs H enumT codec Hobl.
   destruct Hobl as [Hwindow Hdbf_test].
   destruct Hwindow as
-      [Hwf HnodupT HenumT_complete HenumT_sound Hjob_bridge Hwindow_test].
+      [Hwf HnodupT HenumT_complete HenumT_sound Hnonblocked Hjob_bridge Hwindow_test].
   eapply periodic_classical_dbf_implies_generated_edf_schedulable_with_no_carry_in_bridge.
   - exact Hwf.
+  - exact Hnonblocked.
   - exact HnodupT.
   - exact HenumT_complete.
   - exact HenumT_sound.
@@ -131,9 +133,10 @@ Theorem periodic_edf_schedulable_by_classical_dbf_generated_from_infinite_obliga
 Proof.
   intros T tasks offset jobs enumT codec Hobl.
   destruct Hobl as
-      [Hwf HnodupT HenumT_complete HenumT_sound Hoff Hjob_bridge Hdbf_test].
+      [Hwf HnodupT HenumT_complete HenumT_sound Hnonblocked Hoff Hjob_bridge Hdbf_test].
   eapply periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge.
   - exact Hwf.
+  - exact Hnonblocked.
   - exact HnodupT.
   - exact HenumT_complete.
   - exact HenumT_sound.

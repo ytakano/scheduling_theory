@@ -48,7 +48,8 @@ Definition LLFCanonicalRepairSpec
     (J : JobId -> Prop)
     (candidates_of : CandidateSource)
     (cand_spec : CandidateSourceSpec J candidates_of)
-    (jobs : JobId -> Job) :
+    (jobs : JobId -> Job)
+    (HJ_nonblocked : forall j t, J j -> ~ blocked jobs j t) :
     CanonicalRepairSpec llf_generic_spec J candidates_of jobs.
   refine ({|
     canonical_at := fun sched t => matches_choose_llf_at_with jobs candidates_of sched t;
@@ -58,7 +59,7 @@ Definition LLFCanonicalRepairSpec
     canonical_at_dec := fun sched t => llf_canonical_at_dec candidates_of jobs sched t;
     repair_non_canonical := fun J_bool sched t HJbool Hvalid Hfeas HJonly Hcpu Hnot =>
       repair_non_canonical_at_llf J J_bool candidates_of cand_spec jobs sched t
-        HJbool Hvalid Hfeas HJonly Hcpu Hnot
+        HJbool HJ_nonblocked Hvalid Hfeas HJonly Hcpu Hnot
   |}).
 Defined.
 
@@ -72,6 +73,7 @@ Lemma llf_normalize_to_canonical :
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs sched H,
     (forall x, J_bool x = true <-> J x) ->
+    (forall j t, J j -> ~ blocked jobs j t) ->
     valid_schedule jobs 1 sched ->
     feasible_schedule_on J jobs 1 sched ->
     (forall t j, sched t 0 = Some j -> J j) ->
@@ -83,12 +85,12 @@ Lemma llf_normalize_to_canonical :
       single_cpu_only sched' /\
       matches_choose_llf_before jobs candidates_of sched' H.
 Proof.
-  intros J J_bool candidates_of cand_spec jobs sched H HJbool Hvalid Hfeas HJonly Hcpu.
+  intros J J_bool candidates_of cand_spec jobs sched H HJbool HJ_nonblocked Hvalid Hfeas HJonly Hcpu.
   eapply normalize_to_canonical_generic with
       (alg := llf_generic_spec)
       (J_bool := J_bool)
       (sched := sched).
-  - exact (LLFCanonicalRepairSpec J candidates_of cand_spec jobs).
+  - exact (LLFCanonicalRepairSpec J candidates_of cand_spec jobs HJ_nonblocked).
   - intros s1 s2 t Hagree.
     exact (llf_choose_agrees_before J candidates_of cand_spec jobs s1 s2 t Hagree).
   - exact HJbool.
@@ -110,23 +112,25 @@ Theorem llf_optimality_on_finite_jobs :
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs,
     (forall x, J_bool x = true <-> J x) ->
+    (forall j t, J j -> ~ blocked jobs j t) ->
     (forall j, J j -> In j enumJ) ->
     (forall j, In j enumJ -> J j) ->
     feasible_on J jobs 1 ->
     schedulable_by_on J (llf_scheduler candidates_of) jobs 1.
 Proof.
   intros J J_bool enumJ candidates_of cand_spec jobs
-         HJbool HJ_in _HJ_complete Hfeas_on.
+         HJbool HJ_nonblocked HJ_in _HJ_complete Hfeas_on.
   change (schedulable_by_on
             J
             (single_cpu_algorithm_scheduler_on J llf_generic_spec candidates_of cand_spec)
             jobs 1).
   eapply finite_optimality_via_normalization.
   - exact HJbool.
+  - exact HJ_nonblocked.
   - exact HJ_in.
-  - intros sched0 H Hvalid Hfeas HJonly Hcpu.
+  - intros sched0 H HJ_nonblocked0 Hvalid Hfeas HJonly Hcpu.
     exact (llf_normalize_to_canonical J J_bool candidates_of cand_spec jobs sched0 H
-             HJbool Hvalid Hfeas HJonly Hcpu).
+             HJbool HJ_nonblocked0 Hvalid Hfeas HJonly Hcpu).
   - intros s1 s2 t Hagree.
     exact (llf_choose_agrees_before J candidates_of cand_spec jobs s1 s2 t Hagree).
   - exact Hfeas_on.

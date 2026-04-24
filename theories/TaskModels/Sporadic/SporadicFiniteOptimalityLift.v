@@ -39,12 +39,14 @@ Theorem sporadic_finite_optimality_lift :
                             (cands : CandidateSource)
                             (cand_spec : CandidateSourceSpec J cands) jobs,
                        (forall x, J_bool x = true <-> J x) ->
+                       (forall j t, J j -> ~ blocked jobs j t) ->
                        (forall j, J j -> In j enumJ) ->
                        (forall j, In j enumJ -> J j) ->
                        feasible_on J jobs 1 ->
                        schedulable_by_on J (local_scheduler cands) jobs 1)
          T T_bool tasks H enumJ jobs,
     (forall τ, T_bool τ = true <-> T τ) ->
+    sporadic_jobset_nonblocking T tasks jobs H ->
     (forall j, sporadic_jobset_upto T tasks jobs H j -> In j enumJ) ->
     (forall j, In j enumJ -> sporadic_jobset_upto T tasks jobs H j) ->
     feasible_on (sporadic_jobset_upto T tasks jobs H) jobs 1 ->
@@ -54,7 +56,7 @@ Theorem sporadic_finite_optimality_lift :
       jobs 1.
 Proof.
   intros local_scheduler Hoptimal T T_bool tasks H enumJ jobs
-         HTbool Henum_complete Henum_sound Hfeas.
+         HTbool Hnonblocked Henum_complete Henum_sound Hfeas.
   apply (Hoptimal
     (sporadic_jobset_upto T tasks jobs H)
     (sporadic_jobset_upto_bool T_bool tasks jobs H)
@@ -68,6 +70,8 @@ Proof.
     jobs).
   - intros j.
     exact (sporadic_jobset_upto_bool_spec T T_bool tasks jobs H HTbool j).
+  - intros j t Hj.
+    exact (Hnonblocked j t Hj).
   - exact Henum_complete.
   - exact Henum_sound.
   - exact Hfeas.
@@ -79,6 +83,7 @@ Theorem sporadic_finite_optimality_lift_with_witness :
                             (cands : CandidateSource)
                             (cand_spec : CandidateSourceSpec J cands) jobs,
                        (forall x, J_bool x = true <-> J x) ->
+                       (forall j t, J j -> ~ blocked jobs j t) ->
                        (forall j, J j -> In j enumJ) ->
                        (forall j, In j enumJ -> J j) ->
                        feasible_on J jobs 1 ->
@@ -86,6 +91,7 @@ Theorem sporadic_finite_optimality_lift_with_witness :
          T T_bool tasks H jobs
          (w : FiniteHorizonWitness (sporadic_jobset_upto T tasks jobs H)),
     (forall τ, T_bool τ = true <-> T τ) ->
+    sporadic_jobset_nonblocking T tasks jobs H ->
     feasible_on (sporadic_jobset_upto T tasks jobs H) jobs 1 ->
     schedulable_by_on
       (sporadic_jobset_upto T tasks jobs H)
@@ -93,7 +99,7 @@ Theorem sporadic_finite_optimality_lift_with_witness :
          (witness_candidates_of (sporadic_jobset_upto T tasks jobs H) w))
       jobs 1.
 Proof.
-  intros local_scheduler Hoptimal T T_bool tasks H jobs w HTbool Hfeas.
+  intros local_scheduler Hoptimal T T_bool tasks H jobs w HTbool Hnonblocked Hfeas.
   exact (witness_finite_optimality_lift
     local_scheduler
     Hoptimal
@@ -102,5 +108,6 @@ Proof.
     jobs
     w
     (fun j => sporadic_jobset_upto_bool_spec T T_bool tasks jobs H HTbool j)
+    Hnonblocked
     Hfeas).
 Qed.

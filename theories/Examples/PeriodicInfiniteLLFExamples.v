@@ -57,6 +57,21 @@ Section InfinitePeriodicLLFExample.
 
   Variable codec_inf_ex : PeriodicCodec T_ex tasks_ex offset_ex jobs_ex.
 
+  Let periodic_infinite_nonblocking_ex :
+    forall j t,
+      periodic_jobset T_ex tasks_ex offset_ex jobs_ex j ->
+      ~ blocked jobs_ex j t.
+  Proof.
+    intros j t Hj.
+    unfold periodic_jobset, T_ex, jobs_ex in Hj.
+    destruct j as [|[|[|[|j']]]].
+    - unfold blocked, jobs_ex, job0_ex. cbn. discriminate.
+    - unfold blocked, jobs_ex, job1_ex. cbn. discriminate.
+    - unfold blocked, jobs_ex, job2_ex. cbn. discriminate.
+    - unfold blocked, jobs_ex, job3_ex. cbn. discriminate.
+    - destruct Hj as [HT _]. cbn in HT. destruct HT as [HT | HT]; discriminate.
+  Qed.
+
   Hypothesis busy_prefix_bridge_ex :
     forall H j,
       periodic_jobset_upto
@@ -85,6 +100,7 @@ Section InfinitePeriodicLLFExample.
   Proof.
     apply periodic_llf_no_deadline_miss_from_window_dbf.
     - exact tasks_ex_well_formed.
+    - exact periodic_infinite_nonblocking_ex.
     - exact enumT_ex_nodup.
     - exact T_ex_in_enumT_ex.
     - exact in_enumT_ex_implies_T_ex.
@@ -106,6 +122,7 @@ Section InfinitePeriodicLLFExample.
   Proof.
     eapply periodic_llf_schedulable_by_on.
     1: exact tasks_ex_well_formed.
+    1: exact periodic_infinite_nonblocking_ex.
     1: exact enumT_ex_nodup.
     1: exact T_ex_in_enumT_ex.
     1: exact in_enumT_ex_implies_T_ex.
@@ -123,6 +140,7 @@ Section InfinitePeriodicLLFExample.
   Proof.
     eapply periodic_llf_schedulable_by_classical_dbf_on.
     1: exact tasks_ex_well_formed.
+    1: exact periodic_infinite_nonblocking_ex.
     1: exact enumT_ex_nodup.
     1: exact T_ex_in_enumT_ex.
     1: exact in_enumT_ex_implies_T_ex.
@@ -139,6 +157,7 @@ Section InfinitePeriodicLLFExample.
   Proof.
     apply periodic_llf_no_deadline_miss_from_classical_dbf.
     - exact tasks_ex_well_formed.
+    - exact periodic_infinite_nonblocking_ex.
     - exact enumT_ex_nodup.
     - exact T_ex_in_enumT_ex.
     - exact in_enumT_ex_implies_T_ex.

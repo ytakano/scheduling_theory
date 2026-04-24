@@ -102,8 +102,8 @@ Proof.
   - cbn. lia.
 Qed.
 
-Definition pd_sp_job : Job := mkJob 0 0 1 2 5.
-Definition pd_sp_jobs (j : JobId) : Job := if Nat.eqb j 0 then pd_sp_job else mkJob 0 j 0 0 0.
+Definition pd_sp_job : Job := mkJob 0 0 1 2 5 (fun _ => false).
+Definition pd_sp_jobs (j : JobId) : Job := if Nat.eqb j 0 then pd_sp_job else mkJob 0 j 0 0 0 (fun _ => false).
 
 Lemma pd_sp_job_in_deadline_jobset :
   sporadic_jobset_deadline_upto (fun _ => True) pd_tasks pd_sp_jobs 9 0.
@@ -135,8 +135,8 @@ Proof.
     + simpl. tauto.
 Qed.
 
-Definition pd_jp_job : Job := mkJob 0 0 1 2 5.
-Definition pd_jp_jobs (j : JobId) : Job := if Nat.eqb j 0 then pd_jp_job else mkJob 0 j 0 0 0.
+Definition pd_jp_job : Job := mkJob 0 0 1 2 5 (fun _ => false).
+Definition pd_jp_jobs (j : JobId) : Job := if Nat.eqb j 0 then pd_jp_job else mkJob 0 j 0 0 0 (fun _ => false).
 Definition pd_offset (_ : TaskId) : Time := 0.
 Definition pd_jitter (_ : TaskId) : Time := 1.
 

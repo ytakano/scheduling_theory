@@ -89,7 +89,8 @@ Definition ex_job : Job := {|
   job_index        := 0;
   job_release      := 0;
   job_cost         := 2;
-  job_abs_deadline := 5
+  job_abs_deadline := 5;
+  job_blocked      := fun _ => false
 |}.
 
 Definition ex_jobs : JobId -> Job := fun _ => ex_job.

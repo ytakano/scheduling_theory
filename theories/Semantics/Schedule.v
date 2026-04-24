@@ -40,7 +40,10 @@ Definition completed (jobs : JobId -> Job) (m : nat) (sched : Schedule)
 Definition running (m : nat) (sched : Schedule) (j : JobId) (t : Time) : Prop :=
   exists c : CPU, c < m /\ sched t c = Some j.
 
-(* A job is eligible: released and not yet completed.
+Definition blocked (jobs : JobId -> Job) (j : JobId) (t : Time) : Prop :=
+  job_blocked (jobs j) t = true.
+
+(* A job is eligible: released, not yet completed, and not blocked.
    This is the minimum condition for CPU assignment; running jobs satisfy
    eligible. valid_schedule is stated in terms of eligible, not ready,
    because a running job is eligible but NOT ready (ready requires
@@ -48,7 +51,7 @@ Definition running (m : nat) (sched : Schedule) (j : JobId) (t : Time) : Prop :=
    never eligible; use valid_jobs to exclude them when needed. *)
 Definition eligible (jobs : JobId -> Job) (m : nat) (sched : Schedule)
     (j : JobId) (t : Time) : Prop :=
-  released jobs j t /\ ~completed jobs m sched j t.
+  released jobs j t /\ ~completed jobs m sched j t /\ ~ blocked jobs j t.
 
 (* A job is ready: eligible AND not currently executing on any CPU.
    This is the classical "ready queue" state: a job waiting to be scheduled.
@@ -122,4 +125,3 @@ Definition laxity
   Z.of_nat (job_abs_deadline (jobs j))
   - Z.of_nat t
   - Z.of_nat (remaining_cost jobs m sched j t).
-

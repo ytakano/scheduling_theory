@@ -57,6 +57,7 @@ Theorem partitioned_finite_optimality_lift :
              (cand_spec : CandidateSourceSpec J candidates_of)
              jobs,
         (forall x, J_bool x = true <-> J x) ->
+        (forall j t, J j -> ~ blocked jobs j t) ->
         (forall j, J j -> In j enumJ) ->
         (forall j, In j enumJ -> J j) ->
         feasible_on J jobs 1 ->
@@ -67,6 +68,7 @@ Theorem partitioned_finite_optimality_lift :
              (J_bool : JobId -> bool)
              (enumJ : list JobId) jobs,
         (forall x, J_bool x = true <-> J x) ->
+        (forall j t, J j -> ~ blocked jobs j t) ->
         (forall j, J j -> In j enumJ) ->
         (forall j, In j enumJ -> J j) ->
         (forall c, c < m ->
@@ -78,7 +80,7 @@ Theorem partitioned_finite_optimality_lift :
 Proof.
   intros local_scheduler spec Hscheduler Hoptimal
          assign m valid_assignment J J_bool enumJ jobs
-         HJbool Henum_complete Henum_sound Hlocal_feasible.
+         HJbool HJ_nonblocked Henum_complete Henum_sound Hlocal_feasible.
   eapply (local_policy_schedulable_by_on_implies_partitioned_schedulable_by_on
             local_scheduler spec Hscheduler
             assign m valid_assignment J
@@ -96,6 +98,8 @@ Proof.
                Henum_complete Henum_sound c Hlt).
     + intros x.
       exact (local_jobset_bool_spec assign J J_bool c HJbool x).
+    + intros j t Hj.
+      exact (HJ_nonblocked j t (proj1 Hj)).
     + intros j Hj.
       exact (local_candidates_complete assign J enumJ
                Henum_complete j c (proj1 Hj) (proj2 Hj)).

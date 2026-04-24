@@ -52,6 +52,14 @@ Proof.
       * exact (llcps_dispatch_completion Hlocal t c j Hlt Hdispatch).
       * destruct Hpreempt as [old Hpreempt].
         exact (llcps_preempt_completion Hlocal t c old j Hlt Hpreempt).
+  - intros t.
+    induction t as [|t IH]; intros c j Hlt Hrun.
+    + exact (llcps_init_not_blocked Hlocal c j Hlt Hrun).
+    + destruct (llcps_current_origin Hlocal t c j Hlt Hrun) as [Hprev | [Hdispatch | Hpreempt]].
+      * exact (llcps_persistent_not_blocked Hlocal t c j Hlt Hprev Hrun).
+      * exact (llcps_dispatch_not_blocked Hlocal t c j Hlt Hdispatch).
+      * destruct Hpreempt as [old Hpreempt].
+        exact (llcps_preempt_not_blocked Hlocal t c old j Hlt Hpreempt).
 Qed.
 
 Lemma local_labeled_concrete_multicore_projection_sound_to_global :
@@ -280,6 +288,8 @@ Proof.
     exact (lcps_release_sound Hsound t c j Hlt Hrun).
   - intros t c j Hlt Hrun.
     exact (lcps_completion_sound Hsound t c j Hlt Hrun).
+  - intros t c j Hlt Hrun.
+    exact (lcps_block_sound Hsound t c j Hlt Hrun).
 Qed.
 
 Lemma labeled_concrete_projection_sound_implies_valid_schedule :

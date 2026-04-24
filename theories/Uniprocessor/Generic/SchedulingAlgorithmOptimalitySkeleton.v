@@ -54,6 +54,7 @@ Qed.
 Lemma finite_normalized_schedule :
   forall alg J candidates_of jobs sched1 H,
     (forall sched0 H0,
+        (forall j t, J j -> ~ blocked jobs j t) ->
         valid_schedule jobs 1 sched0 ->
         feasible_schedule_on J jobs 1 sched0 ->
         (forall t j, sched0 t 0 = Some j -> J j) ->
@@ -68,6 +69,7 @@ Lemma finite_normalized_schedule :
     feasible_schedule_on J jobs 1 sched1 ->
     (forall t j, sched1 t 0 = Some j -> J j) ->
     single_cpu_only sched1 ->
+    (forall j t, J j -> ~ blocked jobs j t) ->
     exists sched2,
       valid_schedule jobs 1 sched2 /\
       feasible_schedule_on J jobs 1 sched2 /\
@@ -75,8 +77,8 @@ Lemma finite_normalized_schedule :
       single_cpu_only sched2 /\
       matches_choose_before alg jobs candidates_of sched2 H.
 Proof.
-  intros alg J candidates_of jobs sched1 H Hnorm Hvalid1 Hfeas1 HJonly1 Hcpu1.
-  exact (Hnorm sched1 H Hvalid1 Hfeas1 HJonly1 Hcpu1).
+  intros alg J candidates_of jobs sched1 H Hnorm Hvalid1 Hfeas1 HJonly1 Hcpu1 HJ_nonblocked.
+  exact (Hnorm sched1 H HJ_nonblocked Hvalid1 Hfeas1 HJonly1 Hcpu1).
 Qed.
 
 (* Stage 3a: truncate the normalized schedule at the deadline horizon.
@@ -147,8 +149,10 @@ Theorem finite_optimality_via_normalization :
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs,
     (forall x, J_bool x = true <-> J x) ->
+    (forall j t, J j -> ~ blocked jobs j t) ->
     (forall j, J j -> In j enumJ) ->
     (forall sched0 H,
+        (forall j t, J j -> ~ blocked jobs j t) ->
         valid_schedule jobs 1 sched0 ->
         feasible_schedule_on J jobs 1 sched0 ->
         (forall t j, sched0 t 0 = Some j -> J j) ->
@@ -167,11 +171,11 @@ Theorem finite_optimality_via_normalization :
       jobs 1.
 Proof.
   intros alg J J_bool enumJ candidates_of cand_spec jobs
-         HJbool HJ_in Hnorm Hchoose_agree Hfeas_on.
+         HJbool HJ_nonblocked HJ_in Hnorm Hchoose_agree Hfeas_on.
   destruct (finite_J_restricted_schedule J J_bool jobs HJbool Hfeas_on)
     as [sched1 [Hvalid1 [Hfeas1 [HJonly1 Hcpu1]]]].
   destruct (finite_normalized_schedule alg J candidates_of jobs sched1
-              (deadline_horizon jobs enumJ) Hnorm Hvalid1 Hfeas1 HJonly1 Hcpu1)
+              (deadline_horizon jobs enumJ) Hnorm Hvalid1 Hfeas1 HJonly1 Hcpu1 HJ_nonblocked)
     as [sched2 [Hvalid2 [Hfeas2 [HJonly2 [Hcpu2 Hcanon2]]]]].
   destruct (finite_truncated_schedule alg J enumJ candidates_of cand_spec jobs sched2
               Hchoose_agree HJ_in Hvalid2 Hfeas2 Hcpu2 Hcanon2)

@@ -40,11 +40,11 @@ Definition H_ex : Time := 4.
    job1: task1 k=0, release=0, deadline=3
    job2: task0 k=1, release=2, deadline=4
    job3: task1 k=1, release=3, deadline=6  *)
-Definition job0_ex : Job := mkJob 0 0 0 1 2.
-Definition job1_ex : Job := mkJob 1 0 0 1 3.
-Definition job2_ex : Job := mkJob 0 1 2 1 4.
-Definition job3_ex : Job := mkJob 1 1 3 1 6.
-Definition other_job_ex : Job := mkJob 2 0 10 1 15.
+Definition job0_ex : Job := mkJob 0 0 0 1 2 (fun _ => false).
+Definition job1_ex : Job := mkJob 1 0 0 1 3 (fun _ => false).
+Definition job2_ex : Job := mkJob 0 1 2 1 4 (fun _ => false).
+Definition job3_ex : Job := mkJob 1 1 3 1 6 (fun _ => false).
+Definition other_job_ex : Job := mkJob 2 0 10 1 15 (fun _ => false).
 
 Definition jobs_ex (j : JobId) : Job :=
   match j with
@@ -244,8 +244,8 @@ Proof.
   unfold sched_ex in Hrun.
   rewrite Nat.eqb_refl in Hrun.
   destruct t as [| [| [| [| t']]]]; simpl in Hrun; inversion Hrun; subst j;
-    unfold eligible, released, completed, jobs_ex, job0_ex, job1_ex, job2_ex, job3_ex;
-    simpl; lia.
+    unfold eligible, released, completed, blocked, jobs_ex, job0_ex, job1_ex, job2_ex, job3_ex;
+    simpl; repeat split; try lia; discriminate.
 Qed.
 
 Lemma periodic_feasible_schedule_ex :
@@ -272,6 +272,16 @@ Proof.
   - exact periodic_feasible_schedule_ex.
 Qed.
 
+Lemma periodic_nonblocking_ex :
+  periodic_jobset_nonblocking T_ex tasks_ex offset_ex jobs_ex H_ex.
+Proof.
+  intros j t Hj.
+  apply enumJ_ex_complete in Hj.
+  unfold blocked, enumJ_ex, jobs_ex, job0_ex, job1_ex, job2_ex, job3_ex in *.
+  simpl in Hj.
+  destruct Hj as [Hj | [Hj | [Hj | [Hj | []]]]]; subst j; simpl; discriminate.
+Qed.
+
 Theorem periodic_example_edf_schedulable_by_on :
   schedulable_by_on
     (periodic_jobset_upto T_ex tasks_ex offset_ex jobs_ex H_ex)
@@ -280,6 +290,7 @@ Theorem periodic_example_edf_schedulable_by_on :
 Proof.
   eapply periodic_edf_optimality_on_finite_horizon.
   - exact T_ex_bool_spec.
+  - exact periodic_nonblocking_ex.
   - exact enumJ_ex_complete.
   - exact enumJ_ex_sound.
   - exact periodic_feasible_on_ex.
@@ -371,6 +382,7 @@ Proof.
     destruct Hτ as [Hτ | [Hτ | []]]; subst τ.
     + left. reflexivity.
     + right. reflexivity.
+  - exact periodic_nonblocking_ex.
   - exact periodic_feasible_on_ex.
 Qed.
 
@@ -385,6 +397,7 @@ Theorem periodic_example_llf_schedulable_by_on :
 Proof.
   eapply periodic_llf_optimality_on_finite_horizon.
   - exact T_ex_bool_spec.
+  - exact periodic_nonblocking_ex.
   - exact enumJ_ex_complete.
   - exact enumJ_ex_sound.
   - exact periodic_feasible_on_ex.
@@ -408,6 +421,7 @@ Proof.
     destruct Hτ as [Hτ | [Hτ | []]]; subst τ.
     + left. reflexivity.
     + right. reflexivity.
+  - exact periodic_nonblocking_ex.
   - exact periodic_feasible_on_ex.
 Qed.
 
@@ -453,7 +467,8 @@ Proof.
   unfold sched_c0_ex in Hrun.
   rewrite Nat.eqb_refl in Hrun.
   destruct t as [| [| [| t']]]; simpl in Hrun; inversion Hrun; subst j;
-    unfold eligible, released, completed, jobs_ex, job0_ex, job2_ex; simpl; lia.
+    unfold eligible, released, completed, blocked, jobs_ex, job0_ex, job2_ex; simpl;
+    repeat split; try lia; discriminate.
 Qed.
 
 Lemma sched_c1_ex_valid : valid_schedule jobs_ex 1 sched_c1_ex.
@@ -464,7 +479,8 @@ Proof.
   unfold sched_c1_ex in Hrun.
   rewrite Nat.eqb_refl in Hrun.
   destruct t as [| [| [| [| t']]]]; simpl in Hrun; inversion Hrun; subst j;
-    unfold eligible, released, completed, jobs_ex, job1_ex, job3_ex; simpl; lia.
+    unfold eligible, released, completed, blocked, jobs_ex, job1_ex, job3_ex; simpl;
+    repeat split; try lia; discriminate.
 Qed.
 
 (* local_jobset assign_ex (periodic_jobset_upto T_ex ...) 0 = {0, 2} *)
@@ -560,11 +576,12 @@ Proof.
   apply (partitioned_periodic_finite_optimality_lift
            edf_scheduler edf_generic_spec
            (fun _ => eq_refl)
-           (fun J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf =>
-              edf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf)
+           (fun J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf =>
+              edf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf)
            assign_ex 2 assign_ex_valid
            T_ex T_ex_bool tasks_ex offset_ex H_ex enumJ_ex jobs_ex).
   - exact T_ex_bool_spec.
+  - exact periodic_nonblocking_ex.
   - exact enumJ_ex_complete.
   - exact enumJ_ex_sound.
   - intros c Hc.

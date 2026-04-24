@@ -31,7 +31,7 @@ Import ListNotations.
 (* ================================================================= *)
 
 (* All jobs: release=0, arrival=0, cost=1, deadline=4 *)
-Definition rr_example_jobs (_ : JobId) : Job := mkJob 0 0 0 1 4.
+Definition rr_example_jobs (_ : JobId) : Job := mkJob 0 0 0 1 4 (fun _ => false).
 
 (* Two-job set: jobs 0 and 1 *)
 Definition J_rr (j : JobId) : Prop := j = 0 \/ j = 1.

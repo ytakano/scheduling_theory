@@ -259,7 +259,8 @@ Definition workload_scheduler_relation_jobs
       0
       (reconstructed_scheduler_relation_release task_id sched_trace)
       (reconstructed_scheduler_relation_cost task_trace sched_trace task_id)
-      (reconstructed_scheduler_relation_abs_deadline task_trace sched_trace task_id).
+      (reconstructed_scheduler_relation_abs_deadline task_trace sched_trace task_id)
+      (fun _ => false).
 
 Definition workload_global_fifo_scheduler_relation_row
     (task_trace : list AwkernelTaskTraceEntry)
@@ -995,7 +996,7 @@ Proof.
          1
          (workload_scheduler_facing_execution_single_worker
             (olac_execution (olcsac_base C)))
-         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _).
+         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _).
     + intros c j Hlt Hcur.
       apply (llcps_init_release Hproj2 c j); [lia|assumption].
     + intros c j Hlt Hcur Hdone.
@@ -1004,6 +1005,8 @@ Proof.
       apply (proj2 (workload_scheduler_facing_completed_two_iff_one
                       P (olac_execution (olcsac_base C)) jobs sched_trace j 0 Hmatch)).
       exact Hdone.
+    + intros c j Hlt Hcur.
+      apply (llcps_init_not_blocked Hproj2 c j); [lia|assumption].
     + exact (llcps_init_runnable_release Hproj2).
     + intros j Hrunnable Hdone.
       pose proof (llcps_init_runnable_completion Hproj2 j Hrunnable) as Hdone2.
@@ -1015,6 +1018,8 @@ Proof.
       apply (llcps_current_origin Hproj2 t c j); [lia|assumption].
     + intros t c j Hlt Hdispatch.
       apply (llcps_dispatch_release Hproj2 t c j); [lia|assumption].
+    + intros t c j Hlt Hdispatch.
+      apply (llcps_dispatch_not_blocked Hproj2 t c j); [lia|assumption].
     + exact (llcps_wakeup_release Hproj2).
     + intros t j Hwakeup Hdone.
       pose proof (llcps_wakeup_completion Hproj2 t j Hwakeup) as Hdone2.
@@ -1030,6 +1035,8 @@ Proof.
       apply (proj2 (workload_scheduler_facing_completed_two_iff_one
                       P (olac_execution (olcsac_base C)) jobs sched_trace j (S t) Hmatch)).
       exact Hdone.
+    + intros t c j Hlt Hcur1 Hcur2.
+      apply (llcps_persistent_not_blocked Hproj2 t c j); [lia|assumption|assumption].
     + intros t c Hlt Hreq.
       apply (llcps_request_sets_need_resched Hproj2 t c); [lia|assumption].
     + intros t c Hlt Hhandle.
@@ -1065,6 +1072,8 @@ Proof.
       apply (proj2 (workload_scheduler_facing_completed_two_iff_one
                       P (olac_execution (olcsac_base C)) jobs sched_trace new (S t) Hmatch)).
       exact Hdone.
+    + intros t c old new Hlt Hpreempt.
+      apply (llcps_preempt_not_blocked Hproj2 t c old new); [lia|assumption].
     + intros t c old new Hlt Hpreempt Hdone.
       pose proof
         (llcps_preempt_old_completion Hproj2 t c old new ltac:(lia) Hpreempt)

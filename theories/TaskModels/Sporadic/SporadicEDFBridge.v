@@ -18,6 +18,7 @@ Theorem sporadic_edf_optimality_on_finite_horizon :
   forall T T_bool tasks H jobs
          (w : FiniteHorizonWitness (sporadic_jobset_upto T tasks jobs H)),
     (forall τ, T_bool τ = true <-> T τ) ->
+    sporadic_jobset_nonblocking T tasks jobs H ->
     feasible_on (sporadic_jobset_upto T tasks jobs H) jobs 1 ->
     schedulable_by_on
       (sporadic_jobset_upto T tasks jobs H)
@@ -25,9 +26,9 @@ Theorem sporadic_edf_optimality_on_finite_horizon :
          (witness_candidates_of (sporadic_jobset_upto T tasks jobs H) w))
       jobs 1.
 Proof.
-  intros T T_bool tasks H jobs w HTbool Hfeas.
+  intros T T_bool tasks H jobs w HTbool Hnonblocked Hfeas.
   exact (sporadic_finite_optimality_lift_with_witness edf_scheduler
-    (fun J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf =>
-      edf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf)
-    T T_bool tasks H jobs w HTbool Hfeas).
+    (fun J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf =>
+      edf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf)
+    T T_bool tasks H jobs w HTbool Hnonblocked Hfeas).
 Qed.

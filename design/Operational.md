@@ -86,6 +86,11 @@ These constructors define the common event categories used by the operational
 step relation. They are not a concrete interrupt vocabulary, and they do not
 encode full OS-specific causes or routing details.
 
+At this layer, `EvBlock` only fixes an abstract effect: a released job may
+become temporarily ineligible for selection. The common layer does not define
+which concrete wait cause produced that effect or which concrete hook
+re-enables the job later.
+
 The common small-step skeleton is:
 
 ```coq
@@ -169,6 +174,11 @@ The intended layering is:
   occupancy, dispatch intervals, and scheduler-facing witnesses,
 - runtime layer: concrete tracepoint placement, buffering, serialization, and
   other mechanics used to emit those artifacts.
+
+This same split applies to blocking-aware eligibility. The common layer fixes
+that blocking may make released work ineligible. Adapters must explain which
+concrete states or events realize that abstract effect. The runtime only emits
+the evidence used by that adapter proof.
 
 ### Projection back into semantic schedules
 

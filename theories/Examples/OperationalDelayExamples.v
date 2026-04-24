@@ -46,7 +46,7 @@ Import ListNotations.
 
 Section OperationalDelayExamples.
 
-  Definition delay_example_job : Job := mkJob 0 0 0 1 3.
+  Definition delay_example_job : Job := mkJob 0 0 0 1 3 (fun _ => false).
   Definition delay_example_jobs (_ : JobId) : Job := delay_example_job.
 
   Definition idle_state : OpState :=
@@ -166,6 +166,10 @@ Section OperationalDelayExamples.
       idle_labeled_execution.
   Proof.
     constructor.
+    - intros t c j Hlt Hrun.
+      unfold idle_trace, idle_state in Hrun.
+      simpl in Hrun.
+      discriminate.
     - intros t c j Hlt Hrun.
       unfold idle_trace, idle_state in Hrun.
       simpl in Hrun.
@@ -344,6 +348,9 @@ Section OperationalDelayExamples.
       + intros t c j Hlt Hrun.
         simpl in Hrun.
         discriminate.
+      + intros t c j Hlt Hrun.
+        simpl in Hrun.
+        discriminate.
     - intros t.
       intros c Hge.
       reflexivity.
@@ -367,6 +374,9 @@ Section OperationalDelayExamples.
       + intros c j Hlt Hrun.
         simpl in Hrun.
         discriminate.
+      + intros c j Hlt Hrun.
+        simpl in Hrun.
+        discriminate.
       + intros j Hin.
         simpl in Hin.
         contradiction.
@@ -378,12 +388,17 @@ Section OperationalDelayExamples.
         exact Hrun.
       + intros t c j Hlt Hdispatch.
         discriminate.
+      + intros t c j Hlt Hdispatch.
+        discriminate.
       + intros t j Hwakeup.
         destruct t; simpl in Hwakeup; discriminate.
       + intros t j Hwakeup.
         destruct t; simpl in Hwakeup; discriminate.
       + intros t c j Hlt Hprev Hnext.
         simpl in Hprev.
+        discriminate.
+      + intros t c j Hlt Hprev Hnext.
+        simpl in Hnext.
         discriminate.
       + intros t c Hlt Hreq.
         destruct t; simpl in Hreq; discriminate.
@@ -403,6 +418,8 @@ Section OperationalDelayExamples.
         destruct t; simpl in Hblock; discriminate.
       + intros t j Hcomplete.
         destruct t; simpl in Hcomplete; discriminate.
+      + intros t c old new Hlt Hpreempt.
+        discriminate.
       + intros t c old new Hlt Hpreempt.
         discriminate.
       + intros t c old new Hlt Hpreempt.
@@ -486,6 +503,9 @@ Section OperationalDelayExamples.
       + intros c j Hlt Hrun.
         simpl in Hrun.
         discriminate.
+      + intros c j Hlt Hrun.
+        simpl in Hrun.
+        discriminate.
       + intros j Hin.
         simpl in Hin.
         contradiction.
@@ -498,12 +518,17 @@ Section OperationalDelayExamples.
         * left. exact Hrun.
       + intros t c j Hlt Hdispatch.
         destruct t; simpl in Hdispatch; discriminate.
+      + intros t c j Hlt Hdispatch.
+        destruct t; simpl in Hdispatch; discriminate.
       + intros t j Hwakeup.
         destruct t; simpl in Hwakeup; discriminate.
       + intros t j Hwakeup.
         destruct t; simpl in Hwakeup; discriminate.
       + intros t c j Hlt Hprev Hnext.
         simpl in Hprev.
+        discriminate.
+      + intros t c j Hlt Hprev Hnext.
+        simpl in Hnext.
         discriminate.
       + intros [|t'] c Hlt Hreq.
         * simpl in Hreq.
@@ -529,6 +554,8 @@ Section OperationalDelayExamples.
         destruct t; simpl in Hblock; discriminate.
       + intros t j Hcomplete.
         destruct t; simpl in Hcomplete; discriminate.
+      + intros t c old new Hlt Hpreempt.
+        destruct t; simpl in Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt.
         destruct t; simpl in Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt.
@@ -824,12 +851,15 @@ Section OperationalDelayExamples.
     - constructor.
       + intros c j Hlt Hrun. discriminate.
       + intros c j Hlt Hrun. discriminate.
+      + intros c j Hlt Hrun. discriminate.
       + intros j Hin. contradiction.
       + intros j Hin. contradiction.
       + intros [|t'] c j Hlt Hrun; simpl in *; discriminate.
       + intros t c j Hlt Hdispatch; discriminate.
+      + intros t c j Hlt Hdispatch; discriminate.
       + intros t j Hwakeup; discriminate.
       + intros t j Hwakeup; discriminate.
+      + intros [|t'] c j Hlt Hcur Hcur'; discriminate.
       + intros [|t'] c j Hlt Hcur Hcur'; discriminate.
       + intros t c Hlt Hreq; discriminate.
       + intros t c Hlt Hhandle; discriminate.
@@ -840,6 +870,7 @@ Section OperationalDelayExamples.
       + intros t j Hblock Hin; discriminate.
       + intros t c j Hlt Hblock Htarget; discriminate.
       + intros t j Hcomplete; discriminate.
+      + intros t c old new Hlt Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt; discriminate.

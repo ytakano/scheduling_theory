@@ -201,6 +201,7 @@ Lemma periodic_job_eligible_at_release_generic :
   forall T tasks offset jobs H enumT
          (codec : PeriodicCodec T tasks offset jobs) τ k,
     well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
     T τ ->
@@ -213,7 +214,7 @@ Lemma periodic_job_eligible_at_release_generic :
       (expected_release tasks offset τ k).
 Proof.
   intros T tasks offset jobs H enumT codec τ k
-         Hwf HenumT_complete HenumT_sound Hτ Hrel Hcost_pos.
+         Hwf Hnonblocked HenumT_complete HenumT_sound Hτ Hrel Hcost_pos.
   split.
   - unfold released.
     pose proof
@@ -222,26 +223,39 @@ Proof.
     rewrite (generated_job_release tasks offset jobs _ Hgen).
     rewrite Htask, Hidx.
     reflexivity.
-  - apply not_completed_iff_service_lt_cost.
-    pose proof
-      (global_periodic_job_id_of_sound T tasks offset jobs codec τ k Hτ)
-      as [Htask [Hidx Hgen]].
-    assert (Hrelease :
-      job_release (jobs (global_periodic_job_id_of T tasks offset jobs codec τ k)) =
-      expected_release tasks offset τ k).
-    {
-      rewrite (generated_job_release tasks offset jobs _ Hgen).
-      rewrite Htask, Hidx.
-      reflexivity.
-    }
-    rewrite <- Hrelease.
-    rewrite (service_at_release_zero
-               jobs 1
-               (generated_periodic_edf_schedule_upto
-                  T tasks offset jobs H enumT codec)
-               (global_periodic_job_id_of T tasks offset jobs codec τ k)).
-    + exact Hcost_pos.
-    + apply generated_periodic_edf_schedule_upto_valid; assumption.
+  - split.
+    + apply not_completed_iff_service_lt_cost.
+      pose proof
+        (global_periodic_job_id_of_sound T tasks offset jobs codec τ k Hτ)
+        as [Htask [Hidx Hgen]].
+      assert (Hrelease :
+        job_release (jobs (global_periodic_job_id_of T tasks offset jobs codec τ k)) =
+        expected_release tasks offset τ k).
+      {
+        rewrite (generated_job_release tasks offset jobs _ Hgen).
+        rewrite Htask, Hidx.
+        reflexivity.
+      }
+      rewrite <- Hrelease.
+      rewrite (service_at_release_zero
+                 jobs 1
+                 (generated_periodic_edf_schedule_upto
+                    T tasks offset jobs H enumT codec)
+                 (global_periodic_job_id_of T tasks offset jobs codec τ k)).
+      * exact Hcost_pos.
+      * apply generated_periodic_edf_schedule_upto_valid; assumption.
+    + apply Hnonblocked.
+      unfold periodic_jobset_upto.
+      pose proof
+        (global_periodic_job_id_of_sound T tasks offset jobs codec τ k Hτ)
+        as [Htask [Hidx Hgen]].
+      split.
+      * rewrite Htask. exact Hτ.
+      * split.
+        -- exact Hgen.
+        -- rewrite (generated_job_release tasks offset jobs _ Hgen).
+           rewrite Htask, Hidx.
+           exact Hrel.
 Qed.
 
 Lemma generated_periodic_edf_schedule_upto_agrees_before_generated :
@@ -316,6 +330,9 @@ Theorem periodic_edf_no_deadline_miss_from_window_dbf :
          (codec : PeriodicCodec T tasks offset jobs)
          j,
     well_formed_periodic_tasks_on T tasks ->
+    (forall j' t,
+      periodic_jobset T tasks offset jobs j' ->
+      ~ blocked jobs j' t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -333,7 +350,7 @@ Theorem periodic_edf_no_deadline_miss_from_window_dbf :
         j.
 Proof.
   intros T tasks offset enumT jobs codec j
-         Hwf HnodupT HenumT_complete HenumT_sound
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hj Hbridge Hdbf.
   set (HH := S (job_abs_deadline (jobs j))).
   set (sched_fin :=
@@ -349,6 +366,10 @@ Proof.
     unfold sched_fin, generated_periodic_edf_schedule_upto, HH.
     eapply periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_busy_prefix_bridge.
     - exact Hwf.
+    - intros j' t Hj'.
+      apply Hnonblocked.
+      exact (periodic_jobset_upto_implies_periodic_jobset
+               T tasks offset jobs HH j' Hj').
     - exact HnodupT.
     - exact HenumT_complete.
     - exact HenumT_sound.
@@ -393,6 +414,9 @@ Theorem periodic_edf_no_deadline_miss_from_window_dbf_with_no_carry_in_bridge :
          (codec : PeriodicCodec T tasks offset jobs)
          j,
     well_formed_periodic_tasks_on T tasks ->
+    (forall j' t,
+      periodic_jobset T tasks offset jobs j' ->
+      ~ blocked jobs j' t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -410,7 +434,7 @@ Theorem periodic_edf_no_deadline_miss_from_window_dbf_with_no_carry_in_bridge :
         j.
 Proof.
   intros T tasks offset enumT jobs codec j
-         Hwf HnodupT HenumT_complete HenumT_sound
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hj Hbridge Hdbf.
   set (HH := S (job_abs_deadline (jobs j))).
   set (sched_fin :=
@@ -426,6 +450,10 @@ Proof.
     unfold sched_fin, generated_periodic_edf_schedule_upto, HH.
     eapply periodic_window_dbf_implies_no_deadline_miss_under_generated_edf_with_no_carry_in_bridge.
     - exact Hwf.
+    - intros j' t Hj'.
+      apply Hnonblocked.
+      exact (periodic_jobset_upto_implies_periodic_jobset
+               T tasks offset jobs HH j' Hj').
     - exact HnodupT.
     - exact HenumT_complete.
     - exact HenumT_sound.
@@ -465,6 +493,9 @@ Theorem periodic_edf_feasible_schedule_from_window_dbf :
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
     well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -484,7 +515,7 @@ Theorem periodic_edf_feasible_schedule_from_window_dbf :
       (generated_periodic_edf_schedule T tasks offset jobs enumT codec).
 Proof.
   intros T tasks offset enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hbridge Hdbf.
   unfold feasible_schedule_on.
   intros j Hj.
@@ -495,6 +526,9 @@ Theorem periodic_edf_feasible_schedule_from_window_dbf_with_no_carry_in_bridge :
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
     well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -514,7 +548,7 @@ Theorem periodic_edf_feasible_schedule_from_window_dbf_with_no_carry_in_bridge :
       (generated_periodic_edf_schedule T tasks offset jobs enumT codec).
 Proof.
   intros T tasks offset enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hbridge Hdbf.
   unfold feasible_schedule_on.
   intros j Hj.
@@ -526,6 +560,9 @@ Theorem periodic_edf_no_deadline_miss_from_classical_dbf :
          (codec : PeriodicCodec T tasks offset jobs)
          j,
     well_formed_periodic_tasks_on T tasks ->
+    (forall j' t,
+      periodic_jobset T tasks offset jobs j' ->
+      ~ blocked jobs j' t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -542,7 +579,7 @@ Theorem periodic_edf_no_deadline_miss_from_classical_dbf :
         j.
 Proof.
   intros T tasks offset enumT jobs codec j
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
          Hj Hbridge Hdbf.
   eapply periodic_edf_no_deadline_miss_from_window_dbf; eauto.
   intros t1 t2 Hle.
@@ -558,6 +595,9 @@ Theorem periodic_edf_no_deadline_miss_from_classical_dbf_with_no_carry_in_bridge
          (codec : PeriodicCodec T tasks offset jobs)
          j,
     well_formed_periodic_tasks_on T tasks ->
+    (forall j' t,
+      periodic_jobset T tasks offset jobs j' ->
+      ~ blocked jobs j' t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -574,7 +614,7 @@ Theorem periodic_edf_no_deadline_miss_from_classical_dbf_with_no_carry_in_bridge
         j.
 Proof.
   intros T tasks offset enumT jobs codec j
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
          Hj Hbridge Hdbf.
   eapply periodic_edf_no_deadline_miss_from_window_dbf_with_no_carry_in_bridge; eauto.
   intros t1 t2 Hle.
@@ -589,6 +629,9 @@ Theorem periodic_edf_feasible_schedule_from_classical_dbf :
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
     well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -607,7 +650,7 @@ Theorem periodic_edf_feasible_schedule_from_classical_dbf :
       (generated_periodic_edf_schedule T tasks offset jobs enumT codec).
 Proof.
   intros T tasks offset enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
          Hbridge Hdbf.
   unfold feasible_schedule_on.
   intros j Hj.
@@ -618,6 +661,9 @@ Theorem periodic_edf_feasible_schedule_from_classical_dbf_with_no_carry_in_bridg
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
     well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -636,7 +682,7 @@ Theorem periodic_edf_feasible_schedule_from_classical_dbf_with_no_carry_in_bridg
       (generated_periodic_edf_schedule T tasks offset jobs enumT codec).
 Proof.
   intros T tasks offset enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
          Hbridge Hdbf.
   unfold feasible_schedule_on.
   intros j Hj.
@@ -647,6 +693,9 @@ Theorem periodic_edf_schedulable_by_on :
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
     well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -666,7 +715,7 @@ Theorem periodic_edf_schedulable_by_on :
       jobs 1.
 Proof.
   intros T tasks offset enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hbridge Hdbf.
   eapply schedulable_by_on_intro with
     (sched := generated_periodic_edf_schedule T tasks offset jobs enumT codec).
@@ -680,6 +729,9 @@ Theorem periodic_edf_schedulable_by_on_with_no_carry_in_bridge :
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
     well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -699,7 +751,7 @@ Theorem periodic_edf_schedulable_by_on_with_no_carry_in_bridge :
       jobs 1.
 Proof.
   intros T tasks offset enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hbridge Hdbf.
   eapply schedulable_by_on_intro with
     (sched := generated_periodic_edf_schedule T tasks offset jobs enumT codec).
@@ -713,6 +765,9 @@ Theorem periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge :
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
     well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -731,7 +786,7 @@ Theorem periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge :
       jobs 1.
 Proof.
   intros T tasks offset enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
          Hbridge Hdbf.
   eapply schedulable_by_on_intro with
     (sched := generated_periodic_edf_schedule T tasks offset jobs enumT codec).
@@ -745,6 +800,9 @@ Theorem periodic_edf_schedulable_by_window_dbf_on :
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
     well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -770,6 +828,9 @@ Theorem periodic_edf_schedulable_by_classical_dbf_on :
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
     well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -788,7 +849,7 @@ Theorem periodic_edf_schedulable_by_classical_dbf_on :
       jobs 1.
 Proof.
   intros T tasks offset enumT jobs codec
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
          Hbridge Hdbf.
   eapply schedulable_by_on_intro with
     (sched := generated_periodic_edf_schedule T tasks offset jobs enumT codec).

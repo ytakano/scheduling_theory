@@ -176,17 +176,22 @@ type CPU = Nat
 type Time = Nat
 
 data Job =
-   MkJob TaskId Nat Time Nat Time
+   MkJob TaskId Nat Time Nat Time (Time -> Bool)
 
 job_release :: Job -> Time
 job_release j =
   case j of {
-   MkJob _ _ job_release0 _ _ -> job_release0}
+   MkJob _ _ job_release0 _ _ _ -> job_release0}
 
 job_cost :: Job -> Nat
 job_cost j =
   case j of {
-   MkJob _ _ _ job_cost0 _ -> job_cost0}
+   MkJob _ _ _ job_cost0 _ _ -> job_cost0}
+
+job_blocked :: Job -> Time -> Bool
+job_blocked j =
+  case j of {
+   MkJob _ _ _ _ _ job_blocked0 -> job_blocked0}
 
 type Schedule = Time -> CPU -> Option JobId
 
@@ -226,8 +231,10 @@ service_job m sched j t =
 
 eligibleb :: (JobId -> Job) -> Nat -> Schedule -> JobId -> Time -> Bool
 eligibleb jobs m sched j t =
-  andb (leb (job_release (jobs j)) t)
-    (negb (leb (job_cost (jobs j)) (service_job m sched j t)))
+  andb
+    (andb (leb (job_release (jobs j)) t)
+      (negb (leb (job_cost (jobs j)) (service_job m sched j t))))
+    (negb (job_blocked (jobs j) t))
 
 type GenericTopMSchedulingAlgorithm =
   (JobId -> Job) -> Nat -> Schedule -> Time -> (List JobId) -> List JobId
@@ -933,6 +940,7 @@ workload_scheduler_relation_jobs task_trace sched_trace task_id =
     (reconstructed_scheduler_relation_cost task_trace sched_trace task_id)
     (reconstructed_scheduler_relation_abs_deadline task_trace sched_trace
       task_id)
+    (\_ -> False)
 
 workload_global_fifo_scheduler_relation_rowb :: (List AwkernelTaskTraceEntry)
                                                 -> (List

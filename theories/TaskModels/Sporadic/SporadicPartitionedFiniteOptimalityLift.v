@@ -51,6 +51,7 @@ Theorem partitioned_sporadic_finite_optimality_lift :
            (cands : CandidateSource)
            (cand_spec : CandidateSourceSpec J cands) jobs,
        (forall x, J_bool x = true <-> J x) ->
+       (forall j t, J j -> ~ blocked jobs j t) ->
        (forall j, J j -> In j enumJ) ->
        (forall j, In j enumJ -> J j) ->
        feasible_on J jobs 1 ->
@@ -59,6 +60,7 @@ Theorem partitioned_sporadic_finite_optimality_lift :
            (valid_assignment : forall j, assign j < m)
            T T_bool tasks H enumJ jobs,
       (forall τ, T_bool τ = true <-> T τ) ->
+      sporadic_jobset_nonblocking T tasks jobs H ->
       (forall j, sporadic_jobset_upto T tasks jobs H j -> In j enumJ) ->
       (forall j, In j enumJ -> sporadic_jobset_upto T tasks jobs H j) ->
       (forall c, c < m ->
@@ -72,7 +74,7 @@ Theorem partitioned_sporadic_finite_optimality_lift :
 Proof.
   intros local_scheduler spec Hscheduler Hoptimal
          assign m valid_assignment T T_bool tasks H enumJ jobs
-         HTbool Henum_complete Henum_sound Hlocal_feasible.
+         HTbool Hnonblocked Henum_complete Henum_sound Hlocal_feasible.
   apply (partitioned_finite_optimality_lift local_scheduler spec Hscheduler Hoptimal
            assign m valid_assignment
            (sporadic_jobset_upto T tasks jobs H)
@@ -80,6 +82,7 @@ Proof.
            enumJ jobs).
   - intros j.
     exact (sporadic_jobset_upto_bool_spec T T_bool tasks jobs H HTbool j).
+  - exact Hnonblocked.
   - exact Henum_complete.
   - exact Henum_sound.
   - exact Hlocal_feasible.
@@ -94,6 +97,7 @@ Theorem partitioned_sporadic_finite_optimality_lift_with_witness :
            (cands : CandidateSource)
            (cand_spec : CandidateSourceSpec J cands) jobs,
        (forall x, J_bool x = true <-> J x) ->
+       (forall j t, J j -> ~ blocked jobs j t) ->
        (forall j, J j -> In j enumJ) ->
        (forall j, In j enumJ -> J j) ->
        feasible_on J jobs 1 ->
@@ -103,6 +107,7 @@ Theorem partitioned_sporadic_finite_optimality_lift_with_witness :
            T T_bool tasks H jobs
            (w : FiniteHorizonWitness (sporadic_jobset_upto T tasks jobs H)),
       (forall τ, T_bool τ = true <-> T τ) ->
+      sporadic_jobset_nonblocking T tasks jobs H ->
       (forall c, c < m ->
          feasible_on
            (local_jobset assign (sporadic_jobset_upto T tasks jobs H) c)
@@ -116,7 +121,7 @@ Theorem partitioned_sporadic_finite_optimality_lift_with_witness :
 Proof.
   intros local_scheduler spec Hscheduler Hoptimal
          assign m valid_assignment T T_bool tasks H jobs w
-         HTbool Hlocal_feasible.
+         HTbool Hnonblocked Hlocal_feasible.
   exact (partitioned_witness_finite_optimality_lift
     local_scheduler spec
     Hscheduler Hoptimal
@@ -126,5 +131,6 @@ Proof.
     jobs
     w
     (fun j => sporadic_jobset_upto_bool_spec T T_bool tasks jobs H HTbool j)
+    Hnonblocked
     Hlocal_feasible).
 Qed.

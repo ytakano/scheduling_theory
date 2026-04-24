@@ -50,10 +50,10 @@ Import ListNotations.
 
 Section OperationalProjectionExamples.
 
-  Definition op_example_job : Job := mkJob 0 0 0 1 2.
+  Definition op_example_job : Job := mkJob 0 0 0 1 2 (fun _ => false).
   Definition op_example_jobs (_ : JobId) : Job := op_example_job.
 
-  Definition op_example_long_job : Job := mkJob 0 0 0 3 10.
+  Definition op_example_long_job : Job := mkJob 0 0 0 3 10 (fun _ => false).
   Definition op_example_long_jobs (_ : JobId) : Job := op_example_long_job.
 
   Definition one_cpu_state0 : OpState :=
@@ -606,6 +606,21 @@ Section OperationalProjectionExamples.
           unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hrun.
           simpl in Hrun.
           discriminate.
+    - intros t c j Hlt Hrun.
+      destruct t as [|t'].
+      + simpl in Hrun. discriminate.
+      + destruct t' as [|t''].
+        * assert (c = 0) by lia.
+          subst c.
+          inversion Hrun; subst.
+          unfold blocked, op_example_long_jobs, op_example_long_job.
+          simpl.
+          discriminate.
+        * assert (c = 0) by lia.
+          subst c.
+          unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hrun.
+          simpl in Hrun.
+          discriminate.
   Qed.
 
   Lemma example_local_labeled_concrete_sound :
@@ -621,24 +636,23 @@ Section OperationalProjectionExamples.
     - intros c j Hlt Hrun.
       simpl in Hrun.
       discriminate.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
     - intros j Hin.
       simpl in Hin.
-      destruct Hin as [Hj|Hin].
-      + subst j.
+      destruct Hin as [<-|[]].
       unfold released, op_example_long_jobs, op_example_long_job.
       simpl.
-      lia.
-      + contradiction.
+      exact (le_n 0).
     - intros j Hin.
       simpl in Hin.
-      destruct Hin as [Hj|Hin].
-      + subst j.
-        apply not_completed_iff_service_lt_cost.
-        unfold service_job, cpu_count, runs_on, project_schedule,
-               op_example_long_jobs, op_example_long_job.
-        simpl.
-        lia.
-      + contradiction.
+      destruct Hin as [<-|[]].
+      apply not_completed_iff_service_lt_cost.
+      unfold service_job, cpu_count, runs_on, project_schedule,
+             op_example_long_jobs, op_example_long_job.
+      simpl.
+      lia.
     - intros [|[|t']] c j Hlt Hrun; simpl in *.
       + assert (c = 0) by lia.
         subst c.
@@ -657,10 +671,34 @@ Section OperationalProjectionExamples.
           discriminate.
         * simpl in Hdispatch.
           discriminate.
+    - intros t c j Hlt Hdispatch.
+      destruct t as [|t'].
+      + inversion Hdispatch; subst.
+        unfold blocked, op_example_long_jobs, op_example_long_job.
+        simpl.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hdispatch.
+          discriminate.
+        * simpl in Hdispatch.
+          discriminate.
     - intros t j Hwakeup.
       destruct t as [|[|t'']]; simpl in Hwakeup; inversion Hwakeup.
     - intros t j Hwakeup.
       destruct t as [|[|t'']]; simpl in Hwakeup; inversion Hwakeup.
+    - intros t c j Hlt Hprev Hnext.
+      assert (c = 0) by lia.
+      subst c.
+      destruct t as [|t'].
+      + simpl in Hnext.
+        discriminate.
+      + destruct t' as [|t''].
+        * unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hprev, Hnext.
+          simpl in Hprev, Hnext.
+          discriminate.
+        * unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hprev, Hnext.
+          simpl in Hprev, Hnext.
+          discriminate.
     - intros t c j Hlt Hprev Hnext.
       assert (c = 0) by lia.
       subst c.
@@ -754,6 +792,15 @@ Section OperationalProjectionExamples.
           discriminate.
     - intros t j Hcomplete.
       destruct t as [|[|t'']]; simpl in Hcomplete; inversion Hcomplete.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t'].
+      + simpl in Hpreempt.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hpreempt.
+          discriminate.
+        * simpl in Hpreempt.
+          discriminate.
     - intros t c old new Hlt Hpreempt.
       destruct t as [|t'].
       + simpl in Hpreempt.
@@ -914,27 +961,28 @@ Section OperationalProjectionExamples.
     - intros c j Hlt Hrun.
       simpl in Hrun.
       discriminate.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
     - intros j Hin.
       simpl in Hin.
-      destruct Hin as [Hj|Hin].
-      + subst j.
+      destruct Hin as [<-|[]].
       unfold released, op_example_jobs, op_example_job.
       simpl.
-      lia.
-      + contradiction.
+      exact (le_n 0).
     - intros j Hin.
       simpl in Hin.
-      destruct Hin as [Hj|Hin].
-      + subst j.
-        apply not_completed_iff_service_lt_cost.
-        unfold service_job, cpu_count, runs_on, project_schedule,
-               op_example_jobs, op_example_job.
-        simpl.
-        lia.
-      + contradiction.
+      destruct Hin as [<-|[]].
+      apply not_completed_iff_service_lt_cost.
+      unfold service_job, cpu_count, runs_on, project_schedule,
+             op_example_jobs, op_example_job.
+      simpl.
+      lia.
     - intros [|t'] c j Hlt Hrun; simpl in *.
       + discriminate.
       + discriminate.
+    - intros t c j Hlt Hdispatch.
+      destruct t; simpl in Hdispatch; discriminate.
     - intros t c j Hlt Hdispatch.
       destruct t; simpl in Hdispatch; discriminate.
     - intros t j Hwakeup.
@@ -945,6 +993,8 @@ Section OperationalProjectionExamples.
       destruct t as [|t']; simpl in Hwakeup.
       + inversion Hwakeup.
       + discriminate.
+    - intros t c j Hlt Hprev Hnext.
+      destruct t; simpl in Hprev, Hnext; discriminate.
     - intros t c j Hlt Hprev Hnext.
       destruct t; simpl in Hprev, Hnext; discriminate.
     - intros t c Hlt Hreq.
@@ -971,6 +1021,8 @@ Section OperationalProjectionExamples.
       destruct t; simpl in Hblock; discriminate.
     - intros t j Hcomplete.
       destruct t as [|[|t'']]; simpl in Hcomplete; inversion Hcomplete.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t']; simpl in Hpreempt; discriminate.
     - intros t c old new Hlt Hpreempt.
       destruct t as [|t']; simpl in Hpreempt; discriminate.
     - intros t c old new Hlt Hpreempt.
@@ -1161,6 +1213,7 @@ Section OperationalProjectionExamples.
              choose_candidate_adapter_contract
              0
              0
+             (ltac:(unfold blocked, op_example_jobs, op_example_job; simpl; discriminate))
              (or_introl eq_refl)) as Helig.
         exact
           (admissible_somewhere_of_all_cpus_admissible
@@ -1185,6 +1238,7 @@ Section OperationalProjectionExamples.
              choose_candidate_adapter_contract
              (S t')
              0
+             (ltac:(unfold blocked, op_example_jobs, op_example_job; simpl; discriminate))
              (or_introl eq_refl)) as Helig.
         exact
           (admissible_somewhere_of_all_cpus_admissible
@@ -1245,7 +1299,10 @@ Section OperationalProjectionExamples.
   Proof.
     eapply os_local_candidate_source_adapter_contract_candidate_implies_eligible
       with (C := choose_candidate_adapter_contract).
-    simpl. left. reflexivity.
+    - unfold blocked, op_example_jobs, op_example_job.
+      simpl.
+      discriminate.
+    - simpl. left. reflexivity.
   Qed.
 
   Example choose_admissible_candidate_contract_candidates_stay_in_subset :
@@ -1341,12 +1398,15 @@ Section OperationalProjectionExamples.
     - constructor.
       + intros c j Hlt Hrun. discriminate.
       + intros c j Hlt Hrun. discriminate.
-      + intros j Hin. contradiction.
-      + intros j Hin. contradiction.
+      + intros c j Hlt Hrun. discriminate.
+      + intros j Hin. simpl in Hin. contradiction.
+      + intros j Hin. simpl in Hin. contradiction.
       + intros [|t'] c j Hlt Hrun; simpl in *; discriminate.
+      + intros t c j Hlt Hdispatch; discriminate.
       + intros t c j Hlt Hdispatch; discriminate.
       + intros t j Hwakeup; discriminate.
       + intros t j Hwakeup; discriminate.
+      + intros [|t'] c j Hlt Hcur Hcur'; discriminate.
       + intros [|t'] c j Hlt Hcur Hcur'; discriminate.
       + intros t c Hlt Hreq; discriminate.
       + intros t c Hlt Hhandle; discriminate.
@@ -1359,6 +1419,7 @@ Section OperationalProjectionExamples.
         discriminate.
       + intros t c j Hlt Hblock Htarget; discriminate.
       + intros t j Hcomplete; discriminate.
+      + intros t c old new Hlt Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt; discriminate.
@@ -1604,6 +1665,9 @@ Section OperationalProjectionExamples.
     - intros c j Hlt Hrun.
       simpl in Hrun.
       discriminate.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
     - intros j Hin.
       simpl in Hin.
       contradiction.
@@ -1613,6 +1677,8 @@ Section OperationalProjectionExamples.
     - intros [|t'] c j Hlt Hrun; simpl in *.
       + discriminate.
       + discriminate.
+    - intros t c j Hlt Hdispatch.
+      destruct t; simpl in Hdispatch; discriminate.
     - intros t c j Hlt Hdispatch.
       destruct t; simpl in Hdispatch; discriminate.
     - intros t j Hwakeup.
@@ -1630,6 +1696,8 @@ Section OperationalProjectionExamples.
         simpl.
         lia.
       + discriminate.
+    - intros t c j Hlt Hprev Hnext.
+      destruct t; simpl in Hprev, Hnext; discriminate.
     - intros t c j Hlt Hprev Hnext.
       destruct t; simpl in Hprev, Hnext; discriminate.
     - intros t c Hlt Hreq.
@@ -1650,6 +1718,8 @@ Section OperationalProjectionExamples.
       destruct t; simpl in Hblock; discriminate.
     - intros t j Hcomplete.
       destruct t as [|[|t'']]; simpl in Hcomplete; inversion Hcomplete.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t']; simpl in Hpreempt; discriminate.
     - intros t c old new Hlt Hpreempt.
       destruct t as [|t']; simpl in Hpreempt; discriminate.
     - intros t c old new Hlt Hpreempt.
@@ -1680,24 +1750,23 @@ Section OperationalProjectionExamples.
     - intros c j Hlt Hrun.
       simpl in Hrun.
       discriminate.
+    - intros c j Hlt Hrun.
+      simpl in Hrun.
+      discriminate.
     - intros j Hin.
       simpl in Hin.
-      destruct Hin as [Hj|Hin].
-      + subst j.
+      destruct Hin as [<-|[]].
       unfold released, op_example_jobs, op_example_job.
       simpl.
-      lia.
-      + contradiction.
+      exact (le_n 0).
     - intros j Hin.
       simpl in Hin.
-      destruct Hin as [Hj|Hin].
-      + subst j.
-        apply not_completed_iff_service_lt_cost.
-        unfold service_job, cpu_count, runs_on, project_schedule,
-               op_example_jobs, op_example_job.
-        simpl.
-        lia.
-      + contradiction.
+      destruct Hin as [<-|[]].
+      apply not_completed_iff_service_lt_cost.
+      unfold service_job, cpu_count, runs_on, project_schedule,
+             op_example_jobs, op_example_job.
+      simpl.
+      lia.
     - intros [|[|t']] c j Hlt Hrun; simpl in *.
       + assert (c = 0) by lia.
         subst c.
@@ -1716,10 +1785,34 @@ Section OperationalProjectionExamples.
           discriminate.
         * simpl in Hdispatch.
           discriminate.
+    - intros t c j Hlt Hdispatch.
+      destruct t as [|t'].
+      + inversion Hdispatch; subst.
+        unfold blocked, op_example_jobs, op_example_job.
+        simpl.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hdispatch.
+          discriminate.
+        * simpl in Hdispatch.
+          discriminate.
     - intros t j Hwakeup.
       destruct t as [|[|t'']]; simpl in Hwakeup; inversion Hwakeup.
     - intros t j Hwakeup.
       destruct t as [|[|t'']]; simpl in Hwakeup; inversion Hwakeup.
+    - intros t c j Hlt Hprev Hnext.
+      assert (c = 0) by lia.
+      subst c.
+      destruct t as [|t'].
+      + simpl in Hnext.
+        discriminate.
+      + destruct t' as [|t''].
+        * unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hprev, Hnext.
+          simpl in Hprev, Hnext.
+          discriminate.
+        * unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hprev, Hnext.
+          simpl in Hprev, Hnext.
+          discriminate.
     - intros t c j Hlt Hprev Hnext.
       assert (c = 0) by lia.
       subst c.
@@ -1819,6 +1912,15 @@ Section OperationalProjectionExamples.
           simpl.
           lia.
         * simpl in Hcomplete.
+          discriminate.
+    - intros t c old new Hlt Hpreempt.
+      destruct t as [|t'].
+      + simpl in Hpreempt.
+        discriminate.
+      + destruct t' as [|t''].
+        * simpl in Hpreempt.
+          discriminate.
+        * simpl in Hpreempt.
           discriminate.
     - intros t c old new Hlt Hpreempt.
       destruct t as [|t'].
@@ -2113,6 +2215,21 @@ Section OperationalProjectionExamples.
                  op_example_long_jobs, op_example_long_job.
           simpl.
           lia.
+        * assert (c = 0) by lia.
+          subst c.
+          unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hrun.
+          simpl in Hrun.
+          discriminate.
+    - intros t c j Hlt Hrun.
+      destruct t as [|t'].
+      + simpl in Hrun. discriminate.
+      + destruct t' as [|t''].
+        * assert (c = 0) by lia.
+          subst c.
+          inversion Hrun; subst.
+          unfold blocked, op_example_long_jobs, op_example_long_job.
+          simpl.
+          discriminate.
         * assert (c = 0) by lia.
           subst c.
           unfold one_cpu_state2, one_cpu_state1, one_cpu_state0 in Hrun.

@@ -135,6 +135,7 @@ Lemma repair_first_violation :
          (cand_spec : CandidateSourceSpec J candidates_of)
          jobs sched (H : nat) t0 j,
     (forall x, J_bool x = true <-> J x) ->
+    (forall x t, J x -> ~ blocked jobs x t) ->
     valid_schedule jobs 1 sched ->
     feasible_schedule_on J jobs 1 sched ->
     t0 < H ->
@@ -148,7 +149,7 @@ Lemma repair_first_violation :
       matches_choose_edf_at_with jobs candidates_of sched' t0.
 Proof.
   intros J J_bool candidates_of cand_spec jobs sched _H t0 j
-         _HJbool Hvalid Hfeas _Ht0H Hsched Hviol _Hfirst.
+         _HJbool HJ_nonblocked Hvalid Hfeas _Ht0H Hsched Hviol _Hfirst.
   (* Step 1: extract J j from violation definition *)
   assert (HJj : J j).
   { unfold edf_violation_at_with, edf_violation_at_in in Hviol.
@@ -178,7 +179,8 @@ Proof.
   refine (conj _ (conj _ (conj _ _))).
   - (* valid_schedule *)
     exact (swap_at_preserves_valid_schedule jobs sched j j' t0 t'
-             Hvalid Hsched Ht'_run Hj'_elig Ht0_le Hj'_lt).
+             Hvalid Hsched Ht'_run Hj'_elig Ht0_le Hj'_lt
+             (HJ_nonblocked j t' HJj)).
   - (* feasible_schedule_on *)
     exact (swap_at_preserves_feasible_schedule_on J jobs sched j j' t0 t'
              Hvalid Hfeas HJj HJj' Hsched Ht'_run Hj'_elig Ht0_le Ht'_lt Hj'_lt).

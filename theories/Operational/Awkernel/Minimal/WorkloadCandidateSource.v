@@ -184,7 +184,7 @@ Qed.
 
 Lemma candidate_source_of_table_in_bounds :
   forall table t j,
-    In j (candidate_source_of_table table (fun _ => mkJob 0 0 0 0 1) 2 (fun _ _ => None) t) ->
+    In j (candidate_source_of_table table (fun _ => mkJob 0 0 0 0 1 (fun _ => false)) 2 (fun _ _ => None) t) ->
     t < length table.
 Proof.
   intros table t j Hin.

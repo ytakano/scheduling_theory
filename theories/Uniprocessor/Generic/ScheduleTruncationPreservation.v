@@ -34,9 +34,10 @@ Proof.
   destruct (lt_dec t H) as [Hlt | Hge].
   - rewrite (trunc_sched_before sched H t 0 Hlt) in Hrun.
     assert (Helig : eligible jobs 1 sched j t) by exact (Hvalid j t 0 Hc Hrun).
-    split.
-    + exact (proj1 Helig).
-    + intro Hcomp. apply (proj2 Helig). unfold completed in *.
+    destruct Helig as [Hrel [Hncomp Hnblocked]].
+    repeat split.
+    + exact Hrel.
+    + intro Hcomp. apply Hncomp. unfold completed in *.
       assert (Heq :
                 service_job 1 (trunc_sched sched H) j t =
                 service_job 1 sched j t).
@@ -49,6 +50,7 @@ Proof.
         - exfalso. lia. }
       rewrite Heq in Hcomp.
       exact Hcomp.
+    + exact Hnblocked.
   - rewrite (trunc_sched_after sched H t 0 (proj1 (Nat.nlt_ge t H) Hge)) in Hrun.
     discriminate.
 Qed.

@@ -26,8 +26,8 @@ Import ListNotations.
     minimal projection boundary. *)
 Section OperationalMulticoreProjectionExamples.
 
-  Definition mc_job0 : Job := mkJob 0 0 0 3 5.
-  Definition mc_job1 : Job := mkJob 1 0 0 2 4.
+  Definition mc_job0 : Job := mkJob 0 0 0 3 5 (fun _ => false).
+  Definition mc_job1 : Job := mkJob 1 0 0 2 4 (fun _ => false).
 
   Definition mc_jobs (j : JobId) : Job :=
     match j with
@@ -91,6 +91,13 @@ Section OperationalMulticoreProjectionExamples.
         destruct Hcpu as [-> | ->]; simpl in Hrun; inversion Hrun; subst;
           unfold completed, service_job, cpu_count, runs_on, project_schedule,
                  mc_trace, mc_running_state, mc_jobs, mc_job0, mc_job1; simpl; lia.
+      + unfold mc_trace, mc_idle_state in Hrun.
+        simpl in Hrun.
+        discriminate.
+    - intros [|t'] c j Hlt Hrun.
+      + assert (Hcpu : c = 0 \/ c = 1) by lia.
+        destruct Hcpu as [-> | ->]; simpl in Hrun; inversion Hrun; subst;
+          unfold blocked, mc_jobs, mc_job0, mc_job1; simpl; discriminate.
       + unfold mc_trace, mc_idle_state in Hrun.
         simpl in Hrun.
         discriminate.
@@ -178,6 +185,10 @@ Section OperationalMulticoreProjectionExamples.
         unfold awk_trace, awk_state in Hrun.
         simpl in Hrun.
         discriminate.
+      + intros t c j Hlt Hrun.
+        unfold awk_trace, awk_state, blocked in Hrun |- *.
+        simpl in Hrun.
+        discriminate.
     - intros t.
       unfold awk_trace, awk_state, awk_idle_outside_range, op_idle_outside_range.
       intros c Hge.
@@ -196,7 +207,7 @@ Section OperationalMulticoreProjectionExamples.
     exact awk_execution_projection_sound.
   Qed.
 
-  Definition awk_handoff_job : Job := mkJob 0 0 0 2 10.
+  Definition awk_handoff_job : Job := mkJob 0 0 0 2 10 (fun _ => false).
 
   Definition awk_handoff_jobs (_ : JobId) : Job := awk_handoff_job.
 
@@ -447,10 +458,12 @@ Section OperationalMulticoreProjectionExamples.
       + intros c j Hlt Hrun.
         simpl in Hrun.
         discriminate.
+      + intros c j Hlt Hrun.
+        simpl in Hrun.
+        discriminate.
       + intros j Hin.
         simpl in Hin.
-        destruct Hin as [Hj | []].
-        subst j.
+        destruct Hin as [-> | []].
         unfold released, awk_handoff_jobs, awk_handoff_job.
         simpl.
         lia.
@@ -483,6 +496,15 @@ Section OperationalMulticoreProjectionExamples.
           lia.
         * discriminate.
         * discriminate.
+      + intros [|[|[|[|t']]]] c j Hlt Hdispatch; simpl in *.
+        * discriminate.
+        * discriminate.
+        * inversion Hdispatch; subst.
+          unfold blocked, awk_handoff_jobs, awk_handoff_job.
+          simpl.
+          discriminate.
+        * discriminate.
+        * discriminate.
       + intros t j Hwakeup.
         destruct t as [|[|[|[|t']]]]; simpl in Hwakeup; discriminate.
       + intros t j Hwakeup.
@@ -492,6 +514,15 @@ Section OperationalMulticoreProjectionExamples.
         * discriminate.
         * discriminate.
         * destruct (Nat.eqb c 0); discriminate.
+        * destruct (Nat.eqb c 0); discriminate.
+      + intros [|[|[|[|t']]]] c j Hlt Hprev Hnext; simpl in *.
+        * discriminate.
+        * discriminate.
+        * discriminate.
+        * inversion Hnext; subst.
+          unfold blocked, awk_handoff_jobs, awk_handoff_job.
+          simpl.
+          discriminate.
         * destruct (Nat.eqb c 0); discriminate.
       + intros t c Hlt Hreq.
         destruct t as [|[|[|[|t']]]]; simpl in Hreq; discriminate.
@@ -550,6 +581,8 @@ Section OperationalMulticoreProjectionExamples.
         * discriminate.
       + intros t j Hcomplete.
         destruct t as [|[|[|[|t']]]]; simpl in Hcomplete; discriminate.
+      + intros t c old new Hlt Hpreempt.
+        destruct t as [|[|[|[|t']]]]; simpl in Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt.
         destruct t as [|[|[|[|t']]]]; simpl in Hpreempt; discriminate.
       + intros t c old new Hlt Hpreempt.

@@ -25,6 +25,7 @@ Its role is to define:
 - what it means for a job to occupy a CPU at a time slot,
 - how much service a job has accumulated up to a time,
 - when a job is completed, running, eligible, or ready,
+- when a job is abstractly blocked and therefore may be temporarily ineligible,
 - what makes a schedule valid,
 - what it means to miss a deadline or to be feasible,
 - and which of these notions are preserved by prefix agreement, restriction, truncation, and local schedule rewrites.
@@ -98,13 +99,24 @@ ready :
 
 with meanings:
 
-- `eligible jobs m sched j t := released jobs j t /\ ~ completed jobs m sched j t`
+- `eligible jobs m sched j t := released jobs j t /\ ~ completed jobs m sched j t /\ ~ blocked jobs j t`
 - `ready jobs m sched j t := eligible jobs m sched j t /\ ~ running m sched j t`
 
 This distinction is deliberate:
 
 - running jobs are still eligible
+- blocking may make a released and not-yet-completed job ineligible
 - ready jobs are eligible jobs that are currently waiting rather than executing
+
+The common layer only fixes the abstract blocking effect. It does not define
+why a job is blocked. Concrete causes such as sleep, join wait, mutex wait,
+or I/O wait remain adapter-local.
+
+Classic periodic/sporadic/jitter analysis is a specialization on top of this
+common semantics, not a different definition of `eligible`. Those task-model
+theorems discharge an explicit non-blocking side condition for generated jobs,
+so they recover the older release/completion-only behavior as a model-specific
+specialization.
 
 `ScheduleFacts.v` also exposes boolean counterparts:
 
@@ -140,7 +152,10 @@ with meaning:
 forall j t c, c < m -> sched t c = Some j -> eligible jobs m sched j t
 ```
 
-So `valid_schedule` enforces that any scheduled job is already released and not yet completed. It is phrased in terms of `eligible`, not `ready`, because a currently running job should still be valid.
+So `valid_schedule` enforces that any scheduled job is already released, not
+yet completed, and not abstractly blocked. It is phrased in terms of
+`eligible`, not `ready`, because a currently running job should still be
+valid.
 
 Deadline and feasibility notions are:
 
@@ -219,6 +234,8 @@ The file includes the main relational facts:
 - `not_ready_before_release`
 - `completed_monotone`
 - `eligible_iff_released_and_not_completed`
+  This lemma name is historical; its current statement also includes the
+  non-blocked conjunct.
 - `ready_iff_eligible_and_not_running`
 - `valid_no_run_before_release`
 - `valid_no_run_after_completion`

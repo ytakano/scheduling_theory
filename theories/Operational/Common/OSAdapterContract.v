@@ -37,6 +37,13 @@ Record labeled_concrete_projection_sound
             m
             (project_schedule (osl_to_op_trace P (lce_trace ex)))
             j t;
+    lcps_block_sound :
+      forall t c j,
+        c < m ->
+        op_current
+          (os_to_op_state (osl_to_os_projection P) (lce_trace ex t))
+          c = Some j ->
+        ~ blocked jobs j t;
   }.
 
 Record labeled_concrete_multicore_projection_sound
@@ -77,6 +84,8 @@ Record os_multicore_adapter_contract
 Arguments lcps_release_sound
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments lcps_completion_sound
+  {CState P jobs m ex} _ _ _ _ _ _.
+Arguments lcps_block_sound
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments lcmps_projection_sound
   {CState P jobs adm m ex} _.

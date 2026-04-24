@@ -14,7 +14,7 @@ Import ListNotations.
 
 Section GlobalEDFWorkConservingExample.
 
-  Definition example_job : Job := mkJob 0 0 0 1 2.
+  Definition example_job : Job := mkJob 0 0 0 1 2 (fun _ => false).
 
   Definition example_jobs (_ : JobId) : Job := example_job.
 
@@ -70,7 +70,7 @@ Section GlobalEDFWorkConservingExample.
       1 <= t ->
       ~ eligible example_jobs 2 example_sched 0 t.
   Proof.
-    intros t Hle [Hrel Hncomp].
+    intros t Hle [Hrel [Hncomp _]].
     apply Hncomp.
     rewrite completed_iff_service_ge_cost.
     unfold example_jobs, example_job.
@@ -150,9 +150,9 @@ Section GlobalEDFWorkConservingExample.
       unfold eligible_on_cpu, runnable_on_cpu.
       split; [lia |].
       split; [exact I |].
-      unfold eligible, released, completed, example_jobs, example_job.
+      unfold eligible, released, completed, blocked, example_jobs, example_job.
       simpl.
-      lia.
+      repeat split; lia || discriminate.
   Qed.
 
 End GlobalEDFWorkConservingExample.

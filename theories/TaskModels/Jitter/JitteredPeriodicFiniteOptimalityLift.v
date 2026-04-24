@@ -18,12 +18,14 @@ Theorem jittered_periodic_finite_optimality_lift :
                             (cands : CandidateSource)
                             (cand_spec : CandidateSourceSpec J cands) jobs,
                        (forall x, J_bool x = true <-> J x) ->
+                       (forall j t, J j -> ~ blocked jobs j t) ->
                        (forall j, J j -> In j enumJ) ->
                        (forall j, In j enumJ -> J j) ->
                        feasible_on J jobs 1 ->
                        schedulable_by_on J (local_scheduler cands) jobs 1)
          T T_bool tasks offset jitter H enumJ jobs,
     (forall τ, T_bool τ = true <-> T τ) ->
+    jittered_periodic_jobset_nonblocking T tasks offset jitter jobs H ->
     (forall j, jittered_periodic_jobset_upto T tasks offset jitter jobs H j -> In j enumJ) ->
     (forall j, In j enumJ -> jittered_periodic_jobset_upto T tasks offset jitter jobs H j) ->
     feasible_on (jittered_periodic_jobset_upto T tasks offset jitter jobs H) jobs 1 ->
@@ -33,7 +35,7 @@ Theorem jittered_periodic_finite_optimality_lift :
       jobs 1.
 Proof.
   intros local_scheduler Hoptimal T T_bool tasks offset jitter H enumJ jobs
-         HTbool Henum_complete Henum_sound Hfeas.
+         HTbool Hnonblocked Henum_complete Henum_sound Hfeas.
   apply (Hoptimal
     (jittered_periodic_jobset_upto T tasks offset jitter jobs H)
     (jittered_periodic_jobset_upto_bool T_bool tasks offset jitter jobs H)
@@ -48,6 +50,8 @@ Proof.
   - intros j.
     exact (jittered_periodic_jobset_upto_bool_spec
       T T_bool tasks offset jitter jobs H HTbool j).
+  - intros j t Hj.
+    exact (Hnonblocked j t Hj).
   - exact Henum_complete.
   - exact Henum_sound.
   - exact Hfeas.
@@ -59,6 +63,7 @@ Theorem jittered_periodic_finite_optimality_lift_with_witness :
                             (cands : CandidateSource)
                             (cand_spec : CandidateSourceSpec J cands) jobs,
                        (forall x, J_bool x = true <-> J x) ->
+                       (forall j t, J j -> ~ blocked jobs j t) ->
                        (forall j, J j -> In j enumJ) ->
                        (forall j, In j enumJ -> J j) ->
                        feasible_on J jobs 1 ->
@@ -67,6 +72,7 @@ Theorem jittered_periodic_finite_optimality_lift_with_witness :
          (w : FiniteHorizonWitness
                 (jittered_periodic_jobset_upto T tasks offset jitter jobs H)),
     (forall τ, T_bool τ = true <-> T τ) ->
+    jittered_periodic_jobset_nonblocking T tasks offset jitter jobs H ->
     feasible_on (jittered_periodic_jobset_upto T tasks offset jitter jobs H) jobs 1 ->
     schedulable_by_on
       (jittered_periodic_jobset_upto T tasks offset jitter jobs H)
@@ -75,7 +81,7 @@ Theorem jittered_periodic_finite_optimality_lift_with_witness :
             (jittered_periodic_jobset_upto T tasks offset jitter jobs H) w))
       jobs 1.
 Proof.
-  intros local_scheduler Hoptimal T T_bool tasks offset jitter H jobs w HTbool Hfeas.
+  intros local_scheduler Hoptimal T T_bool tasks offset jitter H jobs w HTbool Hnonblocked Hfeas.
   exact (witness_finite_optimality_lift
     local_scheduler
     Hoptimal
@@ -86,5 +92,6 @@ Proof.
     (fun j =>
        jittered_periodic_jobset_upto_bool_spec
          T T_bool tasks offset jitter jobs H HTbool j)
+    Hnonblocked
     Hfeas).
 Qed.

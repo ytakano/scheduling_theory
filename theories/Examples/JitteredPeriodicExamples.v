@@ -44,10 +44,10 @@ Definition jitter_jp_ex (τ : TaskId) : Time :=
   | _ => 0
   end.
 
-Definition job_jp0_ex : Job := mkJob 0 0 0 1 3.
-Definition job_jp1_ex : Job := mkJob 1 0 1 1 6.
-Definition job_jp2_ex : Job := mkJob 0 1 3 1 6.
-Definition other_job_jp_ex : Job := mkJob 2 0 10 1 11.
+Definition job_jp0_ex : Job := mkJob 0 0 0 1 3 (fun _ => false).
+Definition job_jp1_ex : Job := mkJob 1 0 1 1 6 (fun _ => false).
+Definition job_jp2_ex : Job := mkJob 0 1 3 1 6 (fun _ => false).
+Definition other_job_jp_ex : Job := mkJob 2 0 10 1 11 (fun _ => false).
 
 Definition jobs_jp_ex (j : JobId) : Job :=
   match j with
@@ -270,9 +270,9 @@ Proof.
   unfold sched_jp_ex in Hrun.
   rewrite Nat.eqb_refl in Hrun.
   destruct t as [| [| [| [| [| t']]]]]; simpl in Hrun; inversion Hrun; subst j;
-    unfold eligible, released, completed,
+    unfold eligible, released, completed, blocked,
            jobs_jp_ex, job_jp0_ex, job_jp1_ex, job_jp2_ex;
-    simpl; lia.
+    simpl; repeat split; try lia; discriminate.
 Qed.
 
 Lemma jittered_feasible_schedule_jp_ex :
@@ -303,6 +303,17 @@ Proof.
   - exact jittered_feasible_schedule_jp_ex.
 Qed.
 
+Lemma jittered_nonblocking_jp_ex :
+  jittered_periodic_jobset_nonblocking
+    T_jp_ex tasks_jp_ex offset_jp_ex jitter_jp_ex jobs_jp_ex H_jp_ex.
+Proof.
+  intros j t Hj.
+  apply enumJ_jp_ex_complete in Hj.
+  unfold blocked, enumJ_jp_ex, jobs_jp_ex, job_jp0_ex, job_jp1_ex, job_jp2_ex in *.
+  simpl in Hj.
+  destruct Hj as [Hj | [Hj | [Hj | []]]]; subst j; simpl; discriminate.
+Qed.
+
 Theorem jittered_periodic_example_edf_schedulable_by_on :
   schedulable_by_on
     (jittered_periodic_jobset_upto
@@ -316,6 +327,7 @@ Theorem jittered_periodic_example_edf_schedulable_by_on :
 Proof.
   eapply jittered_periodic_edf_optimality_on_finite_horizon.
   - exact T_jp_ex_bool_spec.
+  - exact jittered_nonblocking_jp_ex.
   - exact jittered_feasible_on_jp_ex.
 Qed.
 
@@ -332,6 +344,7 @@ Theorem jittered_periodic_example_llf_schedulable_by_on :
 Proof.
   eapply jittered_periodic_llf_optimality_on_finite_horizon.
   - exact T_jp_ex_bool_spec.
+  - exact jittered_nonblocking_jp_ex.
   - exact jittered_feasible_on_jp_ex.
 Qed.
 
@@ -372,9 +385,9 @@ Proof.
   unfold sched_jp_c0_ex in Hrun.
   rewrite Nat.eqb_refl in Hrun.
   destruct t as [| [| [| [| [| t']]]]]; simpl in Hrun; inversion Hrun; subst j;
-    unfold eligible, released, completed,
+    unfold eligible, released, completed, blocked,
            jobs_jp_ex, job_jp0_ex, job_jp1_ex, job_jp2_ex;
-    simpl; lia.
+    simpl; repeat split; try lia; discriminate.
 Qed.
 
 Lemma sched_jp_c1_ex_valid :
@@ -387,9 +400,9 @@ Proof.
   unfold sched_jp_c1_ex in Hrun.
   rewrite Nat.eqb_refl in Hrun.
   destruct t as [| [| [| [| [| t']]]]]; simpl in Hrun; inversion Hrun; subst j;
-    unfold eligible, released, completed,
+    unfold eligible, released, completed, blocked,
            jobs_jp_ex, job_jp0_ex, job_jp1_ex, job_jp2_ex;
-    simpl; lia.
+    simpl; repeat split; try lia; discriminate.
 Qed.
 
 Lemma jittered_local_feasible_cpu0 :
@@ -453,10 +466,11 @@ Proof.
   eapply partitioned_jittered_periodic_finite_optimality_lift
     with (local_scheduler := edf_scheduler).
   - intros cands. reflexivity.
-  - intros J J_bool enumJ cands cand_spec jobs Hb Hc Hs Hf.
-    exact (edf_optimality_on_finite_jobs J J_bool enumJ cands cand_spec jobs Hb Hc Hs Hf).
+  - intros J J_bool enumJ cands cand_spec jobs Hb Hnb Hc Hs Hf.
+    exact (edf_optimality_on_finite_jobs J J_bool enumJ cands cand_spec jobs Hb Hnb Hc Hs Hf).
   - exact assign_jp_ex_valid.
   - exact T_jp_ex_bool_spec.
+  - exact jittered_nonblocking_jp_ex.
   - exact enumJ_jp_ex_complete.
   - exact enumJ_jp_ex_sound.
   - intros c Hc.

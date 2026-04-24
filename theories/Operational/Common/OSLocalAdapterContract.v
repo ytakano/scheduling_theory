@@ -39,6 +39,13 @@ Record local_labeled_concrete_projection_sound
             m
             (project_schedule (osl_to_op_trace P (lce_trace ex)))
             j 0;
+    llcps_init_not_blocked :
+      forall c j,
+        c < m ->
+        op_current
+          (os_to_op_state (osl_to_os_projection P) (lce_trace ex 0))
+          c = Some j ->
+        ~ blocked jobs j 0;
     llcps_init_runnable_release :
       forall j,
         In j
@@ -73,6 +80,11 @@ Record local_labeled_concrete_projection_sound
         c < m ->
         os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvDispatch c j ->
         released jobs j (S t);
+    llcps_dispatch_not_blocked :
+      forall t c j,
+        c < m ->
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvDispatch c j ->
+        ~ blocked jobs j (S t);
     llcps_wakeup_release :
       forall t j,
         os_step_label P (lce_trace ex t) (lce_trace ex (S t)) = EvWakeup j ->
@@ -99,6 +111,16 @@ Record local_labeled_concrete_projection_sound
             m
             (project_schedule (osl_to_op_trace P (lce_trace ex)))
             j (S t);
+    llcps_persistent_not_blocked :
+      forall t c j,
+        c < m ->
+        op_current
+          (os_to_op_state (osl_to_os_projection P) (lce_trace ex t))
+          c = Some j ->
+        op_current
+          (os_to_op_state (osl_to_os_projection P) (lce_trace ex (S t)))
+          c = Some j ->
+        ~ blocked jobs j (S t);
     llcps_request_sets_need_resched :
       forall t c,
         c < m ->
@@ -179,6 +201,12 @@ Record local_labeled_concrete_projection_sound
             m
             (project_schedule (osl_to_op_trace P (lce_trace ex)))
             new (S t);
+    llcps_preempt_not_blocked :
+      forall t c old new,
+        c < m ->
+        os_step_label P (lce_trace ex t) (lce_trace ex (S t)) =
+        EvPreempt c old new ->
+        ~ blocked jobs new (S t);
     llcps_preempt_old_completion :
       forall t c old new,
         c < m ->
@@ -230,6 +258,8 @@ Arguments llcps_init_release
   {CState P jobs m ex} _ _ _ _ _.
 Arguments llcps_init_completion
   {CState P jobs m ex} _ _ _ _ _.
+Arguments llcps_init_not_blocked
+  {CState P jobs m ex} _ _ _ _ _.
 Arguments llcps_init_runnable_release
   {CState P jobs m ex} _ _ _.
 Arguments llcps_init_runnable_completion
@@ -238,11 +268,15 @@ Arguments llcps_current_origin
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments llcps_dispatch_release
   {CState P jobs m ex} _ _ _ _ _.
+Arguments llcps_dispatch_not_blocked
+  {CState P jobs m ex} _ _ _ _ _.
 Arguments llcps_wakeup_release
   {CState P jobs m ex} _ _ _.
 Arguments llcps_wakeup_completion
   {CState P jobs m ex} _ _ _.
 Arguments llcps_persistent_completion
+  {CState P jobs m ex} _ _ _ _ _ _.
+Arguments llcps_persistent_not_blocked
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments llcps_request_sets_need_resched
   {CState P jobs m ex} _ _ _ _.
@@ -265,6 +299,8 @@ Arguments llcps_complete_sets_completed
 Arguments llcps_preempt_release
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments llcps_preempt_completion
+  {CState P jobs m ex} _ _ _ _ _ _.
+Arguments llcps_preempt_not_blocked
   {CState P jobs m ex} _ _ _ _ _ _.
 Arguments llcps_preempt_old_completion
   {CState P jobs m ex} _ _ _ _ _ _.

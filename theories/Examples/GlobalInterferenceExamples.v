@@ -23,9 +23,9 @@ Section GlobalInterferenceExamples.
       assert (t = 1) by lia.
       subst t.
       split.
-      + unfold eligible, released, completed, llf_example_jobs, llf_job2.
+      + unfold eligible, released, completed, blocked, llf_example_jobs, llf_job2.
         simpl.
-        lia.
+        repeat split; lia || discriminate.
       + intros [cpu [Hlt Hrun]].
         destruct cpu as [|[|cpu']]; simpl in Hrun; discriminate.
   Qed.
@@ -62,9 +62,9 @@ Section GlobalInterferenceExamples.
       assert (t = 1) by lia.
       subst t.
       split.
-      + unfold eligible, released, completed, llf_example_jobs, llf_job2.
+      + unfold eligible, released, completed, blocked, llf_example_jobs, llf_job2.
         simpl.
-        lia.
+        repeat split; lia || discriminate.
       + intros [cpu [Hlt Hrun]].
         destruct cpu as [|[|cpu']]; simpl in Hrun; discriminate.
     - intros t Hrange c j Hc Hrun.

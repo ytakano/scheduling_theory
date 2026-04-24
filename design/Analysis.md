@@ -25,6 +25,14 @@ Its job is to host reusable analysis notions such as:
 
 The layer is organized so that policy theorem layers remain structural and analysis clients can import packaged entry points instead of rebuilding interval arguments from scratch.
 
+The common semantic notion of `eligible` is now blocking-aware. However, the
+current classic periodic/sporadic/jitter analysis path specializes that common
+semantics by discharging an explicit non-blocking side condition for generated
+jobs. In other words, classic interval analysis in this repository still
+reasons about release, completion, and demand for generated jobs, while
+concrete sleep/join/wait behavior remains adapter-local and outside the classic
+task-model analysis surface.
+
 For periodic EDF, the current direction is to keep the finite-horizon
 window-DBF bridge as the analysis core and layer infinite-time no-miss /
 feasible / schedulable wrappers on top via prefix reuse, rather than replacing
@@ -208,7 +216,7 @@ Hence, over the interval $[t_1,t_4)$, the total **processor supply** is
 2 \cdot (t_4 - t_1) = 6.
 ```
 
-A job is **pending** if it has been released but has not yet completed, and it is **eligible** if it is pending and permitted to execute under the scheduler state.
+A job is **pending** if it has been released but has not yet completed, and it is **eligible** if it is pending, not abstractly blocked, and permitted to execute under the scheduler state.
 
 Now consider a target job $j$ that is pending throughout $[t_1,t_4)$ but does not execute in the interval.
 Then all supplied service is consumed by other jobs, namely $x$, $y$, and $z$.

@@ -5,8 +5,8 @@ From RocqSched Require Import Analysis.Uniprocessor.BusyInterval.
 From RocqSched Require Import Analysis.Uniprocessor.BusyWindowSearch.
 From RocqSched Require Import Analysis.Uniprocessor.ResponseTimeSearch.
 
-Definition rt_job0 : Job := mkJob 0 0 1 2 5.
-Definition rt_job1 : Job := mkJob 0 1 4 1 8.
+Definition rt_job0 : Job := mkJob 0 0 1 2 5 (fun _ => false).
+Definition rt_job1 : Job := mkJob 0 1 4 1 8 (fun _ => false).
 
 Definition rt_jobs (j : JobId) : Job :=
   match j with

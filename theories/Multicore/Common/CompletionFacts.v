@@ -49,7 +49,8 @@ Lemma eligible_iff_released_and_service_sum_lt_cost :
   forall jobs m sched j t,
     eligible jobs m sched j t <->
     released jobs j t /\
-    service_sum_on_cpus m sched j t < job_cost (jobs j).
+    service_sum_on_cpus m sched j t < job_cost (jobs j) /\
+    ~ blocked jobs j t.
 Proof.
   intros jobs m sched j t.
   unfold eligible.
@@ -67,7 +68,7 @@ Proof.
   pose proof (valid_running_implies_eligible jobs m sched j t c Hvalid Hlt Hrun)
     as Helig.
   rewrite eligible_iff_released_and_service_sum_lt_cost in Helig.
-  exact (proj2 Helig).
+  exact (proj1 (proj2 Helig)).
 Qed.
 
 Lemma valid_no_duplication_service_sum_le_cost :

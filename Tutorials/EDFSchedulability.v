@@ -105,6 +105,15 @@ Definition finite_codec_many :
   zero_offset_periodic_finite_horizon_codec_of
     T_many tasks_many jobs_many H_many codec_many.
 
+Lemma jobs_many_nonblocking_finite :
+  periodic_jobset_nonblocking T_many tasks_many offset_many jobs_many H_many.
+Proof.
+  intros j t _.
+  unfold blocked, jobs_many, canonical_periodic_jobs_from_enumT.
+  destruct (decode_job_id_from_enumT enumT_many j) as [pos k].
+  destruct (nth_error enumT_many pos); simpl; discriminate.
+Qed.
+
 (* ================================================================ *)
 (* 4. Checker results                                                 *)
 (* ================================================================ *)
@@ -188,6 +197,7 @@ Proof.
        periodic_edf_concrete_enumT_nodup := enumT_many_nodup;
        periodic_edf_concrete_enumT_complete := T_many_in_enumT_many;
        periodic_edf_concrete_enumT_sound := in_enumT_many_implies_T_many;
+       periodic_edf_concrete_nonblocking := jobs_many_nonblocking_finite;
        periodic_edf_concrete_deadline_and_no_carry_in := many_task_deadline_and_no_carry_in;
        periodic_edf_concrete_window_dbf_test := many_task_window_dbf_test |}.
 Qed.

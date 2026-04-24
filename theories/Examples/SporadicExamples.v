@@ -42,11 +42,11 @@ Definition tasks_sp_ex (τ : TaskId) : Task :=
    j0: τ0, k=0, release=0, cost=1, abs_deadline=3
    j1: τ1, k=0, release=1, cost=1, abs_deadline=6  (sporadic: arrives at t=1, not t=0)
    j2: τ0, k=1, release=4, cost=1, abs_deadline=7  (≥ 0 + 1*3 = 3 ✓) *)
-Definition job_sp0_ex : Job := mkJob 0 0 0 1 3.
-Definition job_sp1_ex : Job := mkJob 1 0 1 1 6.
-Definition job_sp2_ex : Job := mkJob 0 1 4 1 7.
+Definition job_sp0_ex : Job := mkJob 0 0 0 1 3 (fun _ => false).
+Definition job_sp1_ex : Job := mkJob 1 0 1 1 6 (fun _ => false).
+Definition job_sp2_ex : Job := mkJob 0 1 4 1 7 (fun _ => false).
 (* Out-of-scope job: task=2, not in T_sp_ex *)
-Definition other_job_sp_ex : Job := mkJob 2 0 10 1 11.
+Definition other_job_sp_ex : Job := mkJob 2 0 10 1 11 (fun _ => false).
 
 Definition jobs_sp_ex (j : JobId) : Job :=
   match j with
@@ -160,9 +160,9 @@ Proof.
   unfold sched_sp_ex in Hrun.
   rewrite Nat.eqb_refl in Hrun.
   destruct t as [| [| [| [| [| t']]]]]; simpl in Hrun; inversion Hrun; subst j;
-    unfold eligible, released, completed,
+    unfold eligible, released, completed, blocked,
            jobs_sp_ex, job_sp0_ex, job_sp1_ex, job_sp2_ex;
-    simpl; lia.
+    simpl; repeat split; try lia; discriminate.
 Qed.
 
 Lemma sporadic_feasible_schedule_sp_ex :
@@ -288,6 +288,16 @@ Proof.
   - exact sporadic_feasible_schedule_sp_ex.
 Qed.
 
+Lemma sporadic_nonblocking_sp_ex :
+  sporadic_jobset_nonblocking T_sp_ex tasks_sp_ex jobs_sp_ex H_sp_ex.
+Proof.
+  intros j t Hj.
+  apply enumJ_sp_ex_complete in Hj.
+  unfold blocked, enumJ_sp_ex, jobs_sp_ex, job_sp0_ex, job_sp1_ex, job_sp2_ex in *.
+  simpl in Hj.
+  destruct Hj as [Hj | [Hj | [Hj | []]]]; subst j; simpl; discriminate.
+Qed.
+
 (* ===== Main Theorems ===== *)
 
 (* The sporadic job set is EDF-schedulable on 1 CPU. *)
@@ -302,6 +312,7 @@ Theorem sporadic_example_edf_schedulable_by_on :
 Proof.
   eapply sporadic_edf_optimality_on_finite_horizon.
   - exact T_sp_ex_bool_spec.
+  - exact sporadic_nonblocking_sp_ex.
   - exact sporadic_feasible_on_sp_ex.
 Qed.
 
@@ -317,6 +328,7 @@ Theorem sporadic_example_llf_schedulable_by_on :
 Proof.
   eapply sporadic_llf_optimality_on_finite_horizon.
   - exact T_sp_ex_bool_spec.
+  - exact sporadic_nonblocking_sp_ex.
   - exact sporadic_feasible_on_sp_ex.
 Qed.
 
@@ -360,9 +372,9 @@ Proof.
   unfold sched_sp_c0_ex in Hrun.
   rewrite Nat.eqb_refl in Hrun.
   destruct t as [| [| [| [| [| t']]]]]; simpl in Hrun; inversion Hrun; subst j;
-    unfold eligible, released, completed,
+    unfold eligible, released, completed, blocked,
            jobs_sp_ex, job_sp0_ex, job_sp2_ex;
-    simpl; lia.
+    simpl; repeat split; try lia; discriminate.
 Qed.
 
 Lemma sched_sp_c1_ex_valid : valid_schedule jobs_sp_ex 1 sched_sp_c1_ex.
@@ -373,9 +385,9 @@ Proof.
   unfold sched_sp_c1_ex in Hrun.
   rewrite Nat.eqb_refl in Hrun.
   destruct t as [| [| t']]; simpl in Hrun; inversion Hrun; subst j;
-    unfold eligible, released, completed,
+    unfold eligible, released, completed, blocked,
            jobs_sp_ex, job_sp1_ex;
-    simpl; lia.
+    simpl; repeat split; try lia; discriminate.
 Qed.
 
 Lemma local_jobset_sp_c0_ex :
@@ -478,11 +490,12 @@ Proof.
   apply (partitioned_sporadic_finite_optimality_lift_with_witness
            edf_scheduler edf_generic_spec
            (fun _ => eq_refl)
-           (fun J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf =>
-              edf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hc Hs Hf)
+           (fun J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf =>
+              edf_optimality_on_finite_jobs J J_bool enumJ' cands cand_spec jobs' Hb Hnb Hc Hs Hf)
            assign_sp_ex 2 assign_sp_ex_valid
            T_sp_ex T_sp_ex_bool tasks_sp_ex H_sp_ex jobs_sp_ex sporadic_witness_sp_ex).
   - exact T_sp_ex_bool_spec.
+  - exact sporadic_nonblocking_sp_ex.
   - intros c Hc.
     destruct c as [| [| c]]; try lia.
     + exact local_feasible_sp_cpu0_ex.

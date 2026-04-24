@@ -18,20 +18,22 @@ Section SchedulingAlgorithmClassicalLemmasSection.
   Variable t           : Time.
   Variable candidates  : list JobId.
 
-  (* E3: if choose returns None, each candidate is either unreleased or completed.
-     (eligible = released AND NOT completed;
-      NOT eligible means NOT released OR completed.) *)
-  Lemma choose_none_implies_each_candidate_unreleased_or_completed :
+  (* E3: if choose returns None, each candidate is either unreleased,
+     completed, or blocked. *)
+  Lemma choose_none_implies_each_candidate_unreleased_or_completed_or_blocked :
       spec.(choose) jobs m sched t candidates = None ->
       forall j, In j candidates ->
-        ~released jobs j t \/ completed jobs m sched j t.
+        ~released jobs j t \/ completed jobs m sched j t \/ blocked jobs j t.
   Proof.
     intros Hnone j Hin.
     pose proof (choose_none_implies_no_eligible spec jobs m sched t candidates Hnone j Hin) as Hnelig.
     unfold eligible in Hnelig.
     destruct (classic (released jobs j t)) as [Hrel | Hnrel].
-    - right. apply NNPP. intro Hnc. apply Hnelig.
-      split. exact Hrel. exact Hnc.
+    - destruct (classic (completed jobs m sched j t)) as [Hc | Hnc].
+      + right. left. exact Hc.
+      + destruct (classic (blocked jobs j t)) as [Hb | Hnb].
+        * right. right. exact Hb.
+        * exfalso. apply Hnelig. repeat split; assumption.
     - left. exact Hnrel.
   Qed.
 

@@ -19,7 +19,7 @@ Section FIFOExample.
 
   (* job_map: all jobs have release=0, cost=1, deadline=10 *)
   Let jobs : JobId -> Job := fun _ =>
-    mkJob 0 0 0 1 10.
+    mkJob 0 0 0 1 10 (fun _ => false).
 
   (* A schedule where j2 and j3 are ready but j1 is already completed:
      j1 has service >= cost (completed), so not eligible, hence not ready.

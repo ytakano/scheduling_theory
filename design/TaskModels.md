@@ -24,6 +24,13 @@ Its responsibilities are:
 - exposing bridge modules from generated job sets to policy-specific and analysis-specific theorem layers,
 - organizing periodic, sporadic, and jitter-aware task families without redefining the semantic notion of a schedule.
 
+For the current classic periodic/sporadic/jitter analysis path, these task
+models should be read as a **non-blocking specialization** of the common
+semantics. They define release/cost/deadline structure for generated jobs, but
+they do not model OS-level waiting or blocking causes. Blocking-aware jobs
+belong to adapter-local workload models, not to these classic generated-job
+interfaces.
+
 ## Core concepts and guarantees
 
 The current organization is:
@@ -116,6 +123,14 @@ The key separation is:
 - `TaskModels` says where jobs come from,
 - `Semantics` says what schedules mean for those jobs,
 - `Analysis` says how to reason about schedulability over intervals for those jobs.
+
+With the current blocking-aware `eligible`, this means:
+
+- the common semantic layer still allows released jobs to become temporarily
+  ineligible when blocked,
+- the classic task-model layer specializes to generated jobs under an explicit
+  non-blocking side condition,
+- and adapter-local layers remain responsible for concrete wait/block behavior.
 
 ## Extension points
 

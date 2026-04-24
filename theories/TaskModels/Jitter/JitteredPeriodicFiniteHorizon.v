@@ -1,5 +1,6 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia Bool.
 From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicTasks.
@@ -15,6 +16,22 @@ Definition jittered_periodic_jobset_upto
     T (job_task (jobs j)) /\
     generated_by_jittered_periodic_task tasks offset jitter jobs j /\
     job_release (jobs j) < H.
+
+Definition jittered_periodic_jobset_nonblocking
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (H : Time) : Prop :=
+  forall j t,
+    jittered_periodic_jobset_upto T tasks offset jitter jobs H j ->
+    ~ blocked jobs j t.
+
+(* Like the underlying jittered task model, this finite-horizon jobset is part
+   of the classic non-blocking analysis path. The extra release jitter is
+   modeled here, but blocking-aware eligibility remains outside this task-model
+   interface. *)
 
 Definition jittered_periodic_jobset_upto_bool
     (T_bool : TaskId -> bool)

@@ -15,9 +15,9 @@ Import ListNotations.
 
 Section GlobalLLFExamples.
 
-  Definition llf_job0 : Job := mkJob 0 0 1 1 2.
-  Definition llf_job1 : Job := mkJob 0 1 1 1 3.
-  Definition llf_job2 : Job := mkJob 0 2 1 1 5.
+  Definition llf_job0 : Job := mkJob 0 0 1 1 2 (fun _ => false).
+  Definition llf_job1 : Job := mkJob 0 1 1 1 3 (fun _ => false).
+  Definition llf_job2 : Job := mkJob 0 2 1 1 5 (fun _ => false).
 
   Definition llf_example_jobs (j : JobId) : Job :=
     match j with
@@ -82,7 +82,7 @@ Section GlobalLLFExamples.
       In j [0; 1; 2] ->
       ~ eligible llf_example_jobs 2 llf_example_sched j t.
   Proof.
-    intros t j Ht Hin [_ Hncomp].
+    intros t j Ht Hin [_ [Hncomp _]].
     apply Hncomp.
     rewrite completed_iff_service_ge_cost.
     destruct llf_example_service_at_3 as [Hsvc0 [Hsvc1 Hsvc2]].
@@ -166,9 +166,9 @@ Section GlobalLLFExamples.
     - unfold llf_example_J. lia.
     - apply admissible_somewhere_of_all_cpus_admissible.
       + lia.
-      + unfold eligible, released, completed, llf_example_jobs, llf_job2.
+      + unfold eligible, released, completed, blocked, llf_example_jobs, llf_job2.
         simpl.
-        lia.
+        repeat split; lia || discriminate.
     - intros [cpu [Hlt Hrun]].
       destruct cpu as [|[|cpu']]; simpl in Hrun; discriminate.
     - lia.
@@ -189,9 +189,9 @@ Section GlobalLLFExamples.
     - unfold llf_example_J. lia.
     - apply admissible_somewhere_of_all_cpus_admissible.
       + lia.
-      + unfold eligible, released, completed, llf_example_jobs, llf_job2.
+      + unfold eligible, released, completed, blocked, llf_example_jobs, llf_job2.
         simpl.
-        lia.
+        repeat split; lia || discriminate.
     - intros [cpu [Hlt Hrun]].
       destruct cpu as [|[|cpu']]; simpl in Hrun; discriminate.
     - lia.
@@ -216,9 +216,9 @@ Section GlobalLLFExamples.
     - unfold llf_example_J. lia.
     - apply admissible_somewhere_of_all_cpus_admissible.
       + lia.
-      + unfold eligible, released, completed, llf_example_jobs, llf_job2.
+      + unfold eligible, released, completed, blocked, llf_example_jobs, llf_job2.
         simpl.
-        lia.
+        repeat split; lia || discriminate.
     - intros [cpu [Hlt Hrun]].
       destruct cpu as [|[|cpu']]; simpl in Hrun; discriminate.
     - exact Hc.
@@ -236,7 +236,8 @@ Section GlobalLLFExamples.
          llf_example_rel
          ltac:(lia)
          ltac:(unfold llf_example_J; lia)
-         ltac:(unfold eligible, released, completed, llf_example_jobs, llf_job2; simpl; lia)
+         ltac:(unfold eligible, released, completed, blocked, llf_example_jobs, llf_job2; simpl;
+               repeat split; lia || discriminate)
          ltac:(intros [cpu [Hlt Hrun]];
                destruct cpu as [|[|cpu']]; simpl in Hrun; discriminate)
          c Hc).

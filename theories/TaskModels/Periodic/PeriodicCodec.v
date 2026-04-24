@@ -50,7 +50,7 @@ Definition canonical_periodic_jobs_from_enumT
   let '(pos, k) := decode_job_id_from_enumT enumT j in
   match nth_error enumT pos with
   | Some τ => generated_periodic_job tasks offset τ k
-  | None => mkJob 0 j 0 (S (task_cost (tasks 0))) 0
+  | None => mkJob 0 j 0 (S (task_cost (tasks 0))) 0 (fun _ => false)
   end.
 
 Lemma task_position_in_enumT_lt_length :

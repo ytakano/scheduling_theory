@@ -42,6 +42,7 @@ Proof.
   eapply periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_auto
     with (enumT := enumT_ex); eauto.
   - exact tasks_ex_well_formed.
+  - exact periodic_nonblocking_ex.
   - exact enumT_ex_nodup.
   - intros τ Hτ.
     destruct Hτ as [Hτ | Hτ]; subst τ; simpl; tauto.
@@ -112,6 +113,7 @@ Proof.
   eapply periodic_edf_schedulable_by_window_dbf_on_finite_horizon_auto
     with (sched := sched) (enumT := enumT_ex); eauto.
   - exact tasks_ex_well_formed.
+  - exact periodic_nonblocking_ex.
   - exact enumT_ex_nodup.
   - intros τ Hτ.
     destruct Hτ as [Hτ | Hτ]; subst τ; simpl; tauto.

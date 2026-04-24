@@ -117,7 +117,7 @@ Proof.
   { exact (J_implies_deadline_lt_horizon J enumJ jobs j HJ_in HJj). }
   assert (Hcomp : completed jobs 1 sched j t).
   { apply (J_jobs_complete_at_or_after_deadline J jobs sched j t Hvalid Hfeas HJj). lia. }
-  exact (proj2 Helig Hcomp).
+  exact ((proj1 (proj2 Helig)) Hcomp).
 Qed.
 
 Lemma canonical_and_idle_implies_scheduler_rel_generic :

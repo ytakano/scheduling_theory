@@ -63,7 +63,7 @@ Section SchedulingAlgorithmLemmasSection.
   Proof.
     intros j Hchoose.
     apply choose_some_implies_eligible in Hchoose.
-    exact (proj2 Hchoose).
+    exact (proj1 (proj2 Hchoose)).
   Qed.
 
   (* ===== B. Completeness Lemmas ===== *)

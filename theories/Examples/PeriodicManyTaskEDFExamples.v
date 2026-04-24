@@ -36,6 +36,26 @@ Definition enumT_many : list TaskId := [0; 1; 2].
 Definition jobs_many : JobId -> Job :=
   canonical_periodic_jobs_from_enumT tasks_many offset_many enumT_many.
 
+Lemma jobs_many_nonblocking_finite :
+  periodic_jobset_nonblocking T_many tasks_many offset_many jobs_many H_many.
+Proof.
+  intros j t _.
+  unfold blocked, jobs_many, canonical_periodic_jobs_from_enumT.
+  destruct (decode_job_id_from_enumT enumT_many j) as [pos k].
+  destruct (nth_error enumT_many pos); simpl; discriminate.
+Qed.
+
+Lemma jobs_many_nonblocking_infinite :
+  forall j t,
+    periodic_jobset T_many tasks_many offset_many jobs_many j ->
+    ~ blocked jobs_many j t.
+Proof.
+  intros j t _.
+  unfold blocked, jobs_many, canonical_periodic_jobs_from_enumT.
+  destruct (decode_job_id_from_enumT enumT_many j) as [pos k].
+  destruct (nth_error enumT_many pos); simpl; discriminate.
+Qed.
+
 Lemma tasks_many_well_formed :
   well_formed_periodic_tasks_on T_many tasks_many.
 Proof.
@@ -151,13 +171,14 @@ Definition many_task_window_obligations :
   PeriodicEDFConcreteWindowObligations
     T_many tasks_many offset_many jobs_many H_many enumT_many finite_codec_many.
 Proof.
-  refine
-    {| periodic_edf_concrete_tasks_wf := tasks_many_well_formed;
-       periodic_edf_concrete_enumT_nodup := enumT_many_nodup;
-       periodic_edf_concrete_enumT_complete := T_many_in_enumT_many;
-       periodic_edf_concrete_enumT_sound := in_enumT_many_implies_T_many;
-       periodic_edf_concrete_deadline_and_no_carry_in := many_task_deadline_and_no_carry_in;
-       periodic_edf_concrete_window_dbf_test := many_task_window_dbf_test |}.
+    refine
+      {| periodic_edf_concrete_tasks_wf := tasks_many_well_formed;
+         periodic_edf_concrete_enumT_nodup := enumT_many_nodup;
+         periodic_edf_concrete_enumT_complete := T_many_in_enumT_many;
+         periodic_edf_concrete_enumT_sound := in_enumT_many_implies_T_many;
+         periodic_edf_concrete_nonblocking := jobs_many_nonblocking_finite;
+         periodic_edf_concrete_deadline_and_no_carry_in := many_task_deadline_and_no_carry_in;
+         periodic_edf_concrete_window_dbf_test := many_task_window_dbf_test |}.
 Qed.
 
 Definition many_task_classical_obligations :
@@ -218,6 +239,7 @@ Section InfiniteManyTaskEDFExample.
          periodic_edf_concrete_infinite_enumT_nodup := enumT_many_nodup;
          periodic_edf_concrete_infinite_enumT_complete := T_many_in_enumT_many;
          periodic_edf_concrete_infinite_enumT_sound := in_enumT_many_implies_T_many;
+         periodic_edf_concrete_infinite_nonblocking := jobs_many_nonblocking_infinite;
          periodic_edf_concrete_infinite_offset_zero := _;
          periodic_edf_concrete_infinite_no_carry_in_bridge :=
            many_task_infinite_no_carry_in_bridge;

@@ -347,16 +347,18 @@ Section PartitionedSection.
       eligible jobs 1 (cpu_schedule sched (assign j)) j t ->
       eligible jobs m sched j t.
   Proof.
-    intros jobs sched j t Hresp [Hrel Hncomp_local].
+    intros jobs sched j t Hresp [Hrel [Hncomp_local Hnblocked_local]].
     unfold eligible.
     split.
     - exact Hrel.
-    - intro Hcomp.
-      pose proof (completed_partitioned_iff_local_completed jobs sched Hresp j t)
-        as Hiff.
-      apply Hncomp_local.
-      apply Hiff.
-      exact Hcomp.
+    - split.
+      + intro Hcomp.
+        pose proof (completed_partitioned_iff_local_completed jobs sched Hresp j t)
+          as Hiff.
+        apply Hncomp_local.
+        apply Hiff.
+        exact Hcomp.
+      + exact Hnblocked_local.
   Qed.
 
   Lemma global_running_implies_running_on_assigned_cpu :

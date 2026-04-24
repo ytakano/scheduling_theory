@@ -82,6 +82,7 @@ Qed.
 Lemma os_local_multicore_adapter_contract_visible_implies_eligible :
   forall CState (P : OSLabeledProjection CState) jobs adm m
          (C : os_local_multicore_adapter_contract P jobs adm m) t j,
+    ~ blocked jobs j t ->
     op_job_visible
       m
       (os_to_op_state (osl_to_os_projection P) (lce_trace (olac_execution C) t))
@@ -92,13 +93,15 @@ Lemma os_local_multicore_adapter_contract_visible_implies_eligible :
       (project_schedule (osl_to_op_trace P (lce_trace (olac_execution C))))
       j t.
 Proof.
-  intros CState P jobs adm m C t j Hvisible.
+  intros CState P jobs adm m C t j Hnot_blocked Hvisible.
   pose proof (os_local_multicore_adapter_contract_to_scheduler_view_contract
                 CState P jobs adm m C) as Hview.
   apply eligible_iff_released_and_not_completed.
   split.
   - exact (lcsv_visible_released Hview t j Hvisible).
-  - exact (lcsv_visible_not_completed Hview t j Hvisible).
+  - split.
+    + exact (lcsv_visible_not_completed Hview t j Hvisible).
+    + exact Hnot_blocked.
 Qed.
 
 Lemma os_local_multicore_adapter_contract_block_clears_runnable :

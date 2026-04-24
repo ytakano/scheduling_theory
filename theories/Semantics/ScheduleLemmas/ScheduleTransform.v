@@ -351,14 +351,17 @@ Lemma swap_at_validity_new_front_job :
     eligible jobs 1 (swap_at sched t t') j' t.
 Proof.
   intros jobs sched j j' t t' Hvalid Hj Hj' Hle Helig.
+  destruct Helig as [Hrel [Hncomp Hnblocked]].
   split.
-  - exact (proj1 Helig).
-  - intro Hcomp_swap.
-    apply (proj2 Helig).
-    unfold completed in *.
-    rewrite (swap_at_service_prefix_before_t1 sched j' t t' t Hle (Nat.le_refl t))
-      in Hcomp_swap.
-    exact Hcomp_swap.
+  - exact Hrel.
+  - split.
+    + intro Hcomp_swap.
+      apply Hncomp.
+      unfold completed in *.
+      rewrite (swap_at_service_prefix_before_t1 sched j' t t' t Hle (Nat.le_refl t))
+        in Hcomp_swap.
+      exact Hcomp_swap.
+    + exact Hnblocked.
 Qed.
 
 Lemma swap_at_validity_new_back_job :
@@ -368,28 +371,31 @@ Lemma swap_at_validity_new_back_job :
     sched t' 0 = Some j' ->
     t <= t' ->
     job_abs_deadline (jobs j') < job_abs_deadline (jobs j) ->
+    ~ blocked jobs j t' ->
     eligible jobs 1 (swap_at sched t t') j t'.
 Proof.
-  intros jobs sched j j' t t' Hvalid Hj Hj' Hle Hdl.
+  intros jobs sched j j' t t' Hvalid Hj Hj' Hle Hdl Hnblocked.
   assert (Hne : j <> j') by (intro Heq; subst; lia).
   split.
   - unfold released.
     apply (valid_no_run_before_release jobs 1 sched j t 0 Hvalid
              (Nat.lt_succ_diag_r 0)) in Hj.
     lia.
-  - intro Hcomp_swap.
-    unfold completed in Hcomp_swap.
-    assert (Hlt : t < t').
-    { destruct (Nat.eq_dec t t') as [Heqt | Hlt].
-      - subst t'. rewrite Hj in Hj'. injection Hj' as Heqjj'. exfalso. exact (Hne Heqjj').
-      - lia. }
-    assert (Hservice : service_job 1 sched j t' =
-                       S (service_job 1 (swap_at sched t t') j t')).
-    { exact (swap_at_service_j1_back_before_t2 sched j j' t t' t'
-               Hlt Hj Hj' Hne Hlt (Nat.le_refl t')). }
-    assert (Hbound : service_job 1 sched j t' <= job_cost (jobs j)).
-    { exact (valid_schedule_1_service_le_cost jobs sched j t' Hvalid). }
-    lia.
+  - split.
+    + intro Hcomp_swap.
+      unfold completed in Hcomp_swap.
+      assert (Hlt : t < t').
+      { destruct (Nat.eq_dec t t') as [Heqt | Hlt].
+        - subst t'. rewrite Hj in Hj'. injection Hj' as Heqjj'. exfalso. exact (Hne Heqjj').
+        - lia. }
+      assert (Hservice : service_job 1 sched j t' =
+                         S (service_job 1 (swap_at sched t t') j t')).
+      { exact (swap_at_service_j1_back_before_t2 sched j j' t t' t'
+                 Hlt Hj Hj' Hne Hlt (Nat.le_refl t')). }
+      assert (Hbound : service_job 1 sched j t' <= job_cost (jobs j)).
+      { exact (valid_schedule_1_service_le_cost jobs sched j t' Hvalid). }
+      lia.
+    + exact Hnblocked.
 Qed.
 
 Lemma swap_at_preserves_valid_schedule :
@@ -400,9 +406,10 @@ Lemma swap_at_preserves_valid_schedule :
     eligible jobs 1 sched j' t ->
     t <= t' ->
     job_abs_deadline (jobs j') < job_abs_deadline (jobs j) ->
+    ~ blocked jobs j t' ->
     valid_schedule jobs 1 (swap_at sched t t').
 Proof.
-  intros jobs sched j j' t t' Hvalid Hj Hj' Helig Hle Hdl.
+  intros jobs sched j j' t t' Hvalid Hj Hj' Helig Hle Hdl Hnblocked_j_t'.
   assert (Hne : j <> j') by (intro Heq; subst; lia).
   assert (Hlt : t < t').
   { destruct (Nat.eq_dec t t') as [Heqt | Hlt].
@@ -414,23 +421,25 @@ Proof.
   destruct (Nat.eq_dec t'' t) as [-> | Htne].
   - rewrite swap_at_t1 in Hrun.
     rewrite Hj' in Hrun. injection Hrun as Heq. subst j''.
-    exact (swap_at_validity_new_front_job
+          exact (swap_at_validity_new_front_job
              jobs sched j j' t t' Hvalid Hj Hj' Hle Helig).
   - destruct (Nat.eq_dec t'' t') as [-> | Ht'ne].
     + rewrite swap_at_t2 in Hrun.
       rewrite Hj in Hrun. injection Hrun as Heq. subst j''.
-      exact (swap_at_validity_new_back_job
-               jobs sched j j' t t' Hvalid Hj Hj' Hle Hdl).
+          exact (swap_at_validity_new_back_job
+               jobs sched j j' t t' Hvalid Hj Hj' Hle Hdl Hnblocked_j_t').
     + rewrite (swap_at_same_outside sched t t' t'' 0
                  (or_intror (conj Htne Ht'ne))) in Hrun.
       assert (Helig_orig : eligible jobs 1 sched j'' t'').
       { exact (Hvalid j'' t'' 0 (Nat.lt_succ_diag_r 0) Hrun). }
+      destruct Helig_orig as [Hrel_orig [Hncomp_orig Hnblocked_orig]].
       split.
-      * exact (proj1 Helig_orig).
-      * intro Hcomp_swap. unfold completed in *.
+      * exact Hrel_orig.
+      * split.
+        -- intro Hcomp_swap. unfold completed in *.
         destruct (Nat.eq_dec j'' j) as [-> | Hjne].
         { destruct (lt_dec t'' t) as [Hlt_t | Hge_t].
-          - apply (proj2 Helig_orig).
+          - apply Hncomp_orig.
             unfold completed.
             rewrite <- (swap_at_service_prefix_before_t1 sched j t t' t''
                           Hle (Nat.lt_le_incl t'' t Hlt_t)).
@@ -444,18 +453,18 @@ Proof.
                                  S (service_job 1 (swap_at sched t t') j t'')).
               { exact (swap_at_service_j1_back_before_t2 sched j j' t t' t''
                          Hlt12 Hj Hj' Hne Hlt_t Hle_t'). }
-              apply (proj2 Helig_orig).
+              apply Hncomp_orig.
               unfold completed. lia.
             + assert (Hlt12 : t < t') by lia.
               assert (Hgt2 : t' < t'') by lia.
-              apply (proj2 Helig_orig).
+              apply Hncomp_orig.
               unfold completed.
               rewrite <- (swap_at_service_j1_after_t2 sched j j' t t' t''
                             Hlt12 Hj Hj' Hne Hgt2).
               exact Hcomp_swap. }
         { destruct (Nat.eq_dec j'' j') as [-> | Hj'ne].
           { destruct (lt_dec t'' t) as [Hlt_t | Hge_t].
-            - apply (proj2 Helig_orig).
+            - apply Hncomp_orig.
               unfold completed.
               rewrite <- (swap_at_service_prefix_before_t1 sched j' t t' t''
                             Hle (Nat.lt_le_incl t'' t Hlt_t)).
@@ -484,16 +493,17 @@ Proof.
                 lia.
               + assert (Hlt12 : t < t') by lia.
                 assert (Hgt2 : t' < t'') by lia.
-                apply (proj2 Helig_orig).
+                apply Hncomp_orig.
                 unfold completed.
                 rewrite <- (swap_at_service_j2_after_t2 sched j j' t t' t''
                               Hlt12 Hj Hj' Hne Hgt2).
                 exact Hcomp_swap. }
-          { apply (proj2 Helig_orig).
+          { apply Hncomp_orig.
             unfold completed.
             rewrite <- (swap_at_service_unchanged_other_job sched j'' j j' t t' t''
                           Hj Hj' Hjne Hj'ne).
             exact Hcomp_swap. } }
+        -- exact Hnblocked_orig.
 Qed.
 
 (* ===== Section 6: Missed-deadline and feasibility (Some-Some, strict deadline) ===== *)
@@ -731,22 +741,27 @@ Proof.
   destruct (Nat.eq_dec t'' t1) as [-> | Ht1ne].
   - rewrite swap_at_t1 in Hrun. rewrite Ht2_j2 in Hrun.
     injection Hrun as Heq. subst j''.
+    destruct Helig as [Hrel [Hncomp Hnblocked]].
     split.
-    + exact (proj1 Helig).
-    + intro Hcomp_swap.
-      apply (proj2 Helig). unfold completed in *.
-      rewrite <- (swap_at_service_prefix_before_t1 sched j2 t1 t2 t1
-                    (Nat.lt_le_incl t1 t2 Hlt) (Nat.le_refl t1)).
-      exact Hcomp_swap.
+    + exact Hrel.
+    + split.
+      * intro Hcomp_swap.
+        apply Hncomp. unfold completed in *.
+        rewrite <- (swap_at_service_prefix_before_t1 sched j2 t1 t2 t1
+                      (Nat.lt_le_incl t1 t2 Hlt) (Nat.le_refl t1)).
+        exact Hcomp_swap.
+      * exact Hnblocked.
   - destruct (Nat.eq_dec t'' t2) as [-> | Ht2ne].
     + rewrite swap_at_t2 in Hrun. rewrite Ht1_none in Hrun. discriminate.
     + rewrite (swap_at_same_outside sched t1 t2 t'' 0
                  (or_intror (conj Ht1ne Ht2ne))) in Hrun.
       assert (Helig_orig : eligible jobs 1 sched j'' t'')
         by exact (Hvalid j'' t'' 0 (Nat.lt_succ_diag_r 0) Hrun).
+      destruct Helig_orig as [Hrel_orig [Hncomp_orig Hnblocked_orig]].
       split.
-      * exact (proj1 Helig_orig).
-      * intro Hcomp_swap. apply (proj2 Helig_orig). unfold completed in *.
+      * exact Hrel_orig.
+      * split.
+        -- intro Hcomp_swap. apply Hncomp_orig. unfold completed in *.
         destruct (Nat.eq_dec j'' j2) as [-> | Hj2ne].
         { destruct (lt_dec t'' t1) as [Hlt_t1 | Hge_t1].
           - rewrite <- (swap_at_service_prefix_before_t1 sched j2 t1 t2 t''
@@ -777,6 +792,7 @@ Proof.
         { rewrite <- (swap_at_service_other_none sched j2 t1 t2 j'' t''
                         Ht1_none Ht2_j2 Hj2ne).
           exact Hcomp_swap. }
+        -- exact Hnblocked_orig.
 Qed.
 
 Lemma swap_at_preserves_feasible_schedule_on_none :
@@ -812,22 +828,25 @@ Lemma swap_at_validity_new_back_job_ne :
     sched t' 0 = Some j' ->
     j <> j' ->
     t < t' ->
+    ~ blocked jobs j t' ->
     eligible jobs 1 (swap_at sched t t') j t'.
 Proof.
-  intros jobs sched j j' t t' Hvalid Hj Hj' Hne Hlt.
+  intros jobs sched j j' t t' Hvalid Hj Hj' Hne Hlt Hnblocked.
   split.
   - unfold released.
     apply (valid_no_run_before_release jobs 1 sched j t 0 Hvalid
              (Nat.lt_succ_diag_r 0)) in Hj.
     lia.
-  - intro Hcomp_swap. unfold completed in Hcomp_swap.
-    assert (Hservice : service_job 1 sched j t' =
-                       S (service_job 1 (swap_at sched t t') j t')).
-    { exact (swap_at_service_j1_back_before_t2 sched j j' t t' t'
-               Hlt Hj Hj' Hne Hlt (Nat.le_refl t')). }
-    assert (Hbound : service_job 1 sched j t' <= job_cost (jobs j))
-      by exact (valid_schedule_1_service_le_cost jobs sched j t' Hvalid).
-    lia.
+  - split.
+    + intro Hcomp_swap. unfold completed in Hcomp_swap.
+      assert (Hservice : service_job 1 sched j t' =
+                         S (service_job 1 (swap_at sched t t') j t')).
+      { exact (swap_at_service_j1_back_before_t2 sched j j' t t' t'
+                 Hlt Hj Hj' Hne Hlt (Nat.le_refl t')). }
+      assert (Hbound : service_job 1 sched j t' <= job_cost (jobs j))
+        by exact (valid_schedule_1_service_le_cost jobs sched j t' Hvalid).
+      lia.
+    + exact Hnblocked.
 Qed.
 
 Lemma swap_at_preserves_valid_schedule_ne :
@@ -838,9 +857,10 @@ Lemma swap_at_preserves_valid_schedule_ne :
     eligible jobs 1 sched j' t ->
     t <= t' ->
     j <> j' ->
+    ~ blocked jobs j t' ->
     valid_schedule jobs 1 (swap_at sched t t').
 Proof.
-  intros jobs sched j j' t t' Hvalid Hj Hj' Helig Hle Hne.
+  intros jobs sched j j' t t' Hvalid Hj Hj' Helig Hle Hne Hnblocked_j_t'.
   assert (Hlt : t < t').
   { destruct (Nat.eq_dec t t') as [Heqt | Hne'].
     - subst t'. rewrite Hj in Hj'. injection Hj' as Heq. exfalso. exact (Hne Heq).
@@ -856,14 +876,16 @@ Proof.
   - destruct (Nat.eq_dec t'' t') as [-> | Ht'ne].
     + rewrite swap_at_t2 in Hrun. rewrite Hj in Hrun.
       injection Hrun as Heq. subst j''.
-      exact (swap_at_validity_new_back_job_ne jobs sched j j' t t' Hvalid Hj Hj' Hne Hlt).
+      exact (swap_at_validity_new_back_job_ne jobs sched j j' t t' Hvalid Hj Hj' Hne Hlt Hnblocked_j_t').
     + rewrite (swap_at_same_outside sched t t' t'' 0
                  (or_intror (conj Htne Ht'ne))) in Hrun.
       assert (Helig_orig : eligible jobs 1 sched j'' t'')
         by exact (Hvalid j'' t'' 0 (Nat.lt_succ_diag_r 0) Hrun).
+      destruct Helig_orig as [Hrel_orig [Hncomp_orig Hnblocked_orig]].
       split.
-      * exact (proj1 Helig_orig).
-      * intro Hcomp_swap. apply (proj2 Helig_orig). unfold completed in *.
+      * exact Hrel_orig.
+      * split.
+        -- intro Hcomp_swap. apply Hncomp_orig. unfold completed in *.
         destruct (Nat.eq_dec j'' j) as [-> | Hjne].
         { destruct (lt_dec t'' t) as [Hlt_t | Hge_t].
           - rewrite <- (swap_at_service_prefix_before_t1 sched j t t' t''
@@ -912,6 +934,7 @@ Proof.
                               Hlt Hj Hj' Hne Hgt2). exact Hcomp_swap. }
           { rewrite <- (swap_at_service_unchanged_other_job sched j'' j j' t t' t''
                           Hj Hj' Hjne Hj'ne). exact Hcomp_swap. } }
+        -- exact Hnblocked_orig.
 Qed.
 
 Lemma swap_at_preserves_feasible_schedule_on_le :

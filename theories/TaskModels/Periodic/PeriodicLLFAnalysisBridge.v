@@ -23,6 +23,7 @@ Theorem periodic_llf_schedulable_by_window_dbf_on_finite_horizon_auto_with_busy_
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
          sched,
     well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -49,7 +50,7 @@ Theorem periodic_llf_schedulable_by_window_dbf_on_finite_horizon_auto_with_busy_
       jobs 1.
 Proof.
   intros T tasks offset H enumT jobs codec sched
-         Hwf HnodupT HenumT_complete HenumT_sound
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hsched Hjob_bridge Hdbf.
   eapply periodic_llf_optimality_on_finite_horizon_auto; eauto.
   eapply periodic_window_dbf_implies_edf_feasible_on_finite_horizon_with_busy_prefix_bridge; eauto.
@@ -60,6 +61,7 @@ Theorem periodic_llf_schedulable_by_classical_dbf_on_finite_horizon_auto_with_bu
          (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
          sched,
     well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
@@ -84,7 +86,7 @@ Theorem periodic_llf_schedulable_by_classical_dbf_on_finite_horizon_auto_with_bu
       jobs 1.
 Proof.
   intros T tasks offset H enumT jobs codec sched
-         Hwf HnodupT HenumT_complete HenumT_sound Hoff
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
          Hsched Hjob_bridge Hdbf_classical.
   eapply periodic_llf_schedulable_by_window_dbf_on_finite_horizon_auto_with_busy_prefix_bridge; eauto.
   intros t1 t2 Hle12 HleH.

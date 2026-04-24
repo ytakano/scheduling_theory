@@ -37,7 +37,7 @@ Import ListNotations.
 (** ** Single-CPU examples: EDF / FIFO                                *)
 (* ================================================================= *)
 
-Definition single_job : Job := mkJob 0 0 0 1 2.
+Definition single_job : Job := mkJob 0 0 0 1 2 (fun _ => false).
 
 Definition single_jobs (_ : JobId) : Job := single_job.
 
@@ -105,7 +105,7 @@ Lemma single_job_not_eligible_after_start :
       1 <= t ->
       ~ eligible single_jobs 1 single_sched 0 t.
 Proof.
-  intros t Hle [Hrel Hncomp].
+  intros t Hle [Hrel [Hncomp _]].
   apply Hncomp.
   exact (single_job_completed_after_start t Hle).
 Qed.
@@ -234,8 +234,8 @@ Qed.
 (** ** Partitioned example                                            *)
 (* ================================================================= *)
 
-Definition pair_job0 : Job := mkJob 0 0 0 1 2.
-Definition pair_job1 : Job := mkJob 0 1 0 1 2.
+Definition pair_job0 : Job := mkJob 0 0 0 1 2 (fun _ => false).
+Definition pair_job1 : Job := mkJob 0 1 0 1 2 (fun _ => false).
 
 Definition pair_jobs (j : JobId) : Job :=
   match j with
@@ -289,6 +289,16 @@ Lemma enum_pair_sound :
 Proof.
   intros j Hin.
   destruct Hin as [<- | [<- | []]]; unfold J_pair; auto.
+Qed.
+
+Lemma pair_jobs_nonblocked :
+    forall j t,
+      J_pair j -> ~ blocked pair_jobs j t.
+Proof.
+  intros j t Hj.
+  unfold J_pair in Hj.
+  unfold blocked, pair_jobs, pair_job0, pair_job1.
+  destruct Hj as [-> | ->]; simpl; discriminate.
 Qed.
 
 (* Concrete per-CPU candidate source: for each CPU c, return jobs in [0;1]
@@ -383,7 +393,7 @@ Lemma pair_job0_local_not_eligible_after_start :
       1 <= t ->
       ~ eligible pair_jobs 1 (cpu_schedule pair_sched 0) 0 t.
 Proof.
-  intros t Hle [Hrel Hncomp].
+  intros t Hle [Hrel [Hncomp _]].
   apply Hncomp.
   unfold completed, pair_jobs, pair_job0.
   simpl.
@@ -396,7 +406,7 @@ Lemma pair_job1_local_not_eligible_after_start :
       1 <= t ->
       ~ eligible pair_jobs 1 (cpu_schedule pair_sched 1) 1 t.
 Proof.
-  intros t Hle [Hrel Hncomp].
+  intros t Hle [Hrel [Hncomp _]].
   apply Hncomp.
   unfold completed, pair_jobs, pair_job1.
   simpl.
@@ -777,6 +787,7 @@ Proof.
   apply (partitioned_edf_schedulable_by_on_of_local_feasible
            assign_pair 2 assign_pair_valid J_pair J_pair_bool [0; 1] pair_jobs).
   - exact J_pair_bool_spec.
+  - exact pair_jobs_nonblocked.
   - exact enum_pair_complete.
   - exact enum_pair_sound.
   - intros c Hlt.
@@ -798,6 +809,7 @@ Proof.
   apply (partitioned_llf_schedulable_by_on_of_local_feasible
            assign_pair 2 assign_pair_valid J_pair J_pair_bool [0; 1] pair_jobs).
   - exact J_pair_bool_spec.
+  - exact pair_jobs_nonblocked.
   - exact enum_pair_complete.
   - exact enum_pair_sound.
   - intros c Hlt.
