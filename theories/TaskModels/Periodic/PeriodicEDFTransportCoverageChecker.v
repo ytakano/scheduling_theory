@@ -38,6 +38,27 @@ Definition check_periodic_jobs_covered_by_transport
     (candidate_jobs : list JobId) : bool :=
   check_transport_coverage_list transport_cert candidate_jobs.
 
+Definition periodic_transport_residue_jobs
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (period : Time) : list JobId :=
+  flat_map
+    (fun τ =>
+       map
+         (global_periodic_job_id_of T tasks offset jobs codec τ)
+         (seq 0 period))
+    enumT.
+
+Definition check_periodic_transport_residue_coverage
+    (transport_cert : EDFTransportCert JobId)
+    (residue_jobs : list JobId) : bool :=
+  Nat.ltb 0 transport_cert.(transport_period)
+  && check_transport_jobs_witness transport_cert residue_jobs.
+
 Record TransportCoverageObligation
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
@@ -48,6 +69,31 @@ Record TransportCoverageObligation
     forall j,
       periodic_jobset T tasks offset jobs j ->
       In j candidate_jobs
+}.
+
+Record PeriodicTransportCoverageObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId) : Prop := {
+  periodic_transport_coverage_complete :
+    forall j,
+      periodic_jobset T tasks offset jobs j ->
+      exists i class_id cls shift,
+        nth_error transport_cert.(transport_basis_jobs) i =
+          Some
+            (global_periodic_job_id_of
+               T tasks offset jobs codec
+               (job_task (jobs j))
+               (job_index (jobs j) mod transport_cert.(transport_period)))
+        /\
+        nth_error transport_cert.(transport_job_class) i = Some class_id
+        /\
+        nth_error transport_cert.(transport_classes) class_id = Some cls
+        /\
+        nth_error transport_cert.(transport_job_shift) i = Some shift
 }.
 
 Lemma check_transport_coverage_list_sound :
@@ -83,6 +129,108 @@ Proof.
        T tasks offset jobs candidate_jobs Hcoverage j Hj) as Hin.
   split; [exact Hin|].
   eapply check_transport_coverage_list_sound; eauto.
+Qed.
+
+Lemma periodic_transport_residue_jobs_complete :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs) period j,
+    0 < period ->
+    (forall τ, T τ -> In τ enumT) ->
+    periodic_jobset T tasks offset jobs j ->
+    In
+      (global_periodic_job_id_of
+         T tasks offset jobs codec
+         (job_task (jobs j))
+         (job_index (jobs j) mod period))
+      (periodic_transport_residue_jobs
+         T tasks offset jobs enumT codec period).
+Proof.
+  intros T tasks offset jobs enumT codec period j Hperiod Henum Hjob.
+  unfold periodic_transport_residue_jobs.
+  apply in_flat_map.
+  exists (job_task (jobs j)).
+  split.
+  - apply Henum.
+    unfold periodic_jobset in Hjob.
+    exact (proj1 Hjob).
+  - apply in_map.
+    rewrite in_seq.
+    split; [lia|].
+    apply Nat.mod_upper_bound.
+    lia.
+Qed.
+
+Theorem checked_periodic_transport_residue_coverage_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs) transport_cert,
+    check_transport_cert transport_cert = true ->
+    (forall τ, T τ -> In τ enumT) ->
+    check_periodic_transport_residue_coverage
+      transport_cert
+      (periodic_transport_residue_jobs
+         T tasks offset jobs enumT codec
+         transport_cert.(transport_period)) = true ->
+    PeriodicTransportCoverageObligation
+      T tasks offset jobs codec transport_cert.
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert
+         Htransport_check Henum Hcoverage_check.
+  unfold check_periodic_transport_residue_coverage in Hcoverage_check.
+  apply andb_true_iff in Hcoverage_check.
+  destruct Hcoverage_check as [Hperiod_check Hresidue_check].
+  apply Nat.ltb_lt in Hperiod_check.
+  constructor.
+  intros j Hjob.
+  set (rep :=
+    global_periodic_job_id_of
+      T tasks offset jobs codec
+      (job_task (jobs j))
+      (job_index (jobs j) mod transport_cert.(transport_period))).
+  assert (Hrep_in :
+    In rep
+      (periodic_transport_residue_jobs
+         T tasks offset jobs enumT codec
+         transport_cert.(transport_period))).
+  {
+    subst rep.
+    eapply periodic_transport_residue_jobs_complete; eauto.
+  }
+  destruct
+    (check_transport_coverage_list_sound
+       transport_cert
+       (periodic_transport_residue_jobs
+          T tasks offset jobs enumT codec
+          transport_cert.(transport_period))
+       rep Hresidue_check Hrep_in)
+    as [i Hbasis].
+  pose proof (check_transport_cert_fields JobId transport_cert Htransport_check)
+    as [_ [Hclass_len [Hshift_len Hclass_bound]]].
+  assert (Hi : i < length transport_cert.(transport_basis_jobs)).
+  {
+    apply nth_error_Some.
+    intro Hnone.
+    rewrite Hbasis in Hnone.
+    discriminate.
+  }
+  assert (Hclass_lt : i < length transport_cert.(transport_job_class)) by lia.
+  assert (Hshift_lt : i < length transport_cert.(transport_job_shift)) by lia.
+  destruct
+    (nth_error_exists_of_lt nat transport_cert.(transport_job_class)
+       i Hclass_lt)
+    as [class_id Hclass].
+  destruct
+    (nth_error_exists_of_lt nat transport_cert.(transport_job_shift)
+       i Hshift_lt)
+    as [shift Hshift].
+  assert (Hclass_id_in : In class_id transport_cert.(transport_job_class)).
+  { eapply nth_error_In. exact Hclass. }
+  pose proof (Hclass_bound class_id Hclass_id_in) as Hclass_id_lt.
+  destruct
+    (nth_error_exists_of_lt (EDFTransportClass JobId)
+       transport_cert.(transport_classes) class_id Hclass_id_lt)
+    as [cls Hcls].
+  exists i, class_id, cls, shift.
+  repeat split; assumption.
 Qed.
 
 Theorem periodic_edf_schedulable_by_classical_dbf_with_checked_transport_coverage :

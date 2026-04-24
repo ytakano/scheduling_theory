@@ -99,9 +99,16 @@ Definition check_periodic_edf_checked_sidecar
        cert.(cert_prefix)
        cert.(cert_transport).(transport_classes)
        sidecar.(checked_class_relevant_jobs)
-  && check_periodic_jobs_covered_by_transport
+  && check_periodic_transport_residue_coverage
        cert.(cert_transport)
-       sidecar.(checked_candidate_jobs)
+       (periodic_transport_residue_jobs
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          (extracted_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          codec
+          cert.(cert_transport).(transport_period))
   && check_window_transport_targets
        (extracted_periodic_jobs ts)
        cert.(cert_transport)
@@ -146,9 +153,16 @@ Lemma check_periodic_edf_checked_sidecar_fields :
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) = true
     /\
-    check_periodic_jobs_covered_by_transport
+    check_periodic_transport_residue_coverage
       cert.(cert_transport)
-      sidecar.(checked_candidate_jobs) = true
+      (periodic_transport_residue_jobs
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts)
+        (enumT_of_extracted_list ts)
+        codec
+        cert.(cert_transport).(transport_period)) = true
     /\
     check_window_transport_targets
       (extracted_periodic_jobs ts)
@@ -223,12 +237,6 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    TransportCoverageObligation
-      (extracted_task_scope ts)
-      (extracted_periodic_tasks ts)
-      (fun _ => 0)
-      (extracted_periodic_jobs ts)
-      sidecar.(checked_candidate_jobs) ->
     WindowTransportTargetsObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
@@ -256,19 +264,21 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts codec cert sidecar Hcheck Hrep Hcoverage Hwindow.
+  intros ts codec cert sidecar Hcheck Hrep Hwindow.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
     as [_ [_ [Htransport_check
         [Hrep_check [Hcoverage_check [Hwindow_check Hdec]]]]]].
-  eapply edf_schedulability_decide_schedulable_by_on_with_checked_window_transport_witnesses.
+  eapply edf_schedulability_decide_schedulable_by_on_with_periodic_transport_coverage.
   - eapply check_periodic_edf_checked_sidecar_wf; eauto.
   - exact Htransport_check.
   - exact Hrep.
   - exact Hrep_check.
-  - exact Hcoverage.
-  - exact Hcoverage_check.
+  - eapply checked_periodic_transport_residue_coverage_sound.
+    + exact Htransport_check.
+    + apply extracted_enum_complete.
+    + exact Hcoverage_check.
   - exact Hwindow_check.
   - exact Hwindow.
   - exact Hdec.
@@ -287,12 +297,6 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    TransportCoverageObligation
-      (extracted_task_scope ts)
-      (extracted_periodic_tasks ts)
-      (fun _ => 0)
-      (extracted_periodic_jobs ts)
-      sidecar.(checked_candidate_jobs) ->
     WindowTransportTargetsObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
@@ -320,7 +324,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts cert sidecar Hcheck Hrep Hcoverage Hwindow.
+  intros ts cert sidecar Hcheck Hrep Hwindow.
   destruct
     (check_periodic_edf_checked_sidecar_extracted_fields
        ts cert sidecar Hcheck)

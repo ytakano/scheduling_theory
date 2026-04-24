@@ -1010,15 +1010,20 @@ check_transport_jobs_witness :: (EDFTransportCert JobId) -> (List JobId) ->
 check_transport_jobs_witness c jobs =
   forallb (check_transport_job_witness c) jobs
 
-check_transport_coverage_list :: (EDFTransportCert JobId) -> (List JobId) ->
-                                 Bool
-check_transport_coverage_list =
-  check_transport_jobs_witness
+periodic_transport_residue_jobs :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                   (JobId -> Job) -> (List TaskId) ->
+                                   PeriodicCodec -> Time -> List JobId
+periodic_transport_residue_jobs tasks offset jobs enumT codec period =
+  flat_map (\_UU03c4_ ->
+    map (global_periodic_job_id_of tasks offset jobs codec _UU03c4_)
+      (seq O period))
+    enumT
 
-check_periodic_jobs_covered_by_transport :: (EDFTransportCert JobId) -> (List
-                                            JobId) -> Bool
-check_periodic_jobs_covered_by_transport =
-  check_transport_coverage_list
+check_periodic_transport_residue_coverage :: (EDFTransportCert JobId) ->
+                                             (List JobId) -> Bool
+check_periodic_transport_residue_coverage transport_cert residue_jobs =
+  andb (ltb O (transport_period transport_cert))
+    (check_transport_jobs_witness transport_cert residue_jobs)
 
 data EDFWindowTransportPairCert =
    Build_EDFWindowTransportPairCert JobId JobId Time
@@ -1144,12 +1149,6 @@ data PeriodicEDFCheckedSidecarCert =
    Build_PeriodicEDFCheckedSidecarCert (List JobId) (List (List JobId)) 
  (List EDFWindowTransportTargetCert)
 
-checked_candidate_jobs :: PeriodicEDFCheckedSidecarCert -> List JobId
-checked_candidate_jobs p =
-  case p of {
-   Build_PeriodicEDFCheckedSidecarCert checked_candidate_jobs0 _ _ ->
-    checked_candidate_jobs0}
-
 checked_class_relevant_jobs :: PeriodicEDFCheckedSidecarCert -> List
                                (List JobId)
 checked_class_relevant_jobs p =
@@ -1197,8 +1196,11 @@ check_periodic_edf_checked_sidecar ts codec cert sidecar =
           (check_transport_classes_rep_backlog (cert_prefix cert)
             (transport_classes (cert_transport cert))
             (checked_class_relevant_jobs sidecar)))
-        (check_periodic_jobs_covered_by_transport (cert_transport cert)
-          (checked_candidate_jobs sidecar)))
+        (check_periodic_transport_residue_coverage (cert_transport cert)
+          (periodic_transport_residue_jobs (extracted_periodic_tasks ts)
+            (\_ -> O) (extracted_periodic_jobs ts)
+            (enumT_of_extracted_list ts) codec
+            (transport_period (cert_transport cert)))))
       (check_window_transport_targets (extracted_periodic_jobs ts)
         (cert_transport cert) (checked_window_target_certs sidecar)))
     (edf_schedulability_decide ts)
