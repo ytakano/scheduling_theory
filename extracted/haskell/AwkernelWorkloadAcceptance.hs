@@ -449,12 +449,10 @@ sched_trace_is_choose j entry =
   andb
     (andb
       (andb
-        (andb
-          (andb (eqb0 (aste_cpu entry) (S O))
-            (sched_trace_event_is_choose (S O) j entry))
-          (bool_of_option_none (sched_trace_primary_current entry)))
-        (job_list_contains j (aste_runnable entry)))
-      (eqb (sched_trace_primary_need_resched entry) False))
+        (andb (eqb0 (aste_cpu entry) (S O))
+          (sched_trace_event_is_choose (S O) j entry))
+        (bool_of_option_none (sched_trace_primary_current entry)))
+      (job_list_contains j (aste_runnable entry)))
     (option_job_eqb (sched_trace_primary_dispatch_target entry) (Some j))
 
 sched_trace_is_dispatch :: JobId -> AwkernelSchedTraceEntry -> Bool

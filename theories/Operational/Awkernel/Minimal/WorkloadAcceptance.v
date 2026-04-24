@@ -142,7 +142,6 @@ Definition sched_trace_is_choose
   sched_trace_event_is_choose 1 j entry &&
   bool_of_option_none (sched_trace_primary_current entry) &&
   job_list_contains j (aste_runnable entry) &&
-  Bool.eqb (sched_trace_primary_need_resched entry) false &&
   option_job_eqb (sched_trace_primary_dispatch_target entry) (Some j).
 
 Definition sched_trace_is_dispatch

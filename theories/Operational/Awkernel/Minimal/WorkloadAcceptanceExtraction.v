@@ -5,7 +5,7 @@ From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadSchedulerFaci
 
 Extraction Language Haskell.
 
-Extraction "/scheduling_theory/extracted/haskell/AwkernelWorkloadAcceptance.hs"
+Extraction "extracted/haskell/AwkernelWorkloadAcceptance.hs"
   AwkernelTaskTraceKind
   AwkernelTaskTraceEntry
   AwkernelSchedTraceEntry
