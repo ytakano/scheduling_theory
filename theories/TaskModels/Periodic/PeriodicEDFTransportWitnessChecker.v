@@ -1846,6 +1846,77 @@ Record HyperperiodShiftedServicePair
     job_cost (jobs x) = job_cost (jobs x0)
 }.
 
+Definition check_hyperperiod_delta_multiple
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (delta : Time) : bool :=
+  Nat.eqb
+    delta
+    (periodic_hyperperiod tasks enumT *
+     (delta / periodic_hyperperiod tasks enumT)).
+
+Definition check_hyperperiod_shifted_service_pair
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (jobs : JobId -> Job)
+    (target x target0 x0 : JobId)
+    (delta : Time) : bool :=
+  check_hyperperiod_delta_multiple tasks enumT delta
+  && Nat.eqb
+       (job_release (jobs target))
+       (job_release (jobs target0) + delta)
+  && Nat.eqb
+       (job_abs_deadline (jobs target))
+       (job_abs_deadline (jobs target0) + delta)
+  && Nat.eqb
+       (job_release (jobs x))
+       (job_release (jobs x0) + delta)
+  && Nat.eqb
+       (job_abs_deadline (jobs x))
+       (job_abs_deadline (jobs x0) + delta)
+  && Nat.eqb
+       (job_cost (jobs x))
+       (job_cost (jobs x0)).
+
+Lemma check_hyperperiod_delta_multiple_sound :
+  forall tasks enumT delta,
+    check_hyperperiod_delta_multiple tasks enumT delta = true ->
+    exists n, delta = periodic_hyperperiod tasks enumT * n.
+Proof.
+  intros tasks enumT delta Hcheck.
+  unfold check_hyperperiod_delta_multiple in Hcheck.
+  apply Nat.eqb_eq in Hcheck.
+  exists (delta / periodic_hyperperiod tasks enumT).
+  exact Hcheck.
+Qed.
+
+Lemma check_hyperperiod_shifted_service_pair_sound :
+  forall tasks enumT jobs target x target0 x0 delta,
+    check_hyperperiod_shifted_service_pair
+      tasks enumT jobs target x target0 x0 delta = true ->
+    HyperperiodShiftedServicePair
+      tasks enumT jobs target x target0 x0 delta.
+Proof.
+  intros tasks enumT jobs target x target0 x0 delta Hcheck.
+  unfold check_hyperperiod_shifted_service_pair in Hcheck.
+  repeat rewrite andb_true_iff in Hcheck.
+  destruct Hcheck as [[[[[Hdelta Htarget_release] Htarget_deadline]
+                       Hx_release] Hx_deadline] Hx_cost].
+  constructor.
+  - eapply check_hyperperiod_delta_multiple_sound.
+    exact Hdelta.
+  - apply Nat.eqb_eq.
+    exact Htarget_release.
+  - apply Nat.eqb_eq.
+    exact Htarget_deadline.
+  - apply Nat.eqb_eq.
+    exact Hx_release.
+  - apply Nat.eqb_eq.
+    exact Hx_deadline.
+  - apply Nat.eqb_eq.
+    exact Hx_cost.
+Qed.
+
 Inductive PeriodicHyperperiodServiceSource
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)

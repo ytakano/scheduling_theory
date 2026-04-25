@@ -1541,6 +1541,31 @@ check_post_reset_window_targets_complete_with_pairs tasks offset jobs enumT code
     (check_window_generated_pair_completion_all tasks offset jobs enumT codec
       target_certs)
 
+check_hyperperiod_delta_multiple :: (TaskId -> Task) -> (List TaskId) -> Time
+                                    -> Bool
+check_hyperperiod_delta_multiple tasks enumT delta =
+  eqb delta
+    (mul (periodic_hyperperiod tasks enumT)
+      (div delta (periodic_hyperperiod tasks enumT)))
+
+check_hyperperiod_shifted_service_pair :: (TaskId -> Task) -> (List TaskId)
+                                          -> (JobId -> Job) -> JobId -> JobId
+                                          -> JobId -> JobId -> Time -> Bool
+check_hyperperiod_shifted_service_pair tasks enumT jobs target x target0 x0 delta =
+  andb
+    (andb
+      (andb
+        (andb
+          (andb (check_hyperperiod_delta_multiple tasks enumT delta)
+            (eqb (job_release (jobs target))
+              (add (job_release (jobs target0)) delta)))
+          (eqb (job_abs_deadline (jobs target))
+            (add (job_abs_deadline (jobs target0)) delta)))
+        (eqb (job_release (jobs x)) (add (job_release (jobs x0)) delta)))
+      (eqb (job_abs_deadline (jobs x))
+        (add (job_abs_deadline (jobs x0)) delta)))
+    (eqb (job_cost (jobs x)) (job_cost (jobs x0)))
+
 data PeriodicEDFCheckedSidecarCert =
    Build_PeriodicEDFCheckedSidecarCert (List JobId) (List (List JobId)) 
  (List EDFWindowTransportTargetCert) (List EDFWindowTransportTargetCert)
