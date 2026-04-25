@@ -636,18 +636,7 @@ Proof.
     (check_periodic_edf_checked_sidecar_hyperperiod_facts
        ts codec cert sidecar Hcheck)
     as [_Hhyperperiod_reset Htransport_period_hyperperiod].
-  pose proof
-    (periodic_residue_window_transport_lift_of_hyperperiod_backlog_transport
-       (extracted_task_scope ts)
-       (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
-       (enumT_of_extracted_list ts)
-       codec
-       cert.(cert_transport)
-       Htransport_period_hyperperiod
-       Hhyper_transport) as Hresidue_lift.
-  eapply periodic_edf_schedulable_by_classical_dbf_with_periodic_transport_generated_checks.
+  eapply periodic_edf_schedulable_by_classical_dbf_with_periodic_hyperperiod_transport_generated_checks.
   - apply extracted_tasks_well_formed_on_enum.
     eapply check_periodic_edf_checked_sidecar_wf; eauto.
   - apply extracted_periodic_nonblocking.
@@ -655,6 +644,7 @@ Proof.
   - apply extracted_enum_complete.
   - apply extracted_enum_sound.
   - apply extracted_zero_offset.
+  - exact Htransport_period_hyperperiod.
   - eapply check_periodic_transport_residue_coverage_period_pos.
     exact Hresidue_check.
   - exact Htransport_check.
@@ -671,7 +661,7 @@ Proof.
   - exact Hwindow_check.
   - exact Hpair_semantics.
   - exact Hpair_completion.
-  - exact Hresidue_lift.
+  - exact Hhyper_transport.
   - apply edf_schedulability_decide_true_global_dbf_ok.
     exact Hdec.
 Qed.
