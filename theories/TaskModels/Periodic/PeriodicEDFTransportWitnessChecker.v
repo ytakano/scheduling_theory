@@ -1917,6 +1917,126 @@ Proof.
     exact Hx_cost.
 Qed.
 
+Definition check_hyperperiod_block_source_pair
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (jobs : JobId -> Job)
+    (target x target0 x0 : JobId)
+    (target_cert : EDFWindowTransportTargetCert)
+    (p : EDFWindowTransportPairCert) : bool :=
+  Nat.eqb target_cert.(window_transport_target_job) target0
+  && Nat.eqb p.(window_target_earlier_job) x0
+  && check_hyperperiod_shifted_service_pair
+       tasks enumT jobs target x target0 x0 p.(window_transport_delta).
+
+Definition check_hyperperiod_block_source_pair_in_cert
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (jobs : JobId -> Job)
+    (target x target0 x0 : JobId)
+    (target_cert : EDFWindowTransportTargetCert) : bool :=
+  existsb
+    (check_hyperperiod_block_source_pair
+       tasks enumT jobs target x target0 x0 target_cert)
+    target_cert.(window_transport_pairs).
+
+Definition check_hyperperiod_block_source_pair_in_certs
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (jobs : JobId -> Job)
+    (target x target0 x0 : JobId)
+    (target_certs : list EDFWindowTransportTargetCert) : bool :=
+  existsb
+    (check_hyperperiod_block_source_pair_in_cert
+       tasks enumT jobs target x target0 x0)
+    target_certs.
+
+Lemma check_hyperperiod_block_source_pair_sound :
+  forall tasks enumT jobs target x target0 x0 target_cert p,
+    check_hyperperiod_block_source_pair
+      tasks enumT jobs target x target0 x0 target_cert p = true ->
+    target_cert.(window_transport_target_job) = target0
+    /\
+    p.(window_target_earlier_job) = x0
+    /\
+    HyperperiodShiftedServicePair
+      tasks enumT jobs target x target0 x0 p.(window_transport_delta).
+Proof.
+  intros tasks enumT jobs target x target0 x0 target_cert p Hcheck.
+  unfold check_hyperperiod_block_source_pair in Hcheck.
+  repeat rewrite andb_true_iff in Hcheck.
+  destruct Hcheck as [[Htarget Hx0] Hshift].
+  split.
+  - apply Nat.eqb_eq.
+    exact Htarget.
+  - split.
+    + apply Nat.eqb_eq.
+      exact Hx0.
+    + eapply check_hyperperiod_shifted_service_pair_sound.
+      exact Hshift.
+Qed.
+
+Lemma check_hyperperiod_block_source_pair_in_cert_sound :
+  forall tasks enumT jobs target x target0 x0 target_cert,
+    check_hyperperiod_block_source_pair_in_cert
+      tasks enumT jobs target x target0 x0 target_cert = true ->
+    exists p,
+      In p target_cert.(window_transport_pairs)
+      /\
+      target_cert.(window_transport_target_job) = target0
+      /\
+      p.(window_target_earlier_job) = x0
+      /\
+      HyperperiodShiftedServicePair
+        tasks enumT jobs target x target0 x0 p.(window_transport_delta).
+Proof.
+  intros tasks enumT jobs target x target0 x0 target_cert Hcheck.
+  unfold check_hyperperiod_block_source_pair_in_cert in Hcheck.
+  apply existsb_exists in Hcheck.
+  destruct Hcheck as [p [Hin Hpair_check]].
+  exists p.
+  destruct
+    (check_hyperperiod_block_source_pair_sound
+       tasks enumT jobs target x target0 x0 target_cert p Hpair_check)
+    as [Htarget [Hx0 Hshift]].
+  split; [exact Hin|].
+  split; [exact Htarget|].
+  split; [exact Hx0|].
+  exact Hshift.
+Qed.
+
+Lemma check_hyperperiod_block_source_pair_in_certs_sound :
+  forall tasks enumT jobs target x target0 x0 target_certs,
+    check_hyperperiod_block_source_pair_in_certs
+      tasks enumT jobs target x target0 x0 target_certs = true ->
+    exists target_cert p,
+      In target_cert target_certs
+      /\
+      In p target_cert.(window_transport_pairs)
+      /\
+      target_cert.(window_transport_target_job) = target0
+      /\
+      p.(window_target_earlier_job) = x0
+      /\
+      HyperperiodShiftedServicePair
+        tasks enumT jobs target x target0 x0 p.(window_transport_delta).
+Proof.
+  intros tasks enumT jobs target x target0 x0 target_certs Hcheck.
+  unfold check_hyperperiod_block_source_pair_in_certs in Hcheck.
+  apply existsb_exists in Hcheck.
+  destruct Hcheck as [target_cert [Hin Hcert_check]].
+  destruct
+    (check_hyperperiod_block_source_pair_in_cert_sound
+       tasks enumT jobs target x target0 x0 target_cert Hcert_check)
+    as [p [Hin_pair [Htarget [Hx0 Hshift]]]].
+  exists target_cert, p.
+  split; [exact Hin|].
+  split; [exact Hin_pair|].
+  split; [exact Htarget|].
+  split; [exact Hx0|].
+  exact Hshift.
+Qed.
+
 Inductive PeriodicHyperperiodServiceSource
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)

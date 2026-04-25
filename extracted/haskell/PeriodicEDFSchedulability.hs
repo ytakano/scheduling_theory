@@ -1566,6 +1566,42 @@ check_hyperperiod_shifted_service_pair tasks enumT jobs target x target0 x0 delt
         (add (job_abs_deadline (jobs x0)) delta)))
     (eqb (job_cost (jobs x)) (job_cost (jobs x0)))
 
+check_hyperperiod_block_source_pair :: (TaskId -> Task) -> (List TaskId) ->
+                                       (JobId -> Job) -> JobId -> JobId ->
+                                       JobId -> JobId ->
+                                       EDFWindowTransportTargetCert ->
+                                       EDFWindowTransportPairCert -> Bool
+check_hyperperiod_block_source_pair tasks enumT jobs target x target0 x0 target_cert p =
+  andb
+    (andb (eqb (window_transport_target_job target_cert) target0)
+      (eqb (window_target_earlier_job p) x0))
+    (check_hyperperiod_shifted_service_pair tasks enumT jobs target x target0
+      x0 (window_transport_delta p))
+
+check_hyperperiod_block_source_pair_in_cert :: (TaskId -> Task) -> (List
+                                               TaskId) -> (JobId -> Job) ->
+                                               JobId -> JobId -> JobId ->
+                                               JobId ->
+                                               EDFWindowTransportTargetCert
+                                               -> Bool
+check_hyperperiod_block_source_pair_in_cert tasks enumT jobs target x target0 x0 target_cert =
+  existsb
+    (check_hyperperiod_block_source_pair tasks enumT jobs target x target0 x0
+      target_cert)
+    (window_transport_pairs target_cert)
+
+check_hyperperiod_block_source_pair_in_certs :: (TaskId -> Task) -> (List
+                                                TaskId) -> (JobId -> Job) ->
+                                                JobId -> JobId -> JobId ->
+                                                JobId -> (List
+                                                EDFWindowTransportTargetCert)
+                                                -> Bool
+check_hyperperiod_block_source_pair_in_certs tasks enumT jobs target x target0 x0 target_certs =
+  existsb
+    (check_hyperperiod_block_source_pair_in_cert tasks enumT jobs target x
+      target0 x0)
+    target_certs
+
 data PeriodicEDFCheckedSidecarCert =
    Build_PeriodicEDFCheckedSidecarCert (List JobId) (List (List JobId)) 
  (List EDFWindowTransportTargetCert) (List EDFWindowTransportTargetCert)

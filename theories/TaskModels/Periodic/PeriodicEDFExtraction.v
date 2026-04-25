@@ -54,5 +54,8 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   check_post_reset_window_targets_complete_with_pairs
   check_hyperperiod_delta_multiple
   check_hyperperiod_shifted_service_pair
+  check_hyperperiod_block_source_pair
+  check_hyperperiod_block_source_pair_in_cert
+  check_hyperperiod_block_source_pair_in_certs
   check_window_target_pair_coverage
   check_periodic_edf_checked_sidecar_extracted.
