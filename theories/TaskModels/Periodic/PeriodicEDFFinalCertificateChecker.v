@@ -1097,6 +1097,76 @@ Proof.
     eauto.
 Qed.
 
+Theorem check_periodic_edf_checked_sidecar_checked_block_sound :
+  forall ts
+         (codec :
+          PeriodicCodec
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts))
+         cert sidecar,
+    check_periodic_edf_checked_sidecar ts codec cert sidecar = true ->
+    TransportClassRepresentativeObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec
+      cert.(cert_prefix)
+      cert.(cert_transport).(transport_classes)
+      sidecar.(checked_class_relevant_jobs) ->
+    PeriodicHyperperiodCheckedBlockSourceNormalizationObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec
+      sidecar.(checked_post_reset_window_target_certs) ->
+    PeriodicHyperperiodServicePairTransportObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec ->
+    PeriodicHyperperiodBoundaryResetCompletionObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec ->
+    schedulable_by_on
+      (periodic_jobset
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts))
+      (edf_scheduler
+         (periodic_candidates_before
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts)
+            (enumT_of_extracted_list ts)
+            codec))
+      (extracted_periodic_jobs ts)
+      1.
+Proof.
+  intros ts codec cert sidecar Hcheck Hrep Hchecked_source
+         Hpair_transport Hboundary_reset.
+  eapply check_periodic_edf_checked_sidecar_block_sound.
+  - exact Hcheck.
+  - exact Hrep.
+  - eapply periodic_hyperperiod_block_service_source_of_checked_normalization.
+    exact Hchecked_source.
+  - exact Hpair_transport.
+  - exact Hboundary_reset.
+Qed.
+
 Theorem check_periodic_edf_checked_sidecar_periodic_sound :
   forall ts
          (codec :
@@ -1388,6 +1458,67 @@ Proof.
        ts cert sidecar Hcheck)
     as [_ Hchecked].
   eapply check_periodic_edf_checked_sidecar_block_sound; eauto.
+Qed.
+
+Theorem check_periodic_edf_checked_sidecar_extracted_checked_block_sound :
+  forall ts cert sidecar,
+    check_periodic_edf_checked_sidecar_extracted ts cert sidecar = true ->
+    TransportClassRepresentativeObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      cert.(cert_prefix)
+      cert.(cert_transport).(transport_classes)
+      sidecar.(checked_class_relevant_jobs) ->
+    PeriodicHyperperiodCheckedBlockSourceNormalizationObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      sidecar.(checked_post_reset_window_target_certs) ->
+    PeriodicHyperperiodServicePairTransportObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts) ->
+    PeriodicHyperperiodBoundaryResetCompletionObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts) ->
+    schedulable_by_on
+      (periodic_jobset
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts))
+      (edf_scheduler
+         (periodic_candidates_before
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts)
+            (enumT_of_extracted_list ts)
+            (extracted_periodic_codec ts)))
+      (extracted_periodic_jobs ts)
+      1.
+Proof.
+  intros ts cert sidecar Hcheck Hrep Hchecked_source
+         Hpair_transport Hboundary_reset.
+  destruct
+    (check_periodic_edf_checked_sidecar_extracted_fields
+       ts cert sidecar Hcheck)
+    as [_ Hchecked].
+  eapply check_periodic_edf_checked_sidecar_checked_block_sound; eauto.
 Qed.
 
 Theorem check_periodic_edf_checked_sidecar_extracted_periodic_sound :

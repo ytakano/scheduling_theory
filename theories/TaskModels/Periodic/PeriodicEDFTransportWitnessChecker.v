@@ -2130,6 +2130,48 @@ Record PeriodicHyperperiodServiceSourceNormalizationObligation
           tasks enumT jobs target x target0 x0 delta
 }.
 
+Record PeriodicHyperperiodCheckedBlockSourceNormalizationObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (target_certs : list EDFWindowTransportTargetCert) : Prop := {
+  periodic_hyperperiod_checked_block_source_normalization :
+    forall target x,
+      periodic_jobset T tasks offset jobs target ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
+      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
+      (exists boundary delta,
+        periodic_hyperperiod tasks enumT <= boundary
+        /\
+        (exists n, delta = periodic_hyperperiod tasks enumT * n)
+        /\
+        boundary = periodic_hyperperiod tasks enumT + delta
+        /\
+        boundary <= job_release (jobs target)
+        /\
+        job_release (jobs x) < boundary)
+      \/
+      exists target0 x0,
+        periodic_jobset T tasks offset jobs target0
+        /\
+        job_release (jobs target0) <
+          post_reset_target_candidate_horizon tasks enumT
+        /\
+        periodic_jobset_deadline_between
+          T tasks offset jobs 0 (job_abs_deadline (jobs target0)) x0
+        /\
+        job_release (jobs x0) < job_release (jobs target0)
+        /\
+        check_hyperperiod_block_source_pair_in_certs
+          tasks enumT jobs target x target0 x0 target_certs = true
+}.
+
 Inductive PeriodicHyperperiodBlockServiceSource
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
@@ -2184,6 +2226,52 @@ Record PeriodicHyperperiodBlockServiceSourceObligation
       PeriodicHyperperiodBlockServiceSource
         T tasks offset jobs enumT codec target_certs target x
 }.
+
+Lemma periodic_hyperperiod_block_service_source_of_checked_normalization :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         target_certs,
+    PeriodicHyperperiodCheckedBlockSourceNormalizationObligation
+      T tasks offset jobs enumT codec target_certs ->
+    PeriodicHyperperiodBlockServiceSourceObligation
+      T tasks offset jobs enumT codec target_certs.
+Proof.
+  intros T tasks offset jobs enumT codec target_certs Hnormalize.
+  constructor.
+  intros target x Htarget Hbetween Hrelease_before_target Hpost_reset_case.
+  destruct
+    (periodic_hyperperiod_checked_block_source_normalization
+       T tasks offset jobs enumT codec target_certs Hnormalize
+       target x Htarget Hbetween Hrelease_before_target Hpost_reset_case)
+    as [Hreset | Hpair].
+  - destruct Hreset as [boundary [delta Hreset]].
+    destruct Hreset as [Hboundary [Hdelta [Hboundary_eq
+                         [Hboundary_target Hx_boundary]]]].
+    eapply periodic_hyperperiod_block_service_source_reset.
+    + exact Hboundary.
+    + exact Hdelta.
+    + exact Hboundary_eq.
+    + exact Hboundary_target.
+    + exact Hx_boundary.
+  - destruct Hpair as [target0 [x0 Hpair]].
+    destruct Hpair as [Htarget0 [Htarget0_horizon [Hbetween0
+                         [Hrelease0 Hcheck]]]].
+    destruct
+      (check_hyperperiod_block_source_pair_in_certs_sound
+         tasks enumT jobs target x target0 x0 target_certs Hcheck)
+      as [target_cert [p [Hin_cert [Hin_pair [Htarget_cert
+                           [Hx0 Hshift]]]]]].
+    eapply periodic_hyperperiod_block_service_source_pair.
+    + exact Htarget0.
+    + exact Htarget0_horizon.
+    + exact Hbetween0.
+    + exact Hrelease0.
+    + exact Hin_cert.
+    + exact Htarget_cert.
+    + exact Hin_pair.
+    + exact Hx0.
+    + exact Hshift.
+Qed.
 
 Record PeriodicHyperperiodBoundaryResetCompletionObligation
     (T : TaskId -> Prop)
