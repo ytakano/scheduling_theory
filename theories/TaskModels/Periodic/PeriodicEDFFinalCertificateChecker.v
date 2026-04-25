@@ -1853,6 +1853,113 @@ Proof.
   - exact Hcompleted_old.
 Qed.
 
+Lemma extracted_periodic_generated_schedule_prefix_shift_forward_one_step_cpu0 :
+  forall ts n t,
+    extracted_taskset_wf ts = true ->
+    let jobs := extracted_periodic_jobs ts in
+    let candidates :=
+      periodic_candidates_before
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        jobs
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts) in
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    (forall j,
+      In j
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           jobs
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (hp * n + S t)) ->
+      job_release (jobs j) < hp * n ->
+      completed jobs 1
+        (generated_schedule_prefix
+           edf_generic_spec candidates jobs (t + hp * n))
+        j
+        (hp * n)) ->
+    (forall j,
+      In j
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           jobs
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (S t)) ->
+      service_job 1
+        (generated_schedule_prefix
+           edf_generic_spec candidates jobs (t + hp * n))
+        (extracted_periodic_shift_forward_job_id ts n j)
+        (t + hp * n) =
+      service_job 1
+        (generated_schedule_prefix
+           edf_generic_spec candidates jobs t)
+        j
+        t) ->
+    generated_schedule_prefix
+      edf_generic_spec candidates jobs (S (t + hp * n)) (t + hp * n) 0 =
+    match
+      generated_schedule_prefix
+        edf_generic_spec candidates jobs (S t) t 0
+    with
+    | Some j => Some (extracted_periodic_shift_forward_job_id ts n j)
+    | None => None
+    end.
+Proof.
+  intros ts n t Hwf jobs candidates hp Hcompleted_old Hservice.
+  subst jobs candidates hp.
+  cbn [generated_schedule_prefix].
+  rewrite !Nat.ltb_irrefl.
+  rewrite !Nat.eqb_refl.
+  unfold periodic_candidates_before.
+  replace (S (t +
+              periodic_hyperperiod
+                (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n))
+    with
+      (periodic_hyperperiod
+         (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n +
+       S t) by lia.
+  eapply extracted_periodic_choose_edf_shift_forward_unfiltered.
+  - exact Hwf.
+  - exact Hcompleted_old.
+  - exact Hservice.
+Qed.
+
+Lemma extracted_periodic_generated_schedule_prefix_shift_forward_one_step_other_cpu :
+  forall ts n t c,
+    c <> 0 ->
+    let jobs := extracted_periodic_jobs ts in
+    let candidates :=
+      periodic_candidates_before
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        jobs
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts) in
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    generated_schedule_prefix
+      edf_generic_spec candidates jobs (S (t + hp * n)) (t + hp * n) c =
+    None.
+Proof.
+  intros ts n t c Hc jobs candidates hp.
+  subst jobs candidates hp.
+  cbn [generated_schedule_prefix].
+  rewrite Nat.ltb_irrefl.
+  rewrite Nat.eqb_refl.
+  destruct c as [|c']; [contradiction|reflexivity].
+Qed.
+
 Lemma extracted_periodic_shift_forward_candidate_before :
   forall ts j n t,
     extracted_taskset_wf ts = true ->
