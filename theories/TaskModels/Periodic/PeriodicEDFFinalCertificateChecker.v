@@ -893,7 +893,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodServiceSourceObligation
+    PeriodicHyperperiodServiceSourceNormalizationObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
@@ -925,7 +925,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts codec cert sidecar Hcheck Hrep Hsource Hpair_transport.
+  intros ts codec cert sidecar Hcheck Hrep Hsource_normalization Hpair_transport.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
@@ -1038,7 +1038,15 @@ Proof.
        codec
        sidecar.(checked_post_reset_window_target_certs)
        Hpost_reset_pair_completion
-       Hsource
+       (periodic_hyperperiod_service_source_of_normalization
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          (extracted_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          codec
+          sidecar.(checked_post_reset_window_target_certs)
+          Hsource_normalization)
        Hpair_transport
        Hreset_completion) as Hcompletion_transport.
   pose proof
@@ -1111,7 +1119,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodServiceSourceObligation
+    PeriodicHyperperiodServiceSourceNormalizationObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
