@@ -470,6 +470,14 @@ shift は未完了。
   shifted jobs 間の EDF metric 比較保存を示す
   `extracted_periodic_shift_forward_eligibleb`、
   `extracted_periodic_shift_forward_edf_metric_cmp`。
+- extracted/canonical jobs 用の deterministic hyperperiod shift として
+  `extracted_periodic_shift_forward_job_id` を追加済み。
+  その soundness から、candidate membership、release/deadline/cost facts、
+  `eligibleb` 保存、EDF metric 比較保存を直接使える wrapper も追加済み。
+- source candidate list が
+  `enum_periodic_jobs_before ... (S t)` の場合に、service equality 仮定から
+  `choose_edf` の結果を shifted mapped candidate list へ運ぶ
+  `extracted_periodic_choose_edf_shift_forward_candidates_before` を追加済み。
 
 残る本質的な作業は、first-boundary reset を任意 hyperperiod boundary へ
 反復輸送する schedule-level shift theorem と、その同じ shift theorem で
