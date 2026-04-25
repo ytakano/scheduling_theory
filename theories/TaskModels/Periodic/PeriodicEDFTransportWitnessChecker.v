@@ -1,6 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Analysis.Uniprocessor.EDFProcessorDemand.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
@@ -1168,6 +1169,101 @@ Record PeriodicHyperperiodEarlierCompletionShiftObligation
           x
           (job_release (jobs target))
 }.
+
+(** The reset checker discharges earlier jobs released before the hyperperiod
+    whenever the target release lies after that reset boundary.  The remaining
+    schedule-level obligation is therefore restricted to cases that reset alone
+    cannot cover: target windows still before the reset boundary, or earlier
+    jobs released at/after the reset boundary. *)
+Record PeriodicHyperperiodPostResetEarlierCompletionShiftObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId) : Prop := {
+  periodic_hyperperiod_post_reset_earlier_completion_shift :
+    forall residue target q,
+      transport_cert.(transport_period) = periodic_hyperperiod tasks enumT ->
+      periodic_jobset T tasks offset jobs target ->
+      transport_rep_to_target_job
+        T tasks offset jobs codec residue target
+        transport_cert.(transport_period) q ->
+      periodic_edf_backlog_free_before_release
+        T tasks offset jobs
+        (S (job_abs_deadline (jobs residue)))
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs residue))) enumT codec)
+        residue ->
+      forall x,
+        periodic_jobset_deadline_between
+          T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+        job_release (jobs x) < job_release (jobs target) ->
+        job_release (jobs target) < periodic_hyperperiod tasks enumT \/
+        periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
+        completed jobs 1
+          (generated_periodic_edf_schedule_upto
+             T tasks offset jobs
+             (S (job_abs_deadline (jobs target))) enumT codec)
+          x
+          (job_release (jobs target))
+}.
+
+Lemma periodic_hyperperiod_earlier_completion_shift_of_post_reset_shift :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert,
+    PeriodicHyperperiodPostResetEarlierCompletionShiftObligation
+      T tasks offset jobs enumT codec transport_cert ->
+    PeriodicHyperperiodEarlierCompletionShiftObligation
+      T tasks offset jobs enumT codec transport_cert.
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert Hpost.
+  constructor.
+  intros residue target q Hperiod_eq Htarget Htransport Hreset
+         Hresidue_backlog x Hbetween Hrelease_before_target.
+  destruct
+    (Nat.lt_ge_cases
+       (job_release (jobs target))
+       (periodic_hyperperiod tasks enumT))
+    as [Htarget_before_reset | Htarget_after_reset].
+  - eapply periodic_hyperperiod_post_reset_earlier_completion_shift.
+    + exact Hpost.
+    + exact Hperiod_eq.
+    + exact Htarget.
+    + exact Htransport.
+    + exact Hresidue_backlog.
+    + exact Hbetween.
+    + exact Hrelease_before_target.
+    + left. exact Htarget_before_reset.
+  - destruct
+      (Nat.lt_ge_cases
+         (job_release (jobs x))
+         (periodic_hyperperiod tasks enumT))
+      as [Hx_before_reset | Hx_after_reset].
+    + eapply completed_monotone
+        with (t1 := periodic_hyperperiod tasks enumT).
+      * lia.
+      * eapply Hreset.
+        -- destruct Htarget as [_ Htarget_generated].
+           rewrite (generated_job_deadline tasks offset jobs target Htarget_generated).
+           lia.
+        -- split.
+           ++ exact (proj1 Hbetween).
+           ++ exact (proj1 (proj2 Hbetween)).
+        -- exact Hx_before_reset.
+    + eapply periodic_hyperperiod_post_reset_earlier_completion_shift.
+      * exact Hpost.
+      * exact Hperiod_eq.
+      * exact Htarget.
+      * exact Htransport.
+      * exact Hresidue_backlog.
+      * exact Hbetween.
+      * exact Hrelease_before_target.
+      * right. exact Hx_after_reset.
+Qed.
 
 Lemma periodic_hyperperiod_window_shift_of_earlier_completion_shift :
   forall T tasks offset jobs enumT
