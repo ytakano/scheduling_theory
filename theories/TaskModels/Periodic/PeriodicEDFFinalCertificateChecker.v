@@ -891,14 +891,13 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodBoundedPostResetLiftObligation
+    PeriodicHyperperiodCompletionTransportObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
       (extracted_periodic_jobs ts)
       (enumT_of_extracted_list ts)
       codec
-      cert.(cert_transport)
       sidecar.(checked_post_reset_window_target_certs) ->
     schedulable_by_on
       (periodic_jobset
@@ -917,7 +916,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts codec cert sidecar Hcheck Hrep Hbounded_lift.
+  intros ts codec cert sidecar Hcheck Hrep Hcompletion_transport.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
@@ -936,6 +935,17 @@ Proof.
        cert
        sidecar
        Hcheck) as Hbounded_coverage.
+  pose proof
+    (periodic_hyperperiod_bounded_post_reset_lift_of_completion_transport
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec
+       cert.(cert_transport)
+       sidecar.(checked_post_reset_window_target_certs)
+       Hcompletion_transport) as Hbounded_lift.
   pose proof
     (periodic_hyperperiod_post_reset_earlier_completion_shift_of_bounded_checked_targets
        (extracted_task_scope ts)
@@ -999,14 +1009,13 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodBoundedPostResetLiftObligation
+    PeriodicHyperperiodCompletionTransportObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
       (extracted_periodic_jobs ts)
       (enumT_of_extracted_list ts)
       (extracted_periodic_codec ts)
-      cert.(cert_transport)
       sidecar.(checked_post_reset_window_target_certs) ->
     schedulable_by_on
       (periodic_jobset
@@ -1025,7 +1034,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts cert sidecar Hcheck Hrep Hbounded_lift.
+  intros ts cert sidecar Hcheck Hrep Hcompletion_transport.
   destruct
     (check_periodic_edf_checked_sidecar_extracted_fields
        ts cert sidecar Hcheck)

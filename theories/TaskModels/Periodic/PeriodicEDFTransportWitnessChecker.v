@@ -1800,6 +1800,52 @@ Record PeriodicHyperperiodBoundedPostResetLiftObligation
       T tasks offset jobs enumT codec transport_cert
 }.
 
+Record PeriodicHyperperiodCompletionTransportObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (target_certs : list EDFWindowTransportTargetCert) : Prop := {
+  periodic_hyperperiod_completion_transport :
+    BoundedPostResetWindowTargetCoverageObligation
+      T tasks offset jobs enumT codec target_certs ->
+    forall target x,
+      periodic_jobset T tasks offset jobs target ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
+      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
+      completed jobs 1
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs target))) enumT codec)
+        x
+        (job_release (jobs target))
+}.
+
+Lemma periodic_hyperperiod_bounded_post_reset_lift_of_completion_transport :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert target_certs,
+    PeriodicHyperperiodCompletionTransportObligation
+      T tasks offset jobs enumT codec target_certs ->
+    PeriodicHyperperiodBoundedPostResetLiftObligation
+      T tasks offset jobs enumT codec transport_cert target_certs.
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert target_certs
+         Hcompletion_transport.
+  constructor.
+  intros Hbounded_coverage.
+  constructor.
+  intros residue target q _Hperiod_eq Htarget _Htransport
+         _Hresidue_backlog x Hbetween Hrelease_before_target
+         Hpost_reset_case.
+  eapply periodic_hyperperiod_completion_transport; eauto.
+Qed.
+
 Lemma periodic_hyperperiod_post_reset_earlier_completion_shift_of_bounded_checked_targets :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs)
