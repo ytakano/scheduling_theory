@@ -1518,6 +1518,16 @@ extracted_periodic_codec ts =
     zero_offset_periodic_codec_of_tasks (extracted_periodic_tasks (Cons e l))
       (enumT_of_extracted_list (Cons e l))}
 
+check_periodic_hyperperiod_state_reset :: (TaskId -> Task) -> (TaskId ->
+                                          Time) -> (JobId -> Job) -> (List
+                                          TaskId) -> PeriodicCodec ->
+                                          (EDFPrefixCert JobId) -> Time ->
+                                          Bool
+check_periodic_hyperperiod_state_reset tasks offset jobs enumT codec prefix_cert hyperperiod =
+  forallb (\j ->
+    certified_completed_by jobs (prefix_slots prefix_cert) j hyperperiod)
+    (enum_periodic_jobs_before tasks offset jobs enumT codec hyperperiod)
+
 check_periodic_edf_checked_sidecar :: (List ExtractedPeriodicTask) ->
                                       PeriodicCodec -> (EDFInfiniteCert
                                       JobId) -> PeriodicEDFCheckedSidecarCert
@@ -1535,13 +1545,23 @@ check_periodic_edf_checked_sidecar ts codec cert sidecar =
                     (andb
                       (andb
                         (andb
-                          (check_prefix_cert_semantic
-                            (extracted_periodic_jobs ts) (cert_prefix cert))
-                          (check_prefix_slots_match_generated_edf_fast
+                          (andb
+                            (check_prefix_cert_semantic
+                              (extracted_periodic_jobs ts)
+                              (cert_prefix cert))
+                            (check_prefix_slots_match_generated_edf_fast
+                              (extracted_periodic_tasks ts) (\_ -> O)
+                              (extracted_periodic_jobs ts)
+                              (enumT_of_extracted_list ts) codec
+                              (cert_prefix cert)))
+                          (check_periodic_hyperperiod_state_reset
                             (extracted_periodic_tasks ts) (\_ -> O)
                             (extracted_periodic_jobs ts)
                             (enumT_of_extracted_list ts) codec
-                            (cert_prefix cert)))
+                            (cert_prefix cert)
+                            (periodic_hyperperiod
+                              (extracted_periodic_tasks ts)
+                              (enumT_of_extracted_list ts))))
                         (check_transport_cert (cert_transport cert)))
                       (check_transport_basis_nodup (cert_transport cert)))
                     (check_transport_classes_rep_backlog (cert_prefix cert)

@@ -32,6 +32,7 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   check_transport_residue_shifts
   check_transport_basis_nodup
   check_transport_classes_rep_periodic_generated
+  check_periodic_hyperperiod_state_reset
   check_window_transport_targets_complete
   check_window_transport_targets_complete_with_pairs
   window_target_relevant_earlier_jobs

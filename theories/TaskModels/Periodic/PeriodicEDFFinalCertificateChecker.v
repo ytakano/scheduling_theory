@@ -1,6 +1,7 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.SchedulePrefix.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFCertificate.
@@ -14,6 +15,8 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFPrefixCoherence.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportCoverageChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportWitnessChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransportChecker.
+From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
@@ -73,6 +76,85 @@ Proof.
       lia.
 Defined.
 
+Definition check_periodic_hyperperiod_state_reset
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (prefix_cert : EDFPrefixCert JobId)
+    (hyperperiod : Time) : bool :=
+  forallb
+    (fun j =>
+       certified_completed_by
+         jobs prefix_cert.(prefix_slots) j hyperperiod)
+    (enum_periodic_jobs_before
+       T tasks offset jobs enumT codec hyperperiod).
+
+Definition periodic_hyperperiod_state_reset
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (prefix_cert : EDFPrefixCert JobId)
+    (hyperperiod : Time) : Prop :=
+  forall j,
+    periodic_jobset T tasks offset jobs j ->
+    job_release (jobs j) < hyperperiod ->
+    completed jobs 1
+      (generated_periodic_edf_prefix
+         T tasks offset jobs enumT codec prefix_cert)
+      j hyperperiod.
+
+Theorem check_periodic_hyperperiod_state_reset_sound :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert hyperperiod,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    check_prefix_slots_match_generated_edf
+      T tasks offset jobs enumT codec prefix_cert = true ->
+    check_periodic_hyperperiod_state_reset
+      T tasks offset jobs enumT codec prefix_cert hyperperiod = true ->
+    periodic_hyperperiod_state_reset
+      T tasks offset jobs enumT codec prefix_cert hyperperiod.
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert hyperperiod
+         Hwf HenumT_complete HenumT_sound Hmatch Hreset j Hj Hrelease.
+  unfold check_periodic_hyperperiod_state_reset in Hreset.
+  pose proof
+    (enum_periodic_jobs_before_complete
+       T tasks offset jobs enumT codec
+       Hwf HenumT_complete hyperperiod j Hj Hrelease) as Hin.
+  apply forallb_forall with (x := j) in Hreset; [|exact Hin].
+  pose proof
+    (certified_completed_by_sound
+       jobs prefix_cert.(prefix_slots) j hyperperiod Hreset)
+    as Hcompleted_slots.
+  apply
+    (proj1
+       (agrees_before_completed
+          jobs 1
+          (schedule_of_slots prefix_cert.(prefix_slots))
+          (generated_periodic_edf_prefix
+             T tasks offset jobs enumT codec prefix_cert)
+          j hyperperiod
+          (pointwise_agrees_before
+             (schedule_of_slots prefix_cert.(prefix_slots))
+             (generated_periodic_edf_prefix
+                T tasks offset jobs enumT codec prefix_cert)
+             hyperperiod
+             (fun t cpu =>
+                check_prefix_slots_match_generated_edf_pointwise
+                  T tasks offset jobs enumT codec prefix_cert
+                  t cpu Hmatch)))).
+  exact Hcompleted_slots.
+Qed.
+
 Definition check_periodic_edf_checked_sidecar
     (ts : list ExtractedPeriodicTask)
     (codec :
@@ -94,6 +176,17 @@ Definition check_periodic_edf_checked_sidecar
        (enumT_of_extracted_list ts)
        codec
        cert.(cert_prefix)
+  && check_periodic_hyperperiod_state_reset
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec
+       cert.(cert_prefix)
+       (periodic_hyperperiod
+          (extracted_periodic_tasks ts)
+          (enumT_of_extracted_list ts))
   && check_transport_cert cert.(cert_transport)
   && check_transport_basis_nodup cert.(cert_transport)
   && check_transport_classes_rep_backlog
@@ -187,6 +280,18 @@ Lemma check_periodic_edf_checked_sidecar_fields :
       codec
       cert.(cert_prefix) = true
     /\
+    check_periodic_hyperperiod_state_reset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec
+      cert.(cert_prefix)
+      (periodic_hyperperiod
+         (extracted_periodic_tasks ts)
+         (enumT_of_extracted_list ts)) = true
+    /\
     check_transport_cert cert.(cert_transport) = true
     /\
     check_transport_basis_nodup cert.(cert_transport) = true
@@ -263,7 +368,7 @@ Proof.
   unfold check_periodic_edf_checked_sidecar in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
   destruct Hcheck as
-    [[[[[[[[[[[[Hprefix Hfast] Htransport] Hbasis_nodup] Hrep]
+    [[[[[[[[[[[[[Hprefix Hfast] Hreset] Htransport] Hbasis_nodup] Hrep]
         Hrep_generated] Hrep_periodic] Hcoverage] Hshifts]
         Hwindow] Hpair_semantics] Hpair_completion] Hdec].
   repeat split; try assumption.
@@ -287,7 +392,7 @@ Proof.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
-    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
+    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
   unfold edf_schedulability_decide in Hdec.
   apply andb_true_iff in Hdec.
   exact (proj1 Hdec).
@@ -356,7 +461,7 @@ Proof.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
-    as (_ & _ & Htransport_check & Hbasis_nodup_check & Hrep_check
+    as (_ & _ & _ & Htransport_check & Hbasis_nodup_check & Hrep_check
         & Hrep_generated_check & Hrep_periodic_check
         & Hresidue_check & Hshift_check
         & Hwindow_check & Hpair_semantics & Hpair_completion & Hdec).
