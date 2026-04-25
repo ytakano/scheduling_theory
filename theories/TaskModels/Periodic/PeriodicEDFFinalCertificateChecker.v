@@ -14,6 +14,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFGeneratedPrefixChec
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFInfiniteBridge.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFPrefixChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFPrefixCoherence.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportAlgebra.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportCoverageChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportWitnessChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransportChecker.
@@ -79,6 +80,153 @@ Proof.
       cbn.
       lia.
 Defined.
+
+Lemma extracted_periodic_job_cost_exact :
+  forall ts j,
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j ->
+    job_cost (extracted_periodic_jobs ts j) =
+    task_cost
+      (extracted_periodic_tasks ts (job_task (extracted_periodic_jobs ts j))).
+Proof.
+  intros ts j Hjob.
+  unfold extracted_periodic_jobs.
+  eapply canonical_periodic_job_cost_exact.
+  - apply extracted_enum_complete.
+  - exact Hjob.
+Qed.
+
+Lemma extracted_periodic_same_task_job_cost :
+  forall ts j1 j2,
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j1 ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j2 ->
+    job_task (extracted_periodic_jobs ts j1) =
+    job_task (extracted_periodic_jobs ts j2) ->
+    job_cost (extracted_periodic_jobs ts j1) =
+    job_cost (extracted_periodic_jobs ts j2).
+Proof.
+  intros ts j1 j2 Hj1 Hj2 Htask.
+  rewrite (extracted_periodic_job_cost_exact ts j1 Hj1).
+  rewrite (extracted_periodic_job_cost_exact ts j2 Hj2).
+  rewrite Htask.
+  reflexivity.
+Qed.
+
+Lemma extracted_periodic_hyperperiod_shifted_service_pair_of_transport :
+  forall ts target x target0 x0 target_step x_step n,
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      target0 ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      x0 ->
+    transport_rep_to_target_job
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (extracted_periodic_codec ts)
+      target0 target target_step n ->
+    transport_rep_to_target_job
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (extracted_periodic_codec ts)
+      x0 x x_step n ->
+    target_step * n *
+      task_period
+        (extracted_periodic_tasks ts
+           (job_task (extracted_periodic_jobs ts target0))) =
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n ->
+    x_step * n *
+      task_period
+        (extracted_periodic_tasks ts
+           (job_task (extracted_periodic_jobs ts x0))) =
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n ->
+    HyperperiodShiftedServicePair
+      (extracted_periodic_tasks ts)
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_jobs ts)
+      target x target0 x0
+      (periodic_hyperperiod
+         (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n).
+Proof.
+  intros ts target x target0 x0 target_step x_step n
+         Htarget0 Hx0 Htarget_transport Hx_transport
+         Htarget_delta Hx_delta.
+  eapply codec_hyperperiod_shifted_service_pair_of_transport.
+  - exact (proj1 Htarget0).
+  - exact (proj1 Hx0).
+  - exact (proj2 Htarget0).
+  - exact (proj2 Hx0).
+  - exact Htarget_transport.
+  - exact Hx_transport.
+  - exact Htarget_delta.
+  - exact Hx_delta.
+  - assert (Hx : periodic_jobset
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts)
+        x).
+    {
+      unfold transport_rep_to_target_job in Hx_transport.
+      subst x.
+      split.
+      - rewrite (codec_job_task
+                   (extracted_task_scope ts)
+                   (extracted_periodic_tasks ts)
+                   (fun _ => 0)
+                   (extracted_periodic_jobs ts)
+                   (extracted_periodic_codec ts)
+                   (job_task (extracted_periodic_jobs ts x0))
+                   (job_index (extracted_periodic_jobs ts x0) +
+                    x_step * n)
+                   (proj1 Hx0)).
+        exact (proj1 Hx0).
+      - eapply codec_job_generated.
+        exact (proj1 Hx0).
+    }
+    eapply extracted_periodic_same_task_job_cost.
+    + exact Hx.
+    + exact Hx0.
+    + unfold transport_rep_to_target_job in Hx_transport.
+      subst x.
+      rewrite (codec_job_task
+                 (extracted_task_scope ts)
+                 (extracted_periodic_tasks ts)
+                 (fun _ => 0)
+                 (extracted_periodic_jobs ts)
+                 (extracted_periodic_codec ts)
+                 (job_task (extracted_periodic_jobs ts x0))
+                 (job_index (extracted_periodic_jobs ts x0) +
+                  x_step * n)
+                 (proj1 Hx0)).
+      reflexivity.
+Qed.
 
 Definition check_periodic_hyperperiod_state_reset
     (T : TaskId -> Prop)

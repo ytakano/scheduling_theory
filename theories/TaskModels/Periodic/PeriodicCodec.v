@@ -53,6 +53,38 @@ Definition canonical_periodic_jobs_from_enumT
   | None => mkJob 0 j 0 (S (task_cost (tasks 0))) 0 (fun _ => false)
   end.
 
+Lemma canonical_periodic_job_cost_exact :
+  forall T tasks offset enumT j,
+    (forall τ, T τ -> In τ enumT) ->
+    periodic_jobset
+      T tasks offset (canonical_periodic_jobs_from_enumT tasks offset enumT)
+      j ->
+    job_cost (canonical_periodic_jobs_from_enumT tasks offset enumT j) =
+    task_cost
+      (tasks
+         (job_task
+            (canonical_periodic_jobs_from_enumT tasks offset enumT j))).
+Proof.
+  intros T tasks offset enumT j HenumT_complete Hjob.
+  unfold periodic_jobset in Hjob.
+  destruct Hjob as [HT Hgen].
+  unfold canonical_periodic_jobs_from_enumT in HT, Hgen |- *.
+  destruct (decode_job_id_from_enumT enumT j) as [pos k] eqn:Hdecode.
+  destruct (nth_error enumT pos) as [τ|] eqn:Hnth.
+  - cbn [generated_periodic_job job_task job_cost].
+    reflexivity.
+  - cbn [job_task job_cost].
+    exfalso.
+    unfold generated_by_periodic_task in Hgen.
+    simpl in Hgen.
+    destruct Hgen as [_ [_ Hcost]].
+    unfold canonical_periodic_jobs_from_enumT in Hcost.
+    rewrite Hdecode in Hcost.
+    rewrite Hnth in Hcost.
+    cbn in Hcost.
+    lia.
+Qed.
+
 Lemma task_position_in_enumT_lt_length :
   forall enumT τ,
     In τ enumT ->

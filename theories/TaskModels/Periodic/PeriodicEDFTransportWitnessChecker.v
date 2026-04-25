@@ -1968,6 +1968,60 @@ Record HyperperiodShiftedServicePair
     job_cost (jobs x) = job_cost (jobs x0)
 }.
 
+Lemma codec_hyperperiod_shifted_service_pair_of_transport :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         target x target0 x0 target_step x_step n,
+    T (job_task (jobs target0)) ->
+    T (job_task (jobs x0)) ->
+    generated_by_periodic_task tasks offset jobs target0 ->
+    generated_by_periodic_task tasks offset jobs x0 ->
+    transport_rep_to_target_job
+      T tasks offset jobs codec target0 target target_step n ->
+    transport_rep_to_target_job
+      T tasks offset jobs codec x0 x x_step n ->
+    target_step * n * task_period (tasks (job_task (jobs target0))) =
+      periodic_hyperperiod tasks enumT * n ->
+    x_step * n * task_period (tasks (job_task (jobs x0))) =
+      periodic_hyperperiod tasks enumT * n ->
+    job_cost (jobs x) = job_cost (jobs x0) ->
+    HyperperiodShiftedServicePair
+      tasks enumT jobs target x target0 x0
+      (periodic_hyperperiod tasks enumT * n).
+Proof.
+  intros T tasks offset jobs enumT codec target x target0 x0
+         target_step x_step n Htarget0T Hx0T Htarget0_gen Hx0_gen
+         Htarget_transport Hx_transport Htarget_delta Hx_delta Hcost.
+  constructor.
+  - exists n.
+    reflexivity.
+  - rewrite
+      (codec_transport_target_release_shift
+         T tasks offset jobs codec target0 target target_step n
+         Htarget0T Htarget0_gen Htarget_transport).
+    rewrite Htarget_delta.
+    reflexivity.
+  - rewrite
+      (codec_transport_target_deadline_shift
+         T tasks offset jobs codec target0 target target_step n
+         Htarget0T Htarget0_gen Htarget_transport).
+    rewrite Htarget_delta.
+    reflexivity.
+  - rewrite
+      (codec_transport_target_release_shift
+         T tasks offset jobs codec x0 x x_step n
+         Hx0T Hx0_gen Hx_transport).
+    rewrite Hx_delta.
+    reflexivity.
+  - rewrite
+      (codec_transport_target_deadline_shift
+         T tasks offset jobs codec x0 x x_step n
+         Hx0T Hx0_gen Hx_transport).
+    rewrite Hx_delta.
+    reflexivity.
+  - exact Hcost.
+Qed.
+
 Definition check_hyperperiod_delta_multiple
     (tasks : TaskId -> Task)
     (enumT : list TaskId)

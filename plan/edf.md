@@ -329,6 +329,11 @@ Status:
 `check_hyperperiod_shifted_service_pair = true` を構成する generic completeness
 lemma は追加済み。canonical jobs 側に残る作業は
 `HyperperiodShiftedServicePair` そのものの構成。
+その後、canonical job の exact cost と、
+codec transport relation から `HyperperiodShiftedServicePair` を構成する
+extracted 専用 bridge も追加済み。
+残る作業は arbitrary `target/x` から、この bridge に渡せる
+bounded `target0/x0` と index shift relation を構成すること。
 
 ### Phase E: schedule-level periodic transport
 
@@ -461,7 +466,7 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
    **Done**
 2. `TransportClassRepresentativeObligation` を generated relevant jobs 経由で消す
    extracted theorem variant を追加する。 **Done**
-3. canonical jobs の exact cost / same-task hyperperiod shift 補題を追加する。
+3. canonical jobs の exact cost / same-task hyperperiod shift 補題を追加する。 **Partial**
 4. arbitrary `target/x` から bounded `target0/x0` を構成する normalization theorem を追加する。
 5. `check_hyperperiod_block_source_pair_in_certs = true` を構成する theorem を追加する。 **Done**
 6. `PeriodicHyperperiodGeneratedSchedulePeriodicity` を boundary reset と service shift に分割して証明する。
