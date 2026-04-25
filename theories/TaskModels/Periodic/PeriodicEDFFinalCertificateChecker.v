@@ -578,6 +578,74 @@ Proof.
   exact Hprefix_generated.
 Qed.
 
+Lemma periodic_hyperperiod_backlog_transport_of_checked_reset :
+  forall ts
+         (codec :
+          PeriodicCodec
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts))
+         cert sidecar,
+    check_periodic_edf_checked_sidecar ts codec cert sidecar = true ->
+    PeriodicHyperperiodWindowShiftObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec
+      cert.(cert_transport) ->
+    PeriodicHyperperiodBacklogTransportObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec
+      cert.(cert_transport).
+Proof.
+  intros ts codec cert sidecar Hcheck Hshift.
+  destruct
+    (check_periodic_edf_checked_sidecar_fields
+       ts codec cert sidecar Hcheck)
+    as (_ & _ & _ & Hperiod_eq & Hhorizon_covers
+        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
+  pose proof
+    (check_periodic_edf_checked_sidecar_hyperperiod_facts
+       ts codec cert sidecar Hcheck)
+    as [Hreset Htransport_period_hyperperiod].
+  constructor.
+  intros residue target q Hperiod_eq' Htarget Htransport Hresidue_backlog.
+  refine
+    (periodic_hyperperiod_window_shift
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec
+       cert.(cert_transport)
+       Hshift
+       residue target q
+       Hperiod_eq'
+       Htarget
+       Htransport
+       _
+       Hresidue_backlog).
+  intros Htarget_horizon x Hx Hrelease.
+    eapply periodic_hyperperiod_state_reset_completed_in_schedule_upto.
+    + apply extracted_tasks_well_formed_on_enum.
+      eapply check_periodic_edf_checked_sidecar_wf; eauto.
+    + apply extracted_enum_complete.
+    + apply extracted_enum_sound.
+    + exact Hhorizon_covers.
+    + exact Htarget_horizon.
+    + exact Hreset.
+    + exact Hx.
+    + exact Hrelease.
+Qed.
+
 Theorem check_periodic_edf_checked_sidecar_sound :
   forall ts
          (codec :
@@ -598,7 +666,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodBacklogTransportObligation
+    PeriodicHyperperiodWindowShiftObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
@@ -623,7 +691,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts codec cert sidecar Hcheck Hrep Hhyper_transport.
+  intros ts codec cert sidecar Hcheck Hrep Hwindow_shift.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
@@ -636,6 +704,10 @@ Proof.
     (check_periodic_edf_checked_sidecar_hyperperiod_facts
        ts codec cert sidecar Hcheck)
     as [_Hhyperperiod_reset Htransport_period_hyperperiod].
+  pose proof
+    (periodic_hyperperiod_backlog_transport_of_checked_reset
+       ts codec cert sidecar Hcheck Hwindow_shift)
+    as Hhyper_transport.
   eapply periodic_edf_schedulable_by_classical_dbf_with_periodic_hyperperiod_transport_generated_checks.
   - apply extracted_tasks_well_formed_on_enum.
     eapply check_periodic_edf_checked_sidecar_wf; eauto.
@@ -679,7 +751,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodBacklogTransportObligation
+    PeriodicHyperperiodWindowShiftObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
@@ -704,7 +776,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts cert sidecar Hcheck Hrep Hhyper_transport.
+  intros ts cert sidecar Hcheck Hrep Hwindow_shift.
   destruct
     (check_periodic_edf_checked_sidecar_extracted_fields
        ts cert sidecar Hcheck)

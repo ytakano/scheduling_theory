@@ -1078,6 +1078,52 @@ Record PeriodicHyperperiodBacklogTransportObligation
         target
 }.
 
+(** Narrower schedule-level interface.  The caller supplies the checked
+    hyperperiod reset facts already transported to the target finite horizon;
+    this obligation only states that the same hyperperiod phase preserves the
+    backlog-free window beyond that reset boundary. *)
+Record PeriodicHyperperiodWindowShiftObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId) : Prop := {
+  periodic_hyperperiod_window_shift :
+    forall residue target q,
+      transport_cert.(transport_period) = periodic_hyperperiod tasks enumT ->
+      periodic_jobset T tasks offset jobs target ->
+      transport_rep_to_target_job
+        T tasks offset jobs codec residue target
+        transport_cert.(transport_period) q ->
+      (periodic_hyperperiod tasks enumT <
+         S (job_abs_deadline (jobs target)) ->
+       forall x,
+         periodic_jobset T tasks offset jobs x ->
+         job_release (jobs x) < periodic_hyperperiod tasks enumT ->
+         completed jobs 1
+           (generated_periodic_edf_schedule_upto
+              T tasks offset jobs
+              (S (job_abs_deadline (jobs target))) enumT codec)
+           x
+           (periodic_hyperperiod tasks enumT)) ->
+      periodic_edf_backlog_free_before_release
+        T tasks offset jobs
+        (S (job_abs_deadline (jobs residue)))
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs residue))) enumT codec)
+        residue ->
+      periodic_edf_backlog_free_before_release
+        T tasks offset jobs
+        (S (job_abs_deadline (jobs target)))
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs target))) enumT codec)
+        target
+}.
+
 Lemma periodic_residue_window_transport_lift_of_hyperperiod_backlog_transport :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs)
