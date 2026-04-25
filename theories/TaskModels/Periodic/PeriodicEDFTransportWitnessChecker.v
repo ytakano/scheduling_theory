@@ -1263,6 +1263,97 @@ Record PostResetWindowTargetBasisCoverageObligation
         nth_error transport_cert.(transport_classes) class_id = Some cls
 }.
 
+Definition post_reset_window_targets_of_certs
+    (target_certs : list EDFWindowTransportTargetCert) : list JobId :=
+  map window_transport_target_job target_certs.
+
+Definition check_post_reset_window_target_basis_coverage
+    (transport_cert : EDFTransportCert JobId)
+    (target_certs : list EDFWindowTransportTargetCert) : bool :=
+  check_transport_jobs_witness
+    transport_cert
+    (post_reset_window_targets_of_certs target_certs).
+
+Record PostResetWindowTargetListCoverageObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (target_certs : list EDFWindowTransportTargetCert) : Prop := {
+  post_reset_window_target_list_coverage :
+    forall target x,
+      periodic_jobset T tasks offset jobs target ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
+      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
+      In target (post_reset_window_targets_of_certs target_certs)
+}.
+
+Lemma post_reset_window_target_basis_coverage_of_checked_targets :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert target_certs,
+    check_transport_cert transport_cert = true ->
+    check_post_reset_window_target_basis_coverage
+      transport_cert target_certs = true ->
+    PostResetWindowTargetListCoverageObligation
+      T tasks offset jobs enumT codec target_certs ->
+    PostResetWindowTargetBasisCoverageObligation
+      T tasks offset jobs enumT codec transport_cert.
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert target_certs
+         Htransport_check Htarget_check Hlist_coverage.
+  constructor.
+  intros target x Htarget Hbetween Hrelease_before_target Hpost_reset_case.
+  pose proof
+    (post_reset_window_target_list_coverage
+       T tasks offset jobs enumT codec target_certs Hlist_coverage
+       target x Htarget Hbetween Hrelease_before_target Hpost_reset_case)
+    as Hin.
+  unfold check_post_reset_window_target_basis_coverage in Htarget_check.
+  unfold check_transport_jobs_witness in Htarget_check.
+  apply forallb_forall with (x := target) in Htarget_check; [|exact Hin].
+  unfold check_transport_job_witness in Htarget_check.
+  destruct
+    (check_job_in_basis_sound
+       transport_cert.(transport_basis_jobs) target Htarget_check)
+    as [i Hbasis].
+  pose proof (check_transport_cert_fields JobId transport_cert Htransport_check)
+    as [_ [Hclass_len [Hshift_len Hclass_bound]]].
+  assert (Hi : i < length transport_cert.(transport_basis_jobs)).
+  {
+    apply nth_error_Some.
+    intro Hnone.
+    rewrite Hbasis in Hnone.
+    discriminate.
+  }
+  assert (Hclass_lt : i < length transport_cert.(transport_job_class)) by lia.
+  assert (Hshift_lt : i < length transport_cert.(transport_job_shift)) by lia.
+  destruct (nth_error_exists_of_lt nat transport_cert.(transport_job_class)
+              i Hclass_lt) as [class_id Hclass].
+  destruct (nth_error_exists_of_lt nat transport_cert.(transport_job_shift)
+              i Hshift_lt) as [shift Hshift].
+  assert (Hclass_in : In class_id transport_cert.(transport_job_class)).
+  {
+    eapply nth_error_In.
+    exact Hclass.
+  }
+  assert (Hcls_lt : class_id < length transport_cert.(transport_classes)).
+  {
+    apply Hclass_bound.
+    exact Hclass_in.
+  }
+  destruct (nth_error_exists_of_lt (EDFTransportClass JobId)
+              transport_cert.(transport_classes) class_id Hcls_lt)
+    as [cls Hcls].
+  exists i, class_id, shift, cls.
+  repeat split; assumption.
+Qed.
+
 Definition check_post_reset_window_targets_complete_with_pairs
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)

@@ -1488,6 +1488,19 @@ check_transport_classes_rep_backlog_generated tasks offset jobs enumT codec pref
       (check_transport_classes_rep_backlog_generated tasks offset jobs enumT
         codec prefix_cert classes')}
 
+post_reset_window_targets_of_certs :: (List EDFWindowTransportTargetCert) ->
+                                      List JobId
+post_reset_window_targets_of_certs target_certs =
+  map window_transport_target_job target_certs
+
+check_post_reset_window_target_basis_coverage :: (EDFTransportCert JobId) ->
+                                                 (List
+                                                 EDFWindowTransportTargetCert)
+                                                 -> Bool
+check_post_reset_window_target_basis_coverage transport_cert target_certs =
+  check_transport_jobs_witness transport_cert
+    (post_reset_window_targets_of_certs target_certs)
+
 check_post_reset_window_targets_complete_with_pairs :: (TaskId -> Task) ->
                                                        (TaskId -> Time) ->
                                                        (JobId -> Job) ->
@@ -1599,70 +1612,78 @@ check_periodic_edf_checked_sidecar ts codec cert sidecar =
                               (andb
                                 (andb
                                   (andb
-                                    (check_prefix_cert_semantic
-                                      (extracted_periodic_jobs ts)
-                                      (cert_prefix cert))
-                                    (check_prefix_slots_match_generated_edf_fast
+                                    (andb
+                                      (check_prefix_cert_semantic
+                                        (extracted_periodic_jobs ts)
+                                        (cert_prefix cert))
+                                      (check_prefix_slots_match_generated_edf_fast
+                                        (extracted_periodic_tasks ts) (\_ ->
+                                        O) (extracted_periodic_jobs ts)
+                                        (enumT_of_extracted_list ts) codec
+                                        (cert_prefix cert)))
+                                    (check_periodic_hyperperiod_state_reset
                                       (extracted_periodic_tasks ts) (\_ -> O)
                                       (extracted_periodic_jobs ts)
                                       (enumT_of_extracted_list ts) codec
-                                      (cert_prefix cert)))
-                                  (check_periodic_hyperperiod_state_reset
-                                    (extracted_periodic_tasks ts) (\_ -> O)
-                                    (extracted_periodic_jobs ts)
-                                    (enumT_of_extracted_list ts) codec
-                                    (cert_prefix cert)
-                                    (periodic_hyperperiod
-                                      (extracted_periodic_tasks ts)
-                                      (enumT_of_extracted_list ts))))
-                                (check_transport_period_is_hyperperiod
+                                      (cert_prefix cert)
+                                      (periodic_hyperperiod
+                                        (extracted_periodic_tasks ts)
+                                        (enumT_of_extracted_list ts))))
+                                  (check_transport_period_is_hyperperiod
+                                    (extracted_periodic_tasks ts)
+                                    (enumT_of_extracted_list ts)
+                                    (cert_transport cert)))
+                                (check_prefix_horizon_covers_hyperperiod
                                   (extracted_periodic_tasks ts)
                                   (enumT_of_extracted_list ts)
-                                  (cert_transport cert)))
-                              (check_prefix_horizon_covers_hyperperiod
+                                  (cert_prefix cert)))
+                              (check_prefix_horizon_covers_post_reset_window
                                 (extracted_periodic_tasks ts)
                                 (enumT_of_extracted_list ts)
                                 (cert_prefix cert)))
-                            (check_prefix_horizon_covers_post_reset_window
-                              (extracted_periodic_tasks ts)
-                              (enumT_of_extracted_list ts)
-                              (cert_prefix cert)))
-                          (check_transport_cert (cert_transport cert)))
-                        (check_transport_basis_nodup (cert_transport cert)))
-                      (check_transport_classes_rep_backlog (cert_prefix cert)
-                        (transport_classes (cert_transport cert))
-                        (checked_class_relevant_jobs sidecar)))
-                    (check_transport_classes_rep_backlog_generated
+                            (check_transport_cert (cert_transport cert)))
+                          (check_transport_basis_nodup (cert_transport cert)))
+                        (check_transport_classes_rep_backlog
+                          (cert_prefix cert)
+                          (transport_classes (cert_transport cert))
+                          (checked_class_relevant_jobs sidecar)))
+                      (check_transport_classes_rep_backlog_generated
+                        (extracted_periodic_tasks ts) (\_ -> O)
+                        (extracted_periodic_jobs ts)
+                        (enumT_of_extracted_list ts) codec (cert_prefix cert)
+                        (transport_classes (cert_transport cert))))
+                    (check_transport_classes_rep_periodic_generated
                       (extracted_periodic_tasks ts) (\_ -> O)
                       (extracted_periodic_jobs ts)
-                      (enumT_of_extracted_list ts) codec (cert_prefix cert)
+                      (enumT_of_extracted_list ts) codec
                       (transport_classes (cert_transport cert))))
-                  (check_transport_classes_rep_periodic_generated
-                    (extracted_periodic_tasks ts) (\_ -> O)
-                    (extracted_periodic_jobs ts) (enumT_of_extracted_list ts)
-                    codec (transport_classes (cert_transport cert))))
-                (check_periodic_transport_residue_coverage
-                  (cert_transport cert)
-                  (periodic_transport_residue_jobs
-                    (extracted_periodic_tasks ts) (\_ -> O)
-                    (extracted_periodic_jobs ts) (enumT_of_extracted_list ts)
-                    codec (transport_period (cert_transport cert)))))
-              (check_transport_residue_shifts (cert_transport cert)))
-            (check_window_transport_targets_complete_with_pairs
+                  (check_periodic_transport_residue_coverage
+                    (cert_transport cert)
+                    (periodic_transport_residue_jobs
+                      (extracted_periodic_tasks ts) (\_ -> O)
+                      (extracted_periodic_jobs ts)
+                      (enumT_of_extracted_list ts) codec
+                      (transport_period (cert_transport cert)))))
+                (check_transport_residue_shifts (cert_transport cert)))
+              (check_window_transport_targets_complete_with_pairs
+                (extracted_periodic_tasks ts) (\_ -> O)
+                (extracted_periodic_jobs ts) (enumT_of_extracted_list ts)
+                codec (cert_transport cert)
+                (checked_window_target_certs sidecar)))
+            (check_window_generated_pair_semantics_all
               (extracted_periodic_tasks ts) (\_ -> O)
               (extracted_periodic_jobs ts) (enumT_of_extracted_list ts) codec
               (cert_transport cert) (checked_window_target_certs sidecar)))
-          (check_window_generated_pair_semantics_all
+          (check_window_generated_pair_completion_all
             (extracted_periodic_tasks ts) (\_ -> O)
             (extracted_periodic_jobs ts) (enumT_of_extracted_list ts) codec
-            (cert_transport cert) (checked_window_target_certs sidecar)))
-        (check_window_generated_pair_completion_all
+            (checked_window_target_certs sidecar)))
+        (check_post_reset_window_targets_complete_with_pairs
           (extracted_periodic_tasks ts) (\_ -> O)
           (extracted_periodic_jobs ts) (enumT_of_extracted_list ts) codec
-          (checked_window_target_certs sidecar)))
-      (check_post_reset_window_targets_complete_with_pairs
-        (extracted_periodic_tasks ts) (\_ -> O) (extracted_periodic_jobs ts)
-        (enumT_of_extracted_list ts) codec (cert_transport cert)
+          (cert_transport cert)
+          (checked_post_reset_window_target_certs sidecar)))
+      (check_post_reset_window_target_basis_coverage (cert_transport cert)
         (checked_post_reset_window_target_certs sidecar)))
     (edf_schedulability_decide ts)
 

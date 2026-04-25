@@ -47,6 +47,8 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   check_generated_window_pair_target_completed
   check_window_generated_pair_completion
   check_window_generated_pair_completion_all
+  post_reset_window_targets_of_certs
+  check_post_reset_window_target_basis_coverage
   check_post_reset_window_targets_complete_with_pairs
   check_window_target_pair_coverage
   check_periodic_edf_checked_sidecar_extracted.
