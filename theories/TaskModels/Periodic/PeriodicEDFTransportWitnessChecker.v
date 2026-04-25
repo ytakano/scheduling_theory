@@ -1211,6 +1211,104 @@ Record PeriodicHyperperiodPostResetEarlierCompletionShiftObligation
           (job_release (jobs target))
 }.
 
+Record PostResetWindowTargetCoverageObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (target_certs : list EDFWindowTransportTargetCert) : Prop := {
+  post_reset_window_target_coverage :
+    forall target x,
+      periodic_jobset T tasks offset jobs target ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
+      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
+      exists target_cert p,
+        In target_cert target_certs
+        /\
+        target_cert.(window_transport_target_job) = target
+        /\
+        In p target_cert.(window_transport_pairs)
+        /\
+        p.(window_target_earlier_job) = x
+}.
+
+Definition check_post_reset_window_targets_complete_with_pairs
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId)
+    (target_certs : list EDFWindowTransportTargetCert) : bool :=
+  check_window_transport_targets_complete_with_pairs
+    T tasks offset jobs enumT codec transport_cert target_certs
+  &&
+  check_window_generated_pair_semantics_all
+    T tasks offset jobs enumT codec transport_cert target_certs
+  &&
+  check_window_generated_pair_completion_all
+    T tasks offset jobs enumT codec target_certs.
+
+Lemma periodic_hyperperiod_post_reset_earlier_completion_shift_of_checked_targets :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert target_certs,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    check_window_generated_pair_completion_all
+      T tasks offset jobs enumT codec target_certs = true ->
+    PostResetWindowTargetCoverageObligation
+      T tasks offset jobs enumT codec target_certs ->
+    PeriodicHyperperiodPostResetEarlierCompletionShiftObligation
+      T tasks offset jobs enumT codec transport_cert.
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert target_certs
+         Hwf HenumT_complete HenumT_sound Hcompletion Hcoverage.
+  constructor.
+  intros residue target q _Hperiod_eq Htarget _Htransport _Hresidue_backlog
+         x Hbetween Hrelease_before_target Hpost_reset_case.
+  destruct
+    (post_reset_window_target_coverage
+       T tasks offset jobs enumT codec target_certs Hcoverage
+       target x Htarget Hbetween Hrelease_before_target Hpost_reset_case)
+    as [target_cert [p [Hin [Htarget_cert [Hp Hx]]]]].
+  assert (Htarget_release :
+    job_release (jobs target) < S (job_abs_deadline (jobs target))).
+  {
+    destruct Htarget as [_ Hgen].
+    pose proof (generated_job_deadline tasks offset jobs target Hgen).
+    lia.
+  }
+  pose proof
+    (generated_periodic_edf_schedule_upto_completed_iff_generated_before
+       T tasks offset jobs enumT codec
+       (S (job_abs_deadline (jobs target)))
+       x
+       (job_release (jobs target))
+       Hwf HenumT_complete HenumT_sound Htarget_release)
+    as Hiff.
+  apply (proj2 Hiff).
+  rewrite <- Hx.
+  eapply check_generated_window_pair_target_completed_sound.
+  - exact Hwf.
+  - exact HenumT_complete.
+  - exact HenumT_sound.
+  - exact Htarget.
+  - unfold check_window_generated_pair_completion_all in Hcompletion.
+    apply forallb_forall with (x := target_cert) in Hcompletion; [|exact Hin].
+    unfold check_window_generated_pair_completion in Hcompletion.
+    apply forallb_forall with (x := p) in Hcompletion; [|exact Hp].
+    rewrite Htarget_cert in Hcompletion.
+    exact Hcompletion.
+Qed.
+
 Lemma periodic_hyperperiod_earlier_completion_shift_of_post_reset_shift :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs)
