@@ -63,6 +63,12 @@ legacy variant が残っている。
 
 一方で、実装済みの generated representative 経路では
 `TransportClassRepresentativeObligation` は外部仮定から消えている。
+さらに deterministic completion transport を checked sidecar から構成する
+`check_periodic_edf_checked_sidecar_extracted_completion_transport_deterministic`
+を接続し、extracted-facing main theorem
+`check_periodic_edf_checked_sidecar_extracted_sound_closed` では
+`check_periodic_edf_checked_sidecar_extracted ts cert sidecar = true` だけから
+`schedulable_by_on` を得る形まで閉じた。
 当初 mainline は
 `check_periodic_edf_checked_sidecar_extracted_checked_block_generated_rep_sound`
 を使う予定だったが、checked block-source normalization は
@@ -75,17 +81,13 @@ arbitrary `target/x` との shift delta は canonical periodic semantics から 
 `PeriodicHyperperiodBlockServiceSourceObligation` を extracted/canonical theorem で閉じる
 generated representative variant を使う。
 
-mainline に残る Prop obligation は次。
-
-- `PeriodicHyperperiodServicePairTransportObligation`
-- `PeriodicHyperperiodBoundaryResetCompletionObligation`
-
+mainline に残る外部 Prop obligation はない。
 `PeriodicHyperperiodBlockServiceSourceObligation` は
 `check_periodic_edf_checked_sidecar_extracted_block_service_source_obligation`
 で checker と canonical periodic semantics から構成済み。
 
-次の作業は、これらを checker と canonical periodic semantics から構成して、
-extraction-facing soundness theorem の仮定から消すこと。
+extraction / CSV toolchain / 全体 build も検証済み。
+次の作業は、必要ならドキュメント上の legacy theorem 群を整理すること。
 
 ## 2. Semantic assumptions
 
@@ -534,9 +536,11 @@ completion へ反復輸送できるようになった。
 さらに `extracted_periodic_deterministic_service_pair_transport_checked` により、
 deterministic service-pair transport の boundary completion premise は checked sidecar
 から構成できる。
-次の局所ステップは、この checked deterministic service transport を
-`PeriodicHyperperiodCompletionTransportObligation` 側へ接続し、既存の weak
-`PeriodicHyperperiodServicePairTransportObligation` 仮定を final wrapper から外すこと。
+checked deterministic service transport は
+`PeriodicHyperperiodCompletionTransportObligation` 側へ接続済み。
+`check_periodic_edf_checked_sidecar_extracted_sound_closed` は、既存の weak
+`PeriodicHyperperiodServicePairTransportObligation` / boundary reset obligation を
+外部仮定に要求しない。
 
 ### Phase F: representative obligation elimination
 
@@ -647,12 +651,12 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
    finite-horizon generated schedule への bridge は **Done**。
    job-id level deterministic shift relation と extracted service-pair transport bridge は **Done**。
    任意 boundary への反復 transport / boundary completion premise の除去は **Done**。
-   次に deterministic transport bridge を completion-transport assembly へ接続する。
-7. final closed extracted theorem を追加する。
+   deterministic transport bridge の completion-transport assembly への接続は **Done**。
+7. final closed extracted theorem を追加する。 **Done**
 8. extraction list は checker 関数だけを維持し、proof-only theorem は抽出しない。
-9. `make theories/TaskModels/Periodic/PeriodicEDFFinalCertificateChecker.vo` を通す。
-10. `make build-periodic-edf-sched-csv` と `scripts/periodic_edf_schedulability_csv` を通す。
-11. `make -j2` を通す。
+9. `make theories/TaskModels/Periodic/PeriodicEDFFinalCertificateChecker.vo` を通す。 **Done**
+10. `make build-periodic-edf-sched-csv` と `scripts/periodic_edf_schedulability_csv` を通す。 **Done**
+11. `make -j2` を通す。 **Done**
 
 ## 7. Risks for the Rust design
 
