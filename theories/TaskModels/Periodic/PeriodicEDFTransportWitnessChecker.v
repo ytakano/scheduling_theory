@@ -24,6 +24,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportCoverageCh
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransport.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransportChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
@@ -1267,6 +1268,23 @@ Definition post_reset_window_targets_of_certs
     (target_certs : list EDFWindowTransportTargetCert) : list JobId :=
   map window_transport_target_job target_certs.
 
+Definition post_reset_target_candidate_horizon
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId) : Time :=
+  2 * periodic_hyperperiod tasks enumT +
+  periodic_max_relative_deadline tasks enumT.
+
+Definition post_reset_window_target_jobs
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs) : list JobId :=
+  enum_periodic_jobs_before
+    T tasks offset jobs enumT codec
+    (post_reset_target_candidate_horizon tasks enumT).
+
 Definition check_post_reset_window_target_basis_coverage
     (transport_cert : EDFTransportCert JobId)
     (target_certs : list EDFWindowTransportTargetCert) : bool :=
@@ -1318,6 +1336,60 @@ Record PostResetWindowTargetCandidateCoverageObligation
       periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
       In target candidate_targets
 }.
+
+Lemma post_reset_window_target_jobs_complete_before_horizon :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs) target,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    periodic_jobset T tasks offset jobs target ->
+    job_release (jobs target) <
+      post_reset_target_candidate_horizon tasks enumT ->
+    In target
+      (post_reset_window_target_jobs T tasks offset jobs enumT codec).
+Proof.
+  intros T tasks offset jobs enumT codec target
+         Hwf HenumT_complete Htarget Hrelease.
+  unfold post_reset_window_target_jobs.
+  eapply enum_periodic_jobs_before_complete; eauto.
+Qed.
+
+Record BoundedPostResetWindowTargetCandidateCoverageObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (candidate_targets : list JobId) : Prop := {
+  bounded_post_reset_window_target_candidate_coverage :
+    forall target x,
+      periodic_jobset T tasks offset jobs target ->
+      job_release (jobs target) <
+        post_reset_target_candidate_horizon tasks enumT ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
+      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
+      In target candidate_targets
+}.
+
+Lemma bounded_post_reset_window_target_candidate_coverage_of_generated_jobs :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs),
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    BoundedPostResetWindowTargetCandidateCoverageObligation
+      T tasks offset jobs enumT codec
+      (post_reset_window_target_jobs T tasks offset jobs enumT codec).
+Proof.
+  intros T tasks offset jobs enumT codec Hwf HenumT_complete.
+  constructor.
+  intros target _x Htarget Hrelease _Hbetween _Hrelease_before_target
+         _Hpost_reset_case.
+  eapply post_reset_window_target_jobs_complete_before_horizon; eauto.
+Qed.
 
 Lemma post_reset_window_target_list_coverage_of_checked_candidates :
   forall T tasks offset jobs enumT

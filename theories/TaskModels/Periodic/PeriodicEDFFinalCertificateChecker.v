@@ -36,7 +36,6 @@ Record PeriodicEDFCheckedSidecarCert := {
   checked_candidate_jobs : list JobId;
   checked_class_relevant_jobs : list (list JobId);
   checked_window_target_certs : list EDFWindowTransportTargetCert;
-  checked_post_reset_target_jobs : list JobId;
   checked_post_reset_window_target_certs : list EDFWindowTransportTargetCert
 }.
 
@@ -340,7 +339,13 @@ Definition check_periodic_edf_checked_sidecar
        cert.(cert_transport)
        sidecar.(checked_post_reset_window_target_certs)
   && check_post_reset_target_list_complete
-       sidecar.(checked_post_reset_target_jobs)
+       (post_reset_window_target_jobs
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          (extracted_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          codec)
        sidecar.(checked_post_reset_window_target_certs)
   && edf_schedulability_decide ts.
 
@@ -487,7 +492,13 @@ Lemma check_periodic_edf_checked_sidecar_fields :
       sidecar.(checked_post_reset_window_target_certs) = true
     /\
     check_post_reset_target_list_complete
-      sidecar.(checked_post_reset_target_jobs)
+      (post_reset_window_target_jobs
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts)
+        (enumT_of_extracted_list ts)
+        codec)
       sidecar.(checked_post_reset_window_target_certs) = true
     /\
     edf_schedulability_decide ts = true.
@@ -793,7 +804,13 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       (enumT_of_extracted_list ts)
       codec
-      sidecar.(checked_post_reset_target_jobs) ->
+      (post_reset_window_target_jobs
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts)
+        (enumT_of_extracted_list ts)
+        codec) ->
     schedulable_by_on
       (periodic_jobset
         (extracted_task_scope ts)
@@ -862,7 +879,13 @@ Proof.
        (extracted_periodic_jobs ts)
        (enumT_of_extracted_list ts)
        codec
-       sidecar.(checked_post_reset_target_jobs)
+       (post_reset_window_target_jobs
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          (extracted_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          codec)
        sidecar.(checked_post_reset_window_target_certs)
        Hpost_reset_list_check
        Hpost_candidate_coverage) as Hpost_list_coverage.
@@ -968,7 +991,13 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (extracted_periodic_jobs ts)
       (enumT_of_extracted_list ts)
       (extracted_periodic_codec ts)
-      sidecar.(checked_post_reset_target_jobs) ->
+      (post_reset_window_target_jobs
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts)
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts)) ->
     schedulable_by_on
       (periodic_jobset
         (extracted_task_scope ts)

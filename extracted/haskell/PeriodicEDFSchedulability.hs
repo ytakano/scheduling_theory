@@ -1493,6 +1493,19 @@ post_reset_window_targets_of_certs :: (List EDFWindowTransportTargetCert) ->
 post_reset_window_targets_of_certs target_certs =
   map window_transport_target_job target_certs
 
+post_reset_target_candidate_horizon :: (TaskId -> Task) -> (List TaskId) ->
+                                       Time
+post_reset_target_candidate_horizon tasks enumT =
+  add (mul (S (S O)) (periodic_hyperperiod tasks enumT))
+    (periodic_max_relative_deadline tasks enumT)
+
+post_reset_window_target_jobs :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                 (JobId -> Job) -> (List TaskId) ->
+                                 PeriodicCodec -> List JobId
+post_reset_window_target_jobs tasks offset jobs enumT codec =
+  enum_periodic_jobs_before tasks offset jobs enumT codec
+    (post_reset_target_candidate_horizon tasks enumT)
+
 check_post_reset_window_target_basis_coverage :: (EDFTransportCert JobId) ->
                                                  (List
                                                  EDFWindowTransportTargetCert)
@@ -1530,34 +1543,27 @@ check_post_reset_window_targets_complete_with_pairs tasks offset jobs enumT code
 
 data PeriodicEDFCheckedSidecarCert =
    Build_PeriodicEDFCheckedSidecarCert (List JobId) (List (List JobId)) 
- (List EDFWindowTransportTargetCert) (List JobId) (List
-                                                  EDFWindowTransportTargetCert)
+ (List EDFWindowTransportTargetCert) (List EDFWindowTransportTargetCert)
 
 checked_class_relevant_jobs :: PeriodicEDFCheckedSidecarCert -> List
                                (List JobId)
 checked_class_relevant_jobs p =
   case p of {
-   Build_PeriodicEDFCheckedSidecarCert _ checked_class_relevant_jobs0 _ _
-    _ -> checked_class_relevant_jobs0}
+   Build_PeriodicEDFCheckedSidecarCert _ checked_class_relevant_jobs0 _ _ ->
+    checked_class_relevant_jobs0}
 
 checked_window_target_certs :: PeriodicEDFCheckedSidecarCert -> List
                                EDFWindowTransportTargetCert
 checked_window_target_certs p =
   case p of {
-   Build_PeriodicEDFCheckedSidecarCert _ _ checked_window_target_certs0 _
-    _ -> checked_window_target_certs0}
-
-checked_post_reset_target_jobs :: PeriodicEDFCheckedSidecarCert -> List JobId
-checked_post_reset_target_jobs p =
-  case p of {
-   Build_PeriodicEDFCheckedSidecarCert _ _ _ checked_post_reset_target_jobs0
-    _ -> checked_post_reset_target_jobs0}
+   Build_PeriodicEDFCheckedSidecarCert _ _ checked_window_target_certs0 _ ->
+    checked_window_target_certs0}
 
 checked_post_reset_window_target_certs :: PeriodicEDFCheckedSidecarCert ->
                                           List EDFWindowTransportTargetCert
 checked_post_reset_window_target_certs p =
   case p of {
-   Build_PeriodicEDFCheckedSidecarCert _ _ _ _
+   Build_PeriodicEDFCheckedSidecarCert _ _ _
     checked_post_reset_window_target_certs0 ->
     checked_post_reset_window_target_certs0}
 
@@ -1706,7 +1712,8 @@ check_periodic_edf_checked_sidecar ts codec cert sidecar =
         (check_post_reset_window_target_basis_coverage (cert_transport cert)
           (checked_post_reset_window_target_certs sidecar)))
       (check_post_reset_target_list_complete
-        (checked_post_reset_target_jobs sidecar)
+        (post_reset_window_target_jobs (extracted_periodic_tasks ts) (\_ ->
+          O) (extracted_periodic_jobs ts) (enumT_of_extracted_list ts) codec)
         (checked_post_reset_window_target_certs sidecar)))
     (edf_schedulability_decide ts)
 
