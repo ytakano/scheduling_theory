@@ -1274,6 +1274,13 @@ Definition check_post_reset_window_target_basis_coverage
     transport_cert
     (post_reset_window_targets_of_certs target_certs).
 
+Definition check_post_reset_target_list_complete
+    (candidate_targets : list JobId)
+    (target_certs : list EDFWindowTransportTargetCert) : bool :=
+  forallb
+    (check_job_in_basis (post_reset_window_targets_of_certs target_certs))
+    candidate_targets.
+
 Record PostResetWindowTargetListCoverageObligation
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
@@ -1292,6 +1299,55 @@ Record PostResetWindowTargetListCoverageObligation
       periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
       In target (post_reset_window_targets_of_certs target_certs)
 }.
+
+Record PostResetWindowTargetCandidateCoverageObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (candidate_targets : list JobId) : Prop := {
+  post_reset_window_target_candidate_coverage :
+    forall target x,
+      periodic_jobset T tasks offset jobs target ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
+      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
+      In target candidate_targets
+}.
+
+Lemma post_reset_window_target_list_coverage_of_checked_candidates :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         candidate_targets target_certs,
+    check_post_reset_target_list_complete candidate_targets target_certs = true ->
+    PostResetWindowTargetCandidateCoverageObligation
+      T tasks offset jobs enumT codec candidate_targets ->
+    PostResetWindowTargetListCoverageObligation
+      T tasks offset jobs enumT codec target_certs.
+Proof.
+  intros T tasks offset jobs enumT codec candidate_targets target_certs
+         Hcheck Hcandidate_coverage.
+  constructor.
+  intros target x Htarget Hbetween Hrelease_before_target Hpost_reset_case.
+  pose proof
+    (post_reset_window_target_candidate_coverage
+       T tasks offset jobs enumT codec candidate_targets Hcandidate_coverage
+       target x Htarget Hbetween Hrelease_before_target Hpost_reset_case)
+    as Hin_candidate.
+  unfold check_post_reset_target_list_complete in Hcheck.
+  apply forallb_forall with (x := target) in Hcheck;
+    [|exact Hin_candidate].
+  destruct
+    (check_job_in_basis_sound
+       (post_reset_window_targets_of_certs target_certs) target Hcheck)
+    as [i Hnth].
+  eapply nth_error_In.
+  exact Hnth.
+Qed.
 
 Lemma post_reset_window_target_basis_coverage_of_checked_targets :
   forall T tasks offset jobs enumT

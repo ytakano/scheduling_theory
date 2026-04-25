@@ -36,6 +36,7 @@ Record PeriodicEDFCheckedSidecarCert := {
   checked_candidate_jobs : list JobId;
   checked_class_relevant_jobs : list (list JobId);
   checked_window_target_certs : list EDFWindowTransportTargetCert;
+  checked_post_reset_target_jobs : list JobId;
   checked_post_reset_window_target_certs : list EDFWindowTransportTargetCert
 }.
 
@@ -338,6 +339,9 @@ Definition check_periodic_edf_checked_sidecar
   && check_post_reset_window_target_basis_coverage
        cert.(cert_transport)
        sidecar.(checked_post_reset_window_target_certs)
+  && check_post_reset_target_list_complete
+       sidecar.(checked_post_reset_target_jobs)
+       sidecar.(checked_post_reset_window_target_certs)
   && edf_schedulability_decide ts.
 
 Definition check_periodic_edf_checked_sidecar_extracted
@@ -482,17 +486,21 @@ Lemma check_periodic_edf_checked_sidecar_fields :
       cert.(cert_transport)
       sidecar.(checked_post_reset_window_target_certs) = true
     /\
+    check_post_reset_target_list_complete
+      sidecar.(checked_post_reset_target_jobs)
+      sidecar.(checked_post_reset_window_target_certs) = true
+    /\
     edf_schedulability_decide ts = true.
 Proof.
   intros ts codec cert sidecar Hcheck.
   unfold check_periodic_edf_checked_sidecar in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
   destruct Hcheck as
-    [[[[[[[[[[[[[[[[[[Hprefix Hfast] Hreset] Hperiod_eq] Hhorizon]
+    [[[[[[[[[[[[[[[[[[[Hprefix Hfast] Hreset] Hperiod_eq] Hhorizon]
         Hpost_reset_horizon]
         Htransport] Hbasis_nodup] Hrep] Hrep_generated] Hrep_periodic]
         Hcoverage] Hshifts] Hwindow] Hpair_semantics] Hpair_completion]
-        Hpost_reset_window] Hpost_reset_basis] Hdec].
+        Hpost_reset_window] Hpost_reset_basis] Hpost_reset_list] Hdec].
   repeat split; try assumption.
   - eapply check_prefix_slots_match_generated_edf_fast_sound.
     exact Hfast.
@@ -520,7 +528,7 @@ Proof.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
-    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
+    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
   unfold edf_schedulability_decide in Hdec.
   apply andb_true_iff in Hdec.
   exact (proj1 Hdec).
@@ -572,7 +580,7 @@ Proof.
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
     as (_ & Hmatch & Hreset_check & Hperiod_eq
-        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
+        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
   split.
   - eapply check_periodic_hyperperiod_state_reset_sound.
     + apply extracted_tasks_well_formed_on_enum.
@@ -604,7 +612,7 @@ Proof.
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
     as (_ & _ & _ & _ & _ & Hpost_reset_horizon
-        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
+        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
   exact Hpost_reset_horizon.
 Qed.
 
@@ -778,14 +786,14 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PostResetWindowTargetListCoverageObligation
+    PostResetWindowTargetCandidateCoverageObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
       (extracted_periodic_jobs ts)
       (enumT_of_extracted_list ts)
       codec
-      sidecar.(checked_post_reset_window_target_certs) ->
+      sidecar.(checked_post_reset_target_jobs) ->
     schedulable_by_on
       (periodic_jobset
         (extracted_task_scope ts)
@@ -803,7 +811,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts codec cert sidecar Hcheck Hrep Hpost_list_coverage.
+  intros ts codec cert sidecar Hcheck Hrep Hpost_candidate_coverage.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
@@ -813,7 +821,8 @@ Proof.
         & Hrep_generated_check & Hrep_periodic_check
         & Hresidue_check & Hshift_check
         & Hwindow_check & Hpair_semantics & Hpair_completion
-        & Hpost_reset_window_check & Hpost_reset_basis_check & Hdec).
+        & Hpost_reset_window_check & Hpost_reset_basis_check
+        & Hpost_reset_list_check & Hdec).
   assert (Hpost_completion :
     check_window_generated_pair_completion_all
       (extracted_task_scope ts)
@@ -845,6 +854,18 @@ Proof.
     repeat rewrite andb_true_iff in Hpost_reset_window_check.
     tauto.
   }
+  pose proof
+    (post_reset_window_target_list_coverage_of_checked_candidates
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec
+       sidecar.(checked_post_reset_target_jobs)
+       sidecar.(checked_post_reset_window_target_certs)
+       Hpost_reset_list_check
+       Hpost_candidate_coverage) as Hpost_list_coverage.
   pose proof
     (post_reset_window_target_basis_coverage_of_checked_targets
        (extracted_task_scope ts)
@@ -940,14 +961,14 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PostResetWindowTargetListCoverageObligation
+    PostResetWindowTargetCandidateCoverageObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
       (extracted_periodic_jobs ts)
       (enumT_of_extracted_list ts)
       (extracted_periodic_codec ts)
-      sidecar.(checked_post_reset_window_target_certs) ->
+      sidecar.(checked_post_reset_target_jobs) ->
     schedulable_by_on
       (periodic_jobset
         (extracted_task_scope ts)
@@ -965,7 +986,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts cert sidecar Hcheck Hrep Hpost_list_coverage.
+  intros ts cert sidecar Hcheck Hrep Hpost_candidate_coverage.
   destruct
     (check_periodic_edf_checked_sidecar_extracted_fields
        ts cert sidecar Hcheck)
