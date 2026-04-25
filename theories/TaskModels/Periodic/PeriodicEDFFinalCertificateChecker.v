@@ -891,20 +891,15 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PostResetWindowTargetCandidateCoverageObligation
+    PeriodicHyperperiodBoundedPostResetLiftObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
       (extracted_periodic_jobs ts)
       (enumT_of_extracted_list ts)
       codec
-      (post_reset_window_target_jobs
-        (extracted_task_scope ts)
-        (extracted_periodic_tasks ts)
-        (fun _ => 0)
-        (extracted_periodic_jobs ts)
-        (enumT_of_extracted_list ts)
-        codec) ->
+      cert.(cert_transport)
+      sidecar.(checked_post_reset_window_target_certs) ->
     schedulable_by_on
       (periodic_jobset
         (extracted_task_scope ts)
@@ -922,7 +917,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts codec cert sidecar Hcheck Hrep Hpost_candidate_coverage.
+  intros ts codec cert sidecar Hcheck Hrep Hbounded_lift.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
@@ -934,57 +929,15 @@ Proof.
         & Hwindow_check & Hpair_semantics & Hpair_completion
         & Hpost_reset_window_check & Hpost_reset_basis_check
         & Hpost_reset_list_check & Hdec).
-  assert (Hpost_completion :
-    check_window_generated_pair_completion_all
-      (extracted_task_scope ts)
-      (extracted_periodic_tasks ts)
-      (fun _ => 0)
-      (extracted_periodic_jobs ts)
-      (enumT_of_extracted_list ts)
-      codec
-      sidecar.(checked_post_reset_window_target_certs) = true).
-  {
-    unfold check_post_reset_window_targets_complete_with_pairs
-      in Hpost_reset_window_check.
-    repeat rewrite andb_true_iff in Hpost_reset_window_check.
-    tauto.
-  }
-  assert (Hpost_window_pairs :
-    check_window_transport_targets_complete_with_pairs
-      (extracted_task_scope ts)
-      (extracted_periodic_tasks ts)
-      (fun _ => 0)
-      (extracted_periodic_jobs ts)
-      (enumT_of_extracted_list ts)
-      codec
-      cert.(cert_transport)
-      sidecar.(checked_post_reset_window_target_certs) = true).
-  {
-    unfold check_post_reset_window_targets_complete_with_pairs
-      in Hpost_reset_window_check.
-    repeat rewrite andb_true_iff in Hpost_reset_window_check.
-    tauto.
-  }
   pose proof
-    (post_reset_window_target_list_coverage_of_checked_candidates
-       (extracted_task_scope ts)
-       (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
-       (enumT_of_extracted_list ts)
+    (check_periodic_edf_checked_sidecar_bounded_post_reset_coverage
+       ts
        codec
-       (post_reset_window_target_jobs
-          (extracted_task_scope ts)
-          (extracted_periodic_tasks ts)
-          (fun _ => 0)
-          (extracted_periodic_jobs ts)
-          (enumT_of_extracted_list ts)
-          codec)
-       sidecar.(checked_post_reset_window_target_certs)
-       Hpost_reset_list_check
-       Hpost_candidate_coverage) as Hpost_list_coverage.
+       cert
+       sidecar
+       Hcheck) as Hbounded_coverage.
   pose proof
-    (post_reset_window_target_basis_coverage_of_checked_targets
+    (periodic_hyperperiod_post_reset_earlier_completion_shift_of_bounded_checked_targets
        (extracted_task_scope ts)
        (extracted_periodic_tasks ts)
        (fun _ => 0)
@@ -993,40 +946,8 @@ Proof.
        codec
        cert.(cert_transport)
        sidecar.(checked_post_reset_window_target_certs)
-       Htransport_check
-       Hpost_reset_basis_check
-       Hpost_list_coverage) as Hpost_basis_coverage.
-  pose proof
-    (post_reset_window_target_coverage_of_checked_basis
-       (extracted_task_scope ts)
-       (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
-       (enumT_of_extracted_list ts)
-       codec
-       cert.(cert_transport)
-       sidecar.(checked_post_reset_window_target_certs)
-       (extracted_tasks_well_formed_on_enum
-          ts (check_periodic_edf_checked_sidecar_wf ts codec cert sidecar Hcheck))
-       (extracted_enum_complete ts)
-       Hpost_window_pairs
-       Hpost_basis_coverage) as Hpost_coverage.
-  pose proof
-    (periodic_hyperperiod_post_reset_earlier_completion_shift_of_checked_targets
-       (extracted_task_scope ts)
-       (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
-       (enumT_of_extracted_list ts)
-       codec
-       cert.(cert_transport)
-       sidecar.(checked_post_reset_window_target_certs)
-       (extracted_tasks_well_formed_on_enum
-          ts (check_periodic_edf_checked_sidecar_wf ts codec cert sidecar Hcheck))
-       (extracted_enum_complete ts)
-       (extracted_enum_sound ts)
-       Hpost_completion
-       Hpost_coverage) as Hpost.
+       Hbounded_lift
+       Hbounded_coverage) as Hpost.
   pose proof
     (check_periodic_edf_checked_sidecar_hyperperiod_facts
        ts codec cert sidecar Hcheck)
@@ -1078,20 +999,15 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PostResetWindowTargetCandidateCoverageObligation
+    PeriodicHyperperiodBoundedPostResetLiftObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
       (extracted_periodic_jobs ts)
       (enumT_of_extracted_list ts)
       (extracted_periodic_codec ts)
-      (post_reset_window_target_jobs
-        (extracted_task_scope ts)
-        (extracted_periodic_tasks ts)
-        (fun _ => 0)
-        (extracted_periodic_jobs ts)
-        (enumT_of_extracted_list ts)
-        (extracted_periodic_codec ts)) ->
+      cert.(cert_transport)
+      sidecar.(checked_post_reset_window_target_certs) ->
     schedulable_by_on
       (periodic_jobset
         (extracted_task_scope ts)
@@ -1109,7 +1025,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts cert sidecar Hcheck Hrep Hpost_candidate_coverage.
+  intros ts cert sidecar Hcheck Hrep Hbounded_lift.
   destruct
     (check_periodic_edf_checked_sidecar_extracted_fields
        ts cert sidecar Hcheck)

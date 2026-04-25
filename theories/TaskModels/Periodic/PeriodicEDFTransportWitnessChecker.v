@@ -1784,6 +1784,38 @@ Proof.
   repeat split; assumption.
 Qed.
 
+Record PeriodicHyperperiodBoundedPostResetLiftObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId)
+    (target_certs : list EDFWindowTransportTargetCert) : Prop := {
+  periodic_hyperperiod_bounded_post_reset_lift :
+    BoundedPostResetWindowTargetCoverageObligation
+      T tasks offset jobs enumT codec target_certs ->
+    PeriodicHyperperiodPostResetEarlierCompletionShiftObligation
+      T tasks offset jobs enumT codec transport_cert
+}.
+
+Lemma periodic_hyperperiod_post_reset_earlier_completion_shift_of_bounded_checked_targets :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert target_certs,
+    PeriodicHyperperiodBoundedPostResetLiftObligation
+      T tasks offset jobs enumT codec transport_cert target_certs ->
+    BoundedPostResetWindowTargetCoverageObligation
+      T tasks offset jobs enumT codec target_certs ->
+    PeriodicHyperperiodPostResetEarlierCompletionShiftObligation
+      T tasks offset jobs enumT codec transport_cert.
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert target_certs
+         Hlift Hbounded_coverage.
+  eapply periodic_hyperperiod_bounded_post_reset_lift; eauto.
+Qed.
+
 Lemma periodic_hyperperiod_post_reset_earlier_completion_shift_of_checked_targets :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs)
