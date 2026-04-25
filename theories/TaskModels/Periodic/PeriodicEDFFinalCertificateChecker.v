@@ -1514,6 +1514,101 @@ Proof.
   lia.
 Qed.
 
+Lemma extracted_periodic_shift_forward_job_id_of_transport :
+  forall ts j j1 step n,
+    extracted_taskset_wf ts = true ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j1 ->
+    transport_rep_to_target_job
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (extracted_periodic_codec ts)
+      j j1 step n ->
+    step * n *
+      task_period
+        (extracted_periodic_tasks ts
+           (job_task (extracted_periodic_jobs ts j))) =
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n ->
+    j1 = extracted_periodic_shift_forward_job_id ts n j.
+Proof.
+  intros ts j j1 step n Hwf Hjob Hj1 Htransport Hdelta.
+  pose proof
+    (extracted_periodic_shift_forward_job_id_sound
+       ts j n Hwf Hjob)
+    as [Hdet_job [Hdet_transport Hdet_delta]].
+  destruct
+    (transport_rep_to_target_job_same_task_index_shift
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (extracted_periodic_codec ts)
+       j j1 step n
+       (proj1 Hjob) Htransport)
+    as [Htask Hindex].
+  destruct
+    (transport_rep_to_target_job_same_task_index_shift
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (extracted_periodic_codec ts)
+       j (extracted_periodic_shift_forward_job_id ts n j)
+       (extracted_periodic_hyperperiod_task_step
+          ts (job_task (extracted_periodic_jobs ts j))) n
+       (proj1 Hjob) Hdet_transport)
+    as [Hdet_task Hdet_index].
+  eapply extracted_periodic_jobs_same_task_index_eq.
+  - exact Hj1.
+  - exact Hdet_job.
+  - rewrite Htask.
+    symmetry.
+    exact Hdet_task.
+  - rewrite Hindex, Hdet_index.
+    assert (Hperiod_pos :
+      0 <
+      task_period
+        (extracted_periodic_tasks ts
+           (job_task (extracted_periodic_jobs ts j)))).
+    {
+      eapply extracted_tasks_well_formed_on_enum.
+      - exact Hwf.
+      - exact (proj1 Hjob).
+    }
+    nia.
+Qed.
+
+Record ExtractedDeterministicHyperperiodShiftedServicePair
+    (ts : list ExtractedPeriodicTask)
+    (target x target0 x0 : JobId)
+    (n : nat) : Prop := {
+  extracted_deterministic_shift_weak :
+    HyperperiodShiftedServicePair
+      (extracted_periodic_tasks ts)
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_jobs ts)
+      target x target0 x0
+      (periodic_hyperperiod
+         (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n);
+  extracted_deterministic_shift_target :
+    target = extracted_periodic_shift_forward_job_id ts n target0;
+  extracted_deterministic_shift_earlier :
+    x = extracted_periodic_shift_forward_job_id ts n x0
+}.
+
 Lemma extracted_periodic_shift_forward_eligibleb_deterministic :
   forall ts j n sched0 sched1 t,
     extracted_taskset_wf ts = true ->
@@ -3207,6 +3302,141 @@ Proof.
       * exact Hshift.
 Qed.
 
+Lemma extracted_periodic_shift_back_deadline_between_pair_deterministic :
+  forall ts target x n,
+    extracted_taskset_wf ts = true ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      target ->
+    periodic_jobset_deadline_between
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      0
+      (job_abs_deadline (extracted_periodic_jobs ts target))
+      x ->
+    job_release (extracted_periodic_jobs ts x) <
+    job_release (extracted_periodic_jobs ts target) ->
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n <=
+    job_release (extracted_periodic_jobs ts x) ->
+    job_release (extracted_periodic_jobs ts target) <
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * S n ->
+    exists target0 x0,
+      periodic_jobset
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts)
+        target0
+      /\
+      job_release (extracted_periodic_jobs ts target0) <
+        post_reset_target_candidate_horizon
+          (extracted_periodic_tasks ts) (enumT_of_extracted_list ts)
+      /\
+      periodic_jobset_deadline_between
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts)
+        0
+        (job_abs_deadline (extracted_periodic_jobs ts target0))
+        x0
+      /\
+      job_release (extracted_periodic_jobs ts x0) <
+      job_release (extracted_periodic_jobs ts target0)
+      /\
+      ExtractedDeterministicHyperperiodShiftedServicePair
+        ts target x target0 x0 n.
+Proof.
+  intros ts target x n Hwf Htarget Hbetween Hrelease_before
+         Hx_after_delta Htarget_before_next.
+  set (hp :=
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts)).
+  assert (Hx : periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      x).
+  {
+    split.
+    - eapply periodic_jobset_deadline_between_implies_task_in_scope.
+      exact Hbetween.
+    - eapply periodic_jobset_deadline_between_implies_generated.
+      exact Hbetween.
+  }
+  assert (Htarget_after_delta :
+    hp * n <= job_release (extracted_periodic_jobs ts target)).
+  {
+    subst hp.
+    lia.
+  }
+  destruct
+    (extracted_periodic_shift_back_job_by_hyperperiod
+       ts target n Hwf Htarget Htarget_after_delta)
+    as [target0 [target_step
+        [Htarget0 [Htarget_transport Htarget_delta]]]].
+  destruct
+    (extracted_periodic_shift_back_job_by_hyperperiod
+       ts x n Hwf Hx Hx_after_delta)
+    as [x0 [x_step [Hx0 [Hx_transport Hx_delta]]]].
+  pose proof
+    (extracted_periodic_hyperperiod_shifted_service_pair_of_transport
+       ts target x target0 x0 target_step x_step n
+       Htarget0 Hx0 Htarget_transport Hx_transport
+       Htarget_delta Hx_delta) as Hshift.
+  assert (Htarget_eq :
+    target = extracted_periodic_shift_forward_job_id ts n target0).
+  {
+    eapply extracted_periodic_shift_forward_job_id_of_transport; eauto.
+  }
+  assert (Hx_eq :
+    x = extracted_periodic_shift_forward_job_id ts n x0).
+  {
+    eapply extracted_periodic_shift_forward_job_id_of_transport; eauto.
+  }
+  exists target0, x0.
+  split; [exact Htarget0|].
+  split.
+  - destruct Hshift as [_ Htarget_release _ _ _ _].
+    unfold post_reset_target_candidate_horizon.
+    subst hp.
+    rewrite Htarget_release in Htarget_before_next.
+    lia.
+  - split.
+    + destruct Hshift as [_ Htarget_release Htarget_deadline
+                          Hx_release Hx_deadline _].
+      split.
+      * exact (proj1 Hx0).
+      * split.
+        -- exact (proj2 Hx0).
+        -- split; [lia|].
+           pose proof
+             (periodic_jobset_deadline_between_implies_deadline_le
+                (extracted_task_scope ts)
+                (extracted_periodic_tasks ts)
+                (fun _ => 0)
+                (extracted_periodic_jobs ts)
+                0
+                (job_abs_deadline (extracted_periodic_jobs ts target))
+                x Hbetween) as Hdeadline_le.
+           lia.
+    + split.
+      * destruct Hshift as [_ Htarget_release _ Hx_release _ _].
+        lia.
+      * constructor.
+        -- exact Hshift.
+        -- exact Htarget_eq.
+        -- exact Hx_eq.
+Qed.
+
 Lemma extracted_periodic_shift_forward_deadline_between_pair :
   forall ts target0 x0 n,
     extracted_taskset_wf ts = true ->
@@ -3306,6 +3536,239 @@ Proof.
     + destruct Hshift as [_ Htarget_release _ Hx_release _ _].
       lia.
     + exact Hshift.
+Qed.
+
+Lemma extracted_periodic_shift_forward_deadline_between_pair_deterministic :
+  forall ts target0 x0 n,
+    extracted_taskset_wf ts = true ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      target0 ->
+    periodic_jobset_deadline_between
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      0
+      (job_abs_deadline (extracted_periodic_jobs ts target0))
+      x0 ->
+    job_release (extracted_periodic_jobs ts x0) <
+    job_release (extracted_periodic_jobs ts target0) ->
+    exists target x,
+      periodic_jobset
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts)
+        target
+      /\
+      periodic_jobset_deadline_between
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts)
+        0
+        (job_abs_deadline (extracted_periodic_jobs ts target))
+        x
+      /\
+      job_release (extracted_periodic_jobs ts x) <
+      job_release (extracted_periodic_jobs ts target)
+      /\
+      ExtractedDeterministicHyperperiodShiftedServicePair
+        ts target x target0 x0 n.
+Proof.
+  intros ts target0 x0 n Hwf Htarget0 Hbetween0 Hrelease0.
+  assert (Hx0 : periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      x0).
+  {
+    split.
+    - eapply periodic_jobset_deadline_between_implies_task_in_scope.
+      exact Hbetween0.
+    - eapply periodic_jobset_deadline_between_implies_generated.
+      exact Hbetween0.
+  }
+  destruct
+    (extracted_periodic_shift_forward_job_by_hyperperiod
+       ts target0 n Hwf Htarget0)
+    as [target [target_step
+        [Htarget [Htarget_transport Htarget_delta]]]].
+  destruct
+    (extracted_periodic_shift_forward_job_by_hyperperiod
+       ts x0 n Hwf Hx0)
+    as [x [x_step [Hx [Hx_transport Hx_delta]]]].
+  pose proof
+    (extracted_periodic_hyperperiod_shifted_service_pair_of_transport
+       ts target x target0 x0 target_step x_step n
+       Htarget0 Hx0 Htarget_transport Hx_transport
+       Htarget_delta Hx_delta) as Hshift.
+  assert (Htarget_eq :
+    target = extracted_periodic_shift_forward_job_id ts n target0).
+  {
+    eapply extracted_periodic_shift_forward_job_id_of_transport; eauto.
+  }
+  assert (Hx_eq :
+    x = extracted_periodic_shift_forward_job_id ts n x0).
+  {
+    eapply extracted_periodic_shift_forward_job_id_of_transport; eauto.
+  }
+  exists target, x.
+  split; [exact Htarget|].
+  split.
+  - destruct Hshift as [_ Htarget_release Htarget_deadline
+                        Hx_release Hx_deadline _].
+    split.
+    + exact (proj1 Hx).
+    + split.
+      * exact (proj2 Hx).
+      * split; [lia|].
+        pose proof
+          (periodic_jobset_deadline_between_implies_deadline_le
+             (extracted_task_scope ts)
+             (extracted_periodic_tasks ts)
+             (fun _ => 0)
+             (extracted_periodic_jobs ts)
+             0
+             (job_abs_deadline (extracted_periodic_jobs ts target0))
+             x0 Hbetween0) as Hdeadline0.
+        lia.
+  - split.
+    + destruct Hshift as [_ Htarget_release _ Hx_release _ _].
+      lia.
+    + constructor.
+      * exact Hshift.
+      * exact Htarget_eq.
+      * exact Hx_eq.
+Qed.
+
+Lemma extracted_periodic_deterministic_service_pair_transport :
+  forall ts target x target0 x0 n,
+    extracted_taskset_wf ts = true ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      target0 ->
+    periodic_jobset_deadline_between
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      0
+      (job_abs_deadline (extracted_periodic_jobs ts target0))
+      x0 ->
+    job_release (extracted_periodic_jobs ts x0) <
+    job_release (extracted_periodic_jobs ts target0) ->
+    ExtractedDeterministicHyperperiodShiftedServicePair
+      ts target x target0 x0 n ->
+    let jobs := extracted_periodic_jobs ts in
+    let candidates :=
+      periodic_candidates_before
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        jobs
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts) in
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    (forall u k,
+      u < job_release (jobs target0) ->
+      In k
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           jobs
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (hp * n + S u)) ->
+      job_release (jobs k) < hp * n ->
+      completed jobs 1
+        (generated_schedule_prefix
+           edf_generic_spec candidates jobs (u + hp * n))
+        k
+        (hp * n)) ->
+    job_cost (jobs x0) <=
+    service_job 1
+      (generated_periodic_edf_schedule_upto
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         jobs
+         (S (job_abs_deadline (jobs target0)))
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts))
+      x0
+      (job_release (jobs target0)) ->
+    job_cost (jobs x) <=
+    service_job 1
+      (generated_periodic_edf_schedule_upto
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         jobs
+         (S (job_abs_deadline (jobs target)))
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts))
+      x
+      (job_release (jobs target)).
+Proof.
+  intros ts target x target0 x0 n Hwf Htarget0 Hbetween0 _Hrelease0
+         Hdet jobs candidates hp Hcompleted_old Hsource_service.
+  subst jobs candidates hp.
+  assert (Hx0 : periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      x0).
+  {
+    split.
+    - eapply periodic_jobset_deadline_between_implies_task_in_scope.
+      exact Hbetween0.
+    - eapply periodic_jobset_deadline_between_implies_generated.
+      exact Hbetween0.
+  }
+  destruct Hdet as [Hshift Htarget_eq Hx_eq].
+  destruct Hshift as [_ Htarget_release Htarget_deadline _ _ Hx_cost].
+  assert (Htarget0_release_deadline :
+    job_release (extracted_periodic_jobs ts target0) <=
+    S (job_abs_deadline (extracted_periodic_jobs ts target0))).
+  {
+    destruct Htarget0 as [_ Htarget0_gen].
+    pose proof
+      (generated_job_deadline
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         (extracted_periodic_jobs ts)
+         target0 Htarget0_gen).
+    lia.
+  }
+  pose proof
+    (extracted_periodic_generated_schedule_upto_service_shift_forward_before
+       ts n
+       (S (job_abs_deadline (extracted_periodic_jobs ts target0)))
+       (S (job_abs_deadline (extracted_periodic_jobs ts target)))
+       (job_release (extracted_periodic_jobs ts target0))
+       x0 Hwf Hx0
+       Htarget0_release_deadline)
+    as Hservice_shift.
+  specialize
+    (Hservice_shift ltac:(rewrite Htarget_deadline; lia) Hcompleted_old).
+  rewrite Hx_cost.
+  rewrite Hx_eq.
+  rewrite Htarget_release.
+  rewrite Hservice_shift.
+  exact Hsource_service.
 Qed.
 
 Definition check_periodic_hyperperiod_state_reset

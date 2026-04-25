@@ -517,9 +517,18 @@ ineligible として消す部分である。
 representative window service を target window service へ運ぶ theorem を証明すること。
 DBF だけでは任意 boundary reset completion は出ないため、generated EDF schedule の
 hyperperiod shift invariance を別 lemma として立てる必要がある。
-次の局所ステップは、`HyperperiodShiftedServicePair` ないし extracted 専用 wrapper に
-job-id level の deterministic shift 関係を明示し、finite-horizon service shift を
-`PeriodicHyperperiodServicePairTransportObligation` へ接続できる形にすること。
+`HyperperiodShiftedServicePair` は release/deadline/cost だけの弱い relation として
+残し、extracted 専用 wrapper
+`ExtractedDeterministicHyperperiodShiftedServicePair` で job-id level の
+deterministic shift 関係を明示した。
+`extracted_periodic_shift_back_deadline_between_pair_deterministic` と
+`extracted_periodic_shift_forward_deadline_between_pair_deterministic` により、
+shift-back/forward の witness は deterministic job-id equality も返せる。
+さらに `extracted_periodic_deterministic_service_pair_transport` により、
+finite-horizon service shift は deterministic pair と boundary completion premise
+から target service へ接続できる形になった。
+次の局所ステップは、この boundary completion premise を first-boundary reset から
+任意 hyperperiod boundary へ反復輸送して取り除くこと。
 
 ### Phase F: representative obligation elimination
 
@@ -628,8 +637,8 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
    generated EDF one-step schedule shift は **Done**。
    generated schedule prefix shift は **Done**。
    finite-horizon generated schedule への bridge は **Done**。
-   次に job-id level deterministic shift relation を service-pair transport 側へ
-   明示し、任意 boundary への反復 transport / service shift を閉じる。
+   job-id level deterministic shift relation と extracted service-pair transport bridge は **Done**。
+   次に任意 boundary への反復 transport / boundary completion premise の除去を閉じる。
 7. final closed extracted theorem を追加する。
 8. extraction list は checker 関数だけを維持し、proof-only theorem は抽出しない。
 9. `make theories/TaskModels/Periodic/PeriodicEDFFinalCertificateChecker.vo` を通す。
