@@ -52,13 +52,26 @@ Rocq で証明された boolean checker とその soundness theorem だけに置
 - arbitrary job と bounded representative pair の関係を拾う checker として
   `check_hyperperiod_block_source_pair_in_certs` が追加済み。
 
-現時点の final theorem 群はまだ次を Prop obligation として受け取る variant を持つ。
+現時点の final theorem 群には、互換性のため次を Prop obligation として受け取る
+legacy variant が残っている。
 
 - `TransportClassRepresentativeObligation`
 - `PeriodicHyperperiodBlockServiceSourceObligation`
 - `PeriodicHyperperiodServicePairTransportObligation`
 - `PeriodicHyperperiodBoundaryResetCompletionObligation`
 - またはそれらをまとめる `PeriodicHyperperiodGeneratedSchedulePeriodicity`
+
+一方で、実装済みの generated representative 経路では
+`TransportClassRepresentativeObligation` は外部仮定から消えている。
+以後の mainline は
+`check_periodic_edf_checked_sidecar_extracted_checked_block_generated_rep_sound`
+を使う。
+
+mainline に残る Prop obligation は次。
+
+- `PeriodicHyperperiodCheckedBlockSourceNormalizationObligation`
+- `PeriodicHyperperiodServicePairTransportObligation`
+- `PeriodicHyperperiodBoundaryResetCompletionObligation`
 
 次の作業は、これらを checker と canonical periodic semantics から構成して、
 extraction-facing soundness theorem の仮定から消すこと。
@@ -188,6 +201,8 @@ Theorem extracted_periodic_checked_block_source_normalization :
 `check_hyperperiod_block_source_pair_in_certs` を
 `PeriodicHyperperiodBlockServiceSourceObligation` に接続する。
 
+Status: Done.
+
 実装順:
 
 1. `PeriodicHyperperiodCheckedBlockSourceNormalizationObligation` を追加。
@@ -280,6 +295,13 @@ Lemma checked_post_reset_bounded_pair_coverage :
 `check_hyperperiod_block_source_pair_in_certs` が `true` であることを直接示せるなら、
 membership theorem は補助に下げる。
 
+Status:
+membership と `HyperperiodShiftedServicePair` から
+`check_hyperperiod_block_source_pair_in_certs = true` を構成する
+checker completeness bridge は追加済み。
+今後は bounded `target0/x0` と certificate membership を canonical normalization
+から構成する。
+
 ### Phase D: shifted service pair construction
 
 目的:
@@ -301,6 +323,12 @@ Lemma canonical_hyperperiod_shifted_service_pair_check :
 ```
 
 ここで cost equality は canonical jobs に限定して証明する。
+
+Status:
+`HyperperiodShiftedServicePair` から
+`check_hyperperiod_shifted_service_pair = true` を構成する generic completeness
+lemma は追加済み。canonical jobs 側に残る作業は
+`HyperperiodShiftedServicePair` そのものの構成。
 
 ### Phase E: schedule-level periodic transport
 
@@ -405,10 +433,14 @@ CSV/extracted checker の `true` だけから schedulability を得る。
 
 組み立て順:
 
-1. `Hrep` を Phase F で構成。
-2. `Hsource_block` を Phase A-D で構成。
-3. `Hperiodicity` を Phase E で構成。
-4. `check_periodic_edf_checked_sidecar_extracted_periodic_sound` に渡す。
+1. Phase B-D で
+   `PeriodicHyperperiodCheckedBlockSourceNormalizationObligation` を構成する。
+2. Phase E で
+   `PeriodicHyperperiodServicePairTransportObligation` と
+   `PeriodicHyperperiodBoundaryResetCompletionObligation` を構成する。
+   可能なら `PeriodicHyperperiodGeneratedSchedulePeriodicity` から両方を導く。
+3. `check_periodic_edf_checked_sidecar_extracted_checked_block_generated_rep_sound`
+   に渡す。
 
 最終 wrapper:
 
@@ -426,11 +458,12 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
 推奨順は次。
 
 1. `checked normalization -> block-source obligation` を閉じる。
+   **Done**
 2. `TransportClassRepresentativeObligation` を generated relevant jobs 経由で消す
    extracted theorem variant を追加する。 **Done**
 3. canonical jobs の exact cost / same-task hyperperiod shift 補題を追加する。
 4. arbitrary `target/x` から bounded `target0/x0` を構成する normalization theorem を追加する。
-5. `check_hyperperiod_block_source_pair_in_certs = true` を構成する theorem を追加する。
+5. `check_hyperperiod_block_source_pair_in_certs = true` を構成する theorem を追加する。 **Done**
 6. `PeriodicHyperperiodGeneratedSchedulePeriodicity` を boundary reset と service shift に分割して証明する。
 7. final closed extracted theorem を追加する。
 8. extraction list は checker 関数だけを維持し、proof-only theorem は抽出しない。

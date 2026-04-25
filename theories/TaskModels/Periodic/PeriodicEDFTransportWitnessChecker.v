@@ -2012,6 +2012,21 @@ Proof.
   exact Hcheck.
 Qed.
 
+Lemma check_hyperperiod_delta_multiple_complete :
+  forall tasks enumT delta,
+    (exists n, delta = periodic_hyperperiod tasks enumT * n) ->
+    check_hyperperiod_delta_multiple tasks enumT delta = true.
+Proof.
+  intros tasks enumT delta [n Hdelta].
+  unfold check_hyperperiod_delta_multiple.
+  apply Nat.eqb_eq.
+  rewrite Hdelta.
+  destruct (periodic_hyperperiod tasks enumT) as [|hp] eqn:Hhp.
+  - lia.
+  - rewrite Nat.mul_comm.
+    rewrite Nat.div_mul; lia.
+Qed.
+
 Lemma check_hyperperiod_shifted_service_pair_sound :
   forall tasks enumT jobs target x target0 x0 delta,
     check_hyperperiod_shifted_service_pair
@@ -2026,6 +2041,33 @@ Proof.
                        Hx_release] Hx_deadline] Hx_cost].
   constructor.
   - eapply check_hyperperiod_delta_multiple_sound.
+    exact Hdelta.
+  - apply Nat.eqb_eq.
+    exact Htarget_release.
+  - apply Nat.eqb_eq.
+    exact Htarget_deadline.
+  - apply Nat.eqb_eq.
+    exact Hx_release.
+  - apply Nat.eqb_eq.
+    exact Hx_deadline.
+  - apply Nat.eqb_eq.
+    exact Hx_cost.
+Qed.
+
+Lemma check_hyperperiod_shifted_service_pair_complete :
+  forall tasks enumT jobs target x target0 x0 delta,
+    HyperperiodShiftedServicePair
+      tasks enumT jobs target x target0 x0 delta ->
+    check_hyperperiod_shifted_service_pair
+      tasks enumT jobs target x target0 x0 delta = true.
+Proof.
+  intros tasks enumT jobs target x target0 x0 delta Hshift.
+  destruct Hshift as [Hdelta Htarget_release Htarget_deadline
+                      Hx_release Hx_deadline Hx_cost].
+  unfold check_hyperperiod_shifted_service_pair.
+  repeat rewrite andb_true_iff.
+  repeat split.
+  - apply check_hyperperiod_delta_multiple_complete.
     exact Hdelta.
   - apply Nat.eqb_eq.
     exact Htarget_release.
@@ -2125,6 +2167,67 @@ Proof.
   split; [exact Htarget|].
   split; [exact Hx0|].
   exact Hshift.
+Qed.
+
+Lemma check_hyperperiod_block_source_pair_complete :
+  forall tasks enumT jobs target x target0 x0 target_cert p,
+    target_cert.(window_transport_target_job) = target0 ->
+    p.(window_target_earlier_job) = x0 ->
+    HyperperiodShiftedServicePair
+      tasks enumT jobs target x target0 x0 p.(window_transport_delta) ->
+    check_hyperperiod_block_source_pair
+      tasks enumT jobs target x target0 x0 target_cert p = true.
+Proof.
+  intros tasks enumT jobs target x target0 x0 target_cert p
+         Htarget Hx0 Hshift.
+  unfold check_hyperperiod_block_source_pair.
+  repeat rewrite andb_true_iff.
+  repeat split.
+  - apply Nat.eqb_eq.
+    exact Htarget.
+  - apply Nat.eqb_eq.
+    exact Hx0.
+  - apply check_hyperperiod_shifted_service_pair_complete.
+    exact Hshift.
+Qed.
+
+Lemma check_hyperperiod_block_source_pair_in_cert_complete :
+  forall tasks enumT jobs target x target0 x0 target_cert p,
+    In p target_cert.(window_transport_pairs) ->
+    target_cert.(window_transport_target_job) = target0 ->
+    p.(window_target_earlier_job) = x0 ->
+    HyperperiodShiftedServicePair
+      tasks enumT jobs target x target0 x0 p.(window_transport_delta) ->
+    check_hyperperiod_block_source_pair_in_cert
+      tasks enumT jobs target x target0 x0 target_cert = true.
+Proof.
+  intros tasks enumT jobs target x target0 x0 target_cert p
+         Hin Htarget Hx0 Hshift.
+  unfold check_hyperperiod_block_source_pair_in_cert.
+  apply existsb_exists.
+  exists p.
+  split; [exact Hin|].
+  eapply check_hyperperiod_block_source_pair_complete; eauto.
+Qed.
+
+Lemma check_hyperperiod_block_source_pair_in_certs_complete :
+  forall tasks enumT jobs target x target0 x0 target_certs target_cert p,
+    In target_cert target_certs ->
+    In p target_cert.(window_transport_pairs) ->
+    target_cert.(window_transport_target_job) = target0 ->
+    p.(window_target_earlier_job) = x0 ->
+    HyperperiodShiftedServicePair
+      tasks enumT jobs target x target0 x0 p.(window_transport_delta) ->
+    check_hyperperiod_block_source_pair_in_certs
+      tasks enumT jobs target x target0 x0 target_certs = true.
+Proof.
+  intros tasks enumT jobs target x target0 x0 target_certs target_cert p
+         Hin_cert Hin_pair Htarget Hx0 Hshift.
+  unfold check_hyperperiod_block_source_pair_in_certs.
+  apply existsb_exists.
+  exists target_cert.
+  split; [exact Hin_cert|].
+  eapply check_hyperperiod_block_source_pair_in_cert_complete; eauto.
 Qed.
 
 Lemma check_hyperperiod_block_source_pair_in_certs_sound :
@@ -2293,6 +2396,74 @@ Record PeriodicHyperperiodCheckedBlockSourceNormalizationObligation
         check_hyperperiod_block_source_pair_in_certs
           tasks enumT jobs target x target0 x0 target_certs = true
 }.
+
+Lemma periodic_hyperperiod_checked_block_source_normalization_of_certified_pairs :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         target_certs,
+    (forall target x,
+      periodic_jobset T tasks offset jobs target ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
+      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
+      (exists boundary delta,
+        periodic_hyperperiod tasks enumT <= boundary
+        /\
+        (exists n, delta = periodic_hyperperiod tasks enumT * n)
+        /\
+        boundary = periodic_hyperperiod tasks enumT + delta
+        /\
+        boundary <= job_release (jobs target)
+        /\
+        job_release (jobs x) < boundary)
+      \/
+      exists target0 x0 target_cert p,
+        periodic_jobset T tasks offset jobs target0
+        /\
+        job_release (jobs target0) <
+          post_reset_target_candidate_horizon tasks enumT
+        /\
+        periodic_jobset_deadline_between
+          T tasks offset jobs 0 (job_abs_deadline (jobs target0)) x0
+        /\
+        job_release (jobs x0) < job_release (jobs target0)
+        /\
+        In target_cert target_certs
+        /\
+        target_cert.(window_transport_target_job) = target0
+        /\
+        In p target_cert.(window_transport_pairs)
+        /\
+        p.(window_target_earlier_job) = x0
+        /\
+        HyperperiodShiftedServicePair
+          tasks enumT jobs target x target0 x0 p.(window_transport_delta)) ->
+    PeriodicHyperperiodCheckedBlockSourceNormalizationObligation
+      T tasks offset jobs enumT codec target_certs.
+Proof.
+  intros T tasks offset jobs enumT codec target_certs Hnormalize.
+  constructor.
+  intros target x Htarget Hbetween Hrelease_before_target Hpost_reset_case.
+  destruct
+    (Hnormalize target x Htarget Hbetween
+       Hrelease_before_target Hpost_reset_case)
+    as [Hreset | Hpair].
+  - left.
+    exact Hreset.
+  - right.
+    destruct Hpair as [target0 [x0 [target_cert [p Hpair]]]].
+    destruct Hpair as [Htarget0 [Htarget0_horizon [Hbetween0
+                         [Hrelease0 [Hin_cert [Htarget_cert
+                         [Hin_pair [Hx0 Hshift]]]]]]]].
+    exists target0, x0.
+    split; [exact Htarget0|].
+    split; [exact Htarget0_horizon|].
+    split; [exact Hbetween0|].
+    split; [exact Hrelease0|].
+    eapply check_hyperperiod_block_source_pair_in_certs_complete; eauto.
+Qed.
 
 Inductive PeriodicHyperperiodBlockServiceSource
     (T : TaskId -> Prop)
