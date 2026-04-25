@@ -34,6 +34,7 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   check_transport_classes_rep_periodic_generated
   check_periodic_hyperperiod_state_reset
   check_transport_period_is_hyperperiod
+  check_prefix_horizon_covers_hyperperiod
   check_window_transport_targets_complete
   check_window_transport_targets_complete_with_pairs
   window_target_relevant_earlier_jobs

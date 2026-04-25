@@ -22,6 +22,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportCoverageChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransport.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransportChecker.
+From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
@@ -1008,6 +1009,96 @@ Record PeriodicResidueWindowTransportLiftObligation
            (S (job_abs_deadline (jobs target))) enumT codec)
         target
 }.
+
+Lemma periodic_residue_target_hyperperiod_multiple :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         (transport_cert : EDFTransportCert JobId) residue target q,
+    transport_cert.(transport_period) = periodic_hyperperiod tasks enumT ->
+    periodic_jobset T tasks offset jobs residue ->
+    transport_rep_to_target_job
+      T tasks offset jobs codec residue target
+      transport_cert.(transport_period) q ->
+    (exists n,
+      job_release (jobs target) =
+      job_release (jobs residue) + periodic_hyperperiod tasks enumT * n)
+    /\
+    (exists n,
+      job_abs_deadline (jobs target) =
+      job_abs_deadline (jobs residue) + periodic_hyperperiod tasks enumT * n).
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert residue target q
+         Hperiod_eq Hresidue Htarget.
+  rewrite Hperiod_eq in Htarget.
+  split.
+  - eapply codec_transport_target_release_hyperperiod_multiple.
+    + exact (proj1 Hresidue).
+    + exact (proj2 Hresidue).
+    + exact Htarget.
+  - eapply codec_transport_target_deadline_hyperperiod_multiple.
+    + exact (proj1 Hresidue).
+    + exact (proj2 Hresidue).
+    + exact Htarget.
+Qed.
+
+(** The remaining schedule-level fact needed after the boolean checker has
+    fixed the transport period to the hyperperiod.  The checker and transport
+    algebra establish the residue decomposition and the release/deadline
+    arithmetic; this obligation isolates only the generated-EDF fact that a
+    backlog-free representative window can be shifted along the same
+    hyperperiod phase. *)
+Record PeriodicHyperperiodBacklogTransportObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId) : Prop := {
+  periodic_hyperperiod_backlog_transport :
+    forall residue target q,
+      transport_cert.(transport_period) = periodic_hyperperiod tasks enumT ->
+      periodic_jobset T tasks offset jobs target ->
+      transport_rep_to_target_job
+        T tasks offset jobs codec residue target
+        transport_cert.(transport_period) q ->
+      periodic_edf_backlog_free_before_release
+        T tasks offset jobs
+        (S (job_abs_deadline (jobs residue)))
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs residue))) enumT codec)
+        residue ->
+      periodic_edf_backlog_free_before_release
+        T tasks offset jobs
+        (S (job_abs_deadline (jobs target)))
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs target))) enumT codec)
+        target
+}.
+
+Lemma periodic_residue_window_transport_lift_of_hyperperiod_backlog_transport :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert,
+    transport_cert.(transport_period) = periodic_hyperperiod tasks enumT ->
+    PeriodicHyperperiodBacklogTransportObligation
+      T tasks offset jobs enumT codec transport_cert ->
+    PeriodicResidueWindowTransportLiftObligation
+      T tasks offset jobs enumT codec transport_cert.
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert
+         Hperiod_eq Hhyper_transport.
+  constructor.
+  intros residue target q Htarget Htransport Hresidue_backlog.
+  eapply periodic_hyperperiod_backlog_transport.
+  - exact Hhyper_transport.
+  - exact Hperiod_eq.
+  - exact Htarget.
+  - exact Htransport.
+  - exact Hresidue_backlog.
+Qed.
 
 Theorem checked_transport_class_rep_backlog_sound :
   forall T tasks offset jobs enumT

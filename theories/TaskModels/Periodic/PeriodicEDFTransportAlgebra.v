@@ -7,6 +7,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFCertificate.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFGeneratedPrefixChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFNoCarryInSupply.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportChecker.
+From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 
@@ -307,6 +308,54 @@ Proof.
   destruct Hrep_gen as [Hrel [Hdeadline Hcost]].
   rewrite Hdeadline.
   apply expected_deadline_shift.
+Qed.
+
+Lemma codec_transport_target_release_hyperperiod_multiple :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         rep target q,
+    T (job_task (jobs rep)) ->
+    generated_by_periodic_task tasks offset jobs rep ->
+    transport_rep_to_target_job
+      T tasks offset jobs codec rep target
+      (periodic_hyperperiod tasks enumT) q ->
+    exists n,
+      job_release (jobs target) =
+      job_release (jobs rep) + periodic_hyperperiod tasks enumT * n.
+Proof.
+  intros T tasks offset jobs enumT codec rep target q
+         HrepT Hrep_gen Htarget.
+  exists (q * task_period (tasks (job_task (jobs rep)))).
+  rewrite
+    (codec_transport_target_release_shift
+       T tasks offset jobs codec rep target
+       (periodic_hyperperiod tasks enumT) q
+       HrepT Hrep_gen Htarget).
+  lia.
+Qed.
+
+Lemma codec_transport_target_deadline_hyperperiod_multiple :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         rep target q,
+    T (job_task (jobs rep)) ->
+    generated_by_periodic_task tasks offset jobs rep ->
+    transport_rep_to_target_job
+      T tasks offset jobs codec rep target
+      (periodic_hyperperiod tasks enumT) q ->
+    exists n,
+      job_abs_deadline (jobs target) =
+      job_abs_deadline (jobs rep) + periodic_hyperperiod tasks enumT * n.
+Proof.
+  intros T tasks offset jobs enumT codec rep target q
+         HrepT Hrep_gen Htarget.
+  exists (q * task_period (tasks (job_task (jobs rep)))).
+  rewrite
+    (codec_transport_target_deadline_shift
+       T tasks offset jobs codec rep target
+       (periodic_hyperperiod tasks enumT) q
+       HrepT Hrep_gen Htarget).
+  lia.
 Qed.
 
 Lemma transport_window_algebra_sound :
