@@ -777,6 +777,100 @@ Proof.
     + exact Hrelease.
 Qed.
 
+Lemma check_periodic_edf_checked_sidecar_bounded_post_reset_coverage :
+  forall ts
+         (codec :
+          PeriodicCodec
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts))
+         cert sidecar,
+    check_periodic_edf_checked_sidecar ts codec cert sidecar = true ->
+    BoundedPostResetWindowTargetCoverageObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec
+      sidecar.(checked_post_reset_window_target_certs).
+Proof.
+  intros ts codec cert sidecar Hcheck.
+  destruct
+    (check_periodic_edf_checked_sidecar_fields
+       ts codec cert sidecar Hcheck)
+    as (_ & _ & _ & _ & _ & _
+        & Htransport_check & _ & _ & _ & _ & _ & _
+        & _ & _ & _
+        & Hpost_reset_window_check & Hpost_reset_basis_check
+        & Hpost_reset_list_check & _).
+  assert (Hpost_window_pairs :
+    check_window_transport_targets_complete_with_pairs
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec
+      cert.(cert_transport)
+      sidecar.(checked_post_reset_window_target_certs) = true).
+  {
+    unfold check_post_reset_window_targets_complete_with_pairs
+      in Hpost_reset_window_check.
+    repeat rewrite andb_true_iff in Hpost_reset_window_check.
+    tauto.
+  }
+  pose proof
+    (bounded_post_reset_window_target_candidate_coverage_of_generated_jobs
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec
+       (extracted_tasks_well_formed_on_enum
+          ts (check_periodic_edf_checked_sidecar_wf ts codec cert sidecar Hcheck))
+       (extracted_enum_complete ts)) as Hcandidate_coverage.
+  pose proof
+    (bounded_post_reset_window_target_list_coverage_of_checked_candidates
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec
+       (post_reset_window_target_jobs
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          (extracted_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          codec)
+       sidecar.(checked_post_reset_window_target_certs)
+       Hpost_reset_list_check
+       Hcandidate_coverage) as Hlist_coverage.
+  pose proof
+    (bounded_post_reset_window_target_basis_coverage_of_checked_targets
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec
+       cert.(cert_transport)
+       sidecar.(checked_post_reset_window_target_certs)
+       Htransport_check
+       Hpost_reset_basis_check
+       Hlist_coverage) as Hbasis_coverage.
+  eapply bounded_post_reset_window_target_coverage_of_checked_basis.
+  - apply extracted_tasks_well_formed_on_enum.
+    eapply check_periodic_edf_checked_sidecar_wf; eauto.
+  - apply extracted_enum_complete.
+  - exact Hpost_window_pairs.
+  - exact Hbasis_coverage.
+Qed.
+
 Theorem check_periodic_edf_checked_sidecar_sound :
   forall ts
          (codec :

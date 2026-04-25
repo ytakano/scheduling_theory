@@ -1488,16 +1488,16 @@ check_transport_classes_rep_backlog_generated tasks offset jobs enumT codec pref
       (check_transport_classes_rep_backlog_generated tasks offset jobs enumT
         codec prefix_cert classes')}
 
-post_reset_window_targets_of_certs :: (List EDFWindowTransportTargetCert) ->
-                                      List JobId
-post_reset_window_targets_of_certs target_certs =
-  map window_transport_target_job target_certs
-
 post_reset_target_candidate_horizon :: (TaskId -> Task) -> (List TaskId) ->
                                        Time
 post_reset_target_candidate_horizon tasks enumT =
   add (mul (S (S O)) (periodic_hyperperiod tasks enumT))
     (periodic_max_relative_deadline tasks enumT)
+
+post_reset_window_targets_of_certs :: (List EDFWindowTransportTargetCert) ->
+                                      List JobId
+post_reset_window_targets_of_certs target_certs =
+  map window_transport_target_job target_certs
 
 post_reset_window_target_jobs :: (TaskId -> Task) -> (TaskId -> Time) ->
                                  (JobId -> Job) -> (List TaskId) ->
