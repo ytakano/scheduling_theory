@@ -155,6 +155,29 @@ Proof.
   exact Hcompleted_slots.
 Qed.
 
+(** [transport_period] is an index shift, not a time shift.  Matching it to
+    the time hyperperiod is a conservative common shift: for each task, one
+    transport step advances time by a multiple of the hyperperiod. *)
+Definition check_transport_period_is_hyperperiod
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (transport_cert : EDFTransportCert JobId) : bool :=
+  Nat.eqb
+    transport_cert.(transport_period)
+    (periodic_hyperperiod tasks enumT).
+
+Theorem check_transport_period_is_hyperperiod_sound :
+  forall tasks enumT transport_cert,
+    check_transport_period_is_hyperperiod
+      tasks enumT transport_cert = true ->
+    transport_cert.(transport_period) =
+      periodic_hyperperiod tasks enumT.
+Proof.
+  intros tasks enumT transport_cert Hcheck.
+  unfold check_transport_period_is_hyperperiod in Hcheck.
+  now apply Nat.eqb_eq in Hcheck.
+Qed.
+
 Definition check_periodic_edf_checked_sidecar
     (ts : list ExtractedPeriodicTask)
     (codec :
@@ -187,6 +210,10 @@ Definition check_periodic_edf_checked_sidecar
        (periodic_hyperperiod
           (extracted_periodic_tasks ts)
           (enumT_of_extracted_list ts))
+  && check_transport_period_is_hyperperiod
+       (extracted_periodic_tasks ts)
+       (enumT_of_extracted_list ts)
+       cert.(cert_transport)
   && check_transport_cert cert.(cert_transport)
   && check_transport_basis_nodup cert.(cert_transport)
   && check_transport_classes_rep_backlog
@@ -292,6 +319,11 @@ Lemma check_periodic_edf_checked_sidecar_fields :
          (extracted_periodic_tasks ts)
          (enumT_of_extracted_list ts)) = true
     /\
+    cert.(cert_transport).(transport_period) =
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts)
+        (enumT_of_extracted_list ts)
+    /\
     check_transport_cert cert.(cert_transport) = true
     /\
     check_transport_basis_nodup cert.(cert_transport) = true
@@ -368,12 +400,14 @@ Proof.
   unfold check_periodic_edf_checked_sidecar in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
   destruct Hcheck as
-    [[[[[[[[[[[[[Hprefix Hfast] Hreset] Htransport] Hbasis_nodup] Hrep]
-        Hrep_generated] Hrep_periodic] Hcoverage] Hshifts]
-        Hwindow] Hpair_semantics] Hpair_completion] Hdec].
+    [[[[[[[[[[[[[[Hprefix Hfast] Hreset] Hperiod_eq] Htransport]
+        Hbasis_nodup] Hrep] Hrep_generated] Hrep_periodic] Hcoverage]
+        Hshifts] Hwindow] Hpair_semantics] Hpair_completion] Hdec].
   repeat split; try assumption.
-  eapply check_prefix_slots_match_generated_edf_fast_sound.
-  exact Hfast.
+  - eapply check_prefix_slots_match_generated_edf_fast_sound.
+    exact Hfast.
+  - eapply check_transport_period_is_hyperperiod_sound.
+    exact Hperiod_eq.
 Qed.
 
 Lemma check_periodic_edf_checked_sidecar_wf :
@@ -392,7 +426,7 @@ Proof.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
-    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
+    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
   unfold edf_schedulability_decide in Hdec.
   apply andb_true_iff in Hdec.
   exact (proj1 Hdec).
@@ -410,6 +444,50 @@ Proof.
   unfold check_periodic_edf_checked_sidecar_extracted in Hcheck.
   apply andb_true_iff in Hcheck.
   exact Hcheck.
+Qed.
+
+Lemma check_periodic_edf_checked_sidecar_hyperperiod_facts :
+  forall ts
+         (codec :
+          PeriodicCodec
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts))
+         cert sidecar,
+    check_periodic_edf_checked_sidecar ts codec cert sidecar = true ->
+    periodic_hyperperiod_state_reset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec
+      cert.(cert_prefix)
+      (periodic_hyperperiod
+         (extracted_periodic_tasks ts)
+         (enumT_of_extracted_list ts))
+    /\
+    cert.(cert_transport).(transport_period) =
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts)
+        (enumT_of_extracted_list ts).
+Proof.
+  intros ts codec cert sidecar Hcheck.
+  destruct
+    (check_periodic_edf_checked_sidecar_fields
+       ts codec cert sidecar Hcheck)
+    as (_ & Hmatch & Hreset_check & Hperiod_eq
+        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
+  split.
+  - eapply check_periodic_hyperperiod_state_reset_sound.
+    + apply extracted_tasks_well_formed_on_enum.
+      eapply check_periodic_edf_checked_sidecar_wf; eauto.
+    + apply extracted_enum_complete.
+    + apply extracted_enum_sound.
+    + exact Hmatch.
+    + exact Hreset_check.
+  - exact Hperiod_eq.
 Qed.
 
 Theorem check_periodic_edf_checked_sidecar_sound :
@@ -461,10 +539,14 @@ Proof.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
-    as (_ & _ & _ & Htransport_check & Hbasis_nodup_check & Hrep_check
+    as (_ & Hmatch & Hreset_check & Hperiod_eq
+        & Htransport_check & Hbasis_nodup_check & Hrep_check
         & Hrep_generated_check & Hrep_periodic_check
         & Hresidue_check & Hshift_check
         & Hwindow_check & Hpair_semantics & Hpair_completion & Hdec).
+  pose proof
+    (check_periodic_edf_checked_sidecar_hyperperiod_facts
+       ts codec cert sidecar Hcheck) as _Hhyperperiod_facts.
   eapply periodic_edf_schedulable_by_classical_dbf_with_periodic_transport_generated_checks.
   - apply extracted_tasks_well_formed_on_enum.
     eapply check_periodic_edf_checked_sidecar_wf; eauto.
