@@ -261,6 +261,16 @@ generic `PeriodicCodec` だけでは job id を明示構成しにくい。
 extracted/canonical jobs では `encode_job_id_from_enumT` と
 `decode_job_id_from_enumT` を使えるため、ここで閉じる。
 
+Status:
+`hyperperiod_block_no_boundary_same_delta`、
+`extracted_periodic_shift_back_job_by_hyperperiod`、
+`extracted_periodic_shift_back_deadline_between_pair` を追加済み。
+これにより no-boundary same-block case では、bounded `target0/x0`、
+post-reset horizon、deadline-between、release order、
+`HyperperiodShiftedServicePair` まで構成できる。
+残る作業は、この bounded pair を既存 post-reset certificate coverage と
+`check_hyperperiod_block_source_pair_in_certs` に接続すること。
+
 ### Phase C: bounded pair coverage by existing post-reset checkers
 
 目的:
@@ -466,8 +476,8 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
    **Done**
 2. `TransportClassRepresentativeObligation` を generated relevant jobs 経由で消す
    extracted theorem variant を追加する。 **Done**
-3. canonical jobs の exact cost / same-task hyperperiod shift 補題を追加する。 **Partial**
-4. arbitrary `target/x` から bounded `target0/x0` を構成する normalization theorem を追加する。
+3. canonical jobs の exact cost / same-task hyperperiod shift 補題を追加する。 **Done**
+4. arbitrary `target/x` から bounded `target0/x0` を構成する normalization theorem を追加する。 **Partial**
 5. `check_hyperperiod_block_source_pair_in_certs = true` を構成する theorem を追加する。 **Done**
 6. `PeriodicHyperperiodGeneratedSchedulePeriodicity` を boundary reset と service shift に分割して証明する。
 7. final closed extracted theorem を追加する。
