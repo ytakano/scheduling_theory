@@ -63,15 +63,26 @@ legacy variant が残っている。
 
 一方で、実装済みの generated representative 経路では
 `TransportClassRepresentativeObligation` は外部仮定から消えている。
-以後の mainline は
+当初 mainline は
 `check_periodic_edf_checked_sidecar_extracted_checked_block_generated_rep_sound`
-を使う。
+を使う予定だったが、checked block-source normalization は
+finite certificate 内の concrete delta と arbitrary job の hyperperiod delta を
+一致させる必要があり、無限時刻の arbitrary jobs には過剰に強い。
+
+以後の mainline は、bounded `target0/x0` の certificate membership は checker から得て、
+arbitrary `target/x` との shift delta は canonical periodic semantics から Prop として
+構成する。つまり final assembly では checked block-source normalization ではなく、
+`PeriodicHyperperiodBlockServiceSourceObligation` を extracted/canonical theorem で閉じる
+generated representative variant を使う。
 
 mainline に残る Prop obligation は次。
 
-- `PeriodicHyperperiodCheckedBlockSourceNormalizationObligation`
 - `PeriodicHyperperiodServicePairTransportObligation`
 - `PeriodicHyperperiodBoundaryResetCompletionObligation`
+
+`PeriodicHyperperiodBlockServiceSourceObligation` は
+`check_periodic_edf_checked_sidecar_extracted_block_service_source_obligation`
+で checker と canonical periodic semantics から構成済み。
 
 次の作業は、これらを checker と canonical periodic semantics から構成して、
 extraction-facing soundness theorem の仮定から消すこと。
@@ -308,9 +319,21 @@ membership theorem は補助に下げる。
 Status:
 membership と `HyperperiodShiftedServicePair` から
 `check_hyperperiod_block_source_pair_in_certs = true` を構成する
-checker completeness bridge は追加済み。
-今後は bounded `target0/x0` と certificate membership を canonical normalization
-から構成する。
+checker completeness bridge は追加済みだが、これは finite concrete witness 用の補助に下げる。
+
+bounded `target0/x0` と certificate membership は既存
+`BoundedPostResetWindowTargetCoverageObligation` から構成できる。
+arbitrary `target/x` から bounded `target0/x0` への hyperperiod delta は
+certificate から復元せず、`extracted_periodic_shift_back_deadline_between_pair`
+で canonical semantics から構成する。
+
+計画修正:
+最終 normalization は
+`PeriodicHyperperiodCheckedBlockSourceNormalizationObligation` ではなく
+`PeriodicHyperperiodBlockServiceSourceObligation` を直接構成する。
+理由は、checked normalization record が `p.(window_transport_delta)` と
+arbitrary job の hyperperiod delta の一致を要求するため、有限 certificate では
+無限時刻の arbitrary jobs を自然に覆えないからである。
 
 ### Phase D: shifted service pair construction
 
@@ -342,8 +365,10 @@ lemma は追加済み。canonical jobs 側に残る作業は
 その後、canonical job の exact cost と、
 codec transport relation から `HyperperiodShiftedServicePair` を構成する
 extracted 専用 bridge も追加済み。
-残る作業は arbitrary `target/x` から、この bridge に渡せる
-bounded `target0/x0` と index shift relation を構成すること。
+arbitrary `target/x` から、この bridge に渡せる bounded `target0/x0` と
+index shift relation を構成する補題も追加済み。
+`BoundedPostResetWindowTargetCoverageObligation` の membership と組み合わせて
+`PeriodicHyperperiodBlockServiceSourceObligation` にする theorem は追加済み。
 
 ### Phase E: schedule-level periodic transport
 
@@ -449,13 +474,14 @@ CSV/extracted checker の `true` だけから schedulability を得る。
 組み立て順:
 
 1. Phase B-D で
-   `PeriodicHyperperiodCheckedBlockSourceNormalizationObligation` を構成する。
+   `PeriodicHyperperiodBlockServiceSourceObligation` を構成する。 **Done**
 2. Phase E で
    `PeriodicHyperperiodServicePairTransportObligation` と
    `PeriodicHyperperiodBoundaryResetCompletionObligation` を構成する。
    可能なら `PeriodicHyperperiodGeneratedSchedulePeriodicity` から両方を導く。
-3. `check_periodic_edf_checked_sidecar_extracted_checked_block_generated_rep_sound`
-   に渡す。
+3. generated representative 経路で
+   `PeriodicHyperperiodBlockServiceSourceObligation` を受け取る final theorem variant
+   を追加し、それに渡す。
 
 最終 wrapper:
 
@@ -478,7 +504,10 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
    extracted theorem variant を追加する。 **Done**
 3. canonical jobs の exact cost / same-task hyperperiod shift 補題を追加する。 **Done**
 4. arbitrary `target/x` から bounded `target0/x0` を構成する normalization theorem を追加する。 **Partial**
-5. `check_hyperperiod_block_source_pair_in_certs = true` を構成する theorem を追加する。 **Done**
+5. bounded `target0/x0` membership と canonical shift から
+   `PeriodicHyperperiodBlockServiceSourceObligation` を構成する。 **Done**
+   `check_hyperperiod_block_source_pair_in_certs = true` は finite concrete witness 用の
+   補助に下げ、mainline では要求しない。
 6. `PeriodicHyperperiodGeneratedSchedulePeriodicity` を boundary reset と service shift に分割して証明する。
 7. final closed extracted theorem を追加する。
 8. extraction list は checker 関数だけを維持し、proof-only theorem は抽出しない。
