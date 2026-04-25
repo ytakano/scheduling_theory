@@ -420,6 +420,12 @@ first hyperperiod 境界の reset completion は
 `check_periodic_hyperperiod_state_reset`、prefix/generated agreement、
 `periodic_hyperperiod_state_reset_completed_in_schedule_upto` から構成される。
 
+canonical extracted jobs について、hyperperiod 分だけ未来へ送る witness は
+`extracted_periodic_shift_forward_job_by_hyperperiod` と
+`extracted_periodic_shift_forward_deadline_between_pair` として追加済み。
+また、shift 後 job が shift 後時刻の finite candidate enumeration に入ることは
+`extracted_periodic_shift_forward_candidate_before` で証明済み。
+
 残る本質的な作業は、first-boundary reset を任意 hyperperiod boundary へ
 反復輸送する schedule-level shift theorem と、その同じ shift theorem で
 representative window service を target window service へ運ぶ theorem を証明すること。
@@ -524,6 +530,7 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
    補助に下げ、mainline では要求しない。
 6. `PeriodicHyperperiodGeneratedSchedulePeriodicity` を boundary reset と service shift に分割して証明する。
    first-boundary reset completion の theorem 化は **Done**。
+   forward job/pair/candidate enumeration shift は **Done**。
    任意 boundary への反復 transport と service shift は **Next**。
 7. final closed extracted theorem を追加する。
 8. extraction list は checker 関数だけを維持し、proof-only theorem は抽出しない。
