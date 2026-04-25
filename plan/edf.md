@@ -453,8 +453,13 @@ canonical extracted jobs について、hyperperiod 分だけ未来へ送る wit
 `extracted_periodic_shift_forward_deadline_between_pair` として追加済み。
 また、shift 後 job が shift 後時刻の finite candidate enumeration に入ることは
 `extracted_periodic_shift_forward_candidate_before` で証明済み。
-これは membership bridge であり、EDF tie-break を保つ order-preserving enumeration
-shift は未完了。
+これは membership bridge であり、EDF tie-break を保つには不十分だった。
+その後、release-window filtered target candidates が source candidates の
+deterministic hyperperiod shift と順序付きで一致すること、およびその上で
+`choose_edf` が transport されることまで証明済み。
+残る candidate 側の差分は、unfiltered target prefix に含まれる
+`[0, hp*n)` の old candidates を no-carry-in / boundary reset から
+ineligible として消す部分である。
 
 追加済みの中間補題:
 
@@ -485,16 +490,21 @@ shift は未完了。
   `extracted_periodic_shift_forward_candidate_window_eq` を追加済み。
   これにより、window-filtered target candidates 上の `choose_edf` を直接運ぶ
   `extracted_periodic_choose_edf_shift_forward_window` まで接続済み。
+- boundary no-carry-in 仮定から `[0, hp*n)` の old candidates を
+  target 時刻 `hp*n+t` で ineligible として消す
+  `extracted_periodic_choose_edf_prune_old_candidates` を追加済み。
+  これにより、unfiltered target prefix candidates 上の `choose_edf` を source 側
+  `choose_edf` result の deterministic shift へ運ぶ
+  `extracted_periodic_choose_edf_shift_forward_unfiltered` まで接続済み。
 
 残る本質的な作業は、first-boundary reset を任意 hyperperiod boundary へ
 反復輸送する schedule-level shift theorem と、その同じ shift theorem で
 representative window service を target window service へ運ぶ theorem を証明すること。
 DBF だけでは任意 boundary reset completion は出ないため、generated EDF schedule の
 hyperperiod shift invariance を別 lemma として立てる必要がある。
-次の局所ステップは、target prefix に含まれる `[0, hp*n)` の old candidates を
-no-carry-in / boundary reset から ineligible として消し、
-window-filtered target candidates の `choose_edf` wrapper を unfiltered generated EDF
-step に接続すること。
+次の局所ステップは、unfiltered `choose_edf` shift を
+`generated_schedule_prefix` の 1 step unfolding に接続し、その後 prefix induction に
+持ち上げること。
 
 ### Phase F: representative obligation elimination
 
@@ -587,16 +597,20 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
 2. `TransportClassRepresentativeObligation` を generated relevant jobs 経由で消す
    extracted theorem variant を追加する。 **Done**
 3. canonical jobs の exact cost / same-task hyperperiod shift 補題を追加する。 **Done**
-4. arbitrary `target/x` から bounded `target0/x0` を構成する normalization theorem を追加する。 **Partial**
+4. arbitrary `target/x` から bounded `target0/x0` を構成する normalization theorem を追加する。
+   **Done for mainline**
+   checked normalization record 経由は互換性用の側路として残し、mainline では
+   `PeriodicHyperperiodBlockServiceSourceObligation` を直接構成する。
 5. bounded `target0/x0` membership と canonical shift から
    `PeriodicHyperperiodBlockServiceSourceObligation` を構成する。 **Done**
    `check_hyperperiod_block_source_pair_in_certs = true` は finite concrete witness 用の
    補助に下げ、mainline では要求しない。
 6. `PeriodicHyperperiodGeneratedSchedulePeriodicity` を boundary reset と service shift に分割して証明する。
    first-boundary reset completion の theorem 化は **Done**。
-   forward job/pair shift と candidate membership shift は **Done**。
-   order-preserving candidate enumeration shift、eligible/filter shift、
-   `choose_edf` shift、generated schedule prefix shift は **Next**。
+   forward job/pair shift、candidate membership shift、eligible/metric 保存、
+   order-preserving candidate window shift、window-filtered `choose_edf` shift は **Done**。
+   old-candidate ineligible pruning と unfiltered `choose_edf` shift は **Done**。
+   generated EDF one-step schedule shift と generated schedule prefix shift は **Next**。
    その後、任意 boundary への反復 transport と service shift を閉じる。
 7. final closed extracted theorem を追加する。
 8. extraction list は checker 関数だけを維持し、proof-only theorem は抽出しない。
@@ -630,7 +644,9 @@ Rust 側に要求しないこと:
   extracted/canonical job model にまず固定する必要がある。
 - EDF は同一 deadline の tie-break を candidate list order で解くため、
   candidate membership の対応だけでは generated schedule periodicity を証明できない。
-  task order と job-index order を保つ enumeration shift が必要である。
+  task order と job-index order を保つ release-window enumeration shift は証明済みだが、
+  generated schedule prefix induction へ接続するには、one-step unfolding と service equality
+  invariant の設計がまだ必要である。
 - generated schedule periodicity theorem が閉じない場合、state-reset checker だけでは
   service-pair transport を補いきれない可能性がある。この場合は service shift を
   certificate obligation として一段残す。

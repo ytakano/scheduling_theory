@@ -1637,6 +1637,222 @@ Proof.
   - exact Hservice.
 Qed.
 
+Lemma extracted_periodic_old_candidate_not_eligible_after_boundary :
+  forall ts n sched t j,
+    let jobs := extracted_periodic_jobs ts in
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    job_release (jobs j) < hp * n ->
+    completed jobs 1 sched j (hp * n) ->
+    ~ eligible jobs 1 sched j (t + hp * n).
+Proof.
+  intros ts n sched t j jobs hp Hrelease Hcompleted.
+  eapply completed_not_eligible.
+  eapply completed_monotone with (t1 := hp * n).
+  - lia.
+  - exact Hcompleted.
+Qed.
+
+Lemma extracted_periodic_target_prefix_keep_false_old :
+  forall ts n t j,
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    In j
+      (enum_periodic_jobs_before
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         (extracted_periodic_jobs ts)
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts)
+         (hp * n + S t)) ->
+    (Nat.leb (hp * n) (job_release (extracted_periodic_jobs ts j))
+     && Nat.ltb
+          (job_release (extracted_periodic_jobs ts j))
+          (hp * n + S t)) = false ->
+    job_release (extracted_periodic_jobs ts j) < hp * n.
+Proof.
+  intros ts n t j hp Hin Hkeep.
+  pose proof
+    (proj2
+       (enum_periodic_jobs_before_sound
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          (extracted_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          (extracted_periodic_codec ts)
+          (extracted_enum_sound ts)
+          (hp * n + S t)
+          j
+          Hin)) as Hrelease_before.
+  assert (Hupper :
+    (job_release (extracted_periodic_jobs ts j) <? hp * n + S t) = true).
+  {
+    apply Nat.ltb_lt.
+    exact Hrelease_before.
+  }
+  rewrite Hupper in Hkeep.
+  destruct (hp * n <=? job_release (extracted_periodic_jobs ts j)) eqn:Hlower.
+  - discriminate.
+  - apply Nat.leb_gt.
+    exact Hlower.
+Qed.
+
+Lemma extracted_periodic_choose_edf_prune_old_candidates :
+  forall ts n sched t,
+    (forall j,
+      In j
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           (extracted_periodic_jobs ts)
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (periodic_hyperperiod
+              (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n +
+            S t)) ->
+      job_release (extracted_periodic_jobs ts j) <
+        periodic_hyperperiod
+          (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n ->
+      completed (extracted_periodic_jobs ts) 1 sched j
+        (periodic_hyperperiod
+           (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n)) ->
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    choose_edf (extracted_periodic_jobs ts) 1 sched
+      (t + hp * n)
+      (enum_periodic_jobs_before
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         (extracted_periodic_jobs ts)
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts)
+         (hp * n + S t)) =
+    choose_edf (extracted_periodic_jobs ts) 1 sched
+      (t + hp * n)
+      (filter
+         (fun j =>
+            Nat.leb (hp * n) (job_release (extracted_periodic_jobs ts j))
+            && Nat.ltb
+                 (job_release (extracted_periodic_jobs ts j))
+                 (hp * n + S t))
+         (enum_periodic_jobs_before
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts)
+            (enumT_of_extracted_list ts)
+            (extracted_periodic_codec ts)
+            (hp * n + S t))).
+Proof.
+  intros ts n sched t Hcompleted_old hp.
+  subst hp.
+  rewrite choose_edf_filter_ineligible
+    with
+      (keep :=
+         fun j =>
+           Nat.leb
+             (periodic_hyperperiod
+                (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n)
+             (job_release (extracted_periodic_jobs ts j))
+           && Nat.ltb
+                (job_release (extracted_periodic_jobs ts j))
+                (periodic_hyperperiod
+                   (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n +
+                 S t)).
+  - reflexivity.
+  - intros j Hin Hkeep.
+    eapply extracted_periodic_old_candidate_not_eligible_after_boundary.
+    + eapply extracted_periodic_target_prefix_keep_false_old.
+      * exact Hin.
+      * exact Hkeep.
+    + apply Hcompleted_old.
+      * exact Hin.
+      * eapply extracted_periodic_target_prefix_keep_false_old.
+        -- exact Hin.
+        -- exact Hkeep.
+Qed.
+
+Lemma extracted_periodic_choose_edf_shift_forward_unfiltered :
+  forall ts n sched0 sched1 t,
+    extracted_taskset_wf ts = true ->
+    (forall j,
+      In j
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           (extracted_periodic_jobs ts)
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (periodic_hyperperiod
+              (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n +
+            S t)) ->
+      job_release (extracted_periodic_jobs ts j) <
+        periodic_hyperperiod
+          (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n ->
+      completed (extracted_periodic_jobs ts) 1 sched1 j
+        (periodic_hyperperiod
+           (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n)) ->
+    (forall j,
+      In j
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           (extracted_periodic_jobs ts)
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (S t)) ->
+      service_job 1 sched1
+        (extracted_periodic_shift_forward_job_id ts n j)
+        (t +
+         periodic_hyperperiod
+           (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n) =
+      service_job 1 sched0 j t) ->
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    choose_edf (extracted_periodic_jobs ts) 1 sched1
+      (t + hp * n)
+      (enum_periodic_jobs_before
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         (extracted_periodic_jobs ts)
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts)
+         (hp * n + S t)) =
+    match
+      choose_edf (extracted_periodic_jobs ts) 1 sched0 t
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           (extracted_periodic_jobs ts)
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (S t))
+    with
+    | Some j => Some (extracted_periodic_shift_forward_job_id ts n j)
+    | None => None
+    end.
+Proof.
+  intros ts n sched0 sched1 t Hwf Hcompleted_old Hservice hp.
+  subst hp.
+  rewrite extracted_periodic_choose_edf_prune_old_candidates.
+  - apply extracted_periodic_choose_edf_shift_forward_window.
+    + exact Hwf.
+    + exact Hservice.
+  - exact Hcompleted_old.
+Qed.
+
 Lemma extracted_periodic_shift_forward_candidate_before :
   forall ts j n t,
     extracted_taskset_wf ts = true ->
