@@ -501,14 +501,19 @@ ineligible として消す部分である。
   `extracted_periodic_generated_schedule_prefix_shift_forward_one_step_cpu0` と、
   非0 CPU 側が `None` になる
   `extracted_periodic_generated_schedule_prefix_shift_forward_one_step_other_cpu` を追加済み。
+- deterministic shift の injectivity、slot shift から shifted job service equality を得る
+  `extracted_periodic_service_shift_forward_of_slots`、および generated prefix 上の
+  全 slot shift theorem
+  `extracted_periodic_generated_schedule_prefix_shift_forward_before` を追加済み。
 
 残る本質的な作業は、first-boundary reset を任意 hyperperiod boundary へ
 反復輸送する schedule-level shift theorem と、その同じ shift theorem で
 representative window service を target window service へ運ぶ theorem を証明すること。
 DBF だけでは任意 boundary reset completion は出ないため、generated EDF schedule の
 hyperperiod shift invariance を別 lemma として立てる必要がある。
-次の局所ステップは、one-step schedule shift を prefix induction に持ち上げ、
-shifted service equality と boundary completion invariant を区間全体で保つこと。
+次の局所ステップは、この prefix shift theorem を finite-horizon
+`generated_periodic_edf_schedule_upto` 側へ bridge し、任意 boundary reset completion と
+service-pair transport obligation へ接続すること。
 
 ### Phase F: representative obligation elimination
 
@@ -615,8 +620,9 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
    order-preserving candidate window shift、window-filtered `choose_edf` shift は **Done**。
    old-candidate ineligible pruning と unfiltered `choose_edf` shift は **Done**。
    generated EDF one-step schedule shift は **Done**。
-   generated schedule prefix shift は **Next**。
-   その後、任意 boundary への反復 transport と service shift を閉じる。
+   generated schedule prefix shift は **Done**。
+   次に finite-horizon generated schedule への bridge と、任意 boundary への
+   反復 transport / service shift を閉じる。
 7. final closed extracted theorem を追加する。
 8. extraction list は checker 関数だけを維持し、proof-only theorem は抽出しない。
 9. `make theories/TaskModels/Periodic/PeriodicEDFFinalCertificateChecker.vo` を通す。

@@ -3,6 +3,7 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
 From RocqSched Require Import Semantics.ScheduleLemmas.SchedulePrefix.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleTransform.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import TaskModels.Periodic.PeriodicCodec.
@@ -1381,6 +1382,138 @@ Proof.
   - exact Hdelta.
 Qed.
 
+Lemma extracted_periodic_shift_forward_job_id_index :
+  forall ts j n,
+    extracted_taskset_wf ts = true ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j ->
+    job_index
+      (extracted_periodic_jobs ts
+         (extracted_periodic_shift_forward_job_id ts n j)) =
+    job_index (extracted_periodic_jobs ts j) +
+    extracted_periodic_hyperperiod_task_step
+      ts (job_task (extracted_periodic_jobs ts j)) * n.
+Proof.
+  intros ts j n _ Hjob.
+  unfold extracted_periodic_shift_forward_job_id.
+  rewrite
+    (codec_job_index
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (extracted_periodic_codec ts)
+       (job_task (extracted_periodic_jobs ts j))
+       (job_index (extracted_periodic_jobs ts j) +
+        extracted_periodic_hyperperiod_task_step
+          ts (job_task (extracted_periodic_jobs ts j)) * n)).
+  - reflexivity.
+  - exact (proj1 Hjob).
+Qed.
+
+Lemma extracted_periodic_jobs_same_task_index_eq :
+  forall ts j1 j2,
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j1 ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j2 ->
+    job_task (extracted_periodic_jobs ts j1) =
+    job_task (extracted_periodic_jobs ts j2) ->
+    job_index (extracted_periodic_jobs ts j1) =
+    job_index (extracted_periodic_jobs ts j2) ->
+    j1 = j2.
+Proof.
+  intros ts j1 j2 Hj1 Hj2 Htask Hidx.
+  rewrite
+    (global_periodic_job_id_of_complete
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (extracted_periodic_codec ts)
+       j1
+       Hj1).
+  rewrite
+    (global_periodic_job_id_of_complete
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (extracted_periodic_codec ts)
+       j2
+       Hj2).
+  now rewrite Htask, Hidx.
+Qed.
+
+Lemma extracted_periodic_shift_forward_job_id_injective :
+  forall ts n j1 j2,
+    extracted_taskset_wf ts = true ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j1 ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j2 ->
+    extracted_periodic_shift_forward_job_id ts n j1 =
+    extracted_periodic_shift_forward_job_id ts n j2 ->
+    j1 = j2.
+Proof.
+  intros ts n j1 j2 Hwf Hj1 Hj2 Hshift.
+  pose proof
+    (extracted_periodic_shift_forward_job_id_facts
+       ts j1 n Hwf Hj1) as [Htask1 _].
+  pose proof
+    (extracted_periodic_shift_forward_job_id_facts
+       ts j2 n Hwf Hj2) as [Htask2 _].
+  assert (Htask_shift :
+    job_task
+      (extracted_periodic_jobs ts
+         (extracted_periodic_shift_forward_job_id ts n j1)) =
+    job_task
+      (extracted_periodic_jobs ts
+         (extracted_periodic_shift_forward_job_id ts n j2))).
+  { now rewrite Hshift. }
+  assert (Htask :
+    job_task (extracted_periodic_jobs ts j1) =
+    job_task (extracted_periodic_jobs ts j2)).
+  { rewrite <- Htask1, <- Htask2. exact Htask_shift. }
+  assert (Hidx_shift :
+    job_index
+      (extracted_periodic_jobs ts
+         (extracted_periodic_shift_forward_job_id ts n j1)) =
+    job_index
+      (extracted_periodic_jobs ts
+         (extracted_periodic_shift_forward_job_id ts n j2))).
+  { now rewrite Hshift. }
+  rewrite
+    (extracted_periodic_shift_forward_job_id_index ts j1 n Hwf Hj1)
+    in Hidx_shift.
+  rewrite
+    (extracted_periodic_shift_forward_job_id_index ts j2 n Hwf Hj2)
+    in Hidx_shift.
+  rewrite Htask in Hidx_shift.
+  eapply extracted_periodic_jobs_same_task_index_eq; eauto.
+  lia.
+Qed.
+
 Lemma extracted_periodic_shift_forward_eligibleb_deterministic :
   forall ts j n sched0 sched1 t,
     extracted_taskset_wf ts = true ->
@@ -1958,6 +2091,461 @@ Proof.
   rewrite Nat.ltb_irrefl.
   rewrite Nat.eqb_refl.
   destruct c as [|c']; [contradiction|reflexivity].
+Qed.
+
+Lemma extracted_periodic_generated_schedule_prefix_slot_some_periodic :
+  forall ts H t j,
+    let jobs := extracted_periodic_jobs ts in
+    let candidates :=
+      periodic_candidates_before
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        jobs
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts) in
+    t < H ->
+    generated_schedule_prefix
+      edf_generic_spec candidates jobs H t 0 = Some j ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      jobs
+      j.
+Proof.
+  intros ts H t j jobs candidates Ht Hrun.
+  subst jobs candidates.
+  rewrite
+    (generated_schedule_prefix_stable
+       edf_generic_spec
+       (periodic_candidates_before
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          (extracted_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          (extracted_periodic_codec ts))
+       (extracted_periodic_jobs ts)
+       H t 0 Ht)
+    in Hrun.
+  unfold generated_schedule in Hrun.
+  cbn [generated_schedule_prefix] in Hrun.
+  rewrite Nat.ltb_irrefl in Hrun.
+  rewrite !Nat.eqb_refl in Hrun.
+  pose proof
+    (choose_edf_in_candidates
+       (extracted_periodic_jobs ts) 1
+       (generated_schedule_prefix
+          edf_generic_spec
+          (periodic_candidates_before
+             (extracted_task_scope ts)
+             (extracted_periodic_tasks ts)
+             (fun _ => 0)
+             (extracted_periodic_jobs ts)
+             (enumT_of_extracted_list ts)
+             (extracted_periodic_codec ts))
+          (extracted_periodic_jobs ts)
+          t)
+       t
+       (periodic_candidates_before
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          (extracted_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          (extracted_periodic_codec ts)
+          (extracted_periodic_jobs ts) 1
+          (generated_schedule_prefix
+             edf_generic_spec
+             (periodic_candidates_before
+                (extracted_task_scope ts)
+                (extracted_periodic_tasks ts)
+                (fun _ => 0)
+                (extracted_periodic_jobs ts)
+                (enumT_of_extracted_list ts)
+                (extracted_periodic_codec ts))
+             (extracted_periodic_jobs ts)
+             t)
+          t)
+       j
+       Hrun) as Hin.
+  unfold periodic_candidates_before in Hin.
+  exact
+    (proj1
+       (enum_periodic_jobs_before_sound
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          (extracted_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          (extracted_periodic_codec ts)
+          (extracted_enum_sound ts)
+          (S t)
+          j
+          Hin)).
+Qed.
+
+Lemma extracted_periodic_service_shift_forward_of_slots :
+  forall ts n sched0 sched1 j t,
+    extracted_taskset_wf ts = true ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j ->
+    valid_schedule (extracted_periodic_jobs ts) 1 sched1 ->
+    (forall u,
+      u < t ->
+      sched1
+        (u +
+         periodic_hyperperiod
+           (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n)
+        0 =
+      match sched0 u 0 with
+      | Some k => Some (extracted_periodic_shift_forward_job_id ts n k)
+      | None => None
+      end) ->
+    (forall u k,
+      u < t ->
+      sched0 u 0 = Some k ->
+      periodic_jobset
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts)
+        k) ->
+    service_job 1 sched1
+      (extracted_periodic_shift_forward_job_id ts n j)
+      (t +
+       periodic_hyperperiod
+         (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n) =
+    service_job 1 sched0 j t.
+Proof.
+  intros ts n.
+  set (jobs := extracted_periodic_jobs ts).
+  set (hp :=
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts)).
+  set (delta := hp * n).
+  intros sched0 sched1 j t Hwf Hjob Hvalid Hslots Hsource_periodic.
+  assert (Hrelease_shift :
+    delta <=
+    job_release
+      (jobs (extracted_periodic_shift_forward_job_id ts n j))).
+  {
+    subst jobs delta hp.
+    pose proof
+      (extracted_periodic_shift_forward_job_id_facts
+         ts j n Hwf Hjob) as [_ [Hrelease _]].
+    rewrite Hrelease.
+    lia.
+  }
+  revert sched0 sched1 j Hjob Hvalid Hslots Hsource_periodic Hrelease_shift.
+  induction t as [|t IH]; intros sched0 sched1 j Hjob Hvalid Hslots Hsource_periodic Hrelease_shift.
+  - simpl.
+    replace (0 + delta) with delta by lia.
+    apply (service_before_release_zero jobs 1 sched1
+             (extracted_periodic_shift_forward_job_id ts n j)
+             delta).
+    + subst jobs. exact Hvalid.
+    + exact Hrelease_shift.
+  - replace (S t + delta) with (S (t + delta)) by lia.
+    rewrite (service_job_step 1 sched1
+               (extracted_periodic_shift_forward_job_id ts n j)
+               (t + delta)).
+    rewrite (service_job_step 1 sched0 j t).
+    rewrite
+      (IH sched0 sched1 j Hjob Hvalid
+         (fun u Hu => Hslots u ltac:(lia))
+         (fun u k Hu Hrun => Hsource_periodic u k ltac:(lia) Hrun)
+         Hrelease_shift).
+    assert (Hcpu :
+        cpu_count 1 sched1
+          (extracted_periodic_shift_forward_job_id ts n j)
+          (t + delta) =
+        cpu_count 1 sched0 j t).
+      {
+        specialize (Hslots t (Nat.lt_succ_diag_r t)).
+        destruct (sched0 t 0) as [k|] eqn:Hsrc.
+        - pose proof Hslots as Htarget.
+          destruct (Nat.eq_dec k j) as [-> | Hne].
+          + rewrite
+              (cpu_count_1_some_eq
+                 sched1
+                 (extracted_periodic_shift_forward_job_id ts n j)
+                 (t + delta)
+                 Htarget).
+            rewrite (cpu_count_1_some_eq sched0 j t Hsrc).
+            reflexivity.
+          + assert (Hk :
+              periodic_jobset
+                (extracted_task_scope ts)
+                (extracted_periodic_tasks ts)
+                (fun _ => 0)
+                (extracted_periodic_jobs ts)
+                k).
+            { eapply Hsource_periodic; eauto using Nat.lt_succ_diag_r. }
+            assert (Hshift_ne :
+              extracted_periodic_shift_forward_job_id ts n j <>
+              extracted_periodic_shift_forward_job_id ts n k).
+            {
+              intro Heq.
+              apply Hne.
+              symmetry.
+              eapply extracted_periodic_shift_forward_job_id_injective.
+              - exact Hwf.
+              - exact Hjob.
+              - exact Hk.
+              - exact Heq.
+            }
+            rewrite
+              (cpu_count_1_some_neq
+                 sched1
+                 (extracted_periodic_shift_forward_job_id ts n j)
+                 (extracted_periodic_shift_forward_job_id ts n k)
+                 (t + delta)
+                 Htarget
+                 Hshift_ne).
+            rewrite
+              (cpu_count_1_some_neq sched0 j k t Hsrc
+                 ltac:(intro Heq; apply Hne; symmetry; exact Heq)).
+            reflexivity.
+        - pose proof Hslots as Htarget.
+          rewrite
+            (cpu_count_1_none
+               sched1
+               (extracted_periodic_shift_forward_job_id ts n j)
+               (t + delta)
+               Htarget).
+          rewrite (cpu_count_1_none sched0 j t Hsrc).
+          reflexivity.
+      }
+      lia.
+Qed.
+
+Lemma extracted_periodic_generated_schedule_prefix_shift_forward_before :
+  forall ts n H,
+    extracted_taskset_wf ts = true ->
+    let jobs := extracted_periodic_jobs ts in
+    let candidates :=
+      periodic_candidates_before
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        jobs
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts) in
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    (forall t j,
+      t < H ->
+      In j
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           jobs
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (hp * n + S t)) ->
+      job_release (jobs j) < hp * n ->
+      completed jobs 1
+        (generated_schedule_prefix
+           edf_generic_spec candidates jobs (t + hp * n))
+        j
+        (hp * n)) ->
+    forall t c,
+      t < H ->
+      generated_schedule_prefix
+        edf_generic_spec candidates jobs (H + hp * n) (t + hp * n) c =
+      match
+        generated_schedule_prefix edf_generic_spec candidates jobs H t c
+      with
+      | Some j => Some (extracted_periodic_shift_forward_job_id ts n j)
+      | None => None
+      end.
+Proof.
+  intros ts n H Hwf jobs candidates hp Hcompleted_old t c Ht.
+  subst jobs candidates hp.
+  set (jobs := extracted_periodic_jobs ts).
+  set (candidates :=
+    periodic_candidates_before
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      jobs
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)).
+  set (hp :=
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts)).
+  set (delta := hp * n).
+  assert (Hstep :
+    forall u cpu,
+      u < H ->
+      generated_schedule_prefix
+        edf_generic_spec candidates jobs (S (u + delta)) (u + delta) cpu =
+      match
+        generated_schedule_prefix edf_generic_spec candidates jobs (S u) u cpu
+      with
+      | Some j => Some (extracted_periodic_shift_forward_job_id ts n j)
+      | None => None
+      end).
+  {
+    intro q.
+    induction q as [q IH] using lt_wf_ind.
+    intros cpu Hu.
+    destruct q as [|u].
+    - destruct (Nat.eq_dec cpu 0) as [-> | Hc].
+      + eapply extracted_periodic_generated_schedule_prefix_shift_forward_one_step_cpu0.
+        * exact Hwf.
+        * intros j Hin Hrelease.
+          subst jobs candidates hp delta.
+          eapply Hcompleted_old; eauto.
+        * intros j Hin.
+          eapply extracted_periodic_service_shift_forward_of_slots.
+          -- exact Hwf.
+          -- subst jobs.
+             exact
+               (proj1
+                  (enum_periodic_jobs_before_sound
+                     (extracted_task_scope ts)
+                     (extracted_periodic_tasks ts)
+                     (fun _ => 0)
+                     (extracted_periodic_jobs ts)
+                     (enumT_of_extracted_list ts)
+                     (extracted_periodic_codec ts)
+                     (extracted_enum_sound ts)
+                     1
+                     j
+                     Hin)).
+          -- subst jobs candidates.
+             apply generated_schedule_prefix_valid_schedule.
+          -- intros r Hr. lia.
+          -- intros r k Hr _. lia.
+      + subst jobs candidates hp delta.
+        rewrite
+          (extracted_periodic_generated_schedule_prefix_shift_forward_one_step_other_cpu
+             ts n 0 cpu Hc).
+        cbn [generated_schedule_prefix].
+        rewrite Nat.ltb_irrefl.
+        rewrite Nat.eqb_refl.
+        destruct cpu as [|cpu']; [contradiction|reflexivity].
+    - destruct (Nat.eq_dec cpu 0) as [-> | Hc].
+      + eapply extracted_periodic_generated_schedule_prefix_shift_forward_one_step_cpu0.
+        * exact Hwf.
+        * intros j Hin Hrelease.
+          subst jobs candidates hp delta.
+          eapply Hcompleted_old; eauto.
+        * intros j Hin.
+          assert (Hjob :
+            periodic_jobset
+              (extracted_task_scope ts)
+              (extracted_periodic_tasks ts)
+              (fun _ => 0)
+              jobs
+              j).
+          {
+            subst jobs.
+            exact
+              (proj1
+                 (enum_periodic_jobs_before_sound
+                    (extracted_task_scope ts)
+                    (extracted_periodic_tasks ts)
+                    (fun _ => 0)
+                    (extracted_periodic_jobs ts)
+                    (enumT_of_extracted_list ts)
+                    (extracted_periodic_codec ts)
+                    (extracted_enum_sound ts)
+                    (S (S u))
+                    j
+                    Hin)).
+          }
+          eapply
+            (extracted_periodic_service_shift_forward_of_slots
+               ts n
+               (generated_schedule_prefix
+                  edf_generic_spec candidates jobs (S u))
+               (generated_schedule_prefix
+                  edf_generic_spec candidates jobs (S u + delta))
+               j
+               (S u)).
+          -- exact Hwf.
+          -- exact Hjob.
+          -- subst jobs candidates.
+             apply generated_schedule_prefix_valid_schedule.
+          -- intros r Hr.
+             change
+               (periodic_hyperperiod
+                  (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n)
+               with delta.
+             rewrite
+               (generated_schedule_prefix_stable
+                  edf_generic_spec candidates jobs
+                  (S u + delta) (r + delta) 0) by lia.
+             rewrite
+               (generated_schedule_prefix_stable
+                  edf_generic_spec candidates jobs
+                  (S u) r 0) by lia.
+             rewrite <-
+               (generated_schedule_prefix_stable
+                  edf_generic_spec candidates jobs
+                  (S (r + delta)) (r + delta) 0) by lia.
+             rewrite <-
+               (generated_schedule_prefix_stable
+                  edf_generic_spec candidates jobs
+                  (S r) r 0) by lia.
+             apply IH; lia.
+          -- intros r k Hr Hrun.
+             eapply extracted_periodic_generated_schedule_prefix_slot_some_periodic.
+             ++ exact Hr.
+             ++ exact Hrun.
+      + subst jobs candidates hp delta.
+        rewrite
+          (extracted_periodic_generated_schedule_prefix_shift_forward_one_step_other_cpu
+             ts n (S u) cpu Hc).
+        cbn [generated_schedule_prefix].
+        rewrite Nat.ltb_irrefl.
+        rewrite Nat.eqb_refl.
+        destruct cpu as [|cpu']; [contradiction|reflexivity].
+  }
+  assert (Htgt :
+    generated_schedule_prefix
+      edf_generic_spec candidates jobs (H + delta) (t + delta) c =
+    generated_schedule_prefix
+      edf_generic_spec candidates jobs (S (t + delta)) (t + delta) c).
+  {
+    rewrite
+      (generated_schedule_prefix_stable
+         edf_generic_spec candidates jobs
+         (H + delta) (t + delta) c) by lia.
+    symmetry.
+    rewrite
+      (generated_schedule_prefix_stable
+         edf_generic_spec candidates jobs
+         (S (t + delta)) (t + delta) c) by lia.
+    reflexivity.
+  }
+  assert (Hsrc :
+    generated_schedule_prefix edf_generic_spec candidates jobs H t c =
+    generated_schedule_prefix edf_generic_spec candidates jobs (S t) t c).
+  {
+    rewrite
+      (generated_schedule_prefix_stable
+         edf_generic_spec candidates jobs H t c) by exact Ht.
+    symmetry.
+    rewrite
+      (generated_schedule_prefix_stable
+         edf_generic_spec candidates jobs (S t) t c) by lia.
+    reflexivity.
+  }
+  rewrite Htgt.
+  rewrite Hsrc.
+  apply Hstep.
+  exact Ht.
 Qed.
 
 Lemma extracted_periodic_shift_forward_candidate_before :
