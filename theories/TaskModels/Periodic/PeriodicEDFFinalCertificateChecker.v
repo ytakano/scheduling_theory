@@ -891,14 +891,13 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodRepresentativePairCoverageObligation
+    PeriodicHyperperiodRepresentativeNormalizationObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
       (extracted_periodic_jobs ts)
       (enumT_of_extracted_list ts)
-      codec
-      sidecar.(checked_post_reset_window_target_certs) ->
+      codec ->
     PeriodicHyperperiodServicePairTransportObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
@@ -923,7 +922,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts codec cert sidecar Hcheck Hrep Hpair_coverage Hpair_transport.
+  intros ts codec cert sidecar Hcheck Hrep Hnormalize Hpair_transport.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
@@ -942,6 +941,16 @@ Proof.
 	       cert
 	       sidecar
 	       Hcheck) as Hbounded_coverage.
+  pose proof
+    (periodic_hyperperiod_representative_pair_coverage_of_normalization
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec
+       sidecar.(checked_post_reset_window_target_certs)
+       Hnormalize) as Hpair_coverage.
   assert (Hpost_reset_pair_completion :
     check_window_generated_pair_completion_all
       (extracted_task_scope ts)
@@ -1053,14 +1062,13 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodRepresentativePairCoverageObligation
+    PeriodicHyperperiodRepresentativeNormalizationObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
       (extracted_periodic_jobs ts)
       (enumT_of_extracted_list ts)
-      (extracted_periodic_codec ts)
-      sidecar.(checked_post_reset_window_target_certs) ->
+      (extracted_periodic_codec ts) ->
     PeriodicHyperperiodServicePairTransportObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
@@ -1085,7 +1093,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts cert sidecar Hcheck Hrep Hpair_coverage Hpair_transport.
+  intros ts cert sidecar Hcheck Hrep Hnormalize Hpair_transport.
   destruct
     (check_periodic_edf_checked_sidecar_extracted_fields
        ts cert sidecar Hcheck)

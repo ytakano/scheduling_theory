@@ -1853,6 +1853,36 @@ Record PeriodicHyperperiodServiceShiftObligation
         (job_release (jobs target))
 }.
 
+Record PeriodicHyperperiodRepresentativeNormalizationObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs) : Prop := {
+  periodic_hyperperiod_representative_normalization :
+    forall target x,
+      periodic_jobset T tasks offset jobs target ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
+      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
+      exists target0 x0,
+        periodic_jobset T tasks offset jobs target0
+        /\
+        job_release (jobs target0) <
+          post_reset_target_candidate_horizon tasks enumT
+        /\
+        periodic_jobset_deadline_between
+          T tasks offset jobs 0 (job_abs_deadline (jobs target0)) x0
+        /\
+        job_release (jobs x0) < job_release (jobs target0)
+        /\
+        (job_release (jobs target0) < periodic_hyperperiod tasks enumT \/
+         periodic_hyperperiod tasks enumT <= job_release (jobs x0))
+}.
+
 Record PeriodicHyperperiodRepresentativePairCoverageObligation
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
@@ -1893,6 +1923,43 @@ Record PeriodicHyperperiodRepresentativePairCoverageObligation
         /\
         p.(window_target_earlier_job) = x0
 }.
+
+Lemma periodic_hyperperiod_representative_pair_coverage_of_normalization :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         target_certs,
+    PeriodicHyperperiodRepresentativeNormalizationObligation
+      T tasks offset jobs enumT codec ->
+    PeriodicHyperperiodRepresentativePairCoverageObligation
+      T tasks offset jobs enumT codec target_certs.
+Proof.
+  intros T tasks offset jobs enumT codec target_certs Hnormalize.
+  constructor.
+  intros Hbounded_coverage target x Htarget Hbetween
+         Hrelease_before_target Hpost_reset_case.
+  destruct
+    (periodic_hyperperiod_representative_normalization
+       T tasks offset jobs enumT codec Hnormalize
+       target x Htarget Hbetween Hrelease_before_target
+       Hpost_reset_case)
+    as [target0 [x0 [Htarget0 [Htarget0_horizon [Hbetween0
+        [Hrelease0 Hpost0]]]]]].
+  destruct
+    (bounded_post_reset_window_target_coverage
+       T tasks offset jobs enumT codec target_certs Hbounded_coverage
+       target0 x0 Htarget0 Htarget0_horizon Hbetween0 Hrelease0 Hpost0)
+    as [target_cert [p [Hin_cert [Htarget_cert [Hin_pair Hx0]]]]].
+  exists target0, x0, target_cert, p.
+  split; [exact Htarget0|].
+  split; [exact Htarget0_horizon|].
+  split; [exact Hbetween0|].
+  split; [exact Hrelease0|].
+  split; [exact Hpost0|].
+  split; [exact Hin_cert|].
+  split; [exact Htarget_cert|].
+  split; [exact Hin_pair|].
+  exact Hx0.
+Qed.
 
 Record PeriodicHyperperiodServicePairTransportObligation
     (T : TaskId -> Prop)
