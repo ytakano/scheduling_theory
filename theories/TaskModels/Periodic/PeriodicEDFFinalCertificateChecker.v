@@ -1136,6 +1136,136 @@ Proof.
   exact Hprefix_generated.
 Qed.
 
+Lemma check_periodic_edf_checked_sidecar_first_hyperperiod_reset_completion :
+  forall ts
+         (codec :
+          PeriodicCodec
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts))
+         cert sidecar target x,
+    check_periodic_edf_checked_sidecar ts codec cert sidecar = true ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      target ->
+    periodic_jobset_deadline_between
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      0
+      (job_abs_deadline (extracted_periodic_jobs ts target))
+      x ->
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts)
+      (enumT_of_extracted_list ts) <=
+      job_release (extracted_periodic_jobs ts target) ->
+    job_release (extracted_periodic_jobs ts x) <
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts)
+        (enumT_of_extracted_list ts) ->
+    completed
+      (extracted_periodic_jobs ts)
+      1
+      (generated_periodic_edf_schedule_upto
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         (extracted_periodic_jobs ts)
+         (S (job_abs_deadline (extracted_periodic_jobs ts target)))
+         (enumT_of_extracted_list ts)
+         codec)
+      x
+      (job_release (extracted_periodic_jobs ts target)).
+Proof.
+  intros ts codec cert sidecar target x Hcheck Htarget Hbetween
+         Htarget_after_reset Hx_before_reset.
+  destruct
+    (check_periodic_edf_checked_sidecar_fields
+       ts codec cert sidecar Hcheck)
+    as (_ & _ & _ & _ & Hhorizon_covers
+        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
+  pose proof
+    (check_periodic_edf_checked_sidecar_hyperperiod_facts
+       ts codec cert sidecar Hcheck)
+    as [Hreset _].
+  eapply completed_monotone.
+  - exact Htarget_after_reset.
+  - eapply periodic_hyperperiod_state_reset_completed_in_schedule_upto.
+    + apply extracted_tasks_well_formed_on_enum.
+      eapply check_periodic_edf_checked_sidecar_wf; eauto.
+    + apply extracted_enum_complete.
+    + apply extracted_enum_sound.
+    + exact Hhorizon_covers.
+    + destruct Htarget as [_ Htarget_generated].
+      pose proof
+        (generated_job_deadline
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           (extracted_periodic_jobs ts)
+           target
+           Htarget_generated).
+      lia.
+    + exact Hreset.
+    + split.
+      * exact (proj1 Hbetween).
+      * exact (proj1 (proj2 Hbetween)).
+    + exact Hx_before_reset.
+Qed.
+
+Theorem check_periodic_edf_checked_sidecar_extracted_first_hyperperiod_reset_completion :
+  forall ts cert sidecar target x,
+    check_periodic_edf_checked_sidecar_extracted ts cert sidecar = true ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      target ->
+    periodic_jobset_deadline_between
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      0
+      (job_abs_deadline (extracted_periodic_jobs ts target))
+      x ->
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts)
+      (enumT_of_extracted_list ts) <=
+      job_release (extracted_periodic_jobs ts target) ->
+    job_release (extracted_periodic_jobs ts x) <
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts)
+        (enumT_of_extracted_list ts) ->
+    completed
+      (extracted_periodic_jobs ts)
+      1
+      (generated_periodic_edf_schedule_upto
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         (extracted_periodic_jobs ts)
+         (S (job_abs_deadline (extracted_periodic_jobs ts target)))
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts))
+      x
+      (job_release (extracted_periodic_jobs ts target)).
+Proof.
+  intros ts cert sidecar target x Hcheck Htarget Hbetween
+         Htarget_after_reset Hx_before_reset.
+  destruct
+    (check_periodic_edf_checked_sidecar_extracted_fields
+       ts cert sidecar Hcheck)
+    as [_ Hchecked].
+  eapply check_periodic_edf_checked_sidecar_first_hyperperiod_reset_completion;
+    eauto.
+Qed.
+
 Lemma periodic_hyperperiod_backlog_transport_of_checked_reset :
   forall ts
          (codec :
@@ -2257,28 +2387,8 @@ Proof.
   {
     intros target x Htarget Hbetween _Hrelease_before_target
            Htarget_after_reset Hx_before_reset.
-    eapply completed_monotone.
-    - exact Htarget_after_reset.
-    - eapply periodic_hyperperiod_state_reset_completed_in_schedule_upto.
-      + apply extracted_tasks_well_formed_on_enum.
-        eapply check_periodic_edf_checked_sidecar_wf; eauto.
-      + apply extracted_enum_complete.
-      + apply extracted_enum_sound.
-      + exact Hhorizon_covers.
-      + destruct Htarget as [_ Htarget_generated].
-        pose proof
-          (generated_job_deadline
-             (extracted_periodic_tasks ts)
-             (fun _ => 0)
-             (extracted_periodic_jobs ts)
-             target
-             Htarget_generated).
-        lia.
-      + exact Hhyperperiod_reset.
-      + split.
-        * exact (proj1 Hbetween).
-        * exact (proj1 (proj2 Hbetween)).
-      + exact Hx_before_reset.
+    eapply check_periodic_edf_checked_sidecar_first_hyperperiod_reset_completion;
+      eauto.
   }
   pose proof
     (periodic_hyperperiod_completion_transport_of_service_source

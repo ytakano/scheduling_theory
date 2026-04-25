@@ -412,6 +412,20 @@ Theorem generated_periodic_edf_schedule_hyperperiodic :
 この theorem は最も重い。閉じにくい場合は、まず boundary reset と service shift を
 別 theorem に分ける。
 
+Status:
+first hyperperiod 境界の reset completion は
+`check_periodic_edf_checked_sidecar_first_hyperperiod_reset_completion` と
+`check_periodic_edf_checked_sidecar_extracted_first_hyperperiod_reset_completion`
+として外へ出した。これは既存 checker の
+`check_periodic_hyperperiod_state_reset`、prefix/generated agreement、
+`periodic_hyperperiod_state_reset_completed_in_schedule_upto` から構成される。
+
+残る本質的な作業は、first-boundary reset を任意 hyperperiod boundary へ
+反復輸送する schedule-level shift theorem と、その同じ shift theorem で
+representative window service を target window service へ運ぶ theorem を証明すること。
+DBF だけでは任意 boundary reset completion は出ないため、generated EDF schedule の
+hyperperiod shift invariance を別 lemma として立てる必要がある。
+
 ### Phase F: representative obligation elimination
 
 目的:
@@ -509,6 +523,8 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
    `check_hyperperiod_block_source_pair_in_certs = true` は finite concrete witness 用の
    補助に下げ、mainline では要求しない。
 6. `PeriodicHyperperiodGeneratedSchedulePeriodicity` を boundary reset と service shift に分割して証明する。
+   first-boundary reset completion の theorem 化は **Done**。
+   任意 boundary への反復 transport と service shift は **Next**。
 7. final closed extracted theorem を追加する。
 8. extraction list は checker 関数だけを維持し、proof-only theorem は抽出しない。
 9. `make theories/TaskModels/Periodic/PeriodicEDFFinalCertificateChecker.vo` を通す。
