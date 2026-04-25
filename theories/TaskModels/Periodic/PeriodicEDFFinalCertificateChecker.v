@@ -1,4 +1,4 @@
-From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
@@ -484,6 +484,276 @@ Proof.
     + subst hp τ jobs tasks enumT.
       rewrite Hhp_eq.
       nia.
+Qed.
+
+Lemma extracted_periodic_shift_forward_job_facts :
+  forall ts j j1 step n,
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j1 ->
+    transport_rep_to_target_job
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (extracted_periodic_codec ts)
+      j j1 step n ->
+    step * n *
+      task_period
+        (extracted_periodic_tasks ts
+           (job_task (extracted_periodic_jobs ts j))) =
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n ->
+    job_task (extracted_periodic_jobs ts j1) =
+      job_task (extracted_periodic_jobs ts j)
+    /\
+    job_release (extracted_periodic_jobs ts j1) =
+      job_release (extracted_periodic_jobs ts j) +
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n
+    /\
+    job_abs_deadline (extracted_periodic_jobs ts j1) =
+      job_abs_deadline (extracted_periodic_jobs ts j) +
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n
+    /\
+    job_cost (extracted_periodic_jobs ts j1) =
+      job_cost (extracted_periodic_jobs ts j).
+Proof.
+  intros ts j j1 step n Hjob Hj1 Htransport Hdelta.
+  assert (Htask :
+    job_task (extracted_periodic_jobs ts j1) =
+    job_task (extracted_periodic_jobs ts j)).
+  {
+    unfold transport_rep_to_target_job in Htransport.
+    subst j1.
+    rewrite
+      (codec_job_task
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         (extracted_periodic_jobs ts)
+         (extracted_periodic_codec ts)
+         (job_task (extracted_periodic_jobs ts j))
+         (job_index (extracted_periodic_jobs ts j) + step * n)
+         (proj1 Hjob)).
+    reflexivity.
+  }
+  split; [exact Htask|].
+  split.
+  - rewrite <- Hdelta.
+    eapply codec_transport_target_release_shift.
+    + exact (proj1 Hjob).
+    + exact (proj2 Hjob).
+    + exact Htransport.
+  - split.
+    + rewrite <- Hdelta.
+      eapply codec_transport_target_deadline_shift.
+      * exact (proj1 Hjob).
+      * exact (proj2 Hjob).
+      * exact Htransport.
+    + symmetry.
+      eapply extracted_periodic_same_task_job_cost.
+      * exact Hjob.
+      * exact Hj1.
+      * symmetry.
+        exact Htask.
+Qed.
+
+Lemma extracted_periodic_shift_forward_eligibleb :
+  forall ts j j1 step n sched0 sched1 t,
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j1 ->
+    transport_rep_to_target_job
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (extracted_periodic_codec ts)
+      j j1 step n ->
+    step * n *
+      task_period
+        (extracted_periodic_tasks ts
+           (job_task (extracted_periodic_jobs ts j))) =
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n ->
+    service_job 1 sched1 j1
+      (t +
+       periodic_hyperperiod
+         (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n) =
+    service_job 1 sched0 j t ->
+    eligibleb
+      (extracted_periodic_jobs ts) 1 sched1 j1
+      (t +
+       periodic_hyperperiod
+         (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n) =
+    eligibleb (extracted_periodic_jobs ts) 1 sched0 j t.
+Proof.
+  intros ts j j1 step n sched0 sched1 t
+         Hjob Hj1 Htransport Hdelta Hservice.
+  destruct
+    (extracted_periodic_shift_forward_job_facts
+       ts j j1 step n Hjob Hj1 Htransport Hdelta)
+    as [_ [Hrelease [_ Hcost]]].
+  unfold eligibleb.
+  rewrite Hrelease.
+  rewrite Hcost.
+  rewrite Hservice.
+  assert (Hreleaseb :
+    (job_release (extracted_periodic_jobs ts j) +
+       periodic_hyperperiod
+         (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n
+     <=?
+     t +
+       periodic_hyperperiod
+         (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n) =
+    (job_release (extracted_periodic_jobs ts j) <=? t)).
+  {
+    destruct (job_release (extracted_periodic_jobs ts j) <=? t)
+      eqn:Hrel.
+    - apply Nat.leb_le in Hrel.
+      apply Nat.leb_le.
+      lia.
+    - apply Nat.leb_gt in Hrel.
+      apply Nat.leb_gt.
+      lia.
+  }
+  rewrite Hreleaseb.
+  assert (Hblocked1 :
+    job_blocked (extracted_periodic_jobs ts j1)
+      (t +
+       periodic_hyperperiod
+         (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n) =
+    false).
+  {
+    destruct
+      (job_blocked (extracted_periodic_jobs ts j1)
+         (t +
+          periodic_hyperperiod
+            (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n))
+      eqn:Hblocked; [|reflexivity].
+    exfalso.
+    apply (extracted_periodic_nonblocking ts j1
+             (t +
+              periodic_hyperperiod
+                (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n)
+             Hj1).
+    unfold blocked.
+    exact Hblocked.
+  }
+  assert (Hblocked0 :
+    job_blocked (extracted_periodic_jobs ts j) t = false).
+  {
+    destruct (job_blocked (extracted_periodic_jobs ts j) t) eqn:Hblocked;
+      [|reflexivity].
+    exfalso.
+    apply (extracted_periodic_nonblocking ts j t Hjob).
+    unfold blocked.
+    exact Hblocked.
+  }
+  rewrite Hblocked1, Hblocked0.
+  reflexivity.
+Qed.
+
+Lemma extracted_periodic_shift_forward_edf_metric_cmp :
+  forall ts a b a1 b1 step_a step_b n,
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      a ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      b ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      a1 ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      b1 ->
+    transport_rep_to_target_job
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (extracted_periodic_codec ts)
+      a a1 step_a n ->
+    transport_rep_to_target_job
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (extracted_periodic_codec ts)
+      b b1 step_b n ->
+    step_a * n *
+      task_period
+        (extracted_periodic_tasks ts
+           (job_task (extracted_periodic_jobs ts a))) =
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n ->
+    step_b * n *
+      task_period
+        (extracted_periodic_tasks ts
+           (job_task (extracted_periodic_jobs ts b))) =
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n ->
+    (edf_metric (extracted_periodic_jobs ts) a1
+     <=? edf_metric (extracted_periodic_jobs ts) b1)%Z =
+    (edf_metric (extracted_periodic_jobs ts) a
+     <=? edf_metric (extracted_periodic_jobs ts) b)%Z.
+Proof.
+  intros ts a b a1 b1 step_a step_b n
+         Ha Hb Ha1 Hb1 Htransport_a Htransport_b Hdelta_a Hdelta_b.
+  destruct
+    (extracted_periodic_shift_forward_job_facts
+       ts a a1 step_a n Ha Ha1 Htransport_a Hdelta_a)
+    as [_ [_ [Hdeadline_a _]]].
+  destruct
+    (extracted_periodic_shift_forward_job_facts
+       ts b b1 step_b n Hb Hb1 Htransport_b Hdelta_b)
+    as [_ [_ [Hdeadline_b _]]].
+  unfold edf_metric.
+  rewrite Hdeadline_a, Hdeadline_b.
+  destruct
+    (Z.of_nat (job_abs_deadline (extracted_periodic_jobs ts a))
+     <=?
+     Z.of_nat (job_abs_deadline (extracted_periodic_jobs ts b)))%Z
+    eqn:Hcmp.
+  - apply Z.leb_le in Hcmp.
+    apply Z.leb_le.
+    lia.
+  - apply Z.leb_gt in Hcmp.
+    apply Z.leb_gt.
+    lia.
 Qed.
 
 Lemma extracted_periodic_shift_forward_candidate_before :

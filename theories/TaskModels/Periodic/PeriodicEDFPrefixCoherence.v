@@ -181,6 +181,87 @@ Proof.
       right; exact Hin.
 Qed.
 
+Lemma filter_map_periodic_jobs_by_release_range :
+  forall T tasks offset jobs τ H lo hi
+         (codec : PeriodicCodec T tasks offset jobs) ks,
+    T τ ->
+    (forall k, In k ks -> expected_release tasks offset τ k < H) ->
+    filter
+      (fun j =>
+         Nat.leb lo (job_release (jobs j))
+         && Nat.ltb (job_release (jobs j)) hi)
+      (map (global_periodic_job_id_of T tasks offset jobs codec τ) ks) =
+    map (global_periodic_job_id_of T tasks offset jobs codec τ)
+      (filter
+         (fun k =>
+            Nat.leb lo (expected_release tasks offset τ k)
+            && Nat.ltb (expected_release tasks offset τ k) hi)
+         ks).
+Proof.
+  intros T tasks offset jobs τ H lo hi codec ks Hτ Hks.
+  induction ks as [|k ks IH]; simpl.
+  - reflexivity.
+  - pose proof (Hks k (or_introl eq_refl)) as _HkH.
+    pose proof
+      (global_periodic_job_id_of_sound T tasks offset jobs codec τ k Hτ)
+      as [Htask [Hidx Hgen]].
+    pose proof (generated_job_release tasks offset jobs _ Hgen) as Hrel.
+    rewrite Htask, Hidx in Hrel.
+    rewrite Hrel.
+    destruct (Nat.leb lo (expected_release tasks offset τ k)
+              && Nat.ltb (expected_release tasks offset τ k) hi) eqn:Hrange;
+      simpl.
+    + f_equal.
+      apply IH.
+      intros k' Hin.
+      apply Hks.
+      right; exact Hin.
+    + apply IH.
+      intros k' Hin.
+      apply Hks.
+      right; exact Hin.
+Qed.
+
+Lemma enum_periodic_jobs_upto_filter_release_range :
+  forall T tasks offset jobs H enumT
+         (codec : PeriodicCodec T tasks offset jobs) lo hi,
+    (forall τ, In τ enumT -> T τ) ->
+    filter
+      (fun j =>
+         Nat.leb lo (job_release (jobs j))
+         && Nat.ltb (job_release (jobs j)) hi)
+      (enum_periodic_jobs_upto
+         T tasks offset jobs H enumT
+         (periodic_finite_horizon_codec_of T tasks offset jobs H codec)) =
+    flat_map
+      (fun τ =>
+         map (global_periodic_job_id_of T tasks offset jobs codec τ)
+           (filter
+              (fun k =>
+                 Nat.leb lo (expected_release tasks offset τ k)
+                 && Nat.ltb (expected_release tasks offset τ k) hi)
+              (enum_periodic_indices_upto tasks offset τ H)))
+      enumT.
+Proof.
+  intros T tasks offset jobs H enumT codec lo hi HenumT_sound.
+  induction enumT as [|τ enumT IH]; simpl.
+  - reflexivity.
+  - rewrite filter_app.
+    rewrite
+      (filter_map_periodic_jobs_by_release_range
+         T tasks offset jobs τ H lo hi codec
+         (enum_periodic_indices_upto tasks offset τ H)
+         (HenumT_sound τ (or_introl eq_refl))
+         (fun k Hin =>
+            proj2
+              ((proj1 (in_enum_periodic_indices_upto_iff tasks offset τ H k)) Hin))).
+    rewrite IH.
+    + reflexivity.
+    + intros τ' Hτ'.
+      apply HenumT_sound.
+      right; exact Hτ'.
+Qed.
+
 Lemma enum_periodic_jobs_upto_filter_before :
   forall T tasks offset jobs H enumT
          (codec : PeriodicCodec T tasks offset jobs) t,

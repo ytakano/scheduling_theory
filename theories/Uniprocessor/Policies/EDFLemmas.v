@@ -1,4 +1,4 @@
-From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
+From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia ZArith.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
@@ -93,6 +93,51 @@ Proof.
         apply Hnone.
         right; exact Hin.
         exact Hk.
+Qed.
+
+Lemma choose_edf_map_ext :
+  forall jobs_src jobs_tgt sched_src sched_tgt t_src t_tgt f candidates,
+    (forall j, In j candidates ->
+       eligibleb jobs_tgt 1 sched_tgt (f j) t_tgt =
+       eligibleb jobs_src 1 sched_src j t_src) ->
+    (forall j,
+       In j candidates ->
+       eligibleb jobs_src 1 sched_src j t_src = true ->
+       edf_metric jobs_tgt (f j) = edf_metric jobs_src j) ->
+    choose_edf jobs_tgt 1 sched_tgt t_tgt (map f candidates) =
+    match choose_edf jobs_src 1 sched_src t_src candidates with
+    | Some j => Some (f j)
+    | None => None
+    end.
+Proof.
+  intros jobs_src jobs_tgt sched_src sched_tgt t_src t_tgt
+         f candidates Helig Hmetric.
+  unfold choose_edf.
+  eapply choose_min_metric_map_ext; eauto.
+Qed.
+
+Lemma choose_edf_map_cmp :
+  forall jobs_src jobs_tgt sched_src sched_tgt t_src t_tgt f candidates,
+    (forall j, In j candidates ->
+       eligibleb jobs_tgt 1 sched_tgt (f j) t_tgt =
+       eligibleb jobs_src 1 sched_src j t_src) ->
+    (forall j1 j2,
+       In j1 candidates ->
+       In j2 candidates ->
+       eligibleb jobs_src 1 sched_src j1 t_src = true ->
+       eligibleb jobs_src 1 sched_src j2 t_src = true ->
+       (edf_metric jobs_tgt (f j1) <=? edf_metric jobs_tgt (f j2))%Z =
+       (edf_metric jobs_src j1 <=? edf_metric jobs_src j2)%Z) ->
+    choose_edf jobs_tgt 1 sched_tgt t_tgt (map f candidates) =
+    match choose_edf jobs_src 1 sched_src t_src candidates with
+    | Some j => Some (f j)
+    | None => None
+    end.
+Proof.
+  intros jobs_src jobs_tgt sched_src sched_tgt t_src t_tgt
+         f candidates Helig Hcmp.
+  unfold choose_edf.
+  eapply choose_min_metric_map_cmp; eauto.
 Qed.
 
 Lemma edf_choose_agrees_before :

@@ -381,15 +381,18 @@ index shift relation を構成する補題も追加済み。
 - `periodic_hyperperiod_service_pair_transport_of_periodicity`
 - `periodic_hyperperiod_boundary_reset_completion_of_periodicity`
 
-次のどちらかで閉じる。
+次の方針で閉じる。
 
 優先案:
 `PeriodicHyperperiodGeneratedSchedulePeriodicity` を generated EDF schedule の
 periodicity theorem から証明する。
 
-代替案:
-state-reset checker と pair-completion checker から、必要な service transport と
-boundary reset completion を個別に構成する。
+補助入力:
+state-reset checker と pair-completion checker は、それぞれ first-boundary reset
+completion と bounded representative pair の source service completion を与える。
+ただし、これらだけでは arbitrary target への transport は閉じない。
+target 側の completion を得るには、generated EDF schedule の hyperperiod shift
+invariance が必要である。
 
 優先案の理由:
 schedule-level periodicity は checker ではなく semantic theorem として一度閉じた方が、
@@ -412,6 +415,31 @@ Theorem generated_periodic_edf_schedule_hyperperiodic :
 この theorem は最も重い。閉じにくい場合は、まず boundary reset と service shift を
 別 theorem に分ける。
 
+計画修正:
+`extracted_periodic_shift_forward_candidate_before` は shifted job が shifted finite
+candidate enumeration に入ること、つまり membership だけを示す。
+しかし `choose_edf` は `choose_min_metric` 経由で同一 deadline の tie-break を
+candidate list の順序に依存して解く。したがって、schedule-level periodicity を
+証明するには、candidate set の membership 対応だけでは不十分である。
+
+次は、generated EDF の 1 step を運ぶために、次の順序で補題を足す。
+
+1. canonical extracted jobs について、`enum_periodic_jobs_before` の hyperperiod
+   shift が task order と job-index order を保つことを示す。
+2. shifted prefix schedules が対応している仮定の下で、release / completed /
+   eligible / metric が hyperperiod shift で保存されることを示す。
+3. filtered eligible candidate list の order-preserving shift を示す。
+4. `choose_edf` の結果が shifted job へ写ることを示す。
+5. その 1 step 補題を induction で
+   `generated_periodic_edf_schedule_upto` の prefix shift theorem に持ち上げる。
+6. prefix shift theorem から
+   `PeriodicHyperperiodServicePairTransportObligation` と
+   `PeriodicHyperperiodBoundaryResetCompletionObligation` を構成する。
+
+この修正により、checker 側の acceptance surface は増やさない。
+pair-completion checker は source completion の証明に使い、target completion は
+schedule shift theorem で運ぶ。
+
 Status:
 first hyperperiod 境界の reset completion は
 `check_periodic_edf_checked_sidecar_first_hyperperiod_reset_completion` と
@@ -425,6 +453,23 @@ canonical extracted jobs について、hyperperiod 分だけ未来へ送る wit
 `extracted_periodic_shift_forward_deadline_between_pair` として追加済み。
 また、shift 後 job が shift 後時刻の finite candidate enumeration に入ることは
 `extracted_periodic_shift_forward_candidate_before` で証明済み。
+これは membership bridge であり、EDF tie-break を保つ order-preserving enumeration
+shift は未完了。
+
+追加済みの中間補題:
+
+- release range で candidate enumeration を filter しても task/index order を保つ
+  `filter_map_periodic_jobs_by_release_range` と
+  `enum_periodic_jobs_upto_filter_release_range`。
+- order-preserving map が `choose_min_metric` / `choose_edf` の tie-break を保つ
+  `min_metric_job_map_cmp`、`choose_min_metric_map_cmp`、
+  `choose_edf_map_cmp`。
+- extracted hyperperiod shift から release/deadline/cost/task 等式を取り出す
+  `extracted_periodic_shift_forward_job_facts`。
+- shifted prefix の service equality を仮定した `eligibleb` 保存と、
+  shifted jobs 間の EDF metric 比較保存を示す
+  `extracted_periodic_shift_forward_eligibleb`、
+  `extracted_periodic_shift_forward_edf_metric_cmp`。
 
 残る本質的な作業は、first-boundary reset を任意 hyperperiod boundary へ
 反復輸送する schedule-level shift theorem と、その同じ shift theorem で
@@ -530,8 +575,10 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
    補助に下げ、mainline では要求しない。
 6. `PeriodicHyperperiodGeneratedSchedulePeriodicity` を boundary reset と service shift に分割して証明する。
    first-boundary reset completion の theorem 化は **Done**。
-   forward job/pair/candidate enumeration shift は **Done**。
-   任意 boundary への反復 transport と service shift は **Next**。
+   forward job/pair shift と candidate membership shift は **Done**。
+   order-preserving candidate enumeration shift、eligible/filter shift、
+   `choose_edf` shift、generated schedule prefix shift は **Next**。
+   その後、任意 boundary への反復 transport と service shift を閉じる。
 7. final closed extracted theorem を追加する。
 8. extraction list は checker 関数だけを維持し、proof-only theorem は抽出しない。
 9. `make theories/TaskModels/Periodic/PeriodicEDFFinalCertificateChecker.vo` を通す。
@@ -562,6 +609,9 @@ Rust 側に要求しないこと:
   checker は正しくても acceptance rate が下がる。
 - generic periodic jobs に戻すと cost equality が失われるため、final theorem は
   extracted/canonical job model にまず固定する必要がある。
+- EDF は同一 deadline の tie-break を candidate list order で解くため、
+  candidate membership の対応だけでは generated schedule periodicity を証明できない。
+  task order と job-index order を保つ enumeration shift が必要である。
 - generated schedule periodicity theorem が閉じない場合、state-reset checker だけでは
   service-pair transport を補いきれない可能性がある。この場合は service shift を
   certificate obligation として一段残す。
