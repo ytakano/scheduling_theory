@@ -478,12 +478,23 @@ shift は未完了。
   `enum_periodic_jobs_before ... (S t)` の場合に、service equality 仮定から
   `choose_edf` の結果を shifted mapped candidate list へ運ぶ
   `extracted_periodic_choose_edf_shift_forward_candidates_before` を追加済み。
+- release window `[hp*n, hp*n+H)` で target 側
+  `enum_periodic_jobs_before ... (hp*n+H)` を filter した candidate list が、
+  source 側 `enum_periodic_jobs_before ... H` を deterministic hyperperiod shift した
+  list と順序付きで一致する
+  `extracted_periodic_shift_forward_candidate_window_eq` を追加済み。
+  これにより、window-filtered target candidates 上の `choose_edf` を直接運ぶ
+  `extracted_periodic_choose_edf_shift_forward_window` まで接続済み。
 
 残る本質的な作業は、first-boundary reset を任意 hyperperiod boundary へ
 反復輸送する schedule-level shift theorem と、その同じ shift theorem で
 representative window service を target window service へ運ぶ theorem を証明すること。
 DBF だけでは任意 boundary reset completion は出ないため、generated EDF schedule の
 hyperperiod shift invariance を別 lemma として立てる必要がある。
+次の局所ステップは、target prefix に含まれる `[0, hp*n)` の old candidates を
+no-carry-in / boundary reset から ineligible として消し、
+window-filtered target candidates の `choose_edf` wrapper を unfiltered generated EDF
+step に接続すること。
 
 ### Phase F: representative obligation elimination
 

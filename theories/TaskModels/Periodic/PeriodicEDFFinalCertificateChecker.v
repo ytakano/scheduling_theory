@@ -507,6 +507,186 @@ Definition extracted_periodic_shift_forward_job_id
     τ
     (job_index (jobs j) + step * n).
 
+Lemma map_flat_map_local :
+  forall (A B C : Type) (f : B -> C) (g : A -> list B) xs,
+    map f (flat_map g xs) = flat_map (fun x => map f (g x)) xs.
+Proof.
+  intros A B C f g xs.
+  induction xs as [|x xs IH]; simpl.
+  - reflexivity.
+  - rewrite map_app.
+    rewrite IH.
+    reflexivity.
+Qed.
+
+Lemma map_seq_add :
+  forall start len shift,
+    map (fun k => k + shift) (seq start len) =
+    seq (start + shift) len.
+Proof.
+  intros start len.
+  revert start.
+  induction len as [|len IH]; intros start shift; simpl.
+  - reflexivity.
+  - f_equal.
+    rewrite IH.
+    replace (S start + shift) with (S (start + shift)) by lia.
+    reflexivity.
+Qed.
+
+Lemma filter_shifted_release_window_indices :
+  forall p s H,
+    0 < p ->
+    filter
+      (fun k => Nat.leb (p * s) (k * p)
+                && Nat.ltb (k * p) (p * s + H))
+      (filter
+         (fun k => Nat.ltb (k * p) (p * s + H))
+         (seq 0 (p * s + H))) =
+    map (fun k => k + s)
+      (filter (fun k => Nat.ltb (k * p) H) (seq 0 H)).
+Proof.
+  intros p s H Hp.
+  replace (p * s + H) with (s + (p * s + H - s)) by nia.
+  rewrite seq_app.
+  rewrite filter_app.
+  rewrite filter_app.
+  replace (s + (p * s + H - s)) with (p * s + H) by nia.
+  assert (Hprefix :
+    filter
+      (fun x : nat =>
+         (p * s <=? x * p) && (x * p <? p * s + H))
+      (filter (fun k : nat => k * p <? p * s + H) (seq 0 s)) = []).
+  {
+    apply filter_all_false.
+    intros k Hin.
+    apply filter_In in Hin.
+    destruct Hin as [Hin _].
+    apply in_seq in Hin.
+    destruct Hin as [_ Hklt].
+    apply andb_false_intro1.
+      apply Nat.leb_gt.
+      nia.
+  }
+  rewrite Hprefix.
+  simpl.
+  replace (seq s (p * s + H - s)) with
+    (seq (0 + s) (p * s + H - s)) by (replace (0 + s) with s by lia; reflexivity).
+  rewrite <- map_seq_add with (start := 0) (len := p * s + H - s) (shift := s).
+  assert (Hshift_filter :
+    filter
+      (fun x : nat =>
+         (p * s <=? x * p) && (x * p <? p * s + H))
+      (filter
+         (fun k : nat => k * p <? p * s + H)
+         (map (fun k : nat => k + s) (seq 0 (p * s + H - s)))) =
+    map (fun k : nat => k + s)
+      (filter (fun k : nat => k * p <? H) (seq 0 (p * s + H - s)))).
+  {
+    induction (seq 0 (p * s + H - s)) as [|k ks IH]; simpl.
+    - reflexivity.
+    - assert (Hbefore :
+        ((k + s) * p <? p * s + H) =
+        (k * p <? H)).
+      {
+        destruct (k * p <? H) eqn:Hlt.
+        - apply Nat.ltb_lt in Hlt.
+          apply Nat.ltb_lt.
+          nia.
+        - apply Nat.ltb_ge in Hlt.
+          apply Nat.ltb_ge.
+          nia.
+      }
+      rewrite Hbefore.
+      destruct (k * p <? H) eqn:Hlt; simpl.
+      + assert (Hpred :
+          ((p * s <=? (k + s) * p)
+           && ((k + s) * p <? p * s + H)) = true).
+        {
+          apply andb_true_iff.
+          split.
+          - apply Nat.leb_le.
+            nia.
+          - apply Nat.ltb_lt in Hlt.
+            apply Nat.ltb_lt.
+            nia.
+        }
+        rewrite Hpred.
+        simpl.
+        rewrite IH.
+        reflexivity.
+      + rewrite IH.
+        reflexivity.
+  }
+  rewrite Hshift_filter.
+  assert (Hextend :
+    filter (fun k : nat => k * p <? H) (seq 0 (p * s + H - s)) =
+    filter (fun k : nat => k * p <? H) (seq 0 H)).
+  {
+    replace (p * s + H - s) with (H + (p * s + H - s - H)) by nia.
+    rewrite seq_app.
+    rewrite filter_app.
+    assert (Hsuffix :
+      filter (fun k : nat => k * p <? H)
+        (seq (0 + H) (p * s + H - s - H)) = []).
+    {
+      apply filter_all_false.
+      intros k Hin.
+      apply in_seq in Hin.
+      destruct Hin as [Hlo _].
+      apply Nat.ltb_ge.
+      nia.
+    }
+    rewrite Hsuffix.
+    rewrite app_nil_r.
+    reflexivity.
+  }
+  rewrite Hextend.
+  reflexivity.
+Qed.
+
+Lemma extracted_periodic_shift_forward_job_id_of :
+  forall ts τ k n,
+    extracted_taskset_wf ts = true ->
+    extracted_task_scope ts τ ->
+    extracted_periodic_shift_forward_job_id ts n
+      (global_periodic_job_id_of
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         (extracted_periodic_jobs ts)
+         (extracted_periodic_codec ts)
+         τ k) =
+    global_periodic_job_id_of
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (extracted_periodic_codec ts)
+      τ
+      (k + extracted_periodic_hyperperiod_task_step ts τ * n).
+Proof.
+  intros ts τ k n _ HT.
+  unfold extracted_periodic_shift_forward_job_id.
+  rewrite
+    (codec_job_task
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (extracted_periodic_codec ts)
+       τ k HT).
+  rewrite
+    (codec_job_index
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (extracted_periodic_codec ts)
+       τ k HT).
+  reflexivity.
+Qed.
+
 Lemma extracted_periodic_hyperperiod_task_step_spec :
   forall ts τ,
     extracted_taskset_wf ts = true ->
@@ -543,6 +723,210 @@ Proof.
   - symmetry.
     apply Nat.div_mul.
     lia.
+Qed.
+
+Lemma extracted_periodic_indices_hyperperiod_shift_window :
+  forall ts τ n H,
+    extracted_taskset_wf ts = true ->
+    extracted_task_scope ts τ ->
+    let tasks := extracted_periodic_tasks ts in
+    let hp := periodic_hyperperiod tasks (enumT_of_extracted_list ts) in
+    let step := extracted_periodic_hyperperiod_task_step ts τ in
+    filter
+      (fun k =>
+         Nat.leb (hp * n) (expected_release tasks (fun _ => 0) τ k)
+         && Nat.ltb (expected_release tasks (fun _ => 0) τ k) (hp * n + H))
+      (enum_periodic_indices_upto tasks (fun _ => 0) τ (hp * n + H)) =
+    map (fun k => k + step * n)
+      (enum_periodic_indices_upto tasks (fun _ => 0) τ H).
+Proof.
+  intros ts τ n H Hwf HT tasks hp step.
+  subst tasks hp step.
+  pose proof
+    (extracted_periodic_hyperperiod_task_step_spec ts τ Hwf HT)
+    as Hhp.
+  assert (Hperiod_pos : 0 < task_period (extracted_periodic_tasks ts τ)).
+  {
+    eapply extracted_tasks_well_formed_on_enum; eauto.
+  }
+  unfold enum_periodic_indices_upto.
+  rewrite Hhp.
+  replace (task_period (extracted_periodic_tasks ts τ) *
+             extracted_periodic_hyperperiod_task_step ts τ * n)
+    with (task_period (extracted_periodic_tasks ts τ) *
+          (extracted_periodic_hyperperiod_task_step ts τ * n)) by nia.
+  unfold expected_release.
+  cbn.
+  apply filter_shifted_release_window_indices.
+  exact Hperiod_pos.
+Qed.
+
+Lemma extracted_periodic_shift_forward_candidates_before_map :
+  forall ts n H,
+    extracted_taskset_wf ts = true ->
+    map (extracted_periodic_shift_forward_job_id ts n)
+      (enum_periodic_jobs_before
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         (extracted_periodic_jobs ts)
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts)
+         H) =
+    flat_map
+      (fun τ =>
+         map
+           (global_periodic_job_id_of
+              (extracted_task_scope ts)
+              (extracted_periodic_tasks ts)
+              (fun _ => 0)
+              (extracted_periodic_jobs ts)
+              (extracted_periodic_codec ts)
+              τ)
+           (map
+              (fun k =>
+                 k + extracted_periodic_hyperperiod_task_step ts τ * n)
+              (enum_periodic_indices_upto
+                 (extracted_periodic_tasks ts) (fun _ => 0) τ H)))
+      (enumT_of_extracted_list ts).
+Proof.
+  intros ts n H Hwf.
+  set (enumT := enumT_of_extracted_list ts).
+  assert (HenumT_sound :
+    forall τ, In τ enumT -> extracted_task_scope ts τ).
+  {
+    subst enumT.
+    apply extracted_enum_sound.
+  }
+  unfold enum_periodic_jobs_before, enum_periodic_jobs_upto.
+  fold enumT.
+  rewrite map_flat_map_local.
+  induction enumT as [|τ enumT IH]; simpl.
+  - reflexivity.
+  - f_equal.
+    + rewrite !map_map.
+      apply map_ext_in.
+      intros k _.
+      apply extracted_periodic_shift_forward_job_id_of.
+      * exact Hwf.
+      * apply HenumT_sound.
+        left; reflexivity.
+    + apply IH.
+      intros τ' Hin.
+      apply HenumT_sound.
+      right; exact Hin.
+Qed.
+
+Lemma extracted_periodic_shift_forward_candidate_window_eq :
+  forall ts n H,
+    extracted_taskset_wf ts = true ->
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    filter
+      (fun j =>
+         Nat.leb (hp * n) (job_release (extracted_periodic_jobs ts j))
+         && Nat.ltb (job_release (extracted_periodic_jobs ts j)) (hp * n + H))
+      (enum_periodic_jobs_before
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         (extracted_periodic_jobs ts)
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts)
+         (hp * n + H)) =
+    map (extracted_periodic_shift_forward_job_id ts n)
+      (enum_periodic_jobs_before
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         (extracted_periodic_jobs ts)
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts)
+         H).
+Proof.
+  intros ts n H Hwf hp.
+  subst hp.
+  unfold enum_periodic_jobs_before at 1.
+  rewrite
+    (enum_periodic_jobs_upto_filter_release_range
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (periodic_hyperperiod
+          (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n + H)
+       (enumT_of_extracted_list ts)
+       (extracted_periodic_codec ts)
+       (periodic_hyperperiod
+          (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n)
+       (periodic_hyperperiod
+          (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n + H)
+       (extracted_enum_sound ts)).
+  rewrite extracted_periodic_shift_forward_candidates_before_map by exact Hwf.
+  assert (Hflat :
+    forall enumT,
+      (forall τ, In τ enumT -> extracted_task_scope ts τ) ->
+      flat_map
+        (fun τ : TaskId =>
+           map
+             (global_periodic_job_id_of
+                (extracted_task_scope ts)
+                (extracted_periodic_tasks ts)
+                (fun _ : TaskId => 0)
+                (extracted_periodic_jobs ts)
+                (extracted_periodic_codec ts) τ)
+             (filter
+                (fun k : nat =>
+                   (periodic_hyperperiod
+                      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) *
+                    n <=?
+                    expected_release
+                      (extracted_periodic_tasks ts) (fun _ : TaskId => 0) τ k)
+                   &&
+                   (expected_release
+                      (extracted_periodic_tasks ts) (fun _ : TaskId => 0) τ k <?
+                    periodic_hyperperiod
+                      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) *
+                    n + H))
+                (enum_periodic_indices_upto
+                   (extracted_periodic_tasks ts) (fun _ : TaskId => 0) τ
+                   (periodic_hyperperiod
+                      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) *
+                    n + H))))
+        enumT =
+      flat_map
+        (fun τ : TaskId =>
+           map
+             (global_periodic_job_id_of
+                (extracted_task_scope ts)
+                (extracted_periodic_tasks ts)
+                (fun _ : TaskId => 0)
+                (extracted_periodic_jobs ts)
+                (extracted_periodic_codec ts) τ)
+             (map
+                (fun k : nat =>
+                   k + extracted_periodic_hyperperiod_task_step ts τ * n)
+                (enum_periodic_indices_upto
+                   (extracted_periodic_tasks ts) (fun _ : TaskId => 0) τ H)))
+        enumT).
+  {
+    intros enumT HenumT_sound.
+    induction enumT as [|τ enumT IH]; simpl.
+    - reflexivity.
+    - f_equal.
+      + rewrite extracted_periodic_indices_hyperperiod_shift_window.
+        * reflexivity.
+        * exact Hwf.
+        * apply HenumT_sound.
+          left; reflexivity.
+      + apply IH.
+        intros τ' Hin.
+        apply HenumT_sound.
+        right; exact Hin.
+  }
+  apply Hflat.
+  apply extracted_enum_sound.
 Qed.
 
 Lemma extracted_periodic_shift_forward_job_id_sound :
@@ -1189,6 +1573,67 @@ Proof.
             (S t)
             j
             Hin)).
+  - exact Hservice.
+Qed.
+
+Lemma extracted_periodic_choose_edf_shift_forward_window :
+  forall ts n sched0 sched1 t,
+    extracted_taskset_wf ts = true ->
+    (forall j,
+      In j
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           (extracted_periodic_jobs ts)
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (S t)) ->
+      service_job 1 sched1
+        (extracted_periodic_shift_forward_job_id ts n j)
+        (t +
+         periodic_hyperperiod
+           (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) * n) =
+      service_job 1 sched0 j t) ->
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    choose_edf (extracted_periodic_jobs ts) 1 sched1
+      (t + hp * n)
+      (filter
+         (fun j =>
+            Nat.leb (hp * n) (job_release (extracted_periodic_jobs ts j))
+            && Nat.ltb
+                 (job_release (extracted_periodic_jobs ts j))
+                 (hp * n + S t))
+         (enum_periodic_jobs_before
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts)
+            (enumT_of_extracted_list ts)
+            (extracted_periodic_codec ts)
+            (hp * n + S t))) =
+    match
+      choose_edf (extracted_periodic_jobs ts) 1 sched0 t
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           (extracted_periodic_jobs ts)
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (S t))
+    with
+    | Some j => Some (extracted_periodic_shift_forward_job_id ts n j)
+    | None => None
+    end.
+Proof.
+  intros ts n sched0 sched1 t Hwf Hservice hp.
+  subst hp.
+  rewrite extracted_periodic_shift_forward_candidate_window_eq by exact Hwf.
+  apply extracted_periodic_choose_edf_shift_forward_candidates_before.
+  - exact Hwf.
   - exact Hservice.
 Qed.
 
