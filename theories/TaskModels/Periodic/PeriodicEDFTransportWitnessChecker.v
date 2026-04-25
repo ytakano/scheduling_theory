@@ -1826,7 +1826,58 @@ Record PeriodicHyperperiodCompletionTransportObligation
         (job_release (jobs target))
 }.
 
-Record PeriodicHyperperiodServiceShiftObligation
+Record HyperperiodShiftedServicePair
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (jobs : JobId -> Job)
+    (target x target0 x0 : JobId)
+    (delta : Time) : Prop := {
+  hyperperiod_shift_delta_multiple :
+    exists n, delta = periodic_hyperperiod tasks enumT * n;
+  hyperperiod_shift_target_release :
+    job_release (jobs target) = job_release (jobs target0) + delta;
+  hyperperiod_shift_target_deadline :
+    job_abs_deadline (jobs target) = job_abs_deadline (jobs target0) + delta;
+  hyperperiod_shift_earlier_release :
+    job_release (jobs x) = job_release (jobs x0) + delta;
+  hyperperiod_shift_earlier_deadline :
+    job_abs_deadline (jobs x) = job_abs_deadline (jobs x0) + delta;
+  hyperperiod_shift_earlier_cost :
+    job_cost (jobs x) = job_cost (jobs x0)
+}.
+
+Inductive PeriodicHyperperiodServiceSource
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (target_certs : list EDFWindowTransportTargetCert)
+    (target x : JobId) : Prop :=
+| periodic_hyperperiod_service_source_pair :
+    forall target0 x0 target_cert p delta,
+      periodic_jobset T tasks offset jobs target0 ->
+      job_release (jobs target0) <
+        post_reset_target_candidate_horizon tasks enumT ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target0)) x0 ->
+      job_release (jobs x0) < job_release (jobs target0) ->
+      In target_cert target_certs ->
+      target_cert.(window_transport_target_job) = target0 ->
+      In p target_cert.(window_transport_pairs) ->
+      p.(window_target_earlier_job) = x0 ->
+      HyperperiodShiftedServicePair
+        tasks enumT jobs target x target0 x0 delta ->
+      PeriodicHyperperiodServiceSource
+        T tasks offset jobs enumT codec target_certs target x
+| periodic_hyperperiod_service_source_reset :
+    periodic_hyperperiod tasks enumT <= job_release (jobs target) ->
+    job_release (jobs x) < periodic_hyperperiod tasks enumT ->
+    PeriodicHyperperiodServiceSource
+      T tasks offset jobs enumT codec target_certs target x.
+
+Record PeriodicHyperperiodServiceSourceObligation
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
     (offset : TaskId -> Time)
@@ -1834,9 +1885,7 @@ Record PeriodicHyperperiodServiceShiftObligation
     (enumT : list TaskId)
     (codec : PeriodicCodec T tasks offset jobs)
     (target_certs : list EDFWindowTransportTargetCert) : Prop := {
-  periodic_hyperperiod_service_shift :
-    BoundedPostResetWindowTargetCoverageObligation
-      T tasks offset jobs enumT codec target_certs ->
+  periodic_hyperperiod_service_source :
     forall target x,
       periodic_jobset T tasks offset jobs target ->
       periodic_jobset_deadline_between
@@ -1844,122 +1893,9 @@ Record PeriodicHyperperiodServiceShiftObligation
       job_release (jobs x) < job_release (jobs target) ->
       job_release (jobs target) < periodic_hyperperiod tasks enumT \/
       periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
-      job_cost (jobs x) <=
-      service_job 1
-        (generated_periodic_edf_schedule_upto
-           T tasks offset jobs
-           (S (job_abs_deadline (jobs target))) enumT codec)
-        x
-        (job_release (jobs target))
+      PeriodicHyperperiodServiceSource
+        T tasks offset jobs enumT codec target_certs target x
 }.
-
-Record PeriodicHyperperiodRepresentativeNormalizationObligation
-    (T : TaskId -> Prop)
-    (tasks : TaskId -> Task)
-    (offset : TaskId -> Time)
-    (jobs : JobId -> Job)
-    (enumT : list TaskId)
-    (codec : PeriodicCodec T tasks offset jobs) : Prop := {
-  periodic_hyperperiod_representative_normalization :
-    forall target x,
-      periodic_jobset T tasks offset jobs target ->
-      periodic_jobset_deadline_between
-        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
-      job_release (jobs x) < job_release (jobs target) ->
-      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
-      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
-      exists target0 x0,
-        periodic_jobset T tasks offset jobs target0
-        /\
-        job_release (jobs target0) <
-          post_reset_target_candidate_horizon tasks enumT
-        /\
-        periodic_jobset_deadline_between
-          T tasks offset jobs 0 (job_abs_deadline (jobs target0)) x0
-        /\
-        job_release (jobs x0) < job_release (jobs target0)
-        /\
-        (job_release (jobs target0) < periodic_hyperperiod tasks enumT \/
-         periodic_hyperperiod tasks enumT <= job_release (jobs x0))
-}.
-
-Record PeriodicHyperperiodRepresentativePairCoverageObligation
-    (T : TaskId -> Prop)
-    (tasks : TaskId -> Task)
-    (offset : TaskId -> Time)
-    (jobs : JobId -> Job)
-    (enumT : list TaskId)
-    (codec : PeriodicCodec T tasks offset jobs)
-    (target_certs : list EDFWindowTransportTargetCert) : Prop := {
-  periodic_hyperperiod_representative_pair_coverage :
-    BoundedPostResetWindowTargetCoverageObligation
-      T tasks offset jobs enumT codec target_certs ->
-    forall target x,
-      periodic_jobset T tasks offset jobs target ->
-      periodic_jobset_deadline_between
-        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
-      job_release (jobs x) < job_release (jobs target) ->
-      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
-      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
-      exists target0 x0 target_cert p,
-        periodic_jobset T tasks offset jobs target0
-        /\
-        job_release (jobs target0) <
-          post_reset_target_candidate_horizon tasks enumT
-        /\
-        periodic_jobset_deadline_between
-          T tasks offset jobs 0 (job_abs_deadline (jobs target0)) x0
-        /\
-        job_release (jobs x0) < job_release (jobs target0)
-        /\
-        (job_release (jobs target0) < periodic_hyperperiod tasks enumT \/
-         periodic_hyperperiod tasks enumT <= job_release (jobs x0))
-        /\
-        In target_cert target_certs
-        /\
-        target_cert.(window_transport_target_job) = target0
-        /\
-        In p target_cert.(window_transport_pairs)
-        /\
-        p.(window_target_earlier_job) = x0
-}.
-
-Lemma periodic_hyperperiod_representative_pair_coverage_of_normalization :
-  forall T tasks offset jobs enumT
-         (codec : PeriodicCodec T tasks offset jobs)
-         target_certs,
-    PeriodicHyperperiodRepresentativeNormalizationObligation
-      T tasks offset jobs enumT codec ->
-    PeriodicHyperperiodRepresentativePairCoverageObligation
-      T tasks offset jobs enumT codec target_certs.
-Proof.
-  intros T tasks offset jobs enumT codec target_certs Hnormalize.
-  constructor.
-  intros Hbounded_coverage target x Htarget Hbetween
-         Hrelease_before_target Hpost_reset_case.
-  destruct
-    (periodic_hyperperiod_representative_normalization
-       T tasks offset jobs enumT codec Hnormalize
-       target x Htarget Hbetween Hrelease_before_target
-       Hpost_reset_case)
-    as [target0 [x0 [Htarget0 [Htarget0_horizon [Hbetween0
-        [Hrelease0 Hpost0]]]]]].
-  destruct
-    (bounded_post_reset_window_target_coverage
-       T tasks offset jobs enumT codec target_certs Hbounded_coverage
-       target0 x0 Htarget0 Htarget0_horizon Hbetween0 Hrelease0 Hpost0)
-    as [target_cert [p [Hin_cert [Htarget_cert [Hin_pair Hx0]]]]].
-  exists target0, x0, target_cert, p.
-  split; [exact Htarget0|].
-  split; [exact Htarget0_horizon|].
-  split; [exact Hbetween0|].
-  split; [exact Hrelease0|].
-  split; [exact Hpost0|].
-  split; [exact Hin_cert|].
-  split; [exact Htarget_cert|].
-  split; [exact Hin_pair|].
-  exact Hx0.
-Qed.
 
 Record PeriodicHyperperiodServicePairTransportObligation
     (T : TaskId -> Prop)
@@ -1969,7 +1905,7 @@ Record PeriodicHyperperiodServicePairTransportObligation
     (enumT : list TaskId)
     (codec : PeriodicCodec T tasks offset jobs) : Prop := {
   periodic_hyperperiod_service_pair_transport :
-    forall target x target0 x0,
+    forall target x target0 x0 delta,
       periodic_jobset T tasks offset jobs target ->
       periodic_jobset_deadline_between
         T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
@@ -1982,8 +1918,8 @@ Record PeriodicHyperperiodServicePairTransportObligation
       periodic_jobset_deadline_between
         T tasks offset jobs 0 (job_abs_deadline (jobs target0)) x0 ->
       job_release (jobs x0) < job_release (jobs target0) ->
-      (job_release (jobs target0) < periodic_hyperperiod tasks enumT \/
-       periodic_hyperperiod tasks enumT <= job_release (jobs x0)) ->
+      HyperperiodShiftedServicePair
+        tasks enumT jobs target x target0 x0 delta ->
       job_cost (jobs x0) <=
       service_job 1
         (generated_periodic_edf_schedule_upto
@@ -2000,75 +1936,80 @@ Record PeriodicHyperperiodServicePairTransportObligation
         (job_release (jobs target))
 }.
 
-Lemma periodic_hyperperiod_service_shift_of_pair_transport :
+Lemma periodic_hyperperiod_completion_transport_of_service_source :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs)
          target_certs,
     check_window_generated_pair_completion_all
       T tasks offset jobs enumT codec target_certs = true ->
-    PeriodicHyperperiodRepresentativePairCoverageObligation
+    PeriodicHyperperiodServiceSourceObligation
       T tasks offset jobs enumT codec target_certs ->
     PeriodicHyperperiodServicePairTransportObligation
       T tasks offset jobs enumT codec ->
-    PeriodicHyperperiodServiceShiftObligation
+    (forall target x,
+      periodic_jobset T tasks offset jobs target ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      periodic_hyperperiod tasks enumT <= job_release (jobs target) ->
+      job_release (jobs x) < periodic_hyperperiod tasks enumT ->
+      completed jobs 1
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs target))) enumT codec)
+        x
+        (job_release (jobs target))) ->
+    PeriodicHyperperiodCompletionTransportObligation
       T tasks offset jobs enumT codec target_certs.
 Proof.
   intros T tasks offset jobs enumT codec target_certs
-         Hcompletion Hpair_coverage Hpair_transport.
+         Hcompletion Hsource Hpair_transport Hreset_completion.
   constructor.
   intros Hbounded_coverage target x Htarget Hbetween
          Hrelease_before_target Hpost_reset_case.
   destruct
-    (periodic_hyperperiod_representative_pair_coverage
-       T tasks offset jobs enumT codec target_certs Hpair_coverage
-       Hbounded_coverage target x Htarget Hbetween Hrelease_before_target
+    (periodic_hyperperiod_service_source
+       T tasks offset jobs enumT codec target_certs Hsource
+       target x Htarget Hbetween Hrelease_before_target
        Hpost_reset_case)
-    as [target0 Htarget0_witness].
-  destruct Htarget0_witness as [x0 Hx0_witness].
-  destruct Hx0_witness as [target_cert Htarget_cert_witness].
-  destruct Htarget_cert_witness as [p Hpair_witness].
-  destruct Hpair_witness as
-    [Htarget0 [Htarget0_horizon [Hbetween0 [Hrelease0 [Hpost0
-    [Hin_cert [Htarget_cert [Hin_pair Hx0]]]]]]]].
-  assert (Hsource_service :
-    job_cost (jobs x0) <=
-    service_job 1
-      (generated_periodic_edf_schedule_upto
-         T tasks offset jobs
-         (S (job_abs_deadline (jobs target0))) enumT codec)
-      x0
-      (job_release (jobs target0))).
-  {
-    unfold check_window_generated_pair_completion_all in Hcompletion.
-    apply forallb_forall with (x := target_cert) in Hcompletion;
-      [|exact Hin_cert].
-    unfold check_window_generated_pair_completion in Hcompletion.
-    apply forallb_forall with (x := p) in Hcompletion;
-      [|exact Hin_pair].
-    unfold check_generated_window_pair_target_completed in Hcompletion.
-    rewrite Htarget_cert in Hcompletion.
-    rewrite Hx0 in Hcompletion.
-    apply Nat.leb_le.
-    exact Hcompletion.
-  }
-  eapply periodic_hyperperiod_service_pair_transport; eauto.
-Qed.
-
-Lemma periodic_hyperperiod_completion_transport_of_service_shift :
-  forall T tasks offset jobs enumT
-         (codec : PeriodicCodec T tasks offset jobs)
-         target_certs,
-    PeriodicHyperperiodServiceShiftObligation
-      T tasks offset jobs enumT codec target_certs ->
-    PeriodicHyperperiodCompletionTransportObligation
-      T tasks offset jobs enumT codec target_certs.
-Proof.
-  intros T tasks offset jobs enumT codec target_certs Hservice_shift.
-  constructor.
-  intros Hbounded_coverage target x Htarget Hbetween
-         Hrelease_before_target Hpost_reset_case.
-  rewrite completed_iff_service_ge_cost.
-  eapply periodic_hyperperiod_service_shift; eauto.
+    as [target0 x0 target_cert p delta Htarget0 Htarget0_horizon
+        Hbetween0 Hrelease0 Hin_cert Htarget_cert Hin_pair Hx0 Hshifted
+        | Htarget_after_reset Hx_before_reset].
+  - assert (Hsource_service :
+      job_cost (jobs x0) <=
+      service_job 1
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs target0))) enumT codec)
+        x0
+        (job_release (jobs target0))).
+    {
+      unfold check_window_generated_pair_completion_all in Hcompletion.
+      apply forallb_forall with (x := target_cert) in Hcompletion;
+        [|exact Hin_cert].
+      unfold check_window_generated_pair_completion in Hcompletion.
+      apply forallb_forall with (x := p) in Hcompletion;
+        [|exact Hin_pair].
+      unfold check_generated_window_pair_target_completed in Hcompletion.
+      rewrite Htarget_cert in Hcompletion.
+      rewrite Hx0 in Hcompletion.
+      apply Nat.leb_le.
+      exact Hcompletion.
+    }
+    rewrite completed_iff_service_ge_cost.
+    eapply periodic_hyperperiod_service_pair_transport.
+    + exact Hpair_transport.
+    + exact Htarget.
+    + exact Hbetween.
+    + exact Hrelease_before_target.
+    + exact Hpost_reset_case.
+    + exact Htarget0.
+    + exact Htarget0_horizon.
+    + exact Hbetween0.
+    + exact Hrelease0.
+    + exact Hshifted.
+    + exact Hsource_service.
+  - eapply Hreset_completion; eauto.
 Qed.
 
 Lemma periodic_hyperperiod_bounded_post_reset_lift_of_completion_transport :
