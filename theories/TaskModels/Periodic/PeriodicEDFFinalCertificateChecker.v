@@ -891,7 +891,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodCompletionTransportObligation
+    PeriodicHyperperiodServiceShiftObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
@@ -916,7 +916,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts codec cert sidecar Hcheck Hrep Hcompletion_transport.
+  intros ts codec cert sidecar Hcheck Hrep Hservice_shift.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
@@ -935,6 +935,16 @@ Proof.
        cert
        sidecar
        Hcheck) as Hbounded_coverage.
+  pose proof
+    (periodic_hyperperiod_completion_transport_of_service_shift
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec
+       sidecar.(checked_post_reset_window_target_certs)
+       Hservice_shift) as Hcompletion_transport.
   pose proof
     (periodic_hyperperiod_bounded_post_reset_lift_of_completion_transport
        (extracted_task_scope ts)
@@ -1009,7 +1019,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodCompletionTransportObligation
+    PeriodicHyperperiodServiceShiftObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
@@ -1034,7 +1044,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts cert sidecar Hcheck Hrep Hcompletion_transport.
+  intros ts cert sidecar Hcheck Hrep Hservice_shift.
   destruct
     (check_periodic_edf_checked_sidecar_extracted_fields
        ts cert sidecar Hcheck)
