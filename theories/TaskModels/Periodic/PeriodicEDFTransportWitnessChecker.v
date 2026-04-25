@@ -1237,6 +1237,32 @@ Record PostResetWindowTargetCoverageObligation
         p.(window_target_earlier_job) = x
 }.
 
+Record PostResetWindowTargetBasisCoverageObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId) : Prop := {
+  post_reset_window_target_basis_coverage :
+    forall target x,
+      periodic_jobset T tasks offset jobs target ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
+      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
+      exists i class_id shift cls,
+        nth_error transport_cert.(transport_basis_jobs) i = Some target
+        /\
+        nth_error transport_cert.(transport_job_class) i = Some class_id
+        /\
+        nth_error transport_cert.(transport_job_shift) i = Some shift
+        /\
+        nth_error transport_cert.(transport_classes) class_id = Some cls
+}.
+
 Definition check_post_reset_window_targets_complete_with_pairs
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
@@ -1254,6 +1280,61 @@ Definition check_post_reset_window_targets_complete_with_pairs
   &&
   check_window_generated_pair_completion_all
     T tasks offset jobs enumT codec target_certs.
+
+Lemma post_reset_window_target_coverage_of_checked_basis :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert target_certs,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    check_window_transport_targets_complete_with_pairs
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    PostResetWindowTargetBasisCoverageObligation
+      T tasks offset jobs enumT codec transport_cert ->
+    PostResetWindowTargetCoverageObligation
+      T tasks offset jobs enumT codec target_certs.
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert target_certs
+         Hwf HenumT_complete Hwindow_check Hbasis_coverage.
+  constructor.
+  intros target x Htarget Hbetween Hrelease_before_target Hpost_reset_case.
+  destruct
+    (post_reset_window_target_basis_coverage
+       T tasks offset jobs enumT codec transport_cert Hbasis_coverage
+       target x Htarget Hbetween Hrelease_before_target Hpost_reset_case)
+    as [i [class_id [shift [cls
+        [Hbasis [Hclass [Hshift Hcls]]]]]]].
+  destruct
+    (check_window_transport_targets_complete_with_pairs_basis_sound
+       T tasks offset jobs enumT codec transport_cert target_certs
+       i target class_id shift cls
+       Hwindow_check Hbasis Hclass Hshift Hcls)
+    as [target_cert [Hin [Htarget_cert [Htarget_class
+        [_Htarget_shift _Htarget_check]]]]].
+  assert (Hcls_target :
+    nth_error transport_cert.(transport_classes)
+      target_cert.(window_transport_class_id) = Some cls).
+  {
+    rewrite Htarget_class.
+    exact Hcls.
+  }
+  assert (Hrelevant :
+    In x
+      (window_target_relevant_earlier_jobs
+         T tasks offset jobs enumT codec
+         target_cert.(window_transport_target_job))).
+  {
+    rewrite Htarget_cert.
+    eapply window_target_relevant_earlier_jobs_complete; eauto.
+  }
+  destruct
+    (check_window_transport_targets_complete_with_pairs_coverage_sound
+       T tasks offset jobs enumT codec transport_cert target_certs
+       target_cert cls x Hwindow_check Hin Hcls_target Hrelevant)
+    as [p [Hp [Hx _]]].
+  exists target_cert, p.
+  repeat split; assumption.
+Qed.
 
 Lemma periodic_hyperperiod_post_reset_earlier_completion_shift_of_checked_targets :
   forall T tasks offset jobs enumT
