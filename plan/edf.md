@@ -527,8 +527,16 @@ shift-back/forward の witness は deterministic job-id equality も返せる。
 さらに `extracted_periodic_deterministic_service_pair_transport` により、
 finite-horizon service shift は deterministic pair と boundary completion premise
 から target service へ接続できる形になった。
-次の局所ステップは、この boundary completion premise を first-boundary reset から
-任意 hyperperiod boundary へ反復輸送して取り除くこと。
+`extracted_periodic_generated_boundary_completion_forward` と
+`check_periodic_edf_checked_sidecar_extracted_boundary_prefix_completion` により、
+first-boundary reset completion を任意 hyperperiod boundary の generated prefix
+completion へ反復輸送できるようになった。
+さらに `extracted_periodic_deterministic_service_pair_transport_checked` により、
+deterministic service-pair transport の boundary completion premise は checked sidecar
+から構成できる。
+次の局所ステップは、この checked deterministic service transport を
+`PeriodicHyperperiodCompletionTransportObligation` 側へ接続し、既存の weak
+`PeriodicHyperperiodServicePairTransportObligation` 仮定を final wrapper から外すこと。
 
 ### Phase F: representative obligation elimination
 
@@ -638,7 +646,8 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
    generated schedule prefix shift は **Done**。
    finite-horizon generated schedule への bridge は **Done**。
    job-id level deterministic shift relation と extracted service-pair transport bridge は **Done**。
-   次に任意 boundary への反復 transport / boundary completion premise の除去を閉じる。
+   任意 boundary への反復 transport / boundary completion premise の除去は **Done**。
+   次に deterministic transport bridge を completion-transport assembly へ接続する。
 7. final closed extracted theorem を追加する。
 8. extraction list は checker 関数だけを維持し、proof-only theorem は抽出しない。
 9. `make theories/TaskModels/Periodic/PeriodicEDFFinalCertificateChecker.vo` を通す。
