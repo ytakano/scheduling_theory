@@ -69,6 +69,9 @@ legacy variant が残っている。
 `check_periodic_edf_checked_sidecar_extracted_sound_closed` では
 `check_periodic_edf_checked_sidecar_extracted ts cert sidecar = true` だけから
 `schedulable_by_on` を得る形まで閉じた。
+さらに公式の goal theorem 名として
+`check_periodic_edf_csv_certificate_sound` を追加し、上記 closed theorem に委譲する
+公開 wrapper とした。
 当初 mainline は
 `check_periodic_edf_checked_sidecar_extracted_checked_block_generated_rep_sound`
 を使う予定だったが、checked block-source normalization は
@@ -699,7 +702,7 @@ Rust 側に要求しないこと:
 
 完了条件は次。
 
-- `check_periodic_edf_checked_sidecar_extracted_sound_closed` が追加される。
+- `check_periodic_edf_csv_certificate_sound` が追加される。
 - その theorem の仮定は
   `check_periodic_edf_checked_sidecar_extracted ts cert sidecar = true`
   だけになる。

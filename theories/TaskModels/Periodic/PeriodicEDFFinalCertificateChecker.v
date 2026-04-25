@@ -6911,6 +6911,31 @@ Proof.
     exact Hcheck.
 Qed.
 
+Theorem check_periodic_edf_csv_certificate_sound :
+  forall ts cert sidecar,
+    check_periodic_edf_checked_sidecar_extracted ts cert sidecar = true ->
+    schedulable_by_on
+      (periodic_jobset
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts))
+      (edf_scheduler
+         (periodic_candidates_before
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts)
+            (enumT_of_extracted_list ts)
+            (extracted_periodic_codec ts)))
+      (extracted_periodic_jobs ts)
+      1.
+Proof.
+  intros ts cert sidecar Hcheck.
+  eapply check_periodic_edf_checked_sidecar_extracted_sound_closed.
+  exact Hcheck.
+Qed.
+
 Theorem check_periodic_edf_checked_sidecar_extracted_periodic_sound :
   forall ts cert sidecar,
     check_periodic_edf_checked_sidecar_extracted ts cert sidecar = true ->
