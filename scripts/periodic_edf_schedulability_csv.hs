@@ -195,7 +195,7 @@ checkGeneratedPrefixNative tasks cert =
 prefixHorizon :: [ParsedTask] -> Int
 prefixHorizon [] = 0
 prefixHorizon tasks =
-  hyperperiod tasks + maximum (map parsedDeadline tasks)
+  2 * hyperperiod tasks + maximum (map parsedDeadline tasks)
 
 hyperperiod :: [ParsedTask] -> Int
 hyperperiod =

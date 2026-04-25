@@ -197,6 +197,30 @@ Proof.
   now apply Nat.leb_le in Hcheck.
 Qed.
 
+Definition post_reset_window_horizon
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId) : Time :=
+  2 * periodic_hyperperiod tasks enumT +
+  periodic_max_relative_deadline tasks enumT.
+
+Definition check_prefix_horizon_covers_post_reset_window
+    (tasks : TaskId -> Task)
+    (enumT : list TaskId)
+    (prefix_cert : EDFPrefixCert JobId) : bool :=
+  Nat.leb
+    (post_reset_window_horizon tasks enumT)
+    prefix_cert.(prefix_horizon).
+
+Theorem check_prefix_horizon_covers_post_reset_window_sound :
+  forall tasks enumT prefix_cert,
+    check_prefix_horizon_covers_post_reset_window tasks enumT prefix_cert = true ->
+    post_reset_window_horizon tasks enumT <= prefix_cert.(prefix_horizon).
+Proof.
+  intros tasks enumT prefix_cert Hcheck.
+  unfold check_prefix_horizon_covers_post_reset_window in Hcheck.
+  now apply Nat.leb_le in Hcheck.
+Qed.
+
 Definition check_periodic_edf_checked_sidecar
     (ts : list ExtractedPeriodicTask)
     (codec :
@@ -234,6 +258,10 @@ Definition check_periodic_edf_checked_sidecar
        (enumT_of_extracted_list ts)
        cert.(cert_transport)
   && check_prefix_horizon_covers_hyperperiod
+       (extracted_periodic_tasks ts)
+       (enumT_of_extracted_list ts)
+       cert.(cert_prefix)
+  && check_prefix_horizon_covers_post_reset_window
        (extracted_periodic_tasks ts)
        (enumT_of_extracted_list ts)
        cert.(cert_prefix)
@@ -352,6 +380,11 @@ Lemma check_periodic_edf_checked_sidecar_fields :
       (enumT_of_extracted_list ts) <=
       cert.(cert_prefix).(prefix_horizon)
     /\
+    post_reset_window_horizon
+      (extracted_periodic_tasks ts)
+      (enumT_of_extracted_list ts) <=
+      cert.(cert_prefix).(prefix_horizon)
+    /\
     check_transport_cert cert.(cert_transport) = true
     /\
     check_transport_basis_nodup cert.(cert_transport) = true
@@ -428,7 +461,8 @@ Proof.
   unfold check_periodic_edf_checked_sidecar in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
   destruct Hcheck as
-    [[[[[[[[[[[[[[[Hprefix Hfast] Hreset] Hperiod_eq] Hhorizon]
+    [[[[[[[[[[[[[[[[Hprefix Hfast] Hreset] Hperiod_eq] Hhorizon]
+        Hpost_reset_horizon]
         Htransport] Hbasis_nodup] Hrep] Hrep_generated] Hrep_periodic]
         Hcoverage] Hshifts] Hwindow] Hpair_semantics] Hpair_completion] Hdec].
   repeat split; try assumption.
@@ -438,6 +472,8 @@ Proof.
     exact Hperiod_eq.
   - eapply check_prefix_horizon_covers_hyperperiod_sound.
     exact Hhorizon.
+  - eapply check_prefix_horizon_covers_post_reset_window_sound.
+    exact Hpost_reset_horizon.
 Qed.
 
 Lemma check_periodic_edf_checked_sidecar_wf :
@@ -456,7 +492,7 @@ Proof.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
-    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
+    as (_ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & Hdec).
   unfold edf_schedulability_decide in Hdec.
   apply andb_true_iff in Hdec.
   exact (proj1 Hdec).
@@ -508,7 +544,7 @@ Proof.
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
     as (_ & Hmatch & Hreset_check & Hperiod_eq
-        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
+        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
   split.
   - eapply check_periodic_hyperperiod_state_reset_sound.
     + apply extracted_tasks_well_formed_on_enum.
@@ -518,6 +554,30 @@ Proof.
     + exact Hmatch.
     + exact Hreset_check.
   - exact Hperiod_eq.
+Qed.
+
+Lemma check_periodic_edf_checked_sidecar_post_reset_window_fact :
+  forall ts
+         (codec :
+          PeriodicCodec
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts))
+         cert sidecar,
+    check_periodic_edf_checked_sidecar ts codec cert sidecar = true ->
+    post_reset_window_horizon
+      (extracted_periodic_tasks ts)
+      (enumT_of_extracted_list ts) <=
+    cert.(cert_prefix).(prefix_horizon).
+Proof.
+  intros ts codec cert sidecar Hcheck.
+  destruct
+    (check_periodic_edf_checked_sidecar_fields
+       ts codec cert sidecar Hcheck)
+    as (_ & _ & _ & _ & _ & Hpost_reset_horizon
+        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
+  exact Hpost_reset_horizon.
 Qed.
 
 Lemma periodic_hyperperiod_state_reset_completed_in_schedule_upto :
@@ -610,7 +670,7 @@ Proof.
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
     as (_ & _ & _ & Hperiod_eq & Hhorizon_covers
-        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
+        & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _ & _).
   pose proof
     (check_periodic_edf_checked_sidecar_hyperperiod_facts
        ts codec cert sidecar Hcheck)
@@ -720,6 +780,7 @@ Proof.
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
     as (_ & Hmatch & Hreset_check & Hperiod_eq & _Hhorizon_covers
+        & _Hpost_reset_horizon
         & Htransport_check & Hbasis_nodup_check & Hrep_check
         & Hrep_generated_check & Hrep_periodic_check
         & Hresidue_check & Hshift_check
