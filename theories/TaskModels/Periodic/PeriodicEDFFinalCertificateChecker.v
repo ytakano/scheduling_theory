@@ -588,7 +588,7 @@ Lemma periodic_hyperperiod_backlog_transport_of_checked_reset :
             (extracted_periodic_jobs ts))
          cert sidecar,
     check_periodic_edf_checked_sidecar ts codec cert sidecar = true ->
-    PeriodicHyperperiodWindowShiftObligation
+    PeriodicHyperperiodEarlierCompletionShiftObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
@@ -605,7 +605,7 @@ Lemma periodic_hyperperiod_backlog_transport_of_checked_reset :
       codec
       cert.(cert_transport).
 Proof.
-  intros ts codec cert sidecar Hcheck Hshift.
+  intros ts codec cert sidecar Hcheck Hearlier.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
@@ -615,6 +615,20 @@ Proof.
     (check_periodic_edf_checked_sidecar_hyperperiod_facts
        ts codec cert sidecar Hcheck)
     as [Hreset Htransport_period_hyperperiod].
+  pose proof
+    (periodic_hyperperiod_window_shift_of_earlier_completion_shift
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
+       codec
+       cert.(cert_transport)
+       (extracted_tasks_well_formed_on_enum
+          ts (check_periodic_edf_checked_sidecar_wf ts codec cert sidecar Hcheck))
+       (extracted_enum_complete ts)
+       (extracted_enum_sound ts)
+       Hearlier) as Hshift.
   constructor.
   intros residue target q Hperiod_eq' Htarget Htransport Hresidue_backlog.
   refine
@@ -666,7 +680,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodWindowShiftObligation
+    PeriodicHyperperiodEarlierCompletionShiftObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
@@ -691,7 +705,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts codec cert sidecar Hcheck Hrep Hwindow_shift.
+  intros ts codec cert sidecar Hcheck Hrep Hearlier.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
@@ -706,7 +720,7 @@ Proof.
     as [_Hhyperperiod_reset Htransport_period_hyperperiod].
   pose proof
     (periodic_hyperperiod_backlog_transport_of_checked_reset
-       ts codec cert sidecar Hcheck Hwindow_shift)
+       ts codec cert sidecar Hcheck Hearlier)
     as Hhyper_transport.
   eapply periodic_edf_schedulable_by_classical_dbf_with_periodic_hyperperiod_transport_generated_checks.
   - apply extracted_tasks_well_formed_on_enum.
@@ -751,7 +765,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodWindowShiftObligation
+    PeriodicHyperperiodEarlierCompletionShiftObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
@@ -776,7 +790,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts cert sidecar Hcheck Hrep Hwindow_shift.
+  intros ts cert sidecar Hcheck Hrep Hearlier.
   destruct
     (check_periodic_edf_checked_sidecar_extracted_fields
        ts cert sidecar Hcheck)

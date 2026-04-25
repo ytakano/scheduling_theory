@@ -1124,6 +1124,82 @@ Record PeriodicHyperperiodWindowShiftObligation
         target
 }.
 
+Record PeriodicHyperperiodEarlierCompletionShiftObligation
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs)
+    (transport_cert : EDFTransportCert JobId) : Prop := {
+  periodic_hyperperiod_earlier_completion_shift :
+    forall residue target q,
+      transport_cert.(transport_period) = periodic_hyperperiod tasks enumT ->
+      periodic_jobset T tasks offset jobs target ->
+      transport_rep_to_target_job
+        T tasks offset jobs codec residue target
+        transport_cert.(transport_period) q ->
+      (periodic_hyperperiod tasks enumT <
+         S (job_abs_deadline (jobs target)) ->
+       forall x,
+         periodic_jobset T tasks offset jobs x ->
+         job_release (jobs x) < periodic_hyperperiod tasks enumT ->
+         completed jobs 1
+           (generated_periodic_edf_schedule_upto
+              T tasks offset jobs
+              (S (job_abs_deadline (jobs target))) enumT codec)
+           x
+           (periodic_hyperperiod tasks enumT)) ->
+      periodic_edf_backlog_free_before_release
+        T tasks offset jobs
+        (S (job_abs_deadline (jobs residue)))
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs residue))) enumT codec)
+        residue ->
+      forall x,
+        periodic_jobset_deadline_between
+          T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+        job_release (jobs x) < job_release (jobs target) ->
+        completed jobs 1
+          (generated_periodic_edf_schedule_upto
+             T tasks offset jobs
+             (S (job_abs_deadline (jobs target))) enumT codec)
+          x
+          (job_release (jobs target))
+}.
+
+Lemma periodic_hyperperiod_window_shift_of_earlier_completion_shift :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         transport_cert,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    PeriodicHyperperiodEarlierCompletionShiftObligation
+      T tasks offset jobs enumT codec transport_cert ->
+    PeriodicHyperperiodWindowShiftObligation
+      T tasks offset jobs enumT codec transport_cert.
+Proof.
+  intros T tasks offset jobs enumT codec transport_cert
+         Hwf HenumT_complete HenumT_sound Hearlier.
+  constructor.
+  intros residue target q Hperiod_eq Htarget Htransport Hreset Hresidue_backlog.
+  eapply periodic_edf_backlog_free_before_release_of_earlier_completion.
+  - eapply generated_periodic_edf_schedule_upto_valid; eauto.
+  - exact Htarget.
+  - intros x Hbetween Hrelease.
+    eapply periodic_hyperperiod_earlier_completion_shift.
+    + exact Hearlier.
+    + exact Hperiod_eq.
+    + exact Htarget.
+    + exact Htransport.
+    + exact Hreset.
+    + exact Hresidue_backlog.
+    + exact Hbetween.
+    + exact Hrelease.
+Qed.
+
 Lemma periodic_residue_window_transport_lift_of_hyperperiod_backlog_transport :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs)
