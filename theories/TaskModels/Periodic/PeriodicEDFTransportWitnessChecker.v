@@ -2,7 +2,9 @@ From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
 From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Semantics.ScheduleLemmas.SchedulePrefix.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
+From RocqSched Require Import Abstractions.SchedulingAlgorithm.Interface.
 From RocqSched Require Import Analysis.Uniprocessor.EDFProcessorDemand.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
@@ -28,6 +30,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEnumeration.
 From RocqSched Require Import TaskModels.Periodic.PeriodicInfinite.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
+From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 
 Import ListNotations.
@@ -113,6 +116,25 @@ Fixpoint check_transport_classes_rep_backlog_generated
            T tasks offset jobs enumT codec prefix_cert classes'
   end.
 
+Lemma check_transport_classes_rep_backlog_generated_eq :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert classes,
+    check_transport_classes_rep_backlog_generated
+      T tasks offset jobs enumT codec prefix_cert classes =
+    check_transport_classes_rep_backlog
+      prefix_cert classes
+      (transport_classes_rep_relevant_jobs
+         T tasks offset jobs enumT codec classes).
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert classes.
+  induction classes as [|cls classes IH].
+  - reflexivity.
+  - cbn.
+    rewrite IH.
+    reflexivity.
+Qed.
+
 Record TransportClassRepresentativeObligation
     (T : TaskId -> Prop)
     (tasks : TaskId -> Task)
@@ -146,6 +168,67 @@ Record TransportClassRepresentativeObligation
       job_release (jobs x) < job_release (jobs cls.(transport_rep_job)) ->
       In x relevant
 }.
+
+Lemma generated_schedule_prefix_valid_schedule :
+  forall alg candidates_of jobs H,
+    valid_schedule jobs 1
+      (generated_schedule_prefix alg candidates_of jobs H).
+Proof.
+  intros alg candidates_of jobs H j t c Hcpu Hrun.
+  assert (Hc : c = 0) by lia.
+  subst c.
+  destruct (Nat.lt_ge_cases t H) as [Ht | Ht].
+  - rewrite (generated_schedule_prefix_stable alg candidates_of jobs H t 0 Ht)
+      in Hrun.
+    unfold generated_schedule in Hrun.
+    cbn [generated_schedule_prefix] in Hrun.
+    rewrite Nat.ltb_irrefl in Hrun.
+    rewrite !Nat.eqb_refl in Hrun.
+    pose proof
+      (choose_eligible
+         alg jobs 1
+         (generated_schedule_prefix alg candidates_of jobs t)
+         t
+         (candidates_of
+            jobs 1 (generated_schedule_prefix alg candidates_of jobs t) t)
+         j
+         Hrun) as Helig.
+    assert (Hagree :
+      agrees_before
+        (generated_schedule_prefix alg candidates_of jobs t)
+        (generated_schedule_prefix alg candidates_of jobs H)
+        t).
+    {
+      intros t' cpu Hlt.
+      rewrite !generated_schedule_prefix_stable by lia.
+      reflexivity.
+    }
+    apply
+      (proj1
+         (agrees_before_eligible
+            jobs 1
+            (generated_schedule_prefix alg candidates_of jobs t)
+            (generated_schedule_prefix alg candidates_of jobs H)
+            j t
+            Hagree)).
+    exact Helig.
+  - rewrite (generated_schedule_prefix_none_after_horizon
+               alg candidates_of jobs H t 0 Ht) in Hrun.
+    discriminate.
+Qed.
+
+Lemma generated_periodic_edf_prefix_valid_schedule :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert,
+    valid_schedule jobs 1
+      (generated_periodic_edf_prefix
+         T tasks offset jobs enumT codec prefix_cert).
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert.
+  unfold generated_periodic_edf_prefix.
+  apply generated_schedule_prefix_valid_schedule.
+Qed.
 
 Record TransportClassAlgebraObligation
     (T : TaskId -> Prop)
@@ -316,6 +399,45 @@ Proof.
   - exact Hprefix_sem.
   - eapply check_prefix_slots_match_generated_edf_fast_sound.
     exact Hprefix_fast.
+  - intros i cls relevant Hcls Hrelevant.
+    unfold transport_classes_rep_relevant_jobs in Hrelevant.
+    rewrite nth_error_map in Hrelevant.
+    rewrite Hcls in Hrelevant.
+    inversion Hrelevant; subst relevant.
+    eapply check_transport_classes_rep_periodic_generated_sound; eauto.
+  - intros i cls relevant x Hcls Hrelevant Hbetween Hrelease.
+    unfold transport_classes_rep_relevant_jobs in Hrelevant.
+    rewrite nth_error_map in Hrelevant.
+    rewrite Hcls in Hrelevant.
+    inversion Hrelevant; subst relevant.
+    unfold transport_class_rep_relevant_jobs.
+    eapply window_target_relevant_earlier_jobs_complete; eauto.
+Qed.
+
+Theorem transport_class_representative_obligation_of_generated_semantic_checks :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert classes,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    check_prefix_cert_semantic jobs prefix_cert = true ->
+    check_prefix_slots_match_generated_edf
+      T tasks offset jobs enumT codec prefix_cert = true ->
+    check_transport_classes_rep_periodic_generated
+      T tasks offset jobs enumT codec classes = true ->
+    TransportClassRepresentativeObligation
+      T tasks offset jobs enumT codec prefix_cert classes
+      (transport_classes_rep_relevant_jobs
+         T tasks offset jobs enumT codec classes).
+Proof.
+  intros T tasks offset jobs enumT codec prefix_cert classes
+         Hwf HenumT_complete HenumT_sound Hprefix_sem Hprefix_match
+         Hrep_periodic.
+  constructor.
+  - apply generated_periodic_edf_prefix_valid_schedule.
+  - exact Hprefix_sem.
+  - exact Hprefix_match.
   - intros i cls relevant Hcls Hrelevant.
     unfold transport_classes_rep_relevant_jobs in Hrelevant.
     rewrite nth_error_map in Hrelevant.
