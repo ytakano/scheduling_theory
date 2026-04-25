@@ -891,7 +891,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodServiceShiftObligation
+    PeriodicHyperperiodRepresentativePairCoverageObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
@@ -899,6 +899,13 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (enumT_of_extracted_list ts)
       codec
       sidecar.(checked_post_reset_window_target_certs) ->
+    PeriodicHyperperiodServicePairTransportObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec ->
     schedulable_by_on
       (periodic_jobset
         (extracted_task_scope ts)
@@ -916,7 +923,7 @@ Theorem check_periodic_edf_checked_sidecar_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts codec cert sidecar Hcheck Hrep Hservice_shift.
+  intros ts codec cert sidecar Hcheck Hrep Hpair_coverage Hpair_transport.
   destruct
     (check_periodic_edf_checked_sidecar_fields
        ts codec cert sidecar Hcheck)
@@ -928,13 +935,40 @@ Proof.
         & Hwindow_check & Hpair_semantics & Hpair_completion
         & Hpost_reset_window_check & Hpost_reset_basis_check
         & Hpost_reset_list_check & Hdec).
+	  pose proof
+	    (check_periodic_edf_checked_sidecar_bounded_post_reset_coverage
+	       ts
+	       codec
+	       cert
+	       sidecar
+	       Hcheck) as Hbounded_coverage.
+  assert (Hpost_reset_pair_completion :
+    check_window_generated_pair_completion_all
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      codec
+      sidecar.(checked_post_reset_window_target_certs) = true).
+  {
+    unfold check_post_reset_window_targets_complete_with_pairs
+      in Hpost_reset_window_check.
+    repeat rewrite andb_true_iff in Hpost_reset_window_check.
+    tauto.
+  }
   pose proof
-    (check_periodic_edf_checked_sidecar_bounded_post_reset_coverage
-       ts
+    (periodic_hyperperiod_service_shift_of_pair_transport
+       (extracted_task_scope ts)
+       (extracted_periodic_tasks ts)
+       (fun _ => 0)
+       (extracted_periodic_jobs ts)
+       (enumT_of_extracted_list ts)
        codec
-       cert
-       sidecar
-       Hcheck) as Hbounded_coverage.
+       sidecar.(checked_post_reset_window_target_certs)
+       Hpost_reset_pair_completion
+       Hpair_coverage
+       Hpair_transport) as Hservice_shift.
   pose proof
     (periodic_hyperperiod_completion_transport_of_service_shift
        (extracted_task_scope ts)
@@ -1019,7 +1053,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       cert.(cert_prefix)
       cert.(cert_transport).(transport_classes)
       sidecar.(checked_class_relevant_jobs) ->
-    PeriodicHyperperiodServiceShiftObligation
+    PeriodicHyperperiodRepresentativePairCoverageObligation
       (extracted_task_scope ts)
       (extracted_periodic_tasks ts)
       (fun _ => 0)
@@ -1027,6 +1061,13 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (enumT_of_extracted_list ts)
       (extracted_periodic_codec ts)
       sidecar.(checked_post_reset_window_target_certs) ->
+    PeriodicHyperperiodServicePairTransportObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts) ->
     schedulable_by_on
       (periodic_jobset
         (extracted_task_scope ts)
@@ -1044,7 +1085,7 @@ Theorem check_periodic_edf_checked_sidecar_extracted_sound :
       (extracted_periodic_jobs ts)
       1.
 Proof.
-  intros ts cert sidecar Hcheck Hrep Hservice_shift.
+  intros ts cert sidecar Hcheck Hrep Hpair_coverage Hpair_transport.
   destruct
     (check_periodic_edf_checked_sidecar_extracted_fields
        ts cert sidecar Hcheck)
