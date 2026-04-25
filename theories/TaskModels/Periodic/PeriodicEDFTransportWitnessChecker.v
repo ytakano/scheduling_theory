@@ -2020,6 +2020,62 @@ Record PeriodicHyperperiodBoundaryResetCompletionObligation
         (job_release (jobs target))
 }.
 
+Record PeriodicHyperperiodGeneratedSchedulePeriodicity
+    (T : TaskId -> Prop)
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
+    (enumT : list TaskId)
+    (codec : PeriodicCodec T tasks offset jobs) : Prop := {
+  periodic_hyperperiod_periodic_boundary_reset :
+    forall target x boundary delta,
+      periodic_jobset T tasks offset jobs target ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      periodic_hyperperiod tasks enumT <= boundary ->
+      (exists n, delta = periodic_hyperperiod tasks enumT * n) ->
+      boundary = periodic_hyperperiod tasks enumT + delta ->
+      boundary <= job_release (jobs target) ->
+      job_release (jobs x) < boundary ->
+      completed jobs 1
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs target))) enumT codec)
+        x
+        (job_release (jobs target));
+  periodic_hyperperiod_periodic_service_shift :
+    forall target x target0 x0 delta,
+      periodic_jobset T tasks offset jobs target ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target)) x ->
+      job_release (jobs x) < job_release (jobs target) ->
+      job_release (jobs target) < periodic_hyperperiod tasks enumT \/
+      periodic_hyperperiod tasks enumT <= job_release (jobs x) ->
+      periodic_jobset T tasks offset jobs target0 ->
+      job_release (jobs target0) <
+        post_reset_target_candidate_horizon tasks enumT ->
+      periodic_jobset_deadline_between
+        T tasks offset jobs 0 (job_abs_deadline (jobs target0)) x0 ->
+      job_release (jobs x0) < job_release (jobs target0) ->
+      HyperperiodShiftedServicePair
+        tasks enumT jobs target x target0 x0 delta ->
+      job_cost (jobs x0) <=
+      service_job 1
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs target0))) enumT codec)
+        x0
+        (job_release (jobs target0)) ->
+      job_cost (jobs x) <=
+      service_job 1
+        (generated_periodic_edf_schedule_upto
+           T tasks offset jobs
+           (S (job_abs_deadline (jobs target))) enumT codec)
+        x
+        (job_release (jobs target))
+}.
+
 Lemma periodic_hyperperiod_service_source_of_normalization :
   forall T tasks offset jobs enumT
          (codec : PeriodicCodec T tasks offset jobs)
@@ -2150,6 +2206,37 @@ Record PeriodicHyperperiodServicePairTransportObligation
         x
         (job_release (jobs target))
 }.
+
+Lemma periodic_hyperperiod_boundary_reset_completion_of_periodicity :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs),
+    PeriodicHyperperiodGeneratedSchedulePeriodicity
+      T tasks offset jobs enumT codec ->
+    PeriodicHyperperiodBoundaryResetCompletionObligation
+      T tasks offset jobs enumT codec.
+Proof.
+  intros T tasks offset jobs enumT codec Hperiodicity.
+  constructor.
+  intros target x boundary delta Htarget Hbetween Hrelease_before_target
+         Hboundary Hdelta Hboundary_eq Hboundary_target Hx_boundary.
+  eapply periodic_hyperperiod_periodic_boundary_reset; eauto.
+Qed.
+
+Lemma periodic_hyperperiod_service_pair_transport_of_periodicity :
+  forall T tasks offset jobs enumT
+         (codec : PeriodicCodec T tasks offset jobs),
+    PeriodicHyperperiodGeneratedSchedulePeriodicity
+      T tasks offset jobs enumT codec ->
+    PeriodicHyperperiodServicePairTransportObligation
+      T tasks offset jobs enumT codec.
+Proof.
+  intros T tasks offset jobs enumT codec Hperiodicity.
+  constructor.
+  intros target x target0 x0 delta Htarget Hbetween
+         Hrelease_before_target Hpost_reset_case Htarget0 Htarget0_horizon
+         Hbetween0 Hrelease0 Hshifted Hsource_service.
+  eapply periodic_hyperperiod_periodic_service_shift; eauto.
+Qed.
 
 Lemma periodic_hyperperiod_completion_transport_of_block_service_source :
   forall T tasks offset jobs enumT
