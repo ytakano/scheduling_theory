@@ -505,15 +505,21 @@ ineligible として消す部分である。
   `extracted_periodic_service_shift_forward_of_slots`、および generated prefix 上の
   全 slot shift theorem
   `extracted_periodic_generated_schedule_prefix_shift_forward_before` を追加済み。
+- `generated_periodic_edf_schedule_upto` に対する finite-horizon bridge として、
+  slot shift、service shift、completed shift を
+  `extracted_periodic_generated_schedule_upto_shift_forward_before`、
+  `extracted_periodic_generated_schedule_upto_service_shift_forward_before`、
+  `extracted_periodic_generated_schedule_upto_completed_shift_forward_before`
+  で追加済み。
 
 残る本質的な作業は、first-boundary reset を任意 hyperperiod boundary へ
 反復輸送する schedule-level shift theorem と、その同じ shift theorem で
 representative window service を target window service へ運ぶ theorem を証明すること。
 DBF だけでは任意 boundary reset completion は出ないため、generated EDF schedule の
 hyperperiod shift invariance を別 lemma として立てる必要がある。
-次の局所ステップは、この prefix shift theorem を finite-horizon
-`generated_periodic_edf_schedule_upto` 側へ bridge し、任意 boundary reset completion と
-service-pair transport obligation へ接続すること。
+次の局所ステップは、`HyperperiodShiftedServicePair` ないし extracted 専用 wrapper に
+job-id level の deterministic shift 関係を明示し、finite-horizon service shift を
+`PeriodicHyperperiodServicePairTransportObligation` へ接続できる形にすること。
 
 ### Phase F: representative obligation elimination
 
@@ -621,8 +627,9 @@ Extraction では theorem は抽出しない。抽出対象は checker のみ。
    old-candidate ineligible pruning と unfiltered `choose_edf` shift は **Done**。
    generated EDF one-step schedule shift は **Done**。
    generated schedule prefix shift は **Done**。
-   次に finite-horizon generated schedule への bridge と、任意 boundary への
-   反復 transport / service shift を閉じる。
+   finite-horizon generated schedule への bridge は **Done**。
+   次に job-id level deterministic shift relation を service-pair transport 側へ
+   明示し、任意 boundary への反復 transport / service shift を閉じる。
 7. final closed extracted theorem を追加する。
 8. extraction list は checker 関数だけを維持し、proof-only theorem は抽出しない。
 9. `make theories/TaskModels/Periodic/PeriodicEDFFinalCertificateChecker.vo` を通す。
@@ -661,6 +668,10 @@ Rust 側に要求しないこと:
 - generated schedule periodicity theorem が閉じない場合、state-reset checker だけでは
   service-pair transport を補いきれない可能性がある。この場合は service shift を
   certificate obligation として一段残す。
+- 現在の `HyperperiodShiftedServicePair` は release/deadline/cost の shift equality を
+  持つが、`x = extracted_periodic_shift_forward_job_id ts n x0` のような job-id level
+  equality は持たない。slot-level periodicity から service を運ぶには job-id equality が
+  必要なので、次工程でこの relation を checker/obligation 側に明示する必要がある。
 
 ## 8. Completion criteria
 

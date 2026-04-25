@@ -2548,6 +2548,461 @@ Proof.
   exact Ht.
 Qed.
 
+Lemma extracted_periodic_generated_schedule_shift_forward_before :
+  forall ts n H,
+    extracted_taskset_wf ts = true ->
+    let jobs := extracted_periodic_jobs ts in
+    let candidates :=
+      periodic_candidates_before
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        jobs
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts) in
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    (forall t j,
+      t < H ->
+      In j
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           jobs
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (hp * n + S t)) ->
+      job_release (jobs j) < hp * n ->
+      completed jobs 1
+        (generated_schedule_prefix
+           edf_generic_spec candidates jobs (t + hp * n))
+        j
+        (hp * n)) ->
+    forall t c,
+      t < H ->
+      generated_periodic_edf_schedule
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        jobs
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts)
+        (t + hp * n) c =
+      match
+        generated_periodic_edf_schedule
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          jobs
+          (enumT_of_extracted_list ts)
+          (extracted_periodic_codec ts)
+          t c
+      with
+      | Some j => Some (extracted_periodic_shift_forward_job_id ts n j)
+      | None => None
+      end.
+Proof.
+  intros ts n H Hwf jobs candidates hp Hcompleted_old t c Ht.
+  subst jobs candidates hp.
+  set (jobs := extracted_periodic_jobs ts).
+  set (candidates :=
+    periodic_candidates_before
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      jobs
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)).
+  set (hp :=
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts)).
+  set (delta := hp * n).
+  unfold generated_periodic_edf_schedule.
+  fold jobs.
+  fold candidates.
+  fold hp.
+  change
+    (generated_schedule edf_generic_spec candidates jobs
+       (t + delta) c =
+     match generated_schedule edf_generic_spec candidates jobs t c with
+     | Some j => Some (extracted_periodic_shift_forward_job_id ts n j)
+     | None => None
+     end).
+  rewrite <-
+    (generated_schedule_prefix_stable
+       edf_generic_spec candidates jobs (H + delta)
+       (t + delta) c) by lia.
+  rewrite <-
+    (generated_schedule_prefix_stable
+       edf_generic_spec candidates jobs H t c) by exact Ht.
+  subst delta hp candidates jobs.
+  eapply extracted_periodic_generated_schedule_prefix_shift_forward_before;
+    eauto.
+Qed.
+
+Lemma extracted_periodic_generated_schedule_upto_shift_forward_before :
+  forall ts n Hsrc Htgt H,
+    extracted_taskset_wf ts = true ->
+    let jobs := extracted_periodic_jobs ts in
+    let candidates :=
+      periodic_candidates_before
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        jobs
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts) in
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    H <= Hsrc ->
+    H + hp * n <= Htgt ->
+    (forall t j,
+      t < H ->
+      In j
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           jobs
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (hp * n + S t)) ->
+      job_release (jobs j) < hp * n ->
+      completed jobs 1
+        (generated_schedule_prefix
+           edf_generic_spec candidates jobs (t + hp * n))
+        j
+        (hp * n)) ->
+    forall t c,
+      t < H ->
+      generated_periodic_edf_schedule_upto
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        jobs
+        Htgt
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts)
+        (t + hp * n) c =
+      match
+        generated_periodic_edf_schedule_upto
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (fun _ => 0)
+          jobs
+          Hsrc
+          (enumT_of_extracted_list ts)
+          (extracted_periodic_codec ts)
+          t c
+      with
+      | Some j => Some (extracted_periodic_shift_forward_job_id ts n j)
+      | None => None
+      end.
+Proof.
+  intros ts n Hsrc Htgt H Hwf jobs candidates hp
+         Hsrc_cover Htgt_cover Hcompleted_old t c Ht.
+  subst jobs candidates hp.
+  set (jobs := extracted_periodic_jobs ts).
+  set (hp :=
+    periodic_hyperperiod
+      (extracted_periodic_tasks ts) (enumT_of_extracted_list ts)).
+  assert (Htarget_agree :
+    generated_periodic_edf_schedule_upto
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      jobs Htgt (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      (t + hp * n) c =
+    generated_periodic_edf_schedule
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      jobs (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      (t + hp * n) c).
+  {
+    eapply generated_periodic_edf_schedule_upto_agrees_before_generated.
+    - apply extracted_tasks_well_formed_on_enum.
+      exact Hwf.
+    - apply extracted_enum_complete.
+    - apply extracted_enum_sound.
+    - lia.
+  }
+  assert (Hsource_agree :
+    generated_periodic_edf_schedule_upto
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      jobs Hsrc (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      t c =
+    generated_periodic_edf_schedule
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      jobs (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      t c).
+  {
+    eapply generated_periodic_edf_schedule_upto_agrees_before_generated.
+    - apply extracted_tasks_well_formed_on_enum.
+      exact Hwf.
+    - apply extracted_enum_complete.
+    - apply extracted_enum_sound.
+    - lia.
+  }
+  rewrite Htarget_agree.
+  rewrite Hsource_agree.
+  subst hp jobs.
+  eapply extracted_periodic_generated_schedule_shift_forward_before; eauto.
+Qed.
+
+Lemma extracted_periodic_generated_schedule_upto_slot_some_periodic :
+  forall ts H t c j,
+    extracted_taskset_wf ts = true ->
+    t < H ->
+    generated_periodic_edf_schedule_upto
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      H
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      t c = Some j ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j.
+Proof.
+  intros ts H t c j Hwf Ht Hrun.
+  assert (Hagree :
+    generated_periodic_edf_schedule_upto
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      H
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      t c =
+    generated_periodic_edf_schedule
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      (extracted_periodic_codec ts)
+      t c).
+  {
+    eapply generated_periodic_edf_schedule_upto_agrees_before_generated.
+    - apply extracted_tasks_well_formed_on_enum.
+      exact Hwf.
+    - apply extracted_enum_complete.
+    - apply extracted_enum_sound.
+    - exact Ht.
+  }
+  rewrite Hagree in Hrun.
+  destruct (Nat.eq_dec c 0) as [-> | Hc].
+  - unfold generated_periodic_edf_schedule in Hrun.
+    rewrite <-
+      (generated_schedule_prefix_stable
+         edf_generic_spec
+         (periodic_candidates_before
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (fun _ => 0)
+            (extracted_periodic_jobs ts)
+            (enumT_of_extracted_list ts)
+            (extracted_periodic_codec ts))
+         (extracted_periodic_jobs ts)
+         (S t) t 0) in Hrun by lia.
+    eapply
+      (extracted_periodic_generated_schedule_prefix_slot_some_periodic
+         ts (S t) t j).
+    + lia.
+    + exact Hrun.
+  - exfalso.
+    unfold generated_periodic_edf_schedule in Hrun.
+    rewrite generated_schedule_other_cpu_idle in Hrun by lia.
+    discriminate.
+Qed.
+
+Lemma extracted_periodic_generated_schedule_upto_service_shift_forward_before :
+  forall ts n Hsrc Htgt t j,
+    extracted_taskset_wf ts = true ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j ->
+    let jobs := extracted_periodic_jobs ts in
+    let candidates :=
+      periodic_candidates_before
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        jobs
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts) in
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    t <= Hsrc ->
+    t + hp * n <= Htgt ->
+    (forall u k,
+      u < t ->
+      In k
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           jobs
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (hp * n + S u)) ->
+      job_release (jobs k) < hp * n ->
+      completed jobs 1
+        (generated_schedule_prefix
+           edf_generic_spec candidates jobs (u + hp * n))
+        k
+        (hp * n)) ->
+    service_job 1
+      (generated_periodic_edf_schedule_upto
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         jobs
+         Htgt
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts))
+      (extracted_periodic_shift_forward_job_id ts n j)
+      (t + hp * n) =
+    service_job 1
+      (generated_periodic_edf_schedule_upto
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         jobs
+         Hsrc
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts))
+      j
+      t.
+Proof.
+  intros ts n Hsrc Htgt t j Hwf Hjob jobs candidates hp
+         Hsrc_cover Htgt_cover Hcompleted_old.
+  subst jobs candidates hp.
+  eapply extracted_periodic_service_shift_forward_of_slots.
+  - exact Hwf.
+  - exact Hjob.
+  - apply generated_periodic_edf_schedule_upto_valid.
+    + apply extracted_tasks_well_formed_on_enum.
+      exact Hwf.
+    + apply extracted_enum_complete.
+    + apply extracted_enum_sound.
+  - intros u Hu.
+    eapply extracted_periodic_generated_schedule_upto_shift_forward_before
+      with (H := t).
+    + exact Hwf.
+    + exact Hsrc_cover.
+    + exact Htgt_cover.
+    + exact Hcompleted_old.
+    + exact Hu.
+  - intros u k Hu Hrun.
+    eapply
+      (extracted_periodic_generated_schedule_upto_slot_some_periodic
+         ts Hsrc u 0 k).
+    + exact Hwf.
+    + lia.
+    + exact Hrun.
+Qed.
+
+Lemma extracted_periodic_generated_schedule_upto_completed_shift_forward_before :
+  forall ts n Hsrc Htgt t j,
+    extracted_taskset_wf ts = true ->
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (fun _ => 0)
+      (extracted_periodic_jobs ts)
+      j ->
+    let jobs := extracted_periodic_jobs ts in
+    let candidates :=
+      periodic_candidates_before
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        jobs
+        (enumT_of_extracted_list ts)
+        (extracted_periodic_codec ts) in
+    let hp :=
+      periodic_hyperperiod
+        (extracted_periodic_tasks ts) (enumT_of_extracted_list ts) in
+    t <= Hsrc ->
+    t + hp * n <= Htgt ->
+    (forall u k,
+      u < t ->
+      In k
+        (enum_periodic_jobs_before
+           (extracted_task_scope ts)
+           (extracted_periodic_tasks ts)
+           (fun _ => 0)
+           jobs
+           (enumT_of_extracted_list ts)
+           (extracted_periodic_codec ts)
+           (hp * n + S u)) ->
+      job_release (jobs k) < hp * n ->
+      completed jobs 1
+        (generated_schedule_prefix
+           edf_generic_spec candidates jobs (u + hp * n))
+        k
+        (hp * n)) ->
+    completed jobs 1
+      (generated_periodic_edf_schedule_upto
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         jobs
+         Hsrc
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts))
+      j
+      t ->
+    completed jobs 1
+      (generated_periodic_edf_schedule_upto
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (fun _ => 0)
+         jobs
+         Htgt
+         (enumT_of_extracted_list ts)
+         (extracted_periodic_codec ts))
+      (extracted_periodic_shift_forward_job_id ts n j)
+      (t + hp * n).
+Proof.
+  intros ts n Hsrc Htgt t j Hwf Hjob jobs candidates hp
+         Hsrc_cover Htgt_cover Hcompleted_old Hcompleted.
+  subst jobs candidates hp.
+  unfold completed in *.
+  rewrite
+    (extracted_periodic_generated_schedule_upto_service_shift_forward_before
+       ts n Hsrc Htgt t j Hwf Hjob
+       Hsrc_cover Htgt_cover Hcompleted_old).
+  pose proof
+    (extracted_periodic_shift_forward_job_id_facts
+       ts j n Hwf Hjob) as [_ [_ [_ Hcost]]].
+  rewrite Hcost.
+  exact Hcompleted.
+Qed.
+
 Lemma extracted_periodic_shift_forward_candidate_before :
   forall ts j n t,
     extracted_taskset_wf ts = true ->
