@@ -1,5 +1,6 @@
 From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool Sorting.Permutation.
 From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import TaskModels.Periodic.PeriodicClassicDBF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
@@ -35,6 +36,13 @@ Definition offset_window_dbf_test_by_cutoff
   window_dbf_test_upto
     tasks offset enumT
     (offset_window_dbf_cutoff_bound tasks offset enumT).
+
+Definition offset_window_dbf_test_by_cutoff_with_classical_guard
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (enumT : list TaskId) : bool :=
+  offset_window_dbf_test_by_cutoff tasks offset enumT
+  && dbf_test_by_cutoff tasks enumT.
 
 Lemma periodic_max_offset_ge :
   forall offset enumT τ,
@@ -392,4 +400,24 @@ Proof.
   replace (t2 - t1) with ((t2 - shift) - (t1 - shift)) by lia.
   unfold offset_window_dbf_test_by_cutoff in Htest.
   eapply window_dbf_test_upto_true_implies_bounded_window_dbf; eauto.
+Qed.
+
+Theorem offset_window_dbf_check_by_cutoff_with_classical_guard :
+  forall tasks offset enumT,
+    NoDup enumT ->
+    (forall τ, In τ enumT -> 0 < task_period (tasks τ)) ->
+    offset_window_dbf_test_by_cutoff_with_classical_guard tasks offset enumT =
+      true ->
+    forall t1 t2,
+      t1 <= t2 ->
+      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1.
+Proof.
+  intros tasks offset enumT Hnodup Hpos Htest t1 t2 _Hle12.
+  unfold offset_window_dbf_test_by_cutoff_with_classical_guard in Htest.
+  apply andb_true_iff in Htest.
+  destruct Htest as [_Hoffset Hclassical].
+  eapply Nat.le_trans.
+  - eapply taskset_periodic_dbf_window_le_classical_dbf.
+    exact Hpos.
+  - eapply dbf_check_by_cutoff; eauto.
 Qed.

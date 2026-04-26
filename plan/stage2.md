@@ -13,11 +13,16 @@ Stage 2 の目的は、Stage 1 の conservative classical DBF 判定を維持し
 
 ## Summary
 
-- `window_dbf_test_upto` はすでに `offset` を取るので、これを
-  extraction-facing API として公開する。
-- Stage 1 の `edf_schedulability_decide` / classical DBF path は維持する。
-- Stage 2 の reject witness は scalar `t` ではなく window `(t1, t2)` とする。
-- finite horizon soundness を先に閉じ、infinite cutoff は後続タスクへ分離する。
+- finite horizon の offset-aware window-DBF checker は実装済みである。
+- finite EDF / LLF wrapper layer は実装済みである。
+- infinite cutoff infrastructure は部分実装済みで、hyperperiod shift と
+  explicit-shift cutoff theorem まで閉じている。
+- finite offset-window check と classical DBF cutoff guard を合成する
+  guarded arbitrary-window theorem は実装済みである。
+- 残る主要作業は pure offset-window check だけで arbitrary-window cutoff を
+  閉じる load/utilization 補題である。
+- Stage 1 の `edf_schedulability_decide` / classical DBF path は保守的 path として
+  維持する。
 - final certificate の arbitrary-offset completion transport とは混ぜない。
 
 ## 1. Semantic assumptions
@@ -38,10 +43,15 @@ taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1
 - Stage 2 v1 は finite horizon analyzer である。infinite guarantee は
   cutoff theorem が追加されるまで主張しない。
 - Stage 1 の offset-insensitive classical DBF checker は保守的 path として残す。
+- arbitrary offset の final certificate soundness は Stage 1 と同様に
+  completion transport obligation を別問題として扱う。
+- 任意長 window の cutoff 縮約は hyperperiod shift だけでは足りない。
+  shift は window length を保存するため、長い window には
+  load/utilization 側の補題が必要である。
 
 ## 2. Required observable events
 
-- extraction-facing に finite window-DBF decision を追加する。
+- extraction-facing finite window-DBF decision は追加済みである。
 
 ```coq
 extracted_offset_window_dbf_test_upto
@@ -54,8 +64,10 @@ extracted_offset_window_dbf_decide
   とする。
 - counterexample witness は `option (Time * Time)` とする。
 - Stage 1 の scalar DBF counterexample `option Time` は互換用に残す。
-- Haskell/Rust-facing CLI/API を追加する場合は、Stage 1 checker と区別する
-  名前にする。例: `check-offset-window-dbf`。
+- Haskell/Rust-facing CLI/API を追加する場合は、Stage 1 checker と区別する。
+  例: `check-offset-window-dbf`。
+- pure offset-window infinite checker は pure arbitrary-window cutoff theorem が
+  閉じるまで公開しない。classical guard 付き checker は保守的 path として扱う。
 - runtime scheduler trace、OS event、dispatch detail は追加しない。
 
 ## 3. Interface delta
@@ -63,7 +75,7 @@ extracted_offset_window_dbf_decide
 ### `PeriodicConcreteAnalysis.v`
 
 - 既存の `critical_dbf_windows_upto` と `window_dbf_test_upto` を再利用する。
-- 新しく overload witness finder を追加する。
+- overload witness finder は追加済みである。
 
 ```coq
 Definition first_window_dbf_overload_upto
@@ -86,7 +98,7 @@ Lemma first_window_dbf_overload_upto_some :
 
 ### `PeriodicEDFExtractionDecision.v`
 
-- extraction-facing wrapper を追加する。
+- extraction-facing finite wrapper は追加済みである。
 
 ```coq
 Definition extracted_offset_window_dbf_test_upto
@@ -145,7 +157,7 @@ Lemma extracted_offset_window_dbf_counterexample_sound :
 
 ### `PeriodicEDFExtraction.v`
 
-- extraction list に次を追加する。
+- extraction list には次を追加済みである。
 
 ```coq
 extracted_offset_window_dbf_test_upto
@@ -155,11 +167,44 @@ extracted_offset_window_dbf_decide
 
 - Stage 1 の exported functions は削除しない。
 
+### `PeriodicEDFAnalysisEntryPoints.v`
+
+- EDF finite window-DBF package wrapper は既存の
+  `periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_from_obligations`
+  を Stage 2 finite EDF wrapper として扱う。
+
+### `PeriodicLLFAnalysisEntryPoints.v`
+
+- LLF finite wrapper は追加済みである。
+- LLF feasibility bridge は busy-prefix witness を要求するため、
+  `periodic_llf_schedulable_by_window_dbf_on_finite_horizon_generated_from_obligations`
+  は `PeriodicEDFConcreteWindowObligations` に加えて explicit busy-prefix
+  bridge premise を残す。
+
+### `PeriodicOffsetWindowCutoff.v`
+
+- infinite cutoff 用の proof-facing infrastructure は追加済みである。
+- 実装済み:
+  - `periodic_max_offset`
+  - `offset_window_dbf_cutoff_bound`
+  - `offset_window_dbf_test_by_cutoff`
+  - hyperperiod release/deadline shift lemmas
+  - `periodic_dbf_window_shift_by_hyperperiod`
+  - `taskset_periodic_dbf_window_shift_by_hyperperiod`
+  - `offset_window_dbf_check_by_cutoff_post_offset_shifted`
+  - `offset_window_dbf_test_by_cutoff_with_classical_guard`
+  - `offset_window_dbf_check_by_cutoff_with_classical_guard`
+- 未実装:
+  - 長い window を cutoff へ縮約する load/utilization 補題
+  - pure offset-window check だけを仮定する arbitrary-window 版
+    `offset_window_dbf_check_by_cutoff`
+
 ## 4. Proof obligations
 
 ### Finite checker soundness
 
-`extracted_offset_window_dbf_test_upto_sound` は既存 theorem に委譲する。
+完了済み。`extracted_offset_window_dbf_test_upto_sound` は既存 theorem に
+委譲する。
 
 ```coq
 window_dbf_test_upto_true_implies_bounded_window_dbf
@@ -178,7 +223,8 @@ bounded finite checker soundness 自体で不要なら proof body では使わ�
 
 ### Counterexample soundness
 
-`first_window_dbf_overload_upto_some` は `find` の soundness から導く。
+完了済み。`first_window_dbf_overload_upto_some` は `find` の soundness から
+導く。
 
 Expected proof shape:
 
@@ -192,48 +238,76 @@ extracted version は generic lemma に委譲する。
 
 ### Finite EDF / LLF connection
 
-Stage 2 v1 は DBF checker API までを必須とする。
-Finite EDF / LLF schedulability wrapper は次スライスで追加してよい。
-追加する場合は、既存 finite horizon window-DBF theorem に
-`extracted_offset_window_dbf_ok_upto` を渡す薄い wrapper に限定する。
+完了済み。
+
+- EDF wrapper は既存 finite generated theorem を package-facing entry point として使う。
+- LLF wrapper は explicit busy-prefix bridge premise を残す。
 
 ### Infinite cutoff
 
-Stage 2 v1 では実装しない。後続スライスで次を新規ファイルに分離する。
+部分実装済み。次のファイルに分離済みである。
 
 ```text
 theories/TaskModels/Periodic/PeriodicOffsetWindowCutoff.v
 ```
 
-後続スライスの証明対象:
+実装済み:
 
 - `periodic_max_offset`
 - `offset_window_dbf_cutoff_bound`
 - `expected_release_shift_by_hyperperiod`
 - `expected_deadline_shift_by_hyperperiod`
-- `taskset_periodic_dbf_window_shift`
-- `offset_window_dbf_check_by_cutoff`
+- `taskset_periodic_dbf_window_shift_by_hyperperiod`
+- `offset_window_dbf_check_by_cutoff_post_offset_shifted`
+- `offset_window_dbf_test_by_cutoff_with_classical_guard`
+- `offset_window_dbf_check_by_cutoff_with_classical_guard`
 
-cutoff bound は最小化を狙わず、まず証明しやすい保守的 bound を使う。
+残る proof obligation:
+
+- 任意長 window に対して、finite cutoff check へ縮約するための
+  load/utilization 補題を設計する。
+- pure offset-window check だけを仮定する arbitrary-window 版
+  `offset_window_dbf_check_by_cutoff` を証明する。
+- cutoff bound は最小化を狙わず、証明しやすい保守的 bound を維持する。
 
 ## 5. Implementation order
 
+完了済み:
+
 1. `PeriodicConcreteAnalysis.v` に
-   `first_window_dbf_overload_upto` と generic soundness lemma を追加する。
+   `first_window_dbf_overload_upto` と generic soundness lemma を追加した。
 2. `PeriodicEDFExtractionDecision.v` に extracted finite window-DBF API と
-   soundness lemmas を追加する。
-3. `PeriodicEDFExtraction.v` の extraction list に新 API を追加する。
-4. 関連 `.vo` を個別にビルドする。
-5. `plan/stage2.md` の Progress に実装済み項目と残作業を追記する。
-6. 実装完了後に commit する場合は、Stage 2 関連ファイルだけを stage する。
+   soundness lemmas を追加した。
+3. `PeriodicEDFExtraction.v` の extraction list に新 API を追加した。
+4. finite EDF / LLF wrapper layer を追加・確認した。
+5. `PeriodicOffsetWindowCutoff.v` に cutoff infrastructure と explicit-shift
+   theorem を追加した。
+
+次の実装順:
+
+1. 長い window に対する load/utilization 補題の theorem statement を設計する。
+2. `taskset_periodic_dbf_window` が十分長い window で processor demand を
+   window length 以下に抑えられる条件を分離する。
+3. post-offset/prefix window と long-window ケースを分けて
+   arbitrary-window cutoff theorem を構成する。
+4. `plan/stage2.md` の Progress に実装済み項目と残作業を追記する。
+5. commit する場合は Stage 2 関連ファイルだけを stage する。
 
 ## 6. Acceptance checks
 
-- `make theories/TaskModels/Periodic/PeriodicConcreteAnalysis.vo`
-- `make theories/TaskModels/Periodic/PeriodicEDFExtractionDecision.vo`
-- `make theories/TaskModels/Periodic/PeriodicEDFExtraction.vo`
-- `make theories/TaskModels/Periodic/PeriodicEDFExtractionSoundness.vo`
-- `git diff --check -- theories/TaskModels/Periodic/PeriodicConcreteAnalysis.v theories/TaskModels/Periodic/PeriodicEDFExtractionDecision.v theories/TaskModels/Periodic/PeriodicEDFExtraction.v plan/stage2.md`
+- finite API:
+  - `make theories/TaskModels/Periodic/PeriodicConcreteAnalysis.vo`
+  - `make theories/TaskModels/Periodic/PeriodicEDFExtractionDecision.vo`
+  - `make theories/TaskModels/Periodic/PeriodicEDFExtraction.vo`
+  - `make theories/TaskModels/Periodic/PeriodicEDFExtractionSoundness.vo`
+- wrapper layer:
+  - `make theories/TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.vo`
+  - `make theories/TaskModels/Periodic/PeriodicLLFAnalysisEntryPoints.vo`
+- cutoff layer:
+  - `make theories/TaskModels/Periodic/PeriodicOffsetWindowCutoff.vo`
+- docs / whitespace:
+  - `git diff --check -- plan/stage2.md`
+  - changed `.v` files when implementation files are touched.
 
 If Haskell extraction artifacts are regenerated, also run the relevant CSV checker
 smoke tests for 3-column and 4-column inputs.
@@ -328,3 +402,20 @@ smoke tests for 3-column and 4-column inputs.
 
 - 長い window を cutoff へ縮約するための load/utilization 補題を設計する。
 - `offset_window_dbf_check_by_cutoff` の arbitrary-window 版を設計・証明する。
+
+### 2026-04-26: guarded arbitrary-window cutoff theorem 追加
+
+- `offset_window_dbf_test_by_cutoff_with_classical_guard` を追加した。
+- finite offset-window cutoff check と既存の scalar DBF cutoff guard を
+  合成し、arbitrary-window soundness theorem
+  `offset_window_dbf_check_by_cutoff_with_classical_guard` を追加した。
+- long-window soundness は `taskset_periodic_dbf_window_le_classical_dbf`
+  と `dbf_check_by_cutoff` に委譲するため、pure offset-window cutoff の
+  load/utilization 補題は後続作業として残した。
+
+残作業:
+
+- pure offset-window check だけで arbitrary-window cutoff を閉じる
+  load/utilization 補題を設計・証明する。
+- pure offset-window check だけを仮定する arbitrary-window 版
+  `offset_window_dbf_check_by_cutoff` を設計・証明する。
