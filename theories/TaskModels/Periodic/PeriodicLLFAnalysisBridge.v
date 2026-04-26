@@ -96,3 +96,42 @@ Proof.
     + intros τ Hin. apply Hwf. apply HenumT_sound. exact Hin.
   - apply Hdbf_classical.
 Qed.
+
+Theorem periodic_llf_schedulable_by_classical_dbf_any_offset_on_finite_horizon_auto_with_busy_prefix_bridge :
+  forall T tasks offset H enumT jobs
+         (codec : PeriodicFiniteHorizonCodec T tasks offset jobs H)
+         sched,
+    well_formed_periodic_tasks_on T tasks ->
+    periodic_jobset_nonblocking T tasks offset jobs H ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    scheduler_rel
+      (edf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1 sched ->
+    (forall j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      exists t1 t2,
+        busy_prefix_witness sched (job_abs_deadline (jobs j)) t1 t2 /\
+        periodic_edf_busy_prefix_bridge T tasks offset jobs H sched j) ->
+    (forall t, taskset_periodic_dbf tasks enumT t <= t) ->
+    schedulable_by_on
+      (periodic_jobset_upto T tasks offset jobs H)
+      (llf_scheduler
+         (enum_candidates_of
+            (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)))
+      jobs 1.
+Proof.
+  intros T tasks offset H enumT jobs codec sched
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
+         Hsched Hjob_bridge Hdbf_classical.
+  eapply periodic_llf_schedulable_by_window_dbf_on_finite_horizon_auto_with_busy_prefix_bridge; eauto.
+  intros t1 t2 _ HleH.
+  eapply Nat.le_trans.
+  - eapply taskset_periodic_dbf_window_le_classical_dbf.
+    intros τ Hin. apply Hwf. apply HenumT_sound. exact Hin.
+  - apply Hdbf_classical.
+Qed.

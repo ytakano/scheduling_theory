@@ -316,6 +316,47 @@ Proof.
   - apply Hdbf.
 Qed.
 
+Theorem periodic_llf_no_deadline_miss_from_classical_dbf_any_offset :
+  forall T tasks offset enumT jobs
+         (codec : PeriodicCodec T tasks offset jobs)
+         j,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall j' t,
+      periodic_jobset T tasks offset jobs j' ->
+      ~ blocked jobs j' t) ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    periodic_jobset T tasks offset jobs j ->
+    (forall H j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      exists t1 t2,
+        busy_prefix_witness
+          (generated_periodic_edf_schedule_upto
+             T tasks offset jobs H enumT codec)
+          (job_abs_deadline (jobs j)) t1 t2 /\
+        periodic_edf_busy_prefix_bridge
+          T tasks offset jobs H
+          (generated_periodic_edf_schedule_upto
+             T tasks offset jobs H enumT codec)
+          j) ->
+    (forall t, taskset_periodic_dbf tasks enumT t <= t) ->
+    ~ missed_deadline jobs 1
+        (generated_periodic_llf_schedule T tasks offset jobs enumT codec)
+        j.
+Proof.
+  intros T tasks offset enumT jobs codec j
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
+         Hj Hbridge Hdbf.
+  eapply periodic_llf_no_deadline_miss_from_window_dbf; eauto.
+  intros t1 t2 _.
+  eapply Nat.le_trans.
+  - eapply taskset_periodic_dbf_window_le_classical_dbf.
+    intros τ Hin. apply Hwf. apply HenumT_sound. exact Hin.
+  - apply Hdbf.
+Qed.
+
 Theorem periodic_llf_feasible_schedule_from_classical_dbf :
   forall T tasks offset enumT jobs
          (codec : PeriodicCodec T tasks offset jobs),
@@ -352,6 +393,43 @@ Proof.
   unfold feasible_schedule_on.
   intros j Hj.
   eapply periodic_llf_no_deadline_miss_from_classical_dbf; eauto.
+Qed.
+
+Theorem periodic_llf_feasible_schedule_from_classical_dbf_any_offset :
+  forall T tasks offset enumT jobs
+         (codec : PeriodicCodec T tasks offset jobs),
+    well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall H j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      exists t1 t2,
+        busy_prefix_witness
+          (generated_periodic_edf_schedule_upto
+             T tasks offset jobs H enumT codec)
+          (job_abs_deadline (jobs j)) t1 t2 /\
+        periodic_edf_busy_prefix_bridge
+          T tasks offset jobs H
+          (generated_periodic_edf_schedule_upto
+             T tasks offset jobs H enumT codec)
+          j) ->
+    (forall t, taskset_periodic_dbf tasks enumT t <= t) ->
+    feasible_schedule_on
+      (periodic_jobset T tasks offset jobs)
+      jobs 1
+      (generated_periodic_llf_schedule T tasks offset jobs enumT codec).
+Proof.
+  intros T tasks offset enumT jobs codec
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
+         Hbridge Hdbf.
+  unfold feasible_schedule_on.
+  intros j Hj.
+  eapply periodic_llf_no_deadline_miss_from_classical_dbf_any_offset; eauto.
 Qed.
 
 Theorem periodic_llf_schedulable_by_on :
@@ -469,4 +547,44 @@ Proof.
   - eapply single_cpu_algorithm_valid.
     apply infinite_generated_llf_scheduler_rel.
   - eapply periodic_llf_feasible_schedule_from_classical_dbf; eauto.
+Qed.
+
+Theorem periodic_llf_schedulable_by_classical_dbf_any_offset_on :
+  forall T tasks offset enumT jobs
+         (codec : PeriodicCodec T tasks offset jobs),
+    well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    (forall H j,
+      periodic_jobset_upto T tasks offset jobs H j ->
+      job_abs_deadline (jobs j) <= H /\
+      exists t1 t2,
+        busy_prefix_witness
+          (generated_periodic_edf_schedule_upto
+             T tasks offset jobs H enumT codec)
+          (job_abs_deadline (jobs j)) t1 t2 /\
+        periodic_edf_busy_prefix_bridge
+          T tasks offset jobs H
+          (generated_periodic_edf_schedule_upto
+             T tasks offset jobs H enumT codec)
+          j) ->
+    (forall t, taskset_periodic_dbf tasks enumT t <= t) ->
+    schedulable_by_on
+      (periodic_jobset T tasks offset jobs)
+      (llf_scheduler (periodic_candidates_before T tasks offset jobs enumT codec))
+      jobs 1.
+Proof.
+  intros T tasks offset enumT jobs codec
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
+         Hbridge Hdbf.
+  eapply schedulable_by_on_intro with
+    (sched := generated_periodic_llf_schedule T tasks offset jobs enumT codec).
+  - apply infinite_generated_llf_scheduler_rel.
+  - eapply single_cpu_algorithm_valid.
+    apply infinite_generated_llf_scheduler_rel.
+  - eapply periodic_llf_feasible_schedule_from_classical_dbf_any_offset; eauto.
 Qed.

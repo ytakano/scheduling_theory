@@ -75,6 +75,26 @@ window DBF を offset-insensitive な classical DBF で上から抑える
   `extracted_periodic_offsets` と offset-aware jobs へ切り替える。
 - LLF 側の any-offset classical wrapper は未実装。
 
+### 2026-04-26: LLF any-offset classical DBF wrappers completed
+
+- `PeriodicLLFAnalysisBridge.v` に finite-horizon LLF の any-offset
+  classical DBF wrapper を追加した。
+- `PeriodicLLFInfiniteBridge.v` に no-deadline-miss / feasible schedule /
+  schedulable-by の any-offset classical DBF wrapper を追加した。
+- LLF 側も EDF 側と同じく、classical DBF premise から window DBF premise への
+  変換を `taskset_periodic_dbf_window_le_classical_dbf` に委譲する。
+- 既存の zero-offset theorem 名と互換 path は維持した。
+
+残作業:
+
+- final certificate / transport checker の zero-offset transport 補題を
+  offset-aware に一般化する。
+- prefix certificate checker の generated checker 呼び出しを
+  `extracted_periodic_offsets` と offset-aware jobs へ切り替える。
+- `extracted_periodic_jobs` 自体を offset-aware に置き換える作業は、
+  final certificate / transport checker の offset-aware migration と同じ
+  スライスで行う。
+
 ## 1. Semantic assumptions
 
 - `Task` レコードには offset を入れない。既存設計どおり、offset は
