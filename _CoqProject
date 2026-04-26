@@ -155,6 +155,7 @@ theories/TaskModels/Periodic/PeriodicWindowDemandBound.v
 theories/TaskModels/Periodic/PeriodicEnumeration.v
 theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicConcreteAnalysis.v
+theories/TaskModels/Periodic/PeriodicOffsetWindowCutoff.v
 theories/TaskModels/Periodic/PeriodicEDFExtractionTypes.v
 theories/TaskModels/Periodic/PeriodicEDFExtractionDecision.v
 theories/TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v

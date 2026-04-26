@@ -281,3 +281,20 @@ smoke tests for 3-column and 4-column inputs.
 残作業:
 
 - infinite cutoff theorem を後続スライスで設計・証明する。
+
+### 2026-04-26: offset window cutoff 基礎 lemmas 追加
+
+- `PeriodicOffsetWindowCutoff.v` を追加し、future infinite cutoff theorem
+  用の proof-facing infrastructure を分離した。
+- `periodic_max_offset`、`offset_window_dbf_cutoff_bound`、
+  `periodic_max_offset_ge` を追加した。
+- hyperperiod が各 task period の倍数である事実を取り出す
+  `hyperperiod_as_task_period_multiple` と、
+  release/deadline を hyperperiod 分だけ shift するための
+  `expected_release_shift_by_hyperperiod`、
+  `expected_deadline_shift_by_hyperperiod` を追加した。
+
+残作業:
+
+- `taskset_periodic_dbf_window_shift` を設計・証明する。
+- `offset_window_dbf_check_by_cutoff` を設計・証明する。
