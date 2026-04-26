@@ -83,6 +83,42 @@ Proof.
       lia.
 Defined.
 
+Definition extracted_offset_periodic_codec
+    (ts : list ExtractedPeriodicTask) :
+  PeriodicCodec
+    (extracted_task_scope ts)
+    (extracted_periodic_tasks ts)
+    (extracted_periodic_offsets ts)
+    (extracted_offset_periodic_jobs ts).
+Proof.
+  destruct ts as [|τ ts'].
+  - refine
+      (mkPeriodicCodec
+         (extracted_task_scope [])
+         (extracted_periodic_tasks [])
+         (extracted_periodic_offsets [])
+         (extracted_offset_periodic_jobs [])
+         (fun _ _ => 0)
+         _ _).
+    + intros τ k Hτ.
+      unfold extracted_task_scope in Hτ.
+      cbn in Hτ.
+      lia.
+    + intros j Hj.
+      unfold periodic_jobset, extracted_task_scope in Hj.
+      cbn in Hj.
+      lia.
+  - unfold extracted_offset_periodic_jobs.
+    apply periodic_codec_of_enumT.
+    + apply enumT_of_extracted_list_nodup.
+    + apply extracted_enum_complete.
+    + apply extracted_enum_sound.
+    + unfold enumT_of_extracted_list.
+      rewrite length_seq.
+      cbn.
+      lia.
+Defined.
+
 Lemma extracted_periodic_job_cost_exact :
   forall ts j,
     periodic_jobset

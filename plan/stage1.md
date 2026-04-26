@@ -95,6 +95,26 @@ window DBF を offset-insensitive な classical DBF で上から抑える
   final certificate / transport checker の offset-aware migration と同じ
   スライスで行う。
 
+### 2026-04-26: Extracted offset codec and prefix checker path added
+
+- `extracted_offset_periodic_codec` を追加し、
+  `extracted_periodic_offsets` / `extracted_offset_periodic_jobs` に対する
+  extraction-facing codec を公開した。
+- checked transport wrapper に offset-aware extraction-facing theorem を追加した。
+- Haskell extraction list に offset-aware codec を追加した。
+- prefix certificate checker の generated EDF 照合を
+  `extracted_periodic_offsets` と `extracted_offset_periodic_jobs` へ切り替えた。
+- native prefix certificate generator は release を `offset + k * period` とし、
+  horizon に最大 offset を含める。
+
+残作業:
+
+- final certificate / transport checker 本体の zero-offset transport 補題を
+  offset-aware に一般化する。
+- `extracted_periodic_jobs` 自体を offset-aware に置き換える作業は、
+  final certificate / transport checker の offset-aware migration と同じ
+  スライスで行う。
+
 ## 1. Semantic assumptions
 
 - `Task` レコードには offset を入れない。既存設計どおり、offset は

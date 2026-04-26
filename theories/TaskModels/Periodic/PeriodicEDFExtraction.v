@@ -23,6 +23,7 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   PeriodicEDFCheckedSidecarCert
   extracted_periodic_offsets
   extracted_offset_periodic_jobs
+  extracted_offset_periodic_codec
   edf_schedulability_decide
   edf_schedulability_counterexample
   check_prefix_slots_match_generated_edf

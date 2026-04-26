@@ -60,15 +60,15 @@ runPrefixCertCheck path = do
           cert = generatePrefixCert tasks
           semanticOk =
             EDF.check_prefix_cert_semantic
-              (EDF.extracted_periodic_jobs input)
+              (EDF.extracted_offset_periodic_jobs input)
               cert
           generatedOk =
             EDF.check_prefix_slots_match_generated_edf_fast
               (EDF.extracted_periodic_tasks input)
-              (\_ -> EDF.O)
-              (EDF.extracted_periodic_jobs input)
+              (EDF.extracted_periodic_offsets input)
+              (EDF.extracted_offset_periodic_jobs input)
               (EDF.enumT_of_extracted_list input)
-              (EDF.extracted_periodic_codec input)
+              (EDF.extracted_offset_periodic_codec input)
               cert
       case (semanticOk, generatedOk) of
         (EDF.True, EDF.True) -> do
@@ -88,15 +88,15 @@ runExtractedPrefixCertCheck path = do
           cert = generatePrefixCert tasks
           semanticOk =
             EDF.check_prefix_cert_semantic
-              (EDF.extracted_periodic_jobs input)
+              (EDF.extracted_offset_periodic_jobs input)
               cert
           generatedOk =
             EDF.check_prefix_slots_match_generated_edf
               (EDF.extracted_periodic_tasks input)
-              (\_ -> EDF.O)
-              (EDF.extracted_periodic_jobs input)
+              (EDF.extracted_periodic_offsets input)
+              (EDF.extracted_offset_periodic_jobs input)
               (EDF.enumT_of_extracted_list input)
-              (EDF.extracted_periodic_codec input)
+              (EDF.extracted_offset_periodic_codec input)
               cert
       case (semanticOk, generatedOk) of
         (EDF.True, EDF.True) -> do
@@ -211,7 +211,7 @@ checkGeneratedPrefixNative tasks cert =
 prefixHorizon :: [ParsedTask] -> Int
 prefixHorizon [] = 0
 prefixHorizon tasks =
-  2 * hyperperiod tasks + maximum (map parsedDeadline tasks)
+  maximum (map parsedOffset tasks) + 2 * hyperperiod tasks + maximum (map parsedDeadline tasks)
 
 hyperperiod :: [ParsedTask] -> Int
 hyperperiod =
@@ -234,8 +234,8 @@ prefixBasisJobs tasks horizon =
           , prefixJobCost = parsedCost task
           , prefixJobDeadline = release + parsedDeadline task
           }
-      | jobIndex <- takeWhile (\k -> k * parsedPeriod task < horizon) [0 ..]
-      , let release = jobIndex * parsedPeriod task
+      | jobIndex <- takeWhile (\k -> parsedOffset task + k * parsedPeriod task < horizon) [0 ..]
+      , let release = parsedOffset task + jobIndex * parsedPeriod task
       ]
 
 simulateEDFPrefix :: [PrefixJob] -> Int -> [Maybe Int]

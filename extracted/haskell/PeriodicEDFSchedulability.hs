@@ -1660,6 +1660,16 @@ extracted_periodic_codec ts =
     zero_offset_periodic_codec_of_tasks (extracted_periodic_tasks (Cons e l))
       (enumT_of_extracted_list (Cons e l))}
 
+extracted_offset_periodic_codec :: (List ExtractedPeriodicTask) ->
+                                   PeriodicCodec
+extracted_offset_periodic_codec ts =
+  case ts of {
+   Nil -> (\_ _ -> O);
+   Cons e l ->
+    periodic_codec_of_enumT (extracted_periodic_tasks (Cons e l))
+      (extracted_periodic_offsets (Cons e l))
+      (enumT_of_extracted_list (Cons e l))}
+
 check_periodic_hyperperiod_state_reset :: (TaskId -> Task) -> (TaskId ->
                                           Time) -> (JobId -> Job) -> (List
                                           TaskId) -> PeriodicCodec ->
