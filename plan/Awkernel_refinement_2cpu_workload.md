@@ -135,6 +135,7 @@ seed、PRNG、task 数、depth、sleep 回数などの上限は adapter / runtim
 
 次に QEMU または Linux KVM で representative workload を起動し、serial log を取得する。
 current runtime capture path は `awkernel/Makefile` にある。
+acceptance orchestration path は top-level `Makefile` にある。
 
 代表的な target は次である。
 
@@ -153,7 +154,8 @@ checked-in workload fixture を保持しない。
 - `BEGIN_SCHED_TRACE ... END_SCHED_TRACE`
 - `BEGIN_TASK_TRACE ... END_TASK_TRACE`
 
-を抽出し、一時的な `sched_trace.tsv` と `task_trace.tsv` を作って Haskell runner に渡す。
+を抽出し、一時的な `sched_trace.tsv` と `task_trace.tsv` を作って
+native checker binary に渡す。`runhaskell` runner は fallback/debug path である。
 この一時 TSV は acceptance lane の内部入力であり、成功時に repo 管理下の artifact として
 保存しない。
 
@@ -168,9 +170,11 @@ checked-in workload fixture を保持しない。
 - Extracted module:
   `scheduling_theory/extracted/haskell/AwkernelWorkloadAcceptance.hs`
 - Haskell runner:
-  `awkernel/scripts/haskell/WorkloadAcceptanceMain.hs`
+  `scripts/haskell/WorkloadAcceptanceMain.hs`
 - Python wrapper:
-  `awkernel/scripts/check_workload_acceptance.py`
+  `scripts/check_workload_acceptance.py`
+- Native checker binary:
+  `target/adapter/haskell/workload_acceptance`
 
 Haskell 側では `sched_trace.tsv` と `task_trace.tsv` を読み、
 まず extracted checker `awk_workload_accepts_sched_trace task_trace sched_trace`
@@ -204,7 +208,8 @@ diagnostics を返す。
 - workload-family-rejection
 - scheduler-relation-rejection
 - global-fifo-rejection
-- runner / checker module / runhaskell の起動失敗
+- checker binary build/startup/execution failure
+- fallback runner / checker module / runhaskell の起動失敗
 
 negative tests は synthetic serial log を使ってこの diagnostics contract を固定する。
 ここで固定するのは exact key set、stdout 上の単一 JSON payload、exit code class、

@@ -339,7 +339,8 @@ The intended progression is:
    `task_trace + sched_trace` family,
 2. `accepted_workload_global_fifo_sched_trace_family` adds the current
    trace-local `GlobalFIFO` choose-order diagnostic used by the extracted
-   Haskell checker over concrete `EvChoose` rows,
+   Haskell checker over adapter-local choose rows corresponding to projected
+   `EvChoose` labels,
 3. `accepted_workload_global_fifo_scheduler_relation_family` and
    `awk_workload_accepts_global_fifo_scheduler_relation_sched_trace` add the
    extracted full `GlobalFIFO` scheduler-relation check over the accepted
