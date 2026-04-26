@@ -61,4 +61,5 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   check_hyperperiod_block_source_pair_in_cert
   check_hyperperiod_block_source_pair_in_certs
   check_window_target_pair_coverage
+  check_periodic_edf_checked_sidecar_extracted_with_offsets
   check_periodic_edf_checked_sidecar_extracted.

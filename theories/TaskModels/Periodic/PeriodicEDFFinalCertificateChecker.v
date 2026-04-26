@@ -4271,32 +4271,34 @@ Proof.
   now apply Nat.leb_le in Hcheck.
 Qed.
 
-Definition check_periodic_edf_checked_sidecar
+Definition check_periodic_edf_checked_sidecar_with_jobs
     (ts : list ExtractedPeriodicTask)
+    (offset : TaskId -> Time)
+    (jobs : JobId -> Job)
     (codec :
       PeriodicCodec
         (extracted_task_scope ts)
         (extracted_periodic_tasks ts)
-        (fun _ => 0)
-        (extracted_periodic_jobs ts))
+        offset
+        jobs)
     (cert : EDFInfiniteCert JobId)
     (sidecar : PeriodicEDFCheckedSidecarCert) : bool :=
   check_prefix_cert_semantic
-    (extracted_periodic_jobs ts)
+    jobs
     cert.(cert_prefix)
   && check_prefix_slots_match_generated_edf_fast
        (extracted_task_scope ts)
        (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
+       offset
+       jobs
        (enumT_of_extracted_list ts)
        codec
        cert.(cert_prefix)
   && check_periodic_hyperperiod_state_reset
        (extracted_task_scope ts)
        (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
+       offset
+       jobs
        (enumT_of_extracted_list ts)
        codec
        cert.(cert_prefix)
@@ -4324,8 +4326,8 @@ Definition check_periodic_edf_checked_sidecar
   && check_transport_classes_rep_backlog_generated
        (extracted_task_scope ts)
        (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
+       offset
+       jobs
        (enumT_of_extracted_list ts)
        codec
        cert.(cert_prefix)
@@ -4333,8 +4335,8 @@ Definition check_periodic_edf_checked_sidecar
   && check_transport_classes_rep_periodic_generated
        (extracted_task_scope ts)
        (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
+       offset
+       jobs
        (enumT_of_extracted_list ts)
        codec
        cert.(cert_transport).(transport_classes)
@@ -4343,8 +4345,8 @@ Definition check_periodic_edf_checked_sidecar
        (periodic_transport_residue_jobs
           (extracted_task_scope ts)
           (extracted_periodic_tasks ts)
-          (fun _ => 0)
-          (extracted_periodic_jobs ts)
+          offset
+          jobs
           (enumT_of_extracted_list ts)
           codec
           cert.(cert_transport).(transport_period))
@@ -4352,8 +4354,8 @@ Definition check_periodic_edf_checked_sidecar
   && check_window_transport_targets_complete_with_pairs
        (extracted_task_scope ts)
        (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
+       offset
+       jobs
        (enumT_of_extracted_list ts)
        codec
        cert.(cert_transport)
@@ -4361,8 +4363,8 @@ Definition check_periodic_edf_checked_sidecar
   && check_window_generated_pair_semantics_all
        (extracted_task_scope ts)
        (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
+       offset
+       jobs
        (enumT_of_extracted_list ts)
        codec
        cert.(cert_transport)
@@ -4370,16 +4372,16 @@ Definition check_periodic_edf_checked_sidecar
   && check_window_generated_pair_completion_all
        (extracted_task_scope ts)
        (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
+       offset
+       jobs
        (enumT_of_extracted_list ts)
        codec
        sidecar.(checked_window_target_certs)
   && check_post_reset_window_targets_complete_with_pairs
        (extracted_task_scope ts)
        (extracted_periodic_tasks ts)
-       (fun _ => 0)
-       (extracted_periodic_jobs ts)
+       offset
+       jobs
        (enumT_of_extracted_list ts)
        codec
        cert.(cert_transport)
@@ -4391,12 +4393,25 @@ Definition check_periodic_edf_checked_sidecar
        (post_reset_window_target_jobs
           (extracted_task_scope ts)
           (extracted_periodic_tasks ts)
-          (fun _ => 0)
-          (extracted_periodic_jobs ts)
+          offset
+          jobs
           (enumT_of_extracted_list ts)
           codec)
        sidecar.(checked_post_reset_window_target_certs)
   && edf_schedulability_decide ts.
+
+Definition check_periodic_edf_checked_sidecar
+    (ts : list ExtractedPeriodicTask)
+    (codec :
+      PeriodicCodec
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (fun _ => 0)
+        (extracted_periodic_jobs ts))
+    (cert : EDFInfiniteCert JobId)
+    (sidecar : PeriodicEDFCheckedSidecarCert) : bool :=
+  check_periodic_edf_checked_sidecar_with_jobs
+    ts (fun _ => 0) (extracted_periodic_jobs ts) codec cert sidecar.
 
 Definition check_periodic_edf_checked_sidecar_extracted
     (ts : list ExtractedPeriodicTask)
@@ -4405,6 +4420,19 @@ Definition check_periodic_edf_checked_sidecar_extracted
   extracted_taskset_nonempty ts
   && check_periodic_edf_checked_sidecar
        ts (extracted_periodic_codec ts) cert sidecar.
+
+Definition check_periodic_edf_checked_sidecar_extracted_with_offsets
+    (ts : list ExtractedPeriodicTask)
+    (cert : EDFInfiniteCert JobId)
+    (sidecar : PeriodicEDFCheckedSidecarCert) : bool :=
+  extracted_taskset_nonempty ts
+  && check_periodic_edf_checked_sidecar_with_jobs
+       ts
+       (extracted_periodic_offsets ts)
+       (extracted_offset_periodic_jobs ts)
+       (extracted_offset_periodic_codec ts)
+       cert
+       sidecar.
 
 Lemma check_periodic_edf_checked_sidecar_fields :
   forall ts
@@ -4553,7 +4581,8 @@ Lemma check_periodic_edf_checked_sidecar_fields :
     edf_schedulability_decide ts = true.
 Proof.
   intros ts codec cert sidecar Hcheck.
-  unfold check_periodic_edf_checked_sidecar in Hcheck.
+  unfold check_periodic_edf_checked_sidecar,
+         check_periodic_edf_checked_sidecar_with_jobs in Hcheck.
   repeat rewrite andb_true_iff in Hcheck.
   destruct Hcheck as
     [[[[[[[[[[[[[[[[[[[Hprefix Hfast] Hreset] Hperiod_eq] Hhorizon]

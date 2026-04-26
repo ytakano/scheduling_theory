@@ -131,6 +131,26 @@ window DBF を offset-insensitive な classical DBF で上から抑える
   final certificate / transport checker の offset-aware migration と同じ
   スライスで行う。
 
+### 2026-04-26: Offset-aware final sidecar checker entry added
+
+- final sidecar checker の boolean 本体を
+  `check_periodic_edf_checked_sidecar_with_jobs` として
+  offset/jobs/codec 引数付きに分離した。
+- 既存 `check_periodic_edf_checked_sidecar` と
+  `check_periodic_edf_checked_sidecar_extracted` は zero-offset 互換 wrapper
+  として維持した。
+- `check_periodic_edf_checked_sidecar_extracted_with_offsets` を追加し、
+  `extracted_periodic_offsets` / `extracted_offset_periodic_jobs` /
+  `extracted_offset_periodic_codec` を使う executable entry を公開した。
+
+残作業:
+
+- final certificate / transport checker 本体の soundness theorem と
+  zero-offset transport 補題を offset-aware に一般化する。
+- `extracted_periodic_jobs` 自体を offset-aware に置き換える作業は、
+  final certificate / transport checker の offset-aware migration と同じ
+  スライスで行う。
+
 ## 1. Semantic assumptions
 
 - `Task` レコードには offset を入れない。既存設計どおり、offset は

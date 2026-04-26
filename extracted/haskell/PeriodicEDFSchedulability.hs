@@ -1678,11 +1678,13 @@ check_prefix_horizon_covers_post_reset_window :: (TaskId -> Task) -> (List
 check_prefix_horizon_covers_post_reset_window tasks enumT prefix_cert =
   leb (post_reset_window_horizon tasks enumT) (prefix_horizon prefix_cert)
 
-check_periodic_edf_checked_sidecar :: (List ExtractedPeriodicTask) ->
-                                      PeriodicCodec -> (EDFInfiniteCert
-                                      JobId) -> PeriodicEDFCheckedSidecarCert
-                                      -> Bool
-check_periodic_edf_checked_sidecar ts codec cert sidecar =
+check_periodic_edf_checked_sidecar_with_jobs :: (List ExtractedPeriodicTask)
+                                                -> (TaskId -> Time) -> (JobId
+                                                -> Job) -> PeriodicCodec ->
+                                                (EDFInfiniteCert JobId) ->
+                                                PeriodicEDFCheckedSidecarCert
+                                                -> Bool
+check_periodic_edf_checked_sidecar_with_jobs ts offset jobs codec cert sidecar =
   andb
     (andb
       (andb
@@ -1702,20 +1704,17 @@ check_periodic_edf_checked_sidecar ts codec cert sidecar =
                                   (andb
                                     (andb
                                       (andb
-                                        (check_prefix_cert_semantic
-                                          (extracted_periodic_jobs ts)
+                                        (check_prefix_cert_semantic jobs
                                           (cert_prefix cert))
                                         (check_prefix_slots_match_generated_edf_fast
                                           (extracted_periodic_tasks ts)
-                                          (\_ -> O)
-                                          (extracted_periodic_jobs ts)
+                                          offset jobs
                                           (enumT_of_extracted_list ts) codec
                                           (cert_prefix cert)))
                                       (check_periodic_hyperperiod_state_reset
-                                        (extracted_periodic_tasks ts) (\_ ->
-                                        O) (extracted_periodic_jobs ts)
-                                        (enumT_of_extracted_list ts) codec
-                                        (cert_prefix cert)
+                                        (extracted_periodic_tasks ts) offset
+                                        jobs (enumT_of_extracted_list ts)
+                                        codec (cert_prefix cert)
                                         (periodic_hyperperiod
                                           (extracted_periodic_tasks ts)
                                           (enumT_of_extracted_list ts))))
@@ -1739,50 +1738,52 @@ check_periodic_edf_checked_sidecar ts codec cert sidecar =
                             (transport_classes (cert_transport cert))
                             (checked_class_relevant_jobs sidecar)))
                         (check_transport_classes_rep_backlog_generated
-                          (extracted_periodic_tasks ts) (\_ -> O)
-                          (extracted_periodic_jobs ts)
+                          (extracted_periodic_tasks ts) offset jobs
                           (enumT_of_extracted_list ts) codec
                           (cert_prefix cert)
                           (transport_classes (cert_transport cert))))
                       (check_transport_classes_rep_periodic_generated
-                        (extracted_periodic_tasks ts) (\_ -> O)
-                        (extracted_periodic_jobs ts)
+                        (extracted_periodic_tasks ts) offset jobs
                         (enumT_of_extracted_list ts) codec
                         (transport_classes (cert_transport cert))))
                     (check_periodic_transport_residue_coverage
                       (cert_transport cert)
                       (periodic_transport_residue_jobs
-                        (extracted_periodic_tasks ts) (\_ -> O)
-                        (extracted_periodic_jobs ts)
+                        (extracted_periodic_tasks ts) offset jobs
                         (enumT_of_extracted_list ts) codec
                         (transport_period (cert_transport cert)))))
                   (check_transport_residue_shifts (cert_transport cert)))
                 (check_window_transport_targets_complete_with_pairs
-                  (extracted_periodic_tasks ts) (\_ -> O)
-                  (extracted_periodic_jobs ts) (enumT_of_extracted_list ts)
-                  codec (cert_transport cert)
+                  (extracted_periodic_tasks ts) offset jobs
+                  (enumT_of_extracted_list ts) codec (cert_transport cert)
                   (checked_window_target_certs sidecar)))
               (check_window_generated_pair_semantics_all
-                (extracted_periodic_tasks ts) (\_ -> O)
-                (extracted_periodic_jobs ts) (enumT_of_extracted_list ts)
-                codec (cert_transport cert)
+                (extracted_periodic_tasks ts) offset jobs
+                (enumT_of_extracted_list ts) codec (cert_transport cert)
                 (checked_window_target_certs sidecar)))
             (check_window_generated_pair_completion_all
-              (extracted_periodic_tasks ts) (\_ -> O)
-              (extracted_periodic_jobs ts) (enumT_of_extracted_list ts) codec
+              (extracted_periodic_tasks ts) offset jobs
+              (enumT_of_extracted_list ts) codec
               (checked_window_target_certs sidecar)))
           (check_post_reset_window_targets_complete_with_pairs
-            (extracted_periodic_tasks ts) (\_ -> O)
-            (extracted_periodic_jobs ts) (enumT_of_extracted_list ts) codec
-            (cert_transport cert)
+            (extracted_periodic_tasks ts) offset jobs
+            (enumT_of_extracted_list ts) codec (cert_transport cert)
             (checked_post_reset_window_target_certs sidecar)))
         (check_post_reset_window_target_basis_coverage (cert_transport cert)
           (checked_post_reset_window_target_certs sidecar)))
       (check_post_reset_target_list_complete
-        (post_reset_window_target_jobs (extracted_periodic_tasks ts) (\_ ->
-          O) (extracted_periodic_jobs ts) (enumT_of_extracted_list ts) codec)
+        (post_reset_window_target_jobs (extracted_periodic_tasks ts) offset
+          jobs (enumT_of_extracted_list ts) codec)
         (checked_post_reset_window_target_certs sidecar)))
     (edf_schedulability_decide ts)
+
+check_periodic_edf_checked_sidecar :: (List ExtractedPeriodicTask) ->
+                                      PeriodicCodec -> (EDFInfiniteCert
+                                      JobId) -> PeriodicEDFCheckedSidecarCert
+                                      -> Bool
+check_periodic_edf_checked_sidecar ts codec cert sidecar =
+  check_periodic_edf_checked_sidecar_with_jobs ts (\_ -> O)
+    (extracted_periodic_jobs ts) codec cert sidecar
 
 check_periodic_edf_checked_sidecar_extracted :: (List ExtractedPeriodicTask)
                                                 -> (EDFInfiniteCert JobId) ->
@@ -1792,4 +1793,17 @@ check_periodic_edf_checked_sidecar_extracted ts cert sidecar =
   andb (extracted_taskset_nonempty ts)
     (check_periodic_edf_checked_sidecar ts (extracted_periodic_codec ts) cert
       sidecar)
+
+check_periodic_edf_checked_sidecar_extracted_with_offsets :: (List
+                                                             ExtractedPeriodicTask)
+                                                             ->
+                                                             (EDFInfiniteCert
+                                                             JobId) ->
+                                                             PeriodicEDFCheckedSidecarCert
+                                                             -> Bool
+check_periodic_edf_checked_sidecar_extracted_with_offsets ts cert sidecar =
+  andb (extracted_taskset_nonempty ts)
+    (check_periodic_edf_checked_sidecar_with_jobs ts
+      (extracted_periodic_offsets ts) (extracted_offset_periodic_jobs ts)
+      (extracted_offset_periodic_codec ts) cert sidecar)
 
