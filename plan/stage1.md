@@ -30,6 +30,22 @@ window DBF を offset-insensitive な classical DBF で上から抑える
 - prefix certificate checker の offset-aware 化は、jobs/codec の offset-aware 化と
   同じスライスで行う。
 
+### 2026-04-26: Any-offset classical DBF bridge completed
+
+- `PeriodicClassicDBF.v` に任意 offset 版の single-task / taskset DBF
+  comparison lemma を追加した。
+- `PeriodicEDFInfiniteBridge.v` に zero-offset premise を要求しない
+  any-offset classical DBF wrapper 群を追加した。
+- 既存の zero-offset theorem 名と互換 path は維持した。
+
+残作業:
+
+- `extracted_periodic_jobs` と `extracted_periodic_codec` を
+  `extracted_periodic_offsets` に切り替える。
+- extraction-facing soundness theorem を any-offset EDF wrapper へ接続する。
+- checked transport / final certificate checker の extracted offset 化を行う。
+- LLF 側の any-offset classical wrapper は未実装。
+
 ## 1. Semantic assumptions
 
 - `Task` レコードには offset を入れない。既存設計どおり、offset は
