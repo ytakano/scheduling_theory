@@ -298,3 +298,18 @@ smoke tests for 3-column and 4-column inputs.
 
 - `taskset_periodic_dbf_window_shift` を設計・証明する。
 - `offset_window_dbf_check_by_cutoff` を設計・証明する。
+
+### 2026-04-26: window-DBF hyperperiod shift lemmas 追加
+
+- `PeriodicOffsetWindowCutoff.v` に単一 task の
+  `periodic_index_in_window_shift_by_hyperperiod` と
+  `periodic_index_in_shifted_window_sub_hyperperiod` を追加した。
+- 未正規化 offset を扱うため、shift 前 window の開始時刻に
+  `periodic_max_offset offset enumT <= t1` を要求する形にした。
+- `periodic_dbf_window_shift_by_hyperperiod` と
+  `taskset_periodic_dbf_window_shift_by_hyperperiod` を追加し、
+  window-DBF が hyperperiod shift で保存される proof-facing API を閉じた。
+
+残作業:
+
+- `offset_window_dbf_check_by_cutoff` を設計・証明する。
