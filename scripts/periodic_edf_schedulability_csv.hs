@@ -13,6 +13,7 @@ data ParsedTask = ParsedTask
   { parsedCost :: Int
   , parsedPeriod :: Int
   , parsedDeadline :: Int
+  , parsedOffset :: Int
   }
 
 main :: IO ()
@@ -26,7 +27,7 @@ main = do
       putStrLn "usage: scripts/periodic_edf_schedulability_csv TASKS.csv"
       putStrLn "       scripts/periodic_edf_schedulability_csv --check-prefix-cert TASKS.csv"
       putStrLn "       scripts/periodic_edf_schedulability_csv --check-prefix-cert-extracted TASKS.csv"
-      putStrLn "CSV columns: cost,period,deadline"
+      putStrLn "CSV columns: cost,period,deadline[,offset]"
       exitFailure
 
 run :: FilePath -> IO ()
@@ -129,7 +130,9 @@ dropHeaderIfPresent [] = []
 
 isHeader :: String -> Bool
 isHeader line =
-  map normalizeHeaderCell (splitComma line) == ["cost", "period", "deadline"]
+  let cells = map normalizeHeaderCell (splitComma line)
+  in cells == ["cost", "period", "deadline"]
+       || cells == ["cost", "period", "deadline", "offset"]
 
 normalizeHeaderCell :: String -> String
 normalizeHeaderCell =
@@ -147,10 +150,16 @@ parseTaskRow (lineNo, line) =
       cost <- parsePositive lineNo "cost" costText
       period <- parsePositive lineNo "period" periodText
       deadline <- parsePositive lineNo "deadline" deadlineText
-      pure (ParsedTask cost period deadline)
+      pure (ParsedTask cost period deadline 0)
+    [costText, periodText, deadlineText, offsetText] -> do
+      cost <- parsePositive lineNo "cost" costText
+      period <- parsePositive lineNo "period" periodText
+      deadline <- parsePositive lineNo "deadline" deadlineText
+      offset <- parseNonnegative lineNo "offset" offsetText
+      pure (ParsedTask cost period deadline offset)
     cols ->
       Left $
-        "line " ++ show lineNo ++ ": expected 3 columns, got "
+        "line " ++ show lineNo ++ ": expected 3 or 4 columns, got "
           ++ show (length cols)
 
 parsePositive :: Int -> String -> String -> Either String Int
@@ -158,6 +167,13 @@ parsePositive lineNo name text =
   case readMaybe text of
     Just n | n > 0 -> Right n
     Just _ -> Left ("line " ++ show lineNo ++ ": " ++ name ++ " must be positive")
+    Nothing -> Left ("line " ++ show lineNo ++ ": invalid " ++ name ++ ": " ++ text)
+
+parseNonnegative :: Int -> String -> String -> Either String Int
+parseNonnegative lineNo name text =
+  case readMaybe text of
+    Just n | n >= 0 -> Right n
+    Just _ -> Left ("line " ++ show lineNo ++ ": " ++ name ++ " must be nonnegative")
     Nothing -> Left ("line " ++ show lineNo ++ ": invalid " ++ name ++ ": " ++ text)
 
 data PrefixJob = PrefixJob
@@ -295,6 +311,7 @@ toEDFTask task =
     (toNat (parsedCost task))
     (toNat (parsedPeriod task))
     (toNat (parsedDeadline task))
+    (toNat (parsedOffset task))
 
 toEDFList :: [a] -> EDF.List a
 toEDFList =

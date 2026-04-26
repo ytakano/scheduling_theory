@@ -794,23 +794,23 @@ dbf_test_by_cutoff tasks enumT =
   dbf_test_upto tasks enumT (scalar_dbf_cutoff_bound tasks enumT)
 
 data ExtractedPeriodicTask =
-   MkExtractedPeriodicTask Nat Nat Nat
+   MkExtractedPeriodicTask Nat Nat Nat Nat
 
 extracted_task_cost :: ExtractedPeriodicTask -> Nat
 extracted_task_cost e =
   case e of {
-   MkExtractedPeriodicTask extracted_task_cost0 _ _ -> extracted_task_cost0}
+   MkExtractedPeriodicTask extracted_task_cost0 _ _ _ -> extracted_task_cost0}
 
 extracted_task_period :: ExtractedPeriodicTask -> Nat
 extracted_task_period e =
   case e of {
-   MkExtractedPeriodicTask _ extracted_task_period0 _ ->
+   MkExtractedPeriodicTask _ extracted_task_period0 _ _ ->
     extracted_task_period0}
 
 extracted_task_relative_deadline :: ExtractedPeriodicTask -> Nat
 extracted_task_relative_deadline e =
   case e of {
-   MkExtractedPeriodicTask _ _ extracted_task_relative_deadline0 ->
+   MkExtractedPeriodicTask _ _ extracted_task_relative_deadline0 _ ->
     extracted_task_relative_deadline0}
 
 task_of_extracted :: ExtractedPeriodicTask -> Task
@@ -820,7 +820,7 @@ task_of_extracted _UU03c4_ =
 
 default_extracted_periodic_task :: ExtractedPeriodicTask
 default_extracted_periodic_task =
-  MkExtractedPeriodicTask (S O) (S O) (S O)
+  MkExtractedPeriodicTask (S O) (S O) (S O) O
 
 tasks_of_extracted_list :: (List ExtractedPeriodicTask) -> TaskId -> Task
 tasks_of_extracted_list ts _UU03c4_ =

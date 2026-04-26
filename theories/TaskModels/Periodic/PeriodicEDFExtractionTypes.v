@@ -13,7 +13,8 @@ Import ListNotations.
 Record ExtractedPeriodicTask : Type := mkExtractedPeriodicTask {
   extracted_task_cost : nat;
   extracted_task_period : nat;
-  extracted_task_relative_deadline : nat
+  extracted_task_relative_deadline : nat;
+  extracted_task_offset : nat
 }.
 
 Definition task_of_extracted (τ : ExtractedPeriodicTask) : Task :=
@@ -23,7 +24,11 @@ Definition task_of_extracted (τ : ExtractedPeriodicTask) : Task :=
     τ.(extracted_task_relative_deadline).
 
 Definition default_extracted_periodic_task : ExtractedPeriodicTask :=
-  mkExtractedPeriodicTask 1 1 1.
+  mkExtractedPeriodicTask 1 1 1 0.
+
+Definition zero_offset_extracted_periodic_task
+    (c p d : nat) : ExtractedPeriodicTask :=
+  mkExtractedPeriodicTask c p d 0.
 
 Definition default_periodic_task : Task :=
   task_of_extracted default_extracted_periodic_task.
@@ -31,6 +36,10 @@ Definition default_periodic_task : Task :=
 Definition tasks_of_extracted_list
     (ts : list ExtractedPeriodicTask) : TaskId -> Task :=
   fun τ => task_of_extracted (nth τ ts default_extracted_periodic_task).
+
+Definition offset_of_extracted_list
+    (ts : list ExtractedPeriodicTask) : TaskId -> Time :=
+  fun τ => extracted_task_offset (nth τ ts default_extracted_periodic_task).
 
 Definition enumT_of_extracted_list
     (ts : list ExtractedPeriodicTask) : list TaskId :=
