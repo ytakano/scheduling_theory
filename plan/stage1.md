@@ -115,6 +115,22 @@ window DBF を offset-insensitive な classical DBF で上から抑える
   final certificate / transport checker の offset-aware migration と同じ
   スライスで行う。
 
+### 2026-04-26: Non-fast extracted prefix checker removed
+
+- CLI option `--check-prefix-cert-extracted` を削除し、prefix certificate
+  checker の実行経路を fast checker に一本化した。
+- Haskell extraction list から `check_prefix_slots_match_generated_edf` を外した。
+- Rocq 内の `check_prefix_slots_match_generated_edf` は fast checker の
+  proof-facing specification として残した。
+
+残作業:
+
+- final certificate / transport checker 本体の zero-offset transport 補題を
+  offset-aware に一般化する。
+- `extracted_periodic_jobs` 自体を offset-aware に置き換える作業は、
+  final certificate / transport checker の offset-aware migration と同じ
+  スライスで行う。
+
 ## 1. Semantic assumptions
 
 - `Task` レコードには offset を入れない。既存設計どおり、offset は

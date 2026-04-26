@@ -22,11 +22,9 @@ main = do
   case args of
     [path] -> run path
     ["--check-prefix-cert", path] -> runPrefixCertCheck path
-    ["--check-prefix-cert-extracted", path] -> runExtractedPrefixCertCheck path
     _ -> do
       putStrLn "usage: scripts/periodic_edf_schedulability_csv TASKS.csv"
       putStrLn "       scripts/periodic_edf_schedulability_csv --check-prefix-cert TASKS.csv"
-      putStrLn "       scripts/periodic_edf_schedulability_csv --check-prefix-cert-extracted TASKS.csv"
       putStrLn "CSV columns: cost,period,deadline[,offset]"
       exitFailure
 
@@ -64,34 +62,6 @@ runPrefixCertCheck path = do
               cert
           generatedOk =
             EDF.check_prefix_slots_match_generated_edf_fast
-              (EDF.extracted_periodic_tasks input)
-              (EDF.extracted_periodic_offsets input)
-              (EDF.extracted_offset_periodic_jobs input)
-              (EDF.enumT_of_extracted_list input)
-              (EDF.extracted_offset_periodic_codec input)
-              cert
-      case (semanticOk, generatedOk) of
-        (EDF.True, EDF.True) -> do
-          putStrLn "prefix certificate ok"
-          exitSuccess
-        _ -> do
-          putStrLn "prefix certificate check failed"
-          exitFailure
-
-runExtractedPrefixCertCheck :: FilePath -> IO ()
-runExtractedPrefixCertCheck path = do
-  content <- readFile path
-  case parseCsv content of
-    Left err -> putStrLn err >> exitFailure
-    Right tasks -> do
-      let input = toEDFList (map toEDFTask tasks)
-          cert = generatePrefixCert tasks
-          semanticOk =
-            EDF.check_prefix_cert_semantic
-              (EDF.extracted_offset_periodic_jobs input)
-              cert
-          generatedOk =
-            EDF.check_prefix_slots_match_generated_edf
               (EDF.extracted_periodic_tasks input)
               (EDF.extracted_periodic_offsets input)
               (EDF.extracted_offset_periodic_jobs input)

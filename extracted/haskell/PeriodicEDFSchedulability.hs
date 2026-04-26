@@ -979,30 +979,6 @@ option_job_eqb x y =
             Some _ -> False;
             None -> True}}
 
-check_prefix_slots_match_schedule :: Schedule -> (EDFPrefixCert JobId) ->
-                                     Bool
-check_prefix_slots_match_schedule sched c =
-  andb (check_prefix_cert c)
-    (forallb (\t -> option_job_eqb (nth t (prefix_slots c) None) (sched t O))
-      (seq O (prefix_horizon c)))
-
-generated_periodic_edf_prefix :: (TaskId -> Task) -> (TaskId -> Time) ->
-                                 (JobId -> Job) -> (List TaskId) ->
-                                 PeriodicCodec -> (EDFPrefixCert JobId) ->
-                                 Schedule
-generated_periodic_edf_prefix tasks offset jobs enumT codec c =
-  generated_schedule_prefix edf_generic_spec
-    (periodic_candidates_before tasks offset jobs enumT codec) jobs
-    (prefix_horizon c)
-
-check_prefix_slots_match_generated_edf :: (TaskId -> Task) -> (TaskId ->
-                                          Time) -> (JobId -> Job) -> (List
-                                          TaskId) -> PeriodicCodec ->
-                                          (EDFPrefixCert JobId) -> Bool
-check_prefix_slots_match_generated_edf tasks offset jobs enumT codec c =
-  check_prefix_slots_match_schedule
-    (generated_periodic_edf_prefix tasks offset jobs enumT codec c) c
-
 check_prefix_slots_match_generated_edf_fast :: (TaskId -> Task) -> (TaskId ->
                                                Time) -> (JobId -> Job) ->
                                                (List TaskId) -> PeriodicCodec
