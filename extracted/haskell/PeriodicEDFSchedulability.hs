@@ -658,6 +658,30 @@ enum_periodic_jobs_before tasks offset jobs enumT codec t =
   enum_periodic_jobs_upto tasks offset jobs t enumT
     (periodic_finite_horizon_codec_of tasks offset jobs t codec)
 
+periodic_index_in_window :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId ->
+                            Time -> Time -> Nat -> Bool
+periodic_index_in_window tasks offset _UU03c4_ t1 t2 k =
+  andb (leb t1 (expected_release tasks offset _UU03c4_ k))
+    (leb (expected_abs_deadline tasks offset _UU03c4_ k) t2)
+
+periodic_dbf_window :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId -> Time
+                       -> Time -> Nat
+periodic_dbf_window tasks offset _UU03c4_ t1 t2 =
+  mul
+    (length
+      (filter (periodic_index_in_window tasks offset _UU03c4_ t1 t2)
+        (seq O (S t2))))
+    (task_cost (tasks _UU03c4_))
+
+taskset_periodic_dbf_window :: (TaskId -> Task) -> (TaskId -> Time) -> (List
+                               TaskId) -> Time -> Time -> Nat
+taskset_periodic_dbf_window tasks offset enumT t1 t2 =
+  case enumT of {
+   Nil -> O;
+   Cons _UU03c4_ enumT' ->
+    add (periodic_dbf_window tasks offset _UU03c4_ t1 t2)
+      (taskset_periodic_dbf_window tasks offset enumT' t1 t2)}
+
 generated_schedule_prefix :: GenericSchedulingAlgorithm -> CandidateSource ->
                              (JobId -> Job) -> Time -> Schedule
 generated_schedule_prefix alg candidates_of jobs h =
@@ -757,16 +781,46 @@ critical_dbf_points_upto tasks offset enumT h =
         (flat_map (\_UU03c4_ ->
           task_deadline_points_upto tasks offset _UU03c4_ h) enumT))))
 
+critical_dbf_windows_upto :: (TaskId -> Task) -> (TaskId -> Time) -> (List
+                             TaskId) -> Time -> List (Prod Time Time)
+critical_dbf_windows_upto tasks offset enumT h =
+  let {points = critical_dbf_points_upto tasks offset enumT h} in
+  flat_map (\t1 ->
+    map (\t2 -> Pair t1 t2)
+      (filter (\t2 -> andb (leb t1 t2) (leb t2 h)) points))
+    points
+
 dbf_test_upto :: (TaskId -> Task) -> (List TaskId) -> Time -> Bool
 dbf_test_upto tasks enumT h =
   forallb (\t -> leb (taskset_periodic_dbf tasks enumT t) t)
     (critical_dbf_points_upto tasks (\_ -> O) enumT h)
+
+window_dbf_test_upto :: (TaskId -> Task) -> (TaskId -> Time) -> (List
+                        TaskId) -> Time -> Bool
+window_dbf_test_upto tasks offset enumT h =
+  forallb (\w ->
+    case w of {
+     Pair t1 t2 ->
+      leb (taskset_periodic_dbf_window tasks offset enumT t1 t2) (sub t2 t1)})
+    (critical_dbf_windows_upto tasks offset enumT h)
 
 first_dbf_overload_upto :: (TaskId -> Task) -> (List TaskId) -> Time ->
                            Option Time
 first_dbf_overload_upto tasks enumT h =
   find (\t -> negb (leb (taskset_periodic_dbf tasks enumT t) t))
     (critical_dbf_points_upto tasks (\_ -> O) enumT h)
+
+first_window_dbf_overload_upto :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                  (List TaskId) -> Time -> Option
+                                  (Prod Time Time)
+first_window_dbf_overload_upto tasks offset enumT h =
+  find (\w ->
+    case w of {
+     Pair t1 t2 ->
+      negb
+        (leb (taskset_periodic_dbf_window tasks offset enumT t1 t2)
+          (sub t2 t1))})
+    (critical_dbf_windows_upto tasks offset enumT h)
 
 periodic_hyperperiod :: (TaskId -> Task) -> (List TaskId) -> Time
 periodic_hyperperiod tasks enumT =
@@ -867,6 +921,23 @@ edf_schedulability_counterexample ts =
     (enumT_of_extracted_list ts)
     (scalar_dbf_cutoff_bound (tasks_of_extracted_list ts)
       (enumT_of_extracted_list ts))
+
+extracted_offset_window_dbf_test_upto :: (List ExtractedPeriodicTask) -> Time
+                                         -> Bool
+extracted_offset_window_dbf_test_upto ts h =
+  window_dbf_test_upto (tasks_of_extracted_list ts)
+    (offset_of_extracted_list ts) (enumT_of_extracted_list ts) h
+
+extracted_offset_window_dbf_counterexample :: (List ExtractedPeriodicTask) ->
+                                              Time -> Option (Prod Time Time)
+extracted_offset_window_dbf_counterexample ts h =
+  first_window_dbf_overload_upto (tasks_of_extracted_list ts)
+    (offset_of_extracted_list ts) (enumT_of_extracted_list ts) h
+
+extracted_offset_window_dbf_decide :: (List ExtractedPeriodicTask) -> Time ->
+                                      Bool
+extracted_offset_window_dbf_decide ts h =
+  andb (extracted_taskset_wf ts) (extracted_offset_window_dbf_test_upto ts h)
 
 extracted_periodic_tasks :: (List ExtractedPeriodicTask) -> TaskId -> Task
 extracted_periodic_tasks =
@@ -1806,4 +1877,3 @@ check_periodic_edf_checked_sidecar_extracted_with_offsets ts cert sidecar =
     (check_periodic_edf_checked_sidecar_with_jobs ts
       (extracted_periodic_offsets ts) (extracted_offset_periodic_jobs ts)
       (extracted_offset_periodic_codec ts) cert sidecar)
-

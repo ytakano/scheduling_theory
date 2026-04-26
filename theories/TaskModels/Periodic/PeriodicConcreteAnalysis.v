@@ -355,8 +355,35 @@ Proof.
       exists w. split; [now right|exact Hover].
     + exists t.
       split; [now left|].
-      apply Nat.leb_gt.
-      exact Hle.
+  apply Nat.leb_gt.
+  exact Hle.
+Qed.
+
+Definition first_window_dbf_overload_upto
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (enumT : list TaskId)
+    (H : Time) : option (Time * Time) :=
+  find
+    (fun w =>
+       let '(t1, t2) := w in
+       negb (taskset_periodic_dbf_window tasks offset enumT t1 t2 <=?
+             t2 - t1))
+    (critical_dbf_windows_upto tasks offset enumT H).
+
+Lemma first_window_dbf_overload_upto_some :
+  forall tasks offset enumT H t1 t2,
+    first_window_dbf_overload_upto tasks offset enumT H = Some (t1, t2) ->
+    t2 - t1 <
+    taskset_periodic_dbf_window tasks offset enumT t1 t2.
+Proof.
+  intros tasks offset enumT H t1 t2 Hfind.
+  unfold first_window_dbf_overload_upto in Hfind.
+  apply find_some in Hfind.
+  destruct Hfind as [_ Hover].
+  apply negb_true_iff in Hover.
+  apply Nat.leb_gt in Hover.
+  exact Hover.
 Qed.
 
 Lemma critical_dbf_windows_upto_sound :

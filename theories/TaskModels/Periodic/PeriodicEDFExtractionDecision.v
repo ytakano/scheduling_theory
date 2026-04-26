@@ -3,6 +3,7 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFExtractionTypes.
+From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
 
 Import ListNotations.
 
@@ -27,6 +28,29 @@ Definition edf_schedulability_counterexample
     (scalar_dbf_cutoff_bound
        (tasks_of_extracted_list ts)
        (enumT_of_extracted_list ts)).
+
+Definition extracted_offset_window_dbf_test_upto
+    (ts : list ExtractedPeriodicTask)
+    (H : Time) : bool :=
+  window_dbf_test_upto
+    (tasks_of_extracted_list ts)
+    (offset_of_extracted_list ts)
+    (enumT_of_extracted_list ts)
+    H.
+
+Definition extracted_offset_window_dbf_counterexample
+    (ts : list ExtractedPeriodicTask)
+    (H : Time) : option (Time * Time) :=
+  first_window_dbf_overload_upto
+    (tasks_of_extracted_list ts)
+    (offset_of_extracted_list ts)
+    (enumT_of_extracted_list ts)
+    H.
+
+Definition extracted_offset_window_dbf_decide
+    (ts : list ExtractedPeriodicTask)
+    (H : Time) : bool :=
+  extracted_taskset_wf ts && extracted_offset_window_dbf_test_upto ts H.
 
 Definition extracted_taskset_global_dbf_ok
     (ts : list ExtractedPeriodicTask) : Prop :=
@@ -53,6 +77,18 @@ Definition extracted_taskset_has_bounded_dbf_overload
       (tasks_of_extracted_list ts)
       (enumT_of_extracted_list ts)
       t.
+
+Definition extracted_offset_window_dbf_ok_upto
+    (ts : list ExtractedPeriodicTask)
+    (H : Time) : Prop :=
+  forall t1 t2,
+    t1 <= t2 ->
+    t2 <= H ->
+    taskset_periodic_dbf_window
+      (tasks_of_extracted_list ts)
+      (offset_of_extracted_list ts)
+      (enumT_of_extracted_list ts)
+      t1 t2 <= t2 - t1.
 
 Lemma extracted_taskset_dbf_test_sound :
   forall ts,
@@ -125,6 +161,47 @@ Proof.
   unfold edf_schedulability_counterexample in Hcex.
   apply first_dbf_overload_upto_some in Hcex.
   exact (proj2 Hcex).
+Qed.
+
+Theorem extracted_offset_window_dbf_test_upto_sound :
+  forall ts H,
+    extracted_taskset_wf ts = true ->
+    extracted_offset_window_dbf_test_upto ts H = true ->
+    extracted_offset_window_dbf_ok_upto ts H.
+Proof.
+  intros ts H _Hwf Htest.
+  unfold extracted_offset_window_dbf_ok_upto.
+  intros t1 t2 Hle12 Hle2H.
+  unfold extracted_offset_window_dbf_test_upto in Htest.
+  eapply window_dbf_test_upto_true_implies_bounded_window_dbf; eauto.
+Qed.
+
+Lemma extracted_offset_window_dbf_decide_true_ok :
+  forall ts H,
+    extracted_offset_window_dbf_decide ts H = true ->
+    extracted_offset_window_dbf_ok_upto ts H.
+Proof.
+  intros ts H Hdec.
+  unfold extracted_offset_window_dbf_decide in Hdec.
+  apply andb_true_iff in Hdec.
+  destruct Hdec as [Hwf Htest].
+  eapply extracted_offset_window_dbf_test_upto_sound; eauto.
+Qed.
+
+Lemma extracted_offset_window_dbf_counterexample_sound :
+  forall ts H t1 t2,
+    extracted_offset_window_dbf_counterexample ts H = Some (t1, t2) ->
+    t2 - t1 <
+    taskset_periodic_dbf_window
+      (tasks_of_extracted_list ts)
+      (offset_of_extracted_list ts)
+      (enumT_of_extracted_list ts)
+      t1 t2.
+Proof.
+  intros ts H t1 t2 Hcex.
+  unfold extracted_offset_window_dbf_counterexample in Hcex.
+  eapply first_window_dbf_overload_upto_some.
+  exact Hcex.
 Qed.
 
 Theorem edf_schedulability_decide_iff_global_dbf :
