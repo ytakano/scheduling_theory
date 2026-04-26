@@ -265,3 +265,19 @@ smoke tests for 3-column and 4-column inputs.
 
 - finite EDF / LLF schedulability wrapper を必要に応じて追加する。
 - infinite cutoff theorem を後続スライスで設計・証明する。
+
+### 2026-04-26: finite EDF / LLF wrapper layer checked
+
+- EDF finite window-DBF package wrapper は既存の
+  `periodic_edf_schedulable_by_window_dbf_on_finite_horizon_generated_from_obligations`
+  を Stage 2 の finite EDF wrapper として確認した。
+- `PeriodicLLFAnalysisEntryPoints.v` に
+  `periodic_llf_schedulable_by_window_dbf_on_finite_horizon_generated_from_obligations`
+  を追加した。
+- LLF 側の既存 finite feasibility bridge は busy-prefix witness を要求するため、
+  LLF wrapper は `PeriodicEDFConcreteWindowObligations` に加えて
+  explicit busy-prefix bridge premise を残す形にした。
+
+残作業:
+
+- infinite cutoff theorem を後続スライスで設計・証明する。
