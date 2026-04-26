@@ -28,6 +28,14 @@ Definition offset_window_dbf_cutoff_bound
       periodic_max_relative_deadline tasks enumT in
   horizon_base + S horizon_base * periodic_hyperperiod tasks enumT.
 
+Definition offset_window_dbf_test_by_cutoff
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (enumT : list TaskId) : bool :=
+  window_dbf_test_upto
+    tasks offset enumT
+    (offset_window_dbf_cutoff_bound tasks offset enumT).
+
 Lemma periodic_max_offset_ge :
   forall offset enumT τ,
     In τ enumT ->
@@ -354,4 +362,34 @@ Proof.
   apply Hshift.
   intros τ Hin.
   exact Hin.
+Qed.
+
+Theorem offset_window_dbf_check_by_cutoff_post_offset_shifted :
+  forall tasks offset enumT t1 t2 n,
+    (forall τ, In τ enumT -> 0 < task_period (tasks τ)) ->
+    offset_window_dbf_test_by_cutoff tasks offset enumT = true ->
+    let shift := n * periodic_hyperperiod tasks enumT in
+    shift <= t1 ->
+    shift <= t2 ->
+    periodic_max_offset offset enumT <= t1 - shift ->
+    t1 <= t2 ->
+    t2 - shift <= offset_window_dbf_cutoff_bound tasks offset enumT ->
+    taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1.
+Proof.
+  intros tasks offset enumT t1 t2 n Hwf Htest shift Hshift_le_t1
+         Hshift_le_t2 Hpost_offset Hle12 Hcutoff.
+  assert (Hle_shifted : t1 - shift <= t2 - shift) by lia.
+  pose proof
+    (taskset_periodic_dbf_window_shift_by_hyperperiod
+       tasks offset enumT (t1 - shift) (t2 - shift) n
+       Hwf Hpost_offset Hle_shifted) as Hshift_dbf.
+  unfold shift in Hshift_dbf.
+  replace (t1 - n * periodic_hyperperiod tasks enumT +
+           n * periodic_hyperperiod tasks enumT) with t1 in Hshift_dbf by lia.
+  replace (t2 - n * periodic_hyperperiod tasks enumT +
+           n * periodic_hyperperiod tasks enumT) with t2 in Hshift_dbf by lia.
+  rewrite Hshift_dbf.
+  replace (t2 - t1) with ((t2 - shift) - (t1 - shift)) by lia.
+  unfold offset_window_dbf_test_by_cutoff in Htest.
+  eapply window_dbf_test_upto_true_implies_bounded_window_dbf; eauto.
 Qed.

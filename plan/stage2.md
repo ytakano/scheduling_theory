@@ -313,3 +313,18 @@ smoke tests for 3-column and 4-column inputs.
 残作業:
 
 - `offset_window_dbf_check_by_cutoff` を設計・証明する。
+
+### 2026-04-26: explicit-shift cutoff theorem 追加
+
+- `offset_window_dbf_test_by_cutoff` を追加した。
+- `offset_window_dbf_check_by_cutoff_post_offset_shifted` を追加し、
+  caller が cutoff 内へ戻す hyperperiod shift 量 `n` を明示できる場合に、
+  finite cutoff check から元 window の DBF bound を導けるようにした。
+- 当初検討した任意長 post-offset window の cutoff theorem は、
+  hyperperiod shift が window length を保存するためそのままでは成立しない。
+  長い window を扱うには utilization/load 側の別補題が必要である。
+
+残作業:
+
+- 長い window を cutoff へ縮約するための load/utilization 補題を設計する。
+- `offset_window_dbf_check_by_cutoff` の arbitrary-window 版を設計・証明する。
