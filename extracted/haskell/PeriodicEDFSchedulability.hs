@@ -813,6 +813,12 @@ extracted_task_relative_deadline e =
    MkExtractedPeriodicTask _ _ extracted_task_relative_deadline0 _ ->
     extracted_task_relative_deadline0}
 
+extracted_task_offset :: ExtractedPeriodicTask -> Nat
+extracted_task_offset e =
+  case e of {
+   MkExtractedPeriodicTask _ _ _ extracted_task_offset0 ->
+    extracted_task_offset0}
+
 task_of_extracted :: ExtractedPeriodicTask -> Task
 task_of_extracted _UU03c4_ =
   MkTask (extracted_task_cost _UU03c4_) (extracted_task_period _UU03c4_)
@@ -825,6 +831,10 @@ default_extracted_periodic_task =
 tasks_of_extracted_list :: (List ExtractedPeriodicTask) -> TaskId -> Task
 tasks_of_extracted_list ts _UU03c4_ =
   task_of_extracted (nth _UU03c4_ ts default_extracted_periodic_task)
+
+offset_of_extracted_list :: (List ExtractedPeriodicTask) -> TaskId -> Time
+offset_of_extracted_list ts _UU03c4_ =
+  extracted_task_offset (nth _UU03c4_ ts default_extracted_periodic_task)
 
 enumT_of_extracted_list :: (List ExtractedPeriodicTask) -> List TaskId
 enumT_of_extracted_list ts =
@@ -862,10 +872,20 @@ extracted_periodic_tasks :: (List ExtractedPeriodicTask) -> TaskId -> Task
 extracted_periodic_tasks =
   tasks_of_extracted_list
 
+extracted_periodic_offsets :: (List ExtractedPeriodicTask) -> TaskId -> Time
+extracted_periodic_offsets =
+  offset_of_extracted_list
+
 extracted_periodic_jobs :: (List ExtractedPeriodicTask) -> JobId -> Job
 extracted_periodic_jobs ts =
   canonical_periodic_jobs_from_enumT (extracted_periodic_tasks ts) (\_ -> O)
     (enumT_of_extracted_list ts)
+
+extracted_offset_periodic_jobs :: (List ExtractedPeriodicTask) -> JobId ->
+                                  Job
+extracted_offset_periodic_jobs ts =
+  canonical_periodic_jobs_from_enumT (extracted_periodic_tasks ts)
+    (extracted_periodic_offsets ts) (enumT_of_extracted_list ts)
 
 schedule_of_slots :: (List (Option JobId)) -> Schedule
 schedule_of_slots slots t c =

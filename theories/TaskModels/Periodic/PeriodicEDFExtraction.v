@@ -1,6 +1,7 @@
 From Stdlib Require Extraction.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFCertificate.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFExtractionDecision.
+From RocqSched Require Import TaskModels.Periodic.PeriodicEDFExtractionSoundness.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFExtractionTypes.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFFinalCertificateChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFGeneratedPrefixChecker.
@@ -20,6 +21,8 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   EDFWindowTransportPairCert
   EDFWindowTransportTargetCert
   PeriodicEDFCheckedSidecarCert
+  extracted_periodic_offsets
+  extracted_offset_periodic_jobs
   edf_schedulability_decide
   edf_schedulability_counterexample
   check_prefix_slots_match_generated_edf

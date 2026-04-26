@@ -46,6 +46,35 @@ window DBF を offset-insensitive な classical DBF で上から抑える
 - checked transport / final certificate checker の extracted offset 化を行う。
 - LLF 側の any-offset classical wrapper は未実装。
 
+### 2026-04-26: Extraction soundness offset path added
+
+- `extracted_periodic_offsets` と `extracted_offset_periodic_jobs` を
+  extraction-facing soundness 層に追加した。
+- offset-aware jobs に対する
+  `edf_schedulability_decide_schedulable_by_on_with_offsets` を追加し、
+  any-offset classical DBF wrapper に接続した。
+- Haskell extraction に `extracted_periodic_offsets` と
+  `extracted_offset_periodic_jobs` を公開した。
+- checked transport の generic wrapper は zero-offset premise を要求しない
+  any-offset classical DBF theorem に接続した。
+
+計画調整:
+
+- 既存 `extracted_periodic_jobs` は final certificate checker の後方互換 entry が
+  zero-offset transport proof に依存しているため、このスライスでは
+  zero-offset jobs のまま残した。
+- `extracted_periodic_jobs` 自体を offset-aware に置き換える作業は、
+  final certificate / transport checker の offset-aware migration と同じ
+  スライスで行う。
+
+残作業:
+
+- final certificate / transport checker の zero-offset transport 補題を
+  offset-aware に一般化する。
+- prefix certificate checker の generated checker 呼び出しを
+  `extracted_periodic_offsets` と offset-aware jobs へ切り替える。
+- LLF 側の any-offset classical wrapper は未実装。
+
 ## 1. Semantic assumptions
 
 - `Task` レコードには offset を入れない。既存設計どおり、offset は

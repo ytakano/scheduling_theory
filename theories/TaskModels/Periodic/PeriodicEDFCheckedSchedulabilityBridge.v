@@ -39,7 +39,6 @@ Theorem periodic_edf_schedulable_by_classical_dbf_with_checked_transport :
     NoDup enumT ->
     (forall τ, T τ -> In τ enumT) ->
     (forall τ, In τ enumT -> T τ) ->
-    (forall τ, In τ enumT -> offset τ = 0) ->
     check_transport_cert transport_cert = true ->
     EDFTransportCertSemantics
       (transport_class_backlog_holds T tasks offset jobs enumT codec)
@@ -55,9 +54,9 @@ Theorem periodic_edf_schedulable_by_classical_dbf_with_checked_transport :
       jobs 1.
 Proof.
   intros T tasks offset enumT jobs codec transport_cert transported_jobs
-         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound Hoff
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Htransport_check Htransport_sem Htransport_jobs Htransport_cover Hdbf.
-  eapply periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge;
+  eapply periodic_edf_schedulable_by_classical_dbf_any_offset_with_no_carry_in_bridge;
     eauto.
   intros j Hj.
   eapply checked_transport_no_carry_in_for_all_periodic_jobs_from_backlog;
@@ -121,7 +120,6 @@ Proof.
   - apply enumT_of_extracted_list_nodup.
   - apply extracted_enum_complete.
   - apply extracted_enum_sound.
-  - apply extracted_zero_offset.
   - exact Htransport_check.
   - exact Htransport_sem.
   - exact Htransport_jobs.

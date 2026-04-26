@@ -28,10 +28,19 @@ Definition extracted_task_scope (ts : list ExtractedPeriodicTask) : TaskId -> Pr
 Definition extracted_periodic_tasks (ts : list ExtractedPeriodicTask) : TaskId -> Task :=
   tasks_of_extracted_list ts.
 
+Definition extracted_periodic_offsets (ts : list ExtractedPeriodicTask) : TaskId -> Time :=
+  offset_of_extracted_list ts.
+
 Definition extracted_periodic_jobs (ts : list ExtractedPeriodicTask) : JobId -> Job :=
   canonical_periodic_jobs_from_enumT
     (extracted_periodic_tasks ts)
     (fun _ => 0)
+    (enumT_of_extracted_list ts).
+
+Definition extracted_offset_periodic_jobs (ts : list ExtractedPeriodicTask) : JobId -> Job :=
+  canonical_periodic_jobs_from_enumT
+    (extracted_periodic_tasks ts)
+    (extracted_periodic_offsets ts)
     (enumT_of_extracted_list ts).
 
 Lemma extracted_enum_complete :
@@ -138,14 +147,93 @@ Theorem edf_schedulability_decide_schedulable_by_on
     1.
 Proof.
   intros Hwf Hbridge Hdec.
-  eapply periodic_edf_schedulable_by_classical_dbf_with_no_carry_in_bridge.
+  eapply periodic_edf_schedulable_by_classical_dbf_any_offset_with_no_carry_in_bridge.
   - apply extracted_tasks_well_formed_on_enum.
     exact Hwf.
   - apply extracted_periodic_nonblocking.
   - apply enumT_of_extracted_list_nodup.
   - apply extracted_enum_complete.
   - apply extracted_enum_sound.
-  - apply extracted_zero_offset.
+  - exact Hbridge.
+  - apply edf_schedulability_decide_true_global_dbf_ok.
+    exact Hdec.
+Qed.
+
+Lemma extracted_offset_periodic_nonblocking :
+  forall ts j t,
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (extracted_periodic_offsets ts)
+      (extracted_offset_periodic_jobs ts)
+      j ->
+    ~ blocked (extracted_offset_periodic_jobs ts) j t.
+Proof.
+  intros ts j t _ Hblocked.
+  unfold blocked in Hblocked.
+  unfold extracted_offset_periodic_jobs, canonical_periodic_jobs_from_enumT in Hblocked.
+  destruct (decode_job_id_from_enumT (enumT_of_extracted_list ts) j) as [pos k].
+  destruct (nth_error (enumT_of_extracted_list ts) pos) as [τ|]; cbn in Hblocked;
+    discriminate.
+Qed.
+
+Theorem edf_schedulability_decide_schedulable_by_on_with_offsets
+    (ts : list ExtractedPeriodicTask)
+    (codec :
+      PeriodicCodec
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (extracted_periodic_offsets ts)
+        (extracted_offset_periodic_jobs ts)) :
+  extracted_taskset_wf ts = true ->
+  (forall j,
+    periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (extracted_periodic_offsets ts)
+      (extracted_offset_periodic_jobs ts)
+      j ->
+    periodic_edf_busy_prefix_no_carry_in_bridge
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (extracted_periodic_offsets ts)
+      (extracted_offset_periodic_jobs ts)
+      (S (job_abs_deadline (extracted_offset_periodic_jobs ts j)))
+      (generated_periodic_edf_schedule_upto
+         (extracted_task_scope ts)
+         (extracted_periodic_tasks ts)
+         (extracted_periodic_offsets ts)
+         (extracted_offset_periodic_jobs ts)
+         (S (job_abs_deadline (extracted_offset_periodic_jobs ts j)))
+         (enumT_of_extracted_list ts)
+         codec)
+      j) ->
+  edf_schedulability_decide ts = true ->
+  schedulable_by_on
+    (periodic_jobset
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (extracted_periodic_offsets ts)
+      (extracted_offset_periodic_jobs ts))
+    (edf_scheduler
+       (periodic_candidates_before
+          (extracted_task_scope ts)
+          (extracted_periodic_tasks ts)
+          (extracted_periodic_offsets ts)
+          (extracted_offset_periodic_jobs ts)
+          (enumT_of_extracted_list ts)
+          codec))
+    (extracted_offset_periodic_jobs ts)
+    1.
+Proof.
+  intros Hwf Hbridge Hdec.
+  eapply periodic_edf_schedulable_by_classical_dbf_any_offset_with_no_carry_in_bridge.
+  - apply extracted_tasks_well_formed_on_enum.
+    exact Hwf.
+  - apply extracted_offset_periodic_nonblocking.
+  - apply enumT_of_extracted_list_nodup.
+  - apply extracted_enum_complete.
+  - apply extracted_enum_sound.
   - exact Hbridge.
   - apply edf_schedulability_decide_true_global_dbf_ok.
     exact Hdec.
