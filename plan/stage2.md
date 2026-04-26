@@ -197,6 +197,9 @@ extracted_offset_window_dbf_decide
   - `periodic_dbf_window_hyperperiod_load_lower`
   - `taskset_periodic_dbf_window_hyperperiod_load_lower`
   - `offset_window_hyperperiod_load_le_hyperperiod`
+  - `periodic_dbf_window_add_hyperperiod_upper`
+  - `taskset_periodic_dbf_window_add_hyperperiod_upper`
+  - `taskset_periodic_dbf_window_add_hyperperiod_upper_n`
 - 未実装:
   - pure offset-window check だけを仮定する arbitrary-window 版
     `offset_window_dbf_check_by_cutoff`
@@ -266,6 +269,9 @@ theories/TaskModels/Periodic/PeriodicOffsetWindowCutoff.v
 - `periodic_dbf_window_hyperperiod_load_lower`
 - `taskset_periodic_dbf_window_hyperperiod_load_lower`
 - `offset_window_hyperperiod_load_le_hyperperiod`
+- `periodic_dbf_window_add_hyperperiod_upper`
+- `taskset_periodic_dbf_window_add_hyperperiod_upper`
+- `taskset_periodic_dbf_window_add_hyperperiod_upper_n`
 
 残る proof obligation:
 
@@ -287,13 +293,18 @@ theories/TaskModels/Periodic/PeriodicOffsetWindowCutoff.v
    theorem を追加した。
 6. pure offset-window finite cutoff check から hyperperiod load bound を取り出す
    load/utilization 補題を追加した。
+7. hyperperiod だけ window 終端を伸ばしたときの DBF 増分を
+   `hyperperiod_load` で上から抑える upper-extension 補題を追加した。
 
 次の実装順:
 
-1. post-offset/prefix window と long-window ケースを分けて
+1. upper-extension n-step 補題と
+   `offset_window_hyperperiod_load_le_hyperperiod` を組み合わせて
+   long-window を cutoff 内 representative に縮約する。
+2. post-offset/prefix window と long-window ケースを分けて
    arbitrary-window cutoff theorem を構成する。
-2. `plan/stage2.md` の Progress に実装済み項目と残作業を追記する。
-3. commit する場合は Stage 2 関連ファイルだけを stage する。
+3. `plan/stage2.md` の Progress に実装済み項目と残作業を追記する。
+4. commit する場合は Stage 2 関連ファイルだけを stage する。
 
 ## 6. Acceptance checks
 
@@ -440,3 +451,54 @@ smoke tests for 3-column and 4-column inputs.
 - load bound と explicit-shift theorem を組み合わせ、pure offset-window check
   だけを仮定する arbitrary-window 版
   `offset_window_dbf_check_by_cutoff` を設計・証明する。
+
+### 2026-04-26: pure arbitrary-window cutoff 実装時の懸念
+
+- `periodic_dbf_window_hyperperiod_load_lower` と
+  `taskset_periodic_dbf_window_hyperperiod_load_lower` は、long post-offset
+  window が少なくとも hyperperiod load block を含むことを示す下界である。
+- arbitrary-window soundness には、window 終端を hyperperiod 分だけ伸ばした
+  ときに追加される DBF が `hyperperiod_load` 以下であるという上界が必要である。
+- そのため、最終 theorem の前に次の補題を追加する必要がある。
+
+```coq
+Lemma periodic_dbf_window_add_hyperperiod_upper :
+  forall tasks offset tau t1 t2 hp,
+    0 < task_period (tasks tau) ->
+    Nat.divide (task_period (tasks tau)) hp ->
+    periodic_dbf_window tasks offset tau t1 (t2 + hp) <=
+    periodic_dbf_window tasks offset tau t1 t2 +
+      (hp / task_period (tasks tau)) * task_cost (tasks tau).
+
+Lemma taskset_periodic_dbf_window_add_hyperperiod_upper :
+  forall tasks offset enumT t1 t2 hp,
+    (forall tau, In tau enumT -> 0 < task_period (tasks tau)) ->
+    (forall tau, In tau enumT -> Nat.divide (task_period (tasks tau)) hp) ->
+    taskset_periodic_dbf_window tasks offset enumT t1 (t2 + hp) <=
+    taskset_periodic_dbf_window tasks offset enumT t1 t2 +
+      hyperperiod_load tasks enumT hp.
+```
+
+残作業:
+
+- 上記 upper-extension 補題と n-step 版を証明する。
+- それを `offset_window_hyperperiod_load_le_hyperperiod` と組み合わせ、
+  pure offset-window check だけを仮定する arbitrary-window 版
+  `offset_window_dbf_check_by_cutoff` を証明する。
+
+### 2026-04-26: DBF upper-extension 補題追加
+
+- `periodic_dbf_window_add_hyperperiod_upper` を追加し、単一 task の
+  offset-window DBF について、window 終端を `hp` だけ伸ばしたときの増分を
+  `(hp / task_period ...) * task_cost ...` で上から抑えた。
+- `taskset_periodic_dbf_window_add_hyperperiod_upper` を追加し、taskset 全体の
+  増分を `hyperperiod_load tasks enumT hp` へ畳み上げた。
+- `taskset_periodic_dbf_window_add_hyperperiod_upper_n` を追加し、n-step の
+  hyperperiod extension を `q * hyperperiod_load tasks enumT hp` で抑えた。
+
+残作業:
+
+- upper-extension n-step 補題と `offset_window_hyperperiod_load_le_hyperperiod` を
+  組み合わせて long-window を cutoff 内 representative に縮約する。
+- pure offset-window check だけを仮定する arbitrary-window 版
+  `offset_window_dbf_check_by_cutoff` を証明する。

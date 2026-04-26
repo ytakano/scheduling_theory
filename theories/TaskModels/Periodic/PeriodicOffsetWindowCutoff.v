@@ -598,6 +598,189 @@ Proof.
     nia.
 Qed.
 
+Lemma periodic_dbf_window_add_hyperperiod_upper :
+  forall tasks offset τ t1 t2 hp,
+    0 < task_period (tasks τ) ->
+    Nat.divide (task_period (tasks τ)) hp ->
+    periodic_dbf_window tasks offset τ t1 (t2 + hp) <=
+    periodic_dbf_window tasks offset τ t1 t2 +
+      (hp / task_period (tasks τ)) * task_cost (tasks τ).
+Proof.
+  intros tasks offset τ t1 t2 hp Hp Hdiv.
+  destruct Hdiv as [q Hhp0].
+  assert (Hhp : hp = q * task_period (tasks τ)) by lia.
+  set (p := task_period (tasks τ)).
+  set (c := task_cost (tasks τ)).
+  set (d := task_relative_deadline (tasks τ)).
+  set (dl := fun k => expected_abs_deadline tasks offset τ k).
+  set (old :=
+    filter
+      (periodic_index_in_window tasks offset τ t1 t2)
+      (seq 0 (S t2))).
+  set (extended :=
+    filter
+      (periodic_index_in_window tasks offset τ t1 (t2 + hp))
+      (seq 0 (S (t2 + hp)))).
+  set (new :=
+    filter (fun k => t2 <? dl k) extended).
+  set (kbase := (S t2 - offset τ - d + p - 1) / p).
+  assert (Hextended_incl : incl extended (old ++ new)).
+  {
+    intros k Hk.
+    subst old new extended dl.
+    apply filter_In in Hk.
+    destruct Hk as [Hseq Hwin].
+    unfold periodic_index_in_window in Hwin.
+    rewrite andb_true_iff in Hwin.
+    rewrite !Nat.leb_le in Hwin.
+    destruct Hwin as [Hrel Hdl].
+    apply in_app_iff.
+    destruct (t2 <? expected_abs_deadline tasks offset τ k) eqn:Hnew.
+    - right.
+      apply filter_In.
+      split.
+      + apply filter_In.
+        split; [exact Hseq|].
+        unfold periodic_index_in_window.
+        rewrite andb_true_iff.
+        rewrite !Nat.leb_le.
+        split; assumption.
+      + exact Hnew.
+    - left.
+      apply Nat.ltb_ge in Hnew.
+      apply filter_In.
+      split.
+      + rewrite in_seq in *.
+        destruct Hseq as [_ Hk_lt].
+        split; [lia|].
+        unfold expected_abs_deadline, expected_release in Hnew.
+        assert (k <= offset τ + k * task_period (tasks τ) +
+                    task_relative_deadline (tasks τ)).
+        { destruct k; simpl; nia. }
+        lia.
+      + unfold periodic_index_in_window.
+        rewrite andb_true_iff.
+        rewrite !Nat.leb_le.
+        split; assumption.
+  }
+  assert (Hnew_count : length new <= q).
+  {
+    assert (Hnew_incl : incl new (seq kbase q)).
+    {
+      intros k Hk.
+      subst new extended dl.
+      apply filter_In in Hk.
+      destruct Hk as [Hk_ext Hnew].
+      apply Nat.ltb_lt in Hnew.
+      apply filter_In in Hk_ext.
+      destruct Hk_ext as [_ Hwin].
+      unfold periodic_index_in_window in Hwin.
+      rewrite andb_true_iff in Hwin.
+      rewrite !Nat.leb_le in Hwin.
+      destruct Hwin as [_ Hdl].
+      unfold expected_abs_deadline, expected_release in *.
+      rewrite in_seq.
+      split.
+      - eapply div_ceil_minus_one_le_factor.
+        + exact Hp.
+        + lia.
+      - assert (Hkbase_low :
+          S t2 <=
+          offset τ + kbase * p + d).
+        {
+          subst kbase p d.
+          pose proof
+            (div_ceil_minus_one_mul_ge
+               (S t2 - offset τ - task_relative_deadline (tasks τ))
+               (task_period (tasks τ)) Hp) as Hceil.
+          lia.
+        }
+        rewrite Hhp in Hdl.
+        destruct (le_gt_dec (kbase + q) k) as [Hge | Hlt].
+        + assert ((kbase + q) * p <= k * p).
+          { apply Nat.mul_le_mono_r. exact Hge. }
+          lia.
+        + lia.
+    }
+    eapply Nat.le_trans.
+    - apply NoDup_incl_length with (l := new) (l' := seq kbase q).
+      + subst new extended.
+        apply NoDup_filter.
+        apply NoDup_filter.
+        apply seq_NoDup.
+      + exact Hnew_incl.
+    - rewrite length_seq.
+      reflexivity.
+  }
+  unfold periodic_dbf_window.
+  replace
+    (length
+       (filter
+          (periodic_index_in_window tasks offset τ t1 (t2 + hp))
+          (seq 0 (S (t2 + hp)))))
+    with (length extended) by reflexivity.
+  replace
+    (length
+       (filter
+          (periodic_index_in_window tasks offset τ t1 t2)
+          (seq 0 (S t2))))
+    with (length old) by reflexivity.
+  assert (Hlen_ext : length extended <= length (old ++ new)).
+  {
+    apply NoDup_incl_length.
+    - unfold extended.
+      apply NoDup_filter.
+      apply seq_NoDup.
+    - exact Hextended_incl.
+  }
+  rewrite length_app in Hlen_ext.
+  subst p c.
+  replace (hp / task_period (tasks τ)) with q by
+    (rewrite Hhp; rewrite Nat.div_mul by lia; reflexivity).
+  nia.
+Qed.
+
+Lemma taskset_periodic_dbf_window_add_hyperperiod_upper :
+  forall tasks offset enumT t1 t2 hp,
+    (forall τ, In τ enumT -> 0 < task_period (tasks τ)) ->
+    (forall τ, In τ enumT -> Nat.divide (task_period (tasks τ)) hp) ->
+    taskset_periodic_dbf_window tasks offset enumT t1 (t2 + hp) <=
+    taskset_periodic_dbf_window tasks offset enumT t1 t2 +
+      hyperperiod_load tasks enumT hp.
+Proof.
+  intros tasks offset enumT t1 t2 hp Hpos Hdiv.
+  induction enumT as [|τ enumT IH]; simpl.
+  - lia.
+  - pose proof
+      (periodic_dbf_window_add_hyperperiod_upper
+         tasks offset τ t1 t2 hp
+         ltac:(apply Hpos; now left)
+         ltac:(apply Hdiv; now left)) as Hhead.
+    specialize (IH
+      (fun τ' Hin => Hpos τ' (or_intror Hin))
+      (fun τ' Hin => Hdiv τ' (or_intror Hin))).
+    lia.
+Qed.
+
+Lemma taskset_periodic_dbf_window_add_hyperperiod_upper_n :
+  forall tasks offset enumT t1 t2 hp q,
+    (forall τ, In τ enumT -> 0 < task_period (tasks τ)) ->
+    (forall τ, In τ enumT -> Nat.divide (task_period (tasks τ)) hp) ->
+    taskset_periodic_dbf_window tasks offset enumT t1 (t2 + q * hp) <=
+    taskset_periodic_dbf_window tasks offset enumT t1 t2 +
+      q * hyperperiod_load tasks enumT hp.
+Proof.
+  intros tasks offset enumT t1 t2 hp q Hpos Hdiv.
+  induction q as [|q IH].
+  - replace (t2 + 0 * hp) with t2 by lia.
+    lia.
+  - replace (t2 + S q * hp) with ((t2 + q * hp) + hp) by lia.
+    pose proof
+      (taskset_periodic_dbf_window_add_hyperperiod_upper
+         tasks offset enumT t1 (t2 + q * hp) hp Hpos Hdiv) as Hstep.
+    lia.
+Qed.
+
 Theorem offset_window_dbf_check_by_cutoff_post_offset_shifted :
   forall tasks offset enumT t1 t2 n,
     (forall τ, In τ enumT -> 0 < task_period (tasks τ)) ->
