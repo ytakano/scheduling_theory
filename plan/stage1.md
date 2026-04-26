@@ -206,9 +206,36 @@ window DBF を offset-insensitive な classical DBF で上から抑える
 
 残作業:
 
-- offset-aware extracted entry の completion transport を checker 側から
-  closed に構成する。
-- `extracted_periodic_jobs` 自体を offset-aware に置き換える。
+- Stage 1 の任意 offset final soundness は
+  `PeriodicHyperperiodCompletionTransportObligation` を明示 proof obligation
+  として残す。
+- `extracted_periodic_jobs` 自体の offset-aware 化は、zero-offset closed theorem
+  との互換境界を整理する後続 migration task に分離する。
+
+懸念事項:
+
+- zero-offset completion transport は、release が `k * period` で表せることに
+  依存して hyperperiod shift-back を行っている。
+- 任意 offset では release が `offset + k * period` になるため、
+  `hyperperiod <= release` だけでは job index を hyperperiod 分だけ
+  shift-back できるとは限らない。
+- offset が大きい task では first job が hyperperiod 後に release され得るため、
+  既存の deterministic shift-back lemma はそのまま offset-aware に
+  一般化できない。
+- Stage 1 で closed completion transport を構成するには、offset 正規化条件を
+  checker 入力へ追加する、completion transport を明示 proof obligation として
+  維持する、または Stage 2 の exact/window 側へ延期する、のいずれかを
+  明示的に選ぶ必要がある。
+
+計画修正:
+
+- Stage 1 では offset 正規化条件を追加せず、任意 offset 入力を保つ。
+- `check_periodic_edf_checked_sidecar_extracted_with_offsets_sound_with_completion_transport_generated_rep`
+  を Stage 1 の offset-aware final soundness theorem として扱う。
+- 任意 offset の deterministic completion transport を checker 側で closed に
+  構成する作業は Stage 1 から外し、明示 proof obligation として downstream に残す。
+- zero-offset の closed theorem は互換 path として維持し、
+  `extracted_periodic_jobs` 自体の offset-aware 化は後続 task に送る。
 
 ## 1. Semantic assumptions
 
@@ -225,6 +252,11 @@ window DBF を offset-insensitive な classical DBF で上から抑える
   利用しないが、任意 offset に対する sound な十分条件として使う。
 - 既存 zero-offset theorem と zero-offset tutorial path は壊さず、
   any-offset theorem / wrapper を追加して新しい経路を作る。
+- Stage 1 では `offset < period` や `offset < hyperperiod` のような
+  正規化条件は追加しない。
+- 任意 offset の final certificate soundness では completion transport を
+  明示 proof obligation として残し、closed deterministic completion transport は
+  zero-offset 互換 path に限定する。
 
 ## 2. Required observable events
 
@@ -254,23 +286,28 @@ window DBF を offset-insensitive な classical DBF で上から抑える
 
 - `theories/TaskModels/Periodic/PeriodicEDFExtractionSoundness.v`
   - `extracted_periodic_offsets ts := offset_of_extracted_list ts` を追加する。
-  - `extracted_periodic_jobs ts` を
+  - `extracted_offset_periodic_jobs ts` を
     `canonical_periodic_jobs_from_enumT ... (extracted_periodic_offsets ts) ...`
-    に変更する。
-  - `extracted_periodic_nonblocking` と extraction-facing
+    として追加する。
+  - 既存 `extracted_periodic_jobs ts` は zero-offset closed theorem の互換用に
+    `(fun _ => 0)` 版のまま維持する。
+  - `extracted_offset_periodic_nonblocking` と extraction-facing
     schedulability wrapper の `periodic_jobset` / scheduler 引数を
     `extracted_periodic_offsets ts` 版に揃える。
   - final proof は zero-offset wrapper ではなく any-offset classical
     DBF wrapper を使う。
 
 - `theories/TaskModels/Periodic/PeriodicEDFFinalCertificateChecker.v`
-  - `extracted_periodic_codec` の型を
-    `PeriodicCodec ... (extracted_periodic_offsets ts) ...` に変更する。
-  - nonempty case は `zero_offset_periodic_codec_of_tasks` ではなく
+  - zero-offset 互換用の `extracted_periodic_codec` は維持する。
+  - `extracted_offset_periodic_codec` を追加し、
+    `PeriodicCodec ... (extracted_periodic_offsets ts) ...` として公開する。
+  - offset-aware nonempty case は `zero_offset_periodic_codec_of_tasks` ではなく
     `periodic_codec_of_enumT` で構成する。
   - 空リスト case も同じ offset accessor を使う。
-  - local lemmas 内の `(fun _ => 0)` を `extracted_periodic_offsets ts`
-    に置き換える。
+  - local lemmas は `check_periodic_edf_checked_sidecar_with_jobs` 系に分離し、
+    offset/jobs/codec を明示引数として受け取る。
+  - offset-aware final soundness は completion transport を明示 obligation
+    として受け取る theorem までを Stage 1 の到達点にする。
 
 - `theories/TaskModels/Periodic/PeriodicEDFCheckedSchedulabilityBridge.v`
   - checked transport wrapper から zero-offset premise
@@ -336,11 +373,13 @@ window DBF を offset-insensitive な classical DBF で上から抑える
     `default_extracted_periodic_task` の offset `0` を返す。
 
 - extraction job semantics:
-  - `extracted_periodic_jobs` は
+  - `extracted_offset_periodic_jobs` は
     `extracted_periodic_offsets ts` を使って canonical periodic jobs を生成する。
-  - `extracted_periodic_nonblocking` は offset accessor 版 jobs に対して
+  - `extracted_periodic_jobs` は zero-offset closed theorem の互換用として
+    `(fun _ => 0)` 版のまま残す。
+  - `extracted_offset_periodic_nonblocking` は offset accessor 版 jobs に対して
     既存と同じ構造で成立する。
-  - `extracted_periodic_codec` は `periodic_codec_of_enumT` の
+  - `extracted_offset_periodic_codec` は `periodic_codec_of_enumT` の
     `NoDup`、complete、sound、nonempty obligations を既存 enum lemmas で閉じる。
 
 - classical DBF comparison:
@@ -372,8 +411,12 @@ window DBF を offset-insensitive な classical DBF で上から抑える
 - extraction-facing final soundness:
   - `edf_schedulability_decide ts = true` から
     `extracted_taskset_global_dbf_ok ts` を得る既存 theorem は維持する。
-  - final schedulability theorem は
-    `extracted_periodic_offsets ts` 版 jobset/scheduler に対して成立する。
+  - offset-aware final schedulability theorem は
+    `extracted_periodic_offsets ts` 版 jobset/scheduler に対して成立し、
+    `PeriodicHyperperiodCompletionTransportObligation` を明示 premise とする。
+  - Stage 1 では任意 offset の completion transport を checker 側から
+    closed に構成しない。
+  - zero-offset extracted final checker の closed theorem は維持する。
   - checked transport wrapper は transport certificate obligations と
     classical DBF checker result を合成するだけに留める。
 
@@ -393,6 +436,9 @@ window DBF を offset-insensitive な classical DBF で上から抑える
 - Stage 1 checker は offset-aware exact analysis ではない。
   Rust 側の API 名や error message で「offset の需要分散を利用する判定」
   と誤解させない。
+- Stage 1 の任意 offset final certificate path は、completion transport を
+  外部 proof obligation として残す。Rust 側で「完全に closed な任意 offset
+  final certificate checker」と表現しない。
 - checker の reject は「unschedulable」ではなく
   「保守的 classical DBF test では受理できない」を意味する。
 - scalar DBF counterexample `t` は Stage 1 の witness にすぎない。
