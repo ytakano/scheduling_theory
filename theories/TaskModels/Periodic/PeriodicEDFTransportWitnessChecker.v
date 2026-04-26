@@ -3974,6 +3974,61 @@ Proof.
   eapply periodic_edf_no_carry_in_bridge_of_periodic_hyperperiod_transport; eauto.
 Qed.
 
+Theorem periodic_edf_schedulable_by_classical_dbf_any_offset_with_periodic_hyperperiod_transport_generated_checks :
+  forall T tasks offset enumT jobs
+         (codec : PeriodicCodec T tasks offset jobs)
+         prefix_cert transport_cert class_relevant_jobs target_certs,
+    well_formed_periodic_tasks_on T tasks ->
+    (forall j t,
+      periodic_jobset T tasks offset jobs j ->
+      ~ blocked jobs j t) ->
+    NoDup enumT ->
+    (forall τ, T τ -> In τ enumT) ->
+    (forall τ, In τ enumT -> T τ) ->
+    transport_cert.(transport_period) = periodic_hyperperiod tasks enumT ->
+    0 < transport_cert.(transport_period) ->
+    check_transport_cert transport_cert = true ->
+    check_transport_basis_nodup transport_cert = true ->
+    TransportClassRepresentativeObligation
+      T tasks offset jobs enumT codec
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs ->
+    check_transport_classes_rep_backlog
+      prefix_cert transport_cert.(transport_classes) class_relevant_jobs = true ->
+    check_transport_classes_rep_backlog_generated
+      T tasks offset jobs enumT codec prefix_cert
+      transport_cert.(transport_classes) = true ->
+    check_transport_classes_rep_periodic_generated
+      T tasks offset jobs enumT codec
+      transport_cert.(transport_classes) = true ->
+    PeriodicTransportCoverageObligation
+      T tasks offset jobs codec transport_cert ->
+    check_transport_residue_shifts transport_cert = true ->
+    check_window_transport_targets_complete_with_pairs
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_semantics_all
+      T tasks offset jobs enumT codec transport_cert target_certs = true ->
+    check_window_generated_pair_completion_all
+      T tasks offset jobs enumT codec target_certs = true ->
+    PeriodicHyperperiodBacklogTransportObligation
+      T tasks offset jobs enumT codec transport_cert ->
+    (forall t, taskset_periodic_dbf tasks enumT t <= t) ->
+    schedulable_by_on
+      (periodic_jobset T tasks offset jobs)
+      (edf_scheduler (periodic_candidates_before T tasks offset jobs enumT codec))
+      jobs 1.
+Proof.
+  intros T tasks offset enumT jobs codec prefix_cert transport_cert
+         class_relevant_jobs target_certs
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
+         Hperiod_eq Hperiod Htransport_check Hbasis_nodup_check Hrep Hrep_check
+         Hrep_generated_check Hrep_periodic_check Hcoverage Hshift_check
+         Hwindow_check Hpair_semantics Hpair_completion Hhyper_transport Hdbf.
+  eapply periodic_edf_schedulable_by_classical_dbf_any_offset_with_no_carry_in_bridge;
+    eauto.
+  intros j Hj.
+  eapply periodic_edf_no_carry_in_bridge_of_periodic_hyperperiod_transport; eauto.
+Qed.
+
 Theorem edf_schedulability_decide_schedulable_by_on_with_periodic_transport_coverage
     (ts : list ExtractedPeriodicTask)
     (codec :

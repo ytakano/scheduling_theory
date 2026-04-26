@@ -151,6 +151,26 @@ window DBF を offset-insensitive な classical DBF で上から抑える
   final certificate / transport checker の offset-aware migration と同じ
   スライスで行う。
 
+### 2026-04-26: Any-offset generated-checks transport wrapper added
+
+- `PeriodicEDFTransportWitnessChecker.v` に
+  `periodic_edf_schedulable_by_classical_dbf_any_offset_with_periodic_hyperperiod_transport_generated_checks`
+  を追加した。
+- 既存の periodic hyperperiod transport / generated-checks obligations は維持し、
+  zero-offset premise だけを要求しない path を追加した。
+- DBF 側は any-offset classical DBF wrapper に委譲し、no-carry-in bridge は
+  既存 periodic hyperperiod transport theorem に委譲する。
+
+残作業:
+
+- final certificate checker の extracted offset entry から any-offset
+  generated-checks transport wrapper へ接続する soundness theorem を追加する。
+- final certificate / transport checker 本体の zero-offset transport 補題を
+  offset-aware に一般化する。
+- `extracted_periodic_jobs` 自体を offset-aware に置き換える作業は、
+  final certificate / transport checker の offset-aware migration と同じ
+  スライスで行う。
+
 ## 1. Semantic assumptions
 
 - `Task` レコードには offset を入れない。既存設計どおり、offset は
