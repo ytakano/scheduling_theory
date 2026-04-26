@@ -191,6 +191,25 @@ window DBF を offset-insensitive な classical DBF で上から抑える
   final certificate / transport checker の offset-aware migration と同じ
   スライスで行う。
 
+### 2026-04-26: Offset final transport obligation construction added
+
+- final sidecar checker の hyperperiod reset / bounded post-reset coverage /
+  backlog transport construction を offset/jobs/codec 引数付きで再利用できる
+  補題に分離した。
+- `check_periodic_edf_checked_sidecar_extracted_with_offsets_sound_with_completion_transport_generated_rep`
+  を追加し、extracted offset entry から
+  `PeriodicHyperperiodBacklogTransportObligation` を明示 premise として要求しない
+  soundness path を追加した。
+- completion transport はまだ downstream proof obligation として残し、
+  generated representative obligation は checker の generated semantic checks
+  から構成する。
+
+残作業:
+
+- offset-aware extracted entry の completion transport を checker 側から
+  closed に構成する。
+- `extracted_periodic_jobs` 自体を offset-aware に置き換える。
+
 ## 1. Semantic assumptions
 
 - `Task` レコードには offset を入れない。既存設計どおり、offset は
