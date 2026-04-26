@@ -20,7 +20,7 @@ Stage 2 の目的は、Stage 1 の conservative classical DBF 判定を維持し
 - finite offset-window check と classical DBF cutoff guard を合成する
   guarded arbitrary-window theorem は実装済みである。
 - 残る主要作業は pure offset-window check だけで arbitrary-window cutoff を
-  閉じる load/utilization 補題である。
+  任意 window へ持ち上げる最終 theorem である。
 - Stage 1 の `edf_schedulability_decide` / classical DBF path は保守的 path として
   維持する。
 - final certificate の arbitrary-offset completion transport とは混ぜない。
@@ -194,8 +194,10 @@ extracted_offset_window_dbf_decide
   - `offset_window_dbf_check_by_cutoff_post_offset_shifted`
   - `offset_window_dbf_test_by_cutoff_with_classical_guard`
   - `offset_window_dbf_check_by_cutoff_with_classical_guard`
+  - `periodic_dbf_window_hyperperiod_load_lower`
+  - `taskset_periodic_dbf_window_hyperperiod_load_lower`
+  - `offset_window_hyperperiod_load_le_hyperperiod`
 - 未実装:
-  - 長い window を cutoff へ縮約する load/utilization 補題
   - pure offset-window check だけを仮定する arbitrary-window 版
     `offset_window_dbf_check_by_cutoff`
 
@@ -261,11 +263,12 @@ theories/TaskModels/Periodic/PeriodicOffsetWindowCutoff.v
 - `offset_window_dbf_check_by_cutoff_post_offset_shifted`
 - `offset_window_dbf_test_by_cutoff_with_classical_guard`
 - `offset_window_dbf_check_by_cutoff_with_classical_guard`
+- `periodic_dbf_window_hyperperiod_load_lower`
+- `taskset_periodic_dbf_window_hyperperiod_load_lower`
+- `offset_window_hyperperiod_load_le_hyperperiod`
 
 残る proof obligation:
 
-- 任意長 window に対して、finite cutoff check へ縮約するための
-  load/utilization 補題を設計する。
 - pure offset-window check だけを仮定する arbitrary-window 版
   `offset_window_dbf_check_by_cutoff` を証明する。
 - cutoff bound は最小化を狙わず、証明しやすい保守的 bound を維持する。
@@ -282,16 +285,15 @@ theories/TaskModels/Periodic/PeriodicOffsetWindowCutoff.v
 4. finite EDF / LLF wrapper layer を追加・確認した。
 5. `PeriodicOffsetWindowCutoff.v` に cutoff infrastructure と explicit-shift
    theorem を追加した。
+6. pure offset-window finite cutoff check から hyperperiod load bound を取り出す
+   load/utilization 補題を追加した。
 
 次の実装順:
 
-1. 長い window に対する load/utilization 補題の theorem statement を設計する。
-2. `taskset_periodic_dbf_window` が十分長い window で processor demand を
-   window length 以下に抑えられる条件を分離する。
-3. post-offset/prefix window と long-window ケースを分けて
+1. post-offset/prefix window と long-window ケースを分けて
    arbitrary-window cutoff theorem を構成する。
-4. `plan/stage2.md` の Progress に実装済み項目と残作業を追記する。
-5. commit する場合は Stage 2 関連ファイルだけを stage する。
+2. `plan/stage2.md` の Progress に実装済み項目と残作業を追記する。
+3. commit する場合は Stage 2 関連ファイルだけを stage する。
 
 ## 6. Acceptance checks
 
@@ -418,4 +420,23 @@ smoke tests for 3-column and 4-column inputs.
 - pure offset-window check だけで arbitrary-window cutoff を閉じる
   load/utilization 補題を設計・証明する。
 - pure offset-window check だけを仮定する arbitrary-window 版
+  `offset_window_dbf_check_by_cutoff` を設計・証明する。
+
+### 2026-04-26: pure offset-window load bound 追加
+
+- `periodic_dbf_window_hyperperiod_load_lower` を追加し、post-offset window が
+  任意の hyperperiod-like block `hp` について task 単位の load を下から含むことを
+  示した。
+- `taskset_periodic_dbf_window_hyperperiod_load_lower` を追加し、同じ `hp` を
+  taskset 全体へ畳み上げる proof-facing API にした。
+- `offset_window_hyperperiod_load_le_hyperperiod` を追加し、
+  `offset_window_dbf_test_by_cutoff` から
+  `hyperperiod_load tasks enumT (periodic_hyperperiod tasks enumT) <=
+   periodic_hyperperiod tasks enumT`
+  を導けるようにした。
+
+残作業:
+
+- load bound と explicit-shift theorem を組み合わせ、pure offset-window check
+  だけを仮定する arbitrary-window 版
   `offset_window_dbf_check_by_cutoff` を設計・証明する。
