@@ -26,7 +26,8 @@ Definition offset_window_dbf_cutoff_bound
     (enumT : list TaskId) : Time :=
   let horizon_base :=
       periodic_max_offset offset enumT +
-      periodic_max_relative_deadline tasks enumT in
+      periodic_max_relative_deadline tasks enumT +
+      periodic_hyperperiod tasks enumT in
   horizon_base + S horizon_base * periodic_hyperperiod tasks enumT.
 
 Definition offset_window_dbf_test_by_cutoff
@@ -540,32 +541,18 @@ Proof.
   set (start := periodic_max_offset offset enumT).
   set (m := periodic_max_relative_deadline tasks enumT).
   set (hp := periodic_hyperperiod tasks enumT).
-  set (n := S (start + m)).
+  set (n := S (start + m + hp)).
   assert (Hbounded :
     taskset_periodic_dbf_window tasks offset enumT start
       (start + m + n * hp) <= m + n * hp).
   {
     unfold offset_window_dbf_test_by_cutoff in Htest.
-    replace (start + m + n * hp)
-      with (offset_window_dbf_cutoff_bound tasks offset enumT).
-    2:{
-      unfold offset_window_dbf_cutoff_bound.
-      subst start m n hp.
-      lia.
-    }
-    replace (m + n * hp)
-      with (offset_window_dbf_cutoff_bound tasks offset enumT - start).
-    2:{
-      unfold offset_window_dbf_cutoff_bound.
-      subst start m n hp.
-      lia.
-    }
+    replace (m + n * hp) with ((start + m + n * hp) - start) by lia.
     eapply window_dbf_test_upto_true_implies_bounded_window_dbf.
     - exact Htest.
-    - subst start m n hp.
-      unfold offset_window_dbf_cutoff_bound.
-      lia.
-    - subst start m n hp.
+    - lia.
+    - unfold offset_window_dbf_cutoff_bound.
+      subst start m n hp.
       unfold offset_window_dbf_cutoff_bound.
       lia.
   }
@@ -809,6 +796,86 @@ Proof.
   replace (t2 - t1) with ((t2 - shift) - (t1 - shift)) by lia.
   unfold offset_window_dbf_test_by_cutoff in Htest.
   eapply window_dbf_test_upto_true_implies_bounded_window_dbf; eauto.
+Qed.
+
+Theorem offset_window_dbf_check_by_cutoff :
+  forall tasks offset enumT,
+    (forall τ, In τ enumT -> 0 < task_period (tasks τ)) ->
+    offset_window_dbf_test_by_cutoff tasks offset enumT = true ->
+    forall t1 t2,
+      t1 <= t2 ->
+      taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1.
+Proof.
+  intros tasks offset enumT Hpos Htest.
+  set (hp := periodic_hyperperiod tasks enumT).
+  set (cutoff := offset_window_dbf_cutoff_bound tasks offset enumT).
+  assert (Hhp_pos : 0 < hp).
+  { subst hp. apply periodic_hyperperiod_positive. exact Hpos. }
+  assert (Hload_le : hyperperiod_load tasks enumT hp <= hp).
+  {
+    subst hp.
+    eapply offset_window_hyperperiod_load_le_hyperperiod; eauto.
+  }
+  assert (Hdiv : forall τ, In τ enumT -> Nat.divide (task_period (tasks τ)) hp).
+  {
+    intros τ Hin.
+    subst hp.
+    apply periodic_hyperperiod_divides.
+    exact Hin.
+  }
+  intros t1 t2.
+  revert t1.
+  induction t2 as [t2 IH] using lt_wf_ind.
+  intros t1 Hle12.
+  destruct (le_gt_dec t2 cutoff) as [Ht2_cutoff | Ht2_after].
+  - subst cutoff.
+    unfold offset_window_dbf_test_by_cutoff in Htest.
+    eapply window_dbf_test_upto_true_implies_bounded_window_dbf; eauto.
+  - destruct (le_gt_dec t1 (t2 - hp)) as [Hlong | Hshort].
+    + assert (Hprev_lt : t2 - hp < t2) by lia.
+      assert (Hhp_le_t2 : hp <= t2).
+      {
+        unfold cutoff, offset_window_dbf_cutoff_bound in Ht2_after.
+        subst hp.
+        lia.
+      }
+      pose proof (IH (t2 - hp) Hprev_lt t1 Hlong) as Hprev.
+      pose proof
+        (taskset_periodic_dbf_window_add_hyperperiod_upper
+           tasks offset enumT t1 (t2 - hp) hp Hpos Hdiv) as Hstep.
+      replace (t2 - hp + hp) with t2 in Hstep by lia.
+      eapply Nat.le_trans.
+      * exact Hstep.
+      * lia.
+    + assert (Htwo_hp_le_t2 : 2 * hp <= t2).
+      {
+        unfold cutoff, offset_window_dbf_cutoff_bound in Ht2_after.
+        subst hp.
+        lia.
+      }
+      assert (Hhp_le_t1 : hp <= t1) by lia.
+      assert (Hhp_le_t2 : hp <= t2) by lia.
+      assert (Hprev_lt : t2 - hp < t2) by lia.
+      assert (Hshift_start :
+        periodic_max_offset offset enumT <= t1 - hp).
+      {
+        unfold cutoff, offset_window_dbf_cutoff_bound in Ht2_after.
+        subst hp.
+        lia.
+      }
+      assert (Hprev_le : t1 - hp <= t2 - hp) by lia.
+      pose proof (IH (t2 - hp) Hprev_lt (t1 - hp) Hprev_le) as Hprev.
+      pose proof
+        (taskset_periodic_dbf_window_shift_by_hyperperiod
+           tasks offset enumT (t1 - hp) (t2 - hp) 1
+           Hpos Hshift_start Hprev_le) as Hshift.
+      fold hp in Hshift.
+      simpl in Hshift.
+      replace (t1 - hp + (hp + 0)) with t1 in Hshift by lia.
+      replace (t2 - hp + (hp + 0)) with t2 in Hshift by lia.
+      rewrite Hshift.
+      replace (t2 - t1) with ((t2 - hp) - (t1 - hp)) by lia.
+      exact Hprev.
 Qed.
 
 Theorem offset_window_dbf_check_by_cutoff_with_classical_guard :

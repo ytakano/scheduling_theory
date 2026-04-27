@@ -502,3 +502,28 @@ Lemma taskset_periodic_dbf_window_add_hyperperiod_upper :
   組み合わせて long-window を cutoff 内 representative に縮約する。
 - pure offset-window check だけを仮定する arbitrary-window 版
   `offset_window_dbf_check_by_cutoff` を証明する。
+
+### 2026-04-27: pure offset-window arbitrary cutoff theorem 追加
+
+- `PeriodicOffsetWindowCutoff.v` に pure offset-window check だけを仮定する
+  arbitrary-window soundness theorem `offset_window_dbf_check_by_cutoff` を追加した。
+- long-window case は `offset_window_hyperperiod_load_le_hyperperiod` と
+  `taskset_periodic_dbf_window_add_hyperperiod_upper` を組み合わせ、
+  window 右端を hyperperiod ずつ戻す induction で閉じた。
+- short late-window case は `taskset_periodic_dbf_window_shift_by_hyperperiod` で
+  window 全体を 1 hyperperiod 戻し、induction hypothesis に委譲する。
+- classical DBF guard 付き theorem
+  `offset_window_dbf_check_by_cutoff_with_classical_guard` は保守的 compatibility
+  path として残し、pure theorem は scalar/classical DBF cutoff guard に依存しない
+  proof-facing API とした。
+- `offset_window_dbf_cutoff_bound` は最小 bound ではない。offset 正規化を要求せず
+  proof を単純に保つため、horizon base に 1 hyperperiod の余裕を含める
+  保守的 cutoff とした。bound の tightness は Stage 2 の soundness claim に含めない。
+
+残作業:
+
+- pure infinite checker を extraction-facing / CLI-facing API として公開する場合は、
+  finite API と区別した entry point 名と witness shape を別スライスで設計する。
+- final certificate の arbitrary-offset completion transport、runtime dispatch、
+  timer delay、migration、OS-specific event は引き続き Stage 2 common cutoff theorem
+  の interface には含めない。
