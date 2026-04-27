@@ -221,13 +221,16 @@ generatePrefixCert tasks =
       jobs = prefixBasisJobs tasks horizon
       slots = simulateEDFPrefix jobs horizon
       completedBy = map (completionTime slots) jobs
-      backlog = [[completionTime slots earlier <= prefixJobRelease target | earlier <- jobs] | target <- jobs]
+      backlog = zeroBacklog (length jobs)
   in EDF.Build_EDFPrefixCert
        (toNat horizon)
        (toEDFList (map (toNat . prefixJobId) jobs))
        (toEDFList (map toEDFSlot slots))
        (toEDFList (map toNat completedBy))
        (toEDFList (map (toEDFList . map toEDFBool) backlog))
+
+zeroBacklog :: Int -> [[Bool]]
+zeroBacklog n = replicate n (replicate n False)
 
 checkGeneratedPrefixNative :: [ParsedTask] -> EDF.EDFPrefixCert EDF.JobId -> Bool
 checkGeneratedPrefixNative tasks cert =
