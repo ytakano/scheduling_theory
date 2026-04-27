@@ -27,8 +27,10 @@ test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	printf 'cost,period,deadline,offset\n2,3,3,0\n2,3,3,1\n' > "$$tmp/overload.csv"; \
 	printf 'cost,period,deadline,offset\n1,4,4,-1\n' > "$$tmp/negative-offset.csv"; \
 	printf 'cost,period,deadline,offset\n2,5,2,0\n2,5,2,2\n' > "$$tmp/offset-value.csv"; \
+	printf 'cost,period,deadline,offset\n2,5,5,2\n1,4,3,0\n' > "$$tmp/prefix-offset.csv"; \
 	printf 'cost,period,deadline,offset\n1,1,1,0\n' > "$$tmp/tiny.csv"; \
 	./scripts/periodic_edf_schedulability_csv "$$tmp/zero.csv"; \
+	./scripts/periodic_edf_schedulability_csv --check-prefix-cert "$$tmp/prefix-offset.csv"; \
 	./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf 30 "$$tmp/zero.csv"; \
 	./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf 30 "$$tmp/nonzero.csv"; \
 	./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf-cutoff "$$tmp/tiny.csv"; \
