@@ -1,6 +1,10 @@
 module PeriodicEDFSchedulability where
 
 import qualified Prelude
+import Control.Concurrent (forkIO)
+import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
+import Control.Exception (evaluate)
+import System.IO.Unsafe (unsafePerformIO)
 
 data Bool =
    True
@@ -55,11 +59,49 @@ data List a =
    Nil
  | Cons a (List a)
 
+type Strategy a = a -> a
+
+-- Lightweight local strategy abstraction for environments without
+-- Control.Parallel.Strategies.
+rseq :: Strategy a
+rseq x = x
+
+withStrategy :: Strategy a -> a -> a
+withStrategy f x = f x
+
+parList :: Strategy a -> [a] -> [a]
+parList s xs =
+  unsafePerformIO (do
+    vars <- Prelude.mapM (\_ -> newEmptyMVar) xs
+    let spawn mv x = forkIO (do
+          val <- evaluate (s x)
+          putMVar mv val)
+    _ <- Prelude.sequence (Prelude.zipWith spawn vars xs)
+    Prelude.mapM takeMVar vars)
+
 length :: (List a1) -> Nat
 length l =
   case l of {
    Nil -> O;
    Cons _ l' -> S (length l')}
+
+toPreludeList :: List a1 -> [a1]
+toPreludeList l =
+  case l of {
+   Nil -> [];
+   Cons x xs -> x : toPreludeList xs}
+
+toPreludeBool :: Bool -> Prelude.Bool
+toPreludeBool b =
+  case b of {
+   True -> Prelude.True;
+   False -> Prelude.False}
+
+toBool :: Prelude.Bool -> Bool
+toBool b =
+  case b of {
+   Prelude.True -> True;
+   Prelude.False -> False}
 
 app :: (List a1) -> (List a1) -> List a1
 app l m =
@@ -219,15 +261,17 @@ flat_map f l =
 
 existsb :: (a1 -> Bool) -> (List a1) -> Bool
 existsb f l =
-  case l of {
-   Nil -> False;
-   Cons a l0 -> orb (f a) (existsb f l0)}
+  toBool
+    (Prelude.or
+      (withStrategy (parList rseq)
+        (Prelude.map (\x -> toPreludeBool (f x)) (toPreludeList l))))
 
 forallb :: (a1 -> Bool) -> (List a1) -> Bool
 forallb f l =
-  case l of {
-   Nil -> True;
-   Cons a l0 -> andb (f a) (forallb f l0)}
+  toBool
+    (Prelude.and
+      (withStrategy (parList rseq)
+        (Prelude.map (\x -> toPreludeBool (f x)) (toPreludeList l))))
 
 filter :: (a1 -> Bool) -> (List a1) -> List a1
 filter f l =
@@ -757,12 +801,6 @@ bounded_time_points :: Time -> List Time
 bounded_time_points h =
   seq O (S h)
 
-task_release_points_upto :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId ->
-                            Time -> List Time
-task_release_points_upto tasks offset _UU03c4_ h =
-  filter (\t -> leb t h)
-    (map (expected_release tasks offset _UU03c4_) (bounded_time_points h))
-
 task_deadline_points_upto :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId
                              -> Time -> List Time
 task_deadline_points_upto tasks offset _UU03c4_ h =
@@ -773,13 +811,9 @@ task_deadline_points_upto tasks offset _UU03c4_ h =
 critical_dbf_points_upto :: (TaskId -> Task) -> (TaskId -> Time) -> (List
                             TaskId) -> Time -> List Time
 critical_dbf_points_upto tasks offset enumT h =
-  Cons O (Cons h
-    (app (bounded_time_points h)
-      (app
-        (flat_map (\_UU03c4_ ->
-          task_release_points_upto tasks offset _UU03c4_ h) enumT)
-        (flat_map (\_UU03c4_ ->
-          task_deadline_points_upto tasks offset _UU03c4_ h) enumT))))
+  app (bounded_time_points h)
+    (flat_map (\_UU03c4_ ->
+      task_deadline_points_upto tasks offset _UU03c4_ h) enumT)
 
 critical_dbf_windows_upto :: (TaskId -> Task) -> (TaskId -> Time) -> (List
                              TaskId) -> Time -> List (Prod Time Time)
@@ -795,7 +829,7 @@ dbf_test_upto tasks enumT h =
   forallb (\t -> leb (taskset_periodic_dbf tasks enumT t) t)
     (critical_dbf_points_upto tasks (\_ -> O) enumT h)
 
-window_dbf_test_upto :: (TaskId -> Task) -> (TaskId -> Time) -> (List
+window_dbf_test_upto :: (TaskId -> Task) -> (TaskId -> Time) -> (List 
                         TaskId) -> Time -> Bool
 window_dbf_test_upto tasks offset enumT h =
   forallb (\w ->
