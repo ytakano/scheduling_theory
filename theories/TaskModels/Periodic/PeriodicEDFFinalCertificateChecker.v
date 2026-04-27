@@ -44,6 +44,9 @@ Record PeriodicEDFCheckedSidecarCert := {
   checked_post_reset_window_target_certs : list EDFWindowTransportTargetCert
 }.
 
+Definition PeriodicFeasibilityCheckedSidecarCert :=
+  PeriodicEDFCheckedSidecarCert.
+
 Definition extracted_taskset_nonempty
     (ts : list ExtractedPeriodicTask) : bool :=
   Nat.ltb 0 (length ts).
@@ -4434,6 +4437,12 @@ Definition check_periodic_edf_checked_sidecar_extracted_with_offsets
        cert
        sidecar.
 
+Definition check_periodic_feasibility_checked_sidecar_extracted
+    (ts : list ExtractedPeriodicTask)
+    (cert : EDFInfiniteCert JobId)
+    (sidecar : PeriodicFeasibilityCheckedSidecarCert) : bool :=
+  check_periodic_edf_checked_sidecar_extracted_with_offsets ts cert sidecar.
+
 Lemma check_periodic_edf_checked_sidecar_with_jobs_fields :
   forall ts offset jobs
          (codec :
@@ -7687,6 +7696,84 @@ Proof.
   - exact Hhyper_transport.
   - apply edf_schedulability_decide_true_global_dbf_ok.
     exact Hdec.
+Qed.
+
+Theorem check_periodic_feasibility_checked_sidecar_sound_with_hyperperiod_transport :
+  forall ts cert sidecar,
+    check_periodic_feasibility_checked_sidecar_extracted ts cert sidecar = true ->
+    TransportClassRepresentativeObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (extracted_periodic_offsets ts)
+      (extracted_offset_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      (extracted_offset_periodic_codec ts)
+      cert.(cert_prefix)
+      cert.(cert_transport).(transport_classes)
+      sidecar.(checked_class_relevant_jobs) ->
+    PeriodicHyperperiodBacklogTransportObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (extracted_periodic_offsets ts)
+      (extracted_offset_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      (extracted_offset_periodic_codec ts)
+      cert.(cert_transport) ->
+    schedulable_by_on
+      (periodic_jobset
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (extracted_periodic_offsets ts)
+        (extracted_offset_periodic_jobs ts))
+      (edf_scheduler
+         (periodic_candidates_before
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (extracted_periodic_offsets ts)
+            (extracted_offset_periodic_jobs ts)
+            (enumT_of_extracted_list ts)
+            (extracted_offset_periodic_codec ts)))
+      (extracted_offset_periodic_jobs ts)
+      1.
+Proof.
+  intros ts cert sidecar Hcheck Hrep Hhyper_transport.
+  unfold check_periodic_feasibility_checked_sidecar_extracted in Hcheck.
+  eapply check_periodic_edf_checked_sidecar_extracted_with_offsets_sound_with_hyperperiod_transport;
+    eauto.
+Qed.
+
+Theorem check_periodic_feasibility_checked_sidecar_sound_with_completion_transport_generated_rep :
+  forall ts cert sidecar,
+    check_periodic_feasibility_checked_sidecar_extracted ts cert sidecar = true ->
+    PeriodicHyperperiodCompletionTransportObligation
+      (extracted_task_scope ts)
+      (extracted_periodic_tasks ts)
+      (extracted_periodic_offsets ts)
+      (extracted_offset_periodic_jobs ts)
+      (enumT_of_extracted_list ts)
+      (extracted_offset_periodic_codec ts)
+      sidecar.(checked_post_reset_window_target_certs) ->
+    schedulable_by_on
+      (periodic_jobset
+        (extracted_task_scope ts)
+        (extracted_periodic_tasks ts)
+        (extracted_periodic_offsets ts)
+        (extracted_offset_periodic_jobs ts))
+      (edf_scheduler
+         (periodic_candidates_before
+            (extracted_task_scope ts)
+            (extracted_periodic_tasks ts)
+            (extracted_periodic_offsets ts)
+            (extracted_offset_periodic_jobs ts)
+            (enumT_of_extracted_list ts)
+            (extracted_offset_periodic_codec ts)))
+      (extracted_offset_periodic_jobs ts)
+      1.
+Proof.
+  intros ts cert sidecar Hcheck Hcompletion_transport.
+  unfold check_periodic_feasibility_checked_sidecar_extracted in Hcheck.
+  eapply check_periodic_edf_checked_sidecar_extracted_with_offsets_sound_with_completion_transport_generated_rep;
+    eauto.
 Qed.
 
 Theorem check_periodic_edf_checked_sidecar_extracted_periodic_sound :

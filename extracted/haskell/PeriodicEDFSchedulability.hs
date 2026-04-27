@@ -1774,6 +1774,8 @@ checked_post_reset_window_target_certs p =
     checked_post_reset_window_target_certs0 ->
     checked_post_reset_window_target_certs0}
 
+type PeriodicFeasibilityCheckedSidecarCert = PeriodicEDFCheckedSidecarCert
+
 extracted_taskset_nonempty :: (List ExtractedPeriodicTask) -> Bool
 extracted_taskset_nonempty ts =
   ltb O (length ts)
@@ -1956,3 +1958,12 @@ check_periodic_edf_checked_sidecar_extracted_with_offsets ts cert sidecar =
     (check_periodic_edf_checked_sidecar_with_jobs ts
       (extracted_periodic_offsets ts) (extracted_offset_periodic_jobs ts)
       (extracted_offset_periodic_codec ts) cert sidecar)
+
+check_periodic_feasibility_checked_sidecar_extracted :: (List
+                                                        ExtractedPeriodicTask)
+                                                        -> (EDFInfiniteCert
+                                                        JobId) ->
+                                                        PeriodicFeasibilityCheckedSidecarCert
+                                                        -> Bool
+check_periodic_feasibility_checked_sidecar_extracted =
+  check_periodic_edf_checked_sidecar_extracted_with_offsets

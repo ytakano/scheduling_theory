@@ -21,6 +21,7 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   EDFWindowTransportPairCert
   EDFWindowTransportTargetCert
   PeriodicEDFCheckedSidecarCert
+  PeriodicFeasibilityCheckedSidecarCert
   extracted_periodic_offsets
   extracted_offset_periodic_jobs
   extracted_offset_periodic_codec
@@ -73,5 +74,6 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   check_hyperperiod_block_source_pair_in_cert
   check_hyperperiod_block_source_pair_in_certs
   check_window_target_pair_coverage
+  check_periodic_feasibility_checked_sidecar_extracted
   check_periodic_edf_checked_sidecar_extracted_with_offsets
   check_periodic_edf_checked_sidecar_extracted.
