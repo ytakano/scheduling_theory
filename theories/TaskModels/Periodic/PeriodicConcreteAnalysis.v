@@ -66,16 +66,14 @@ Definition task_deadline_points_upto
               (bounded_time_points H)).
 
 (* A conservative finite search space for concrete periodic DBF goals.
-   We expose release/deadline-shaped points explicitly, but we also keep the
-   entire bounded range [0, H] so bounded completeness remains constructive and
-   proof-friendly in v1. *)
+   Keep the full bounded horizon to retain bounded-time completeness, and add
+   deadline-shaped points for the concrete check reduction. *)
 Definition critical_dbf_points_upto
     (tasks : TaskId -> Task)
     (offset : TaskId -> Time)
     (enumT : list TaskId)
     (H : Time) : list Time :=
-  0 :: H :: bounded_time_points H ++
-  flat_map (fun τ => task_release_points_upto tasks offset τ H) enumT ++
+  bounded_time_points H ++
   flat_map (fun τ => task_deadline_points_upto tasks offset τ H) enumT.
 
 Definition critical_dbf_windows_upto
@@ -146,17 +144,11 @@ Lemma critical_dbf_points_upto_complete :
 Proof.
   intros tasks offset enumT H t Hle.
   unfold critical_dbf_points_upto.
-  simpl.
-  destruct t as [|t'].
-  - now left.
-  - right.
-    right.
-    right.
-    apply in_or_app.
-    left.
-    unfold bounded_time_points.
-    rewrite in_seq.
-    lia.
+  apply in_or_app.
+  left.
+  unfold bounded_time_points.
+  rewrite in_seq.
+  lia.
 Qed.
 
 Lemma task_release_points_upto_contains_index :
@@ -210,19 +202,8 @@ Lemma critical_dbf_points_upto_contains_release :
        (critical_dbf_points_upto tasks offset enumT H).
 Proof.
   intros tasks offset enumT H τ k Hinτ Hkle Hrel.
-  unfold critical_dbf_points_upto.
-  simpl.
-  right.
-  right.
-  right.
-  apply in_or_app.
-  right.
-  apply in_or_app.
-  left.
-  apply in_flat_map.
-  exists τ.
-  split; [exact Hinτ|].
-  apply task_release_points_upto_contains_index; assumption.
+  apply critical_dbf_points_upto_complete.
+  exact Hrel.
 Qed.
 
 Lemma critical_dbf_points_upto_contains_deadline :
@@ -235,12 +216,6 @@ Lemma critical_dbf_points_upto_contains_deadline :
 Proof.
   intros tasks offset enumT H τ k Hinτ Hkle Hdl.
   unfold critical_dbf_points_upto.
-  simpl.
-  right.
-  right.
-  right.
-  apply in_or_app.
-  right.
   apply in_or_app.
   right.
   apply in_flat_map.
