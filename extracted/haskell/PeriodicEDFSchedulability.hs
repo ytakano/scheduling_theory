@@ -1967,3 +1967,15 @@ check_periodic_feasibility_checked_sidecar_extracted :: (List
                                                         -> Bool
 check_periodic_feasibility_checked_sidecar_extracted =
   check_periodic_edf_checked_sidecar_extracted_with_offsets
+
+data PeriodicPolicy =
+   PolicyEDF
+ | PolicyLLF
+
+check_periodic_policy_feasibility :: PeriodicPolicy -> (List
+                                     ExtractedPeriodicTask) ->
+                                     (EDFInfiniteCert JobId) ->
+                                     PeriodicFeasibilityCheckedSidecarCert ->
+                                     Bool
+check_periodic_policy_feasibility _ =
+  check_periodic_feasibility_checked_sidecar_extracted

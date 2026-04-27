@@ -8,6 +8,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFGeneratedPrefixChec
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportWitnessChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportCoverageChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransportChecker.
+From RocqSched Require Import TaskModels.Periodic.PeriodicPolicyAnalysis.
 
 Extraction Language Haskell.
 
@@ -22,6 +23,7 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   EDFWindowTransportTargetCert
   PeriodicEDFCheckedSidecarCert
   PeriodicFeasibilityCheckedSidecarCert
+  PeriodicPolicy
   extracted_periodic_offsets
   extracted_offset_periodic_jobs
   extracted_offset_periodic_codec
@@ -74,6 +76,7 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   check_hyperperiod_block_source_pair_in_cert
   check_hyperperiod_block_source_pair_in_certs
   check_window_target_pair_coverage
+  check_periodic_policy_feasibility
   check_periodic_feasibility_checked_sidecar_extracted
   check_periodic_edf_checked_sidecar_extracted_with_offsets
   check_periodic_edf_checked_sidecar_extracted.
