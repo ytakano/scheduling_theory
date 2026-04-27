@@ -3,6 +3,7 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFExtractionTypes.
+From RocqSched Require Import TaskModels.Periodic.PeriodicOffsetWindowCutoff.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
 
 Import ListNotations.
@@ -52,6 +53,30 @@ Definition extracted_offset_window_dbf_decide
     (H : Time) : bool :=
   extracted_taskset_wf ts && extracted_offset_window_dbf_test_upto ts H.
 
+Definition extracted_offset_window_dbf_cutoff_bound
+    (ts : list ExtractedPeriodicTask) : Time :=
+  offset_window_dbf_cutoff_bound
+    (tasks_of_extracted_list ts)
+    (offset_of_extracted_list ts)
+    (enumT_of_extracted_list ts).
+
+Definition extracted_offset_window_dbf_test_by_cutoff
+    (ts : list ExtractedPeriodicTask) : bool :=
+  offset_window_dbf_test_by_cutoff
+    (tasks_of_extracted_list ts)
+    (offset_of_extracted_list ts)
+    (enumT_of_extracted_list ts).
+
+Definition extracted_offset_window_dbf_counterexample_by_cutoff
+    (ts : list ExtractedPeriodicTask) : option (Time * Time) :=
+  extracted_offset_window_dbf_counterexample
+    ts
+    (extracted_offset_window_dbf_cutoff_bound ts).
+
+Definition extracted_offset_window_dbf_decide_by_cutoff
+    (ts : list ExtractedPeriodicTask) : bool :=
+  extracted_taskset_wf ts && extracted_offset_window_dbf_test_by_cutoff ts.
+
 Definition extracted_taskset_global_dbf_ok
     (ts : list ExtractedPeriodicTask) : Prop :=
   forall t,
@@ -84,6 +109,16 @@ Definition extracted_offset_window_dbf_ok_upto
   forall t1 t2,
     t1 <= t2 ->
     t2 <= H ->
+    taskset_periodic_dbf_window
+      (tasks_of_extracted_list ts)
+      (offset_of_extracted_list ts)
+      (enumT_of_extracted_list ts)
+      t1 t2 <= t2 - t1.
+
+Definition extracted_offset_window_dbf_ok_global
+    (ts : list ExtractedPeriodicTask) : Prop :=
+  forall t1 t2,
+    t1 <= t2 ->
     taskset_periodic_dbf_window
       (tasks_of_extracted_list ts)
       (offset_of_extracted_list ts)
@@ -201,6 +236,54 @@ Proof.
   intros ts H t1 t2 Hcex.
   unfold extracted_offset_window_dbf_counterexample in Hcex.
   eapply first_window_dbf_overload_upto_some.
+  exact Hcex.
+Qed.
+
+Theorem extracted_offset_window_dbf_test_by_cutoff_sound :
+  forall ts,
+    extracted_taskset_wf ts = true ->
+    extracted_offset_window_dbf_test_by_cutoff ts = true ->
+    extracted_offset_window_dbf_ok_global ts.
+Proof.
+  intros ts Hwf Htest.
+  unfold extracted_offset_window_dbf_ok_global.
+  intros t1 t2 Hle12.
+  unfold extracted_offset_window_dbf_test_by_cutoff in Htest.
+  eapply offset_window_dbf_check_by_cutoff.
+  - intros τ Hin.
+    eapply extracted_tasks_well_formed_on_enum.
+    + exact Hwf.
+    + apply enumT_of_extracted_list_sound.
+      exact Hin.
+  - exact Htest.
+  - exact Hle12.
+Qed.
+
+Lemma extracted_offset_window_dbf_decide_by_cutoff_true_ok :
+  forall ts,
+    extracted_offset_window_dbf_decide_by_cutoff ts = true ->
+    extracted_offset_window_dbf_ok_global ts.
+Proof.
+  intros ts Hdec.
+  unfold extracted_offset_window_dbf_decide_by_cutoff in Hdec.
+  apply andb_true_iff in Hdec.
+  destruct Hdec as [Hwf Htest].
+  eapply extracted_offset_window_dbf_test_by_cutoff_sound; eauto.
+Qed.
+
+Lemma extracted_offset_window_dbf_counterexample_by_cutoff_sound :
+  forall ts t1 t2,
+    extracted_offset_window_dbf_counterexample_by_cutoff ts = Some (t1, t2) ->
+    t2 - t1 <
+    taskset_periodic_dbf_window
+      (tasks_of_extracted_list ts)
+      (offset_of_extracted_list ts)
+      (enumT_of_extracted_list ts)
+      t1 t2.
+Proof.
+  intros ts t1 t2 Hcex.
+  unfold extracted_offset_window_dbf_counterexample_by_cutoff in Hcex.
+  eapply extracted_offset_window_dbf_counterexample_sound.
   exact Hcex.
 Qed.
 

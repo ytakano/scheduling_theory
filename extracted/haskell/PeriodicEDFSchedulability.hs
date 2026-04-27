@@ -905,6 +905,30 @@ extracted_taskset_wf :: (List ExtractedPeriodicTask) -> Bool
 extracted_taskset_wf ts =
   forallb extracted_task_wf ts
 
+periodic_max_offset :: (TaskId -> Time) -> (List TaskId) -> Time
+periodic_max_offset offset enumT =
+  case enumT of {
+   Nil -> O;
+   Cons _UU03c4_ enumT' ->
+    max (offset _UU03c4_) (periodic_max_offset offset enumT')}
+
+offset_window_dbf_cutoff_bound :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                  (List TaskId) -> Time
+offset_window_dbf_cutoff_bound tasks offset enumT =
+  let {
+   horizon_base = add
+                    (add (periodic_max_offset offset enumT)
+                      (periodic_max_relative_deadline tasks enumT))
+                    (periodic_hyperperiod tasks enumT)}
+  in
+  add horizon_base (mul (S horizon_base) (periodic_hyperperiod tasks enumT))
+
+offset_window_dbf_test_by_cutoff :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                    (List TaskId) -> Bool
+offset_window_dbf_test_by_cutoff tasks offset enumT =
+  window_dbf_test_upto tasks offset enumT
+    (offset_window_dbf_cutoff_bound tasks offset enumT)
+
 extracted_taskset_dbf_test :: (List ExtractedPeriodicTask) -> Bool
 extracted_taskset_dbf_test ts =
   dbf_test_by_cutoff (tasks_of_extracted_list ts)
@@ -938,6 +962,32 @@ extracted_offset_window_dbf_decide :: (List ExtractedPeriodicTask) -> Time ->
                                       Bool
 extracted_offset_window_dbf_decide ts h =
   andb (extracted_taskset_wf ts) (extracted_offset_window_dbf_test_upto ts h)
+
+extracted_offset_window_dbf_cutoff_bound :: (List ExtractedPeriodicTask) ->
+                                            Time
+extracted_offset_window_dbf_cutoff_bound ts =
+  offset_window_dbf_cutoff_bound (tasks_of_extracted_list ts)
+    (offset_of_extracted_list ts) (enumT_of_extracted_list ts)
+
+extracted_offset_window_dbf_test_by_cutoff :: (List ExtractedPeriodicTask) ->
+                                              Bool
+extracted_offset_window_dbf_test_by_cutoff ts =
+  offset_window_dbf_test_by_cutoff (tasks_of_extracted_list ts)
+    (offset_of_extracted_list ts) (enumT_of_extracted_list ts)
+
+extracted_offset_window_dbf_counterexample_by_cutoff :: (List
+                                                        ExtractedPeriodicTask)
+                                                        -> Option
+                                                        (Prod Time Time)
+extracted_offset_window_dbf_counterexample_by_cutoff ts =
+  extracted_offset_window_dbf_counterexample ts
+    (extracted_offset_window_dbf_cutoff_bound ts)
+
+extracted_offset_window_dbf_decide_by_cutoff :: (List ExtractedPeriodicTask)
+                                                -> Bool
+extracted_offset_window_dbf_decide_by_cutoff ts =
+  andb (extracted_taskset_wf ts)
+    (extracted_offset_window_dbf_test_by_cutoff ts)
 
 extracted_periodic_tasks :: (List ExtractedPeriodicTask) -> TaskId -> Task
 extracted_periodic_tasks =

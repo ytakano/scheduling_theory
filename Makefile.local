@@ -19,4 +19,47 @@ run-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	@test -n "$(CSV)" || (echo "usage: make run-periodic-edf-sched-csv CSV=tasks.csv" && exit 2)
 	./scripts/periodic_edf_schedulability_csv "$(CSV)"
 
-.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv run-periodic-edf-sched-csv
+test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
+	@tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	printf 'cost,period,deadline\n1,4,4\n1,5,5\n' > "$$tmp/zero.csv"; \
+	printf 'cost,period,deadline,offset\n1,4,4,1\n1,5,5,2\n' > "$$tmp/nonzero.csv"; \
+	printf 'cost,period,deadline,offset\n2,3,3,0\n2,3,3,1\n' > "$$tmp/overload.csv"; \
+	printf 'cost,period,deadline,offset\n1,4,4,-1\n' > "$$tmp/negative-offset.csv"; \
+	printf 'cost,period,deadline,offset\n1,1,1,0\n' > "$$tmp/tiny.csv"; \
+	./scripts/periodic_edf_schedulability_csv "$$tmp/zero.csv"; \
+	./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf 30 "$$tmp/zero.csv"; \
+	./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf 30 "$$tmp/nonzero.csv"; \
+	./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf-cutoff "$$tmp/tiny.csv"; \
+	if ./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf 30 "$$tmp/overload.csv" > "$$tmp/overload.out" 2>&1; then \
+		cat "$$tmp/overload.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'window DBF overload witness t1=' "$$tmp/overload.out"; \
+	if ./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf -1 "$$tmp/zero.csv" > "$$tmp/bad-horizon.out" 2>&1; then \
+		cat "$$tmp/bad-horizon.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'horizon H must be nonnegative' "$$tmp/bad-horizon.out"; \
+	if ./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf nope "$$tmp/zero.csv" > "$$tmp/nonnumeric-horizon.out" 2>&1; then \
+		cat "$$tmp/nonnumeric-horizon.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'invalid horizon H: nope' "$$tmp/nonnumeric-horizon.out"; \
+	if ./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf "$$tmp/zero.csv" > "$$tmp/missing-horizon.out" 2>&1; then \
+		cat "$$tmp/missing-horizon.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'usage:' "$$tmp/missing-horizon.out"; \
+	if ./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf 30 > "$$tmp/missing-path.out" 2>&1; then \
+		cat "$$tmp/missing-path.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'usage:' "$$tmp/missing-path.out"; \
+	if ./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf 30 "$$tmp/negative-offset.csv" > "$$tmp/negative-offset.out" 2>&1; then \
+		cat "$$tmp/negative-offset.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'offset must be nonnegative' "$$tmp/negative-offset.out"
+
+.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv run-periodic-edf-sched-csv test-periodic-edf-sched-csv

@@ -29,6 +29,10 @@ Extraction "extracted/haskell/PeriodicEDFSchedulability.hs"
   extracted_offset_window_dbf_test_upto
   extracted_offset_window_dbf_counterexample
   extracted_offset_window_dbf_decide
+  extracted_offset_window_dbf_cutoff_bound
+  extracted_offset_window_dbf_test_by_cutoff
+  extracted_offset_window_dbf_counterexample_by_cutoff
+  extracted_offset_window_dbf_decide_by_cutoff
   check_prefix_slots_match_generated_edf_fast
   transport_class_rep_relevant_jobs
   transport_classes_rep_relevant_jobs

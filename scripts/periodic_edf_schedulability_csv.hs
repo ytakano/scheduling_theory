@@ -22,11 +22,22 @@ main = do
   case args of
     [path] -> run path
     ["--check-prefix-cert", path] -> runPrefixCertCheck path
+    ["--check-offset-window-dbf", horizonText, path] ->
+      case parseHorizon horizonText of
+        Left err -> putStrLn err >> printUsage >> exitFailure
+        Right horizon -> runOffsetWindowFinite horizon path
+    ["--check-offset-window-dbf-cutoff", path] -> runOffsetWindowCutoff path
     _ -> do
-      putStrLn "usage: scripts/periodic_edf_schedulability_csv TASKS.csv"
-      putStrLn "       scripts/periodic_edf_schedulability_csv --check-prefix-cert TASKS.csv"
-      putStrLn "CSV columns: cost,period,deadline[,offset]"
+      printUsage
       exitFailure
+
+printUsage :: IO ()
+printUsage = do
+  putStrLn "usage: scripts/periodic_edf_schedulability_csv TASKS.csv"
+  putStrLn "       scripts/periodic_edf_schedulability_csv --check-prefix-cert TASKS.csv"
+  putStrLn "       scripts/periodic_edf_schedulability_csv --check-offset-window-dbf H TASKS.csv"
+  putStrLn "       scripts/periodic_edf_schedulability_csv --check-offset-window-dbf-cutoff TASKS.csv"
+  putStrLn "CSV columns: cost,period,deadline[,offset]"
 
 run :: FilePath -> IO ()
 run path = do
@@ -75,6 +86,55 @@ runPrefixCertCheck path = do
         _ -> do
           putStrLn "prefix certificate check failed"
           exitFailure
+
+runOffsetWindowFinite :: Int -> FilePath -> IO ()
+runOffsetWindowFinite horizon path = do
+  content <- readFile path
+  case parseCsv content of
+    Left err -> putStrLn err >> exitFailure
+    Right tasks -> do
+      let input = toEDFList (map toEDFTask tasks)
+          h = toNat horizon
+          accepted = EDF.extracted_offset_window_dbf_decide input h
+      case accepted of
+        EDF.True -> do
+          putStrLn "offset-window schedulable"
+          exitSuccess
+        EDF.False -> do
+          putStrLn "not offset-window schedulable or invalid input"
+          printWindowWitness (EDF.extracted_offset_window_dbf_counterexample input h)
+          exitFailure
+
+runOffsetWindowCutoff :: FilePath -> IO ()
+runOffsetWindowCutoff path = do
+  content <- readFile path
+  case parseCsv content of
+    Left err -> putStrLn err >> exitFailure
+    Right tasks -> do
+      let input = toEDFList (map toEDFTask tasks)
+          accepted = EDF.extracted_offset_window_dbf_decide_by_cutoff input
+      case accepted of
+        EDF.True -> do
+          putStrLn "offset-window schedulable"
+          exitSuccess
+        EDF.False -> do
+          putStrLn "not offset-window schedulable or invalid input"
+          printWindowWitness (EDF.extracted_offset_window_dbf_counterexample_by_cutoff input)
+          exitFailure
+
+printWindowWitness :: EDF.Option (EDF.Prod EDF.Time EDF.Time) -> IO ()
+printWindowWitness EDF.None = pure ()
+printWindowWitness (EDF.Some (EDF.Pair t1 t2)) =
+  putStrLn $
+    "window DBF overload witness t1=" ++ show (fromNat t1)
+      ++ " t2=" ++ show (fromNat t2)
+
+parseHorizon :: String -> Either String Int
+parseHorizon text =
+  case readMaybe text of
+    Just n | n >= 0 -> Right n
+    Just _ -> Left "horizon H must be nonnegative"
+    Nothing -> Left ("invalid horizon H: " ++ text)
 
 parseCsv :: String -> Either String [ParsedTask]
 parseCsv content =
