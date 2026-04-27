@@ -77,6 +77,26 @@ Definition extracted_offset_window_dbf_decide_by_cutoff
     (ts : list ExtractedPeriodicTask) : bool :=
   extracted_taskset_wf ts && extracted_offset_window_dbf_test_by_cutoff ts.
 
+Definition periodic_conservative_schedulability_decide
+    (ts : list ExtractedPeriodicTask) : bool :=
+  edf_schedulability_decide ts.
+
+Definition periodic_conservative_schedulability_counterexample
+    (ts : list ExtractedPeriodicTask) : option Time :=
+  edf_schedulability_counterexample ts.
+
+Definition periodic_offset_window_schedulability_cutoff_bound
+    (ts : list ExtractedPeriodicTask) : Time :=
+  extracted_offset_window_dbf_cutoff_bound ts.
+
+Definition periodic_offset_window_schedulability_decide
+    (ts : list ExtractedPeriodicTask) : bool :=
+  extracted_offset_window_dbf_decide_by_cutoff ts.
+
+Definition periodic_offset_window_schedulability_counterexample
+    (ts : list ExtractedPeriodicTask) : option (Time * Time) :=
+  extracted_offset_window_dbf_counterexample_by_cutoff ts.
+
 Definition extracted_taskset_global_dbf_ok
     (ts : list ExtractedPeriodicTask) : Prop :=
   forall t,
@@ -284,6 +304,59 @@ Proof.
   intros ts t1 t2 Hcex.
   unfold extracted_offset_window_dbf_counterexample_by_cutoff in Hcex.
   eapply extracted_offset_window_dbf_counterexample_sound.
+  exact Hcex.
+Qed.
+
+Lemma periodic_conservative_schedulability_decide_true_global_dbf_ok :
+  forall ts,
+    periodic_conservative_schedulability_decide ts = true ->
+    extracted_taskset_global_dbf_ok ts.
+Proof.
+  intros ts Hdec.
+  unfold periodic_conservative_schedulability_decide in Hdec.
+  apply edf_schedulability_decide_true_global_dbf_ok.
+  exact Hdec.
+Qed.
+
+Lemma periodic_conservative_schedulability_counterexample_sound :
+  forall ts t,
+    periodic_conservative_schedulability_counterexample ts = Some t ->
+    t <
+    taskset_periodic_dbf
+      (tasks_of_extracted_list ts)
+      (enumT_of_extracted_list ts)
+      t.
+Proof.
+  intros ts t Hcex.
+  unfold periodic_conservative_schedulability_counterexample in Hcex.
+  apply edf_schedulability_counterexample_sound.
+  exact Hcex.
+Qed.
+
+Lemma periodic_offset_window_schedulability_decide_true_ok :
+  forall ts,
+    periodic_offset_window_schedulability_decide ts = true ->
+    extracted_offset_window_dbf_ok_global ts.
+Proof.
+  intros ts Hdec.
+  unfold periodic_offset_window_schedulability_decide in Hdec.
+  apply extracted_offset_window_dbf_decide_by_cutoff_true_ok.
+  exact Hdec.
+Qed.
+
+Lemma periodic_offset_window_schedulability_counterexample_sound :
+  forall ts t1 t2,
+    periodic_offset_window_schedulability_counterexample ts = Some (t1, t2) ->
+    t2 - t1 <
+    taskset_periodic_dbf_window
+      (tasks_of_extracted_list ts)
+      (offset_of_extracted_list ts)
+      (enumT_of_extracted_list ts)
+      t1 t2.
+Proof.
+  intros ts t1 t2 Hcex.
+  unfold periodic_offset_window_schedulability_counterexample in Hcex.
+  apply extracted_offset_window_dbf_counterexample_by_cutoff_sound.
   exact Hcex.
 Qed.
 

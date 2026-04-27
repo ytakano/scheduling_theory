@@ -989,6 +989,35 @@ extracted_offset_window_dbf_decide_by_cutoff ts =
   andb (extracted_taskset_wf ts)
     (extracted_offset_window_dbf_test_by_cutoff ts)
 
+periodic_conservative_schedulability_decide :: (List ExtractedPeriodicTask)
+                                               -> Bool
+periodic_conservative_schedulability_decide =
+  edf_schedulability_decide
+
+periodic_conservative_schedulability_counterexample :: (List
+                                                       ExtractedPeriodicTask)
+                                                       -> Option Time
+periodic_conservative_schedulability_counterexample =
+  edf_schedulability_counterexample
+
+periodic_offset_window_schedulability_cutoff_bound :: (List
+                                                      ExtractedPeriodicTask)
+                                                      -> Time
+periodic_offset_window_schedulability_cutoff_bound =
+  extracted_offset_window_dbf_cutoff_bound
+
+periodic_offset_window_schedulability_decide :: (List ExtractedPeriodicTask)
+                                                -> Bool
+periodic_offset_window_schedulability_decide =
+  extracted_offset_window_dbf_decide_by_cutoff
+
+periodic_offset_window_schedulability_counterexample :: (List
+                                                        ExtractedPeriodicTask)
+                                                        -> Option
+                                                        (Prod Time Time)
+periodic_offset_window_schedulability_counterexample =
+  extracted_offset_window_dbf_counterexample_by_cutoff
+
 extracted_periodic_tasks :: (List ExtractedPeriodicTask) -> TaskId -> Task
 extracted_periodic_tasks =
   tasks_of_extracted_list

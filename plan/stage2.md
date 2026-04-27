@@ -4,8 +4,9 @@ Stage 2 の目的は、Stage 1 の conservative classical DBF 判定を維持し
 非ゼロ offset の需要分散を実際に利用できる window-DBF checker を追加する
 ことである。
 
-最初の実装単位は finite horizon checker とする。infinite cutoff theorem は
-別スライスに分ける。Stage 2 v1 では horizon `H` は caller が明示的に渡す。
+最初の実装単位は finite horizon checker とした。Stage 2 v2 で pure
+offset-window cutoff theorem を extraction-facing / CLI-facing API として公開し、
+Stage 2 v3 で利用者向け schedulability alias と offset-aware regression を追加する。
 
 - タスク終了時に、このファイルに進捗状況を保存すること。
 - 実装中、大きな計画変更が必要なことに気づいた場合、それをタスク終了時に
@@ -15,12 +16,13 @@ Stage 2 の目的は、Stage 1 の conservative classical DBF 判定を維持し
 
 - finite horizon の offset-aware window-DBF checker は実装済みである。
 - finite EDF / LLF wrapper layer は実装済みである。
-- infinite cutoff infrastructure は部分実装済みで、hyperperiod shift と
-  explicit-shift cutoff theorem まで閉じている。
+- infinite cutoff infrastructure と pure arbitrary-window theorem は実装済みである。
 - finite offset-window check と classical DBF cutoff guard を合成する
   guarded arbitrary-window theorem は実装済みである。
-- 残る主要作業は pure offset-window check だけで arbitrary-window cutoff を
-  任意 window へ持ち上げる最終 theorem である。
+- pure offset-window cutoff checker は Stage 2 v2 で extraction-facing /
+  CLI-facing API として公開済みである。
+- Stage 2 v3 は conservative scalar DBF path と offset-window path の
+  schedulability-facing alias を追加する。
 - Stage 1 の `edf_schedulability_decide` / classical DBF path は保守的 path として
   維持する。
 - final certificate の arbitrary-offset completion transport とは混ぜない。
@@ -40,8 +42,8 @@ Stage 2 の目的は、Stage 1 の conservative classical DBF 判定を維持し
 taskset_periodic_dbf_window tasks offset enumT t1 t2 <= t2 - t1
 ```
 
-- Stage 2 v1 は finite horizon analyzer である。infinite guarantee は
-  cutoff theorem が追加されるまで主張しない。
+- Stage 2 v1 は finite horizon analyzer である。Stage 2 v2 の cutoff-backed
+  API は arbitrary-window offset DBF validity を主張する。
 - Stage 1 の offset-insensitive classical DBF checker は保守的 path として残す。
 - arbitrary offset の final certificate soundness は Stage 1 と同様に
   completion transport obligation を別問題として扱う。
@@ -66,8 +68,8 @@ extracted_offset_window_dbf_decide
 - Stage 1 の scalar DBF counterexample `option Time` は互換用に残す。
 - Haskell/Rust-facing CLI/API を追加する場合は、Stage 1 checker と区別する。
   例: `check-offset-window-dbf`。
-- pure offset-window infinite checker は pure arbitrary-window cutoff theorem が
-  閉じるまで公開しない。classical guard 付き checker は保守的 path として扱う。
+- pure offset-window infinite checker は Stage 2 v2 で公開済みである。
+  classical guard 付き checker は保守的 compatibility path として扱う。
 - runtime scheduler trace、OS event、dispatch detail は追加しない。
 
 ## 3. Interface delta
@@ -200,7 +202,6 @@ extracted_offset_window_dbf_decide
   - `periodic_dbf_window_add_hyperperiod_upper`
   - `taskset_periodic_dbf_window_add_hyperperiod_upper`
   - `taskset_periodic_dbf_window_add_hyperperiod_upper_n`
-- 未実装:
   - pure offset-window check だけを仮定する arbitrary-window 版
     `offset_window_dbf_check_by_cutoff`
 
@@ -272,11 +273,13 @@ theories/TaskModels/Periodic/PeriodicOffsetWindowCutoff.v
 - `periodic_dbf_window_add_hyperperiod_upper`
 - `taskset_periodic_dbf_window_add_hyperperiod_upper`
 - `taskset_periodic_dbf_window_add_hyperperiod_upper_n`
+- `offset_window_dbf_check_by_cutoff`
 
-残る proof obligation:
+Stage 2 v3 の残る analysis-facing obligation:
 
-- pure offset-window check だけを仮定する arbitrary-window 版
-  `offset_window_dbf_check_by_cutoff` を証明する。
+- conservative scalar DBF path と exact offset-window path に
+  schedulability-facing alias を追加する。
+- offset-aware path の価値を示す regression を追加する。
 - cutoff bound は最小化を狙わず、証明しやすい保守的 bound を維持する。
 
 ## 5. Implementation order
@@ -298,13 +301,14 @@ theories/TaskModels/Periodic/PeriodicOffsetWindowCutoff.v
 
 次の実装順:
 
-1. upper-extension n-step 補題と
-   `offset_window_hyperperiod_load_le_hyperperiod` を組み合わせて
-   long-window を cutoff 内 representative に縮約する。
-2. post-offset/prefix window と long-window ケースを分けて
-   arbitrary-window cutoff theorem を構成する。
-3. `plan/stage2.md` の Progress に実装済み項目と残作業を追記する。
-4. commit する場合は Stage 2 関連ファイルだけを stage する。
+1. `PeriodicEDFExtractionDecision.v` に schedulability-facing alias と
+   alias soundness lemma を追加する。
+2. `PeriodicEDFExtraction.v` の extraction list に alias を追加する。
+3. Haskell/CSV runner の default/cutoff path を alias 経由に寄せる。
+4. conservative scalar path が reject し、offset-window cutoff path が accept する
+   regression fixture を追加する。
+5. `plan/stage2.md` の Progress に Stage 2 v3 の実装済み項目を追記する。
+6. commit する場合は Stage 2 関連ファイルだけを stage する。
 
 ## 6. Acceptance checks
 
@@ -522,8 +526,29 @@ Lemma taskset_periodic_dbf_window_add_hyperperiod_upper :
 
 残作業:
 
-- pure infinite checker を extraction-facing / CLI-facing API として公開する場合は、
-  finite API と区別した entry point 名と witness shape を別スライスで設計する。
+- Stage 2 v2 として pure infinite checker を extraction-facing / CLI-facing API
+  として公開済みである。
+- Stage 2 v3 として conservative scalar DBF path と exact offset-window path の
+  schedulability-facing alias と regression を追加する。
 - final certificate の arbitrary-offset completion transport、runtime dispatch、
   timer delay、migration、OS-specific event は引き続き Stage 2 common cutoff theorem
   の interface には含めない。
+
+### 2026-04-27: Stage 2 v3 schedulability alias 追加
+
+- conservative scalar DBF path に
+  `periodic_conservative_schedulability_decide` と
+  `periodic_conservative_schedulability_counterexample` を追加する。
+- pure offset-window cutoff path に
+  `periodic_offset_window_schedulability_decide`、
+  `periodic_offset_window_schedulability_counterexample`、
+  `periodic_offset_window_schedulability_cutoff_bound` を追加する。
+- alias soundness lemma は既存の Stage 1 / Stage 2 v2 lemma に委譲する。
+- Haskell/CSV runner は default path と cutoff path を alias 経由に寄せる。
+- regression として、conservative scalar path では `t=2` で reject し、
+  offset-window cutoff path では accept する非ゼロ offset task set を追加する。
+
+残作業:
+
+- final certificate の arbitrary-offset completion transport、runtime dispatch、
+  timer delay、migration、OS-specific event は Stage 3 以降で扱う。

@@ -46,14 +46,14 @@ run path = do
     Left err -> putStrLn err >> exitFailure
     Right tasks -> do
       let input = toEDFList (map toEDFTask tasks)
-          accepted = EDF.edf_schedulability_decide input
+          accepted = EDF.periodic_conservative_schedulability_decide input
       case accepted of
         EDF.True -> do
           putStrLn "schedulable"
           exitSuccess
         EDF.False -> do
           putStrLn "not schedulable or invalid input"
-          case EDF.edf_schedulability_counterexample input of
+          case EDF.periodic_conservative_schedulability_counterexample input of
             EDF.None -> pure ()
             EDF.Some t ->
               putStrLn ("DBF overload witness t=" ++ show (fromNat t))
@@ -112,14 +112,14 @@ runOffsetWindowCutoff path = do
     Left err -> putStrLn err >> exitFailure
     Right tasks -> do
       let input = toEDFList (map toEDFTask tasks)
-          accepted = EDF.extracted_offset_window_dbf_decide_by_cutoff input
+          accepted = EDF.periodic_offset_window_schedulability_decide input
       case accepted of
         EDF.True -> do
           putStrLn "offset-window schedulable"
           exitSuccess
         EDF.False -> do
           putStrLn "not offset-window schedulable or invalid input"
-          printWindowWitness (EDF.extracted_offset_window_dbf_counterexample_by_cutoff input)
+          printWindowWitness (EDF.periodic_offset_window_schedulability_counterexample input)
           exitFailure
 
 printWindowWitness :: EDF.Option (EDF.Prod EDF.Time EDF.Time) -> IO ()

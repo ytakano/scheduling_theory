@@ -26,6 +26,7 @@ test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	printf 'cost,period,deadline,offset\n1,4,4,1\n1,5,5,2\n' > "$$tmp/nonzero.csv"; \
 	printf 'cost,period,deadline,offset\n2,3,3,0\n2,3,3,1\n' > "$$tmp/overload.csv"; \
 	printf 'cost,period,deadline,offset\n1,4,4,-1\n' > "$$tmp/negative-offset.csv"; \
+	printf 'cost,period,deadline,offset\n2,5,2,0\n2,5,2,2\n' > "$$tmp/offset-value.csv"; \
 	printf 'cost,period,deadline,offset\n1,1,1,0\n' > "$$tmp/tiny.csv"; \
 	./scripts/periodic_edf_schedulability_csv "$$tmp/zero.csv"; \
 	./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf 30 "$$tmp/zero.csv"; \
@@ -36,6 +37,12 @@ test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 		exit 1; \
 	fi; \
 	grep -q 'window DBF overload witness t1=' "$$tmp/overload.out"; \
+	if ./scripts/periodic_edf_schedulability_csv "$$tmp/offset-value.csv" > "$$tmp/offset-value-default.out" 2>&1; then \
+		cat "$$tmp/offset-value-default.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'DBF overload witness t=2' "$$tmp/offset-value-default.out"; \
+	./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf-cutoff "$$tmp/offset-value.csv"; \
 	if ./scripts/periodic_edf_schedulability_csv --check-offset-window-dbf -1 "$$tmp/zero.csv" > "$$tmp/bad-horizon.out" 2>&1; then \
 		cat "$$tmp/bad-horizon.out"; \
 		exit 1; \
