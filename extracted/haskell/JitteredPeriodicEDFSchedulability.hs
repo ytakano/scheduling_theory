@@ -95,6 +95,16 @@ sub0 n m =
            O -> n;
            S l -> sub0 k l}}
 
+eqb :: Nat -> Nat -> Bool
+eqb n m =
+  case n of {
+   O -> case m of {
+         O -> True;
+         S _ -> False};
+   S n' -> case m of {
+            O -> False;
+            S m' -> eqb n' m'}}
+
 leb :: Nat -> Nat -> Bool
 leb n m =
   case n of {
@@ -225,6 +235,53 @@ task_relative_deadline :: Task -> Nat
 task_relative_deadline t =
   case t of {
    MkTask _ _ task_relative_deadline0 -> task_relative_deadline0}
+
+data JitteredEDFDbfCertificate =
+   Build_JitteredEDFDbfCertificate Time (List (Prod Time Time)) Bool
+
+jedf_cutoff :: JitteredEDFDbfCertificate -> Time
+jedf_cutoff j =
+  case j of {
+   Build_JitteredEDFDbfCertificate jedf_cutoff0 _ _ -> jedf_cutoff0}
+
+jedf_checked_windows :: JitteredEDFDbfCertificate -> List (Prod Time Time)
+jedf_checked_windows j =
+  case j of {
+   Build_JitteredEDFDbfCertificate _ jedf_checked_windows0 _ ->
+    jedf_checked_windows0}
+
+jedf_all_windows_checked :: JitteredEDFDbfCertificate -> Bool
+jedf_all_windows_checked j =
+  case j of {
+   Build_JitteredEDFDbfCertificate _ _ jedf_all_windows_checked0 ->
+    jedf_all_windows_checked0}
+
+time_pair_eqb :: (Prod Time Time) -> (Prod Time Time) -> Bool
+time_pair_eqb w1 w2 =
+  case w1 of {
+   Pair a1 b1 -> case w2 of {
+                  Pair a2 b2 -> andb (eqb a1 a2) (eqb b1 b2)}}
+
+time_pair_list_eqb :: (List (Prod Time Time)) -> (List (Prod Time Time)) ->
+                      Bool
+time_pair_list_eqb xs ys =
+  case xs of {
+   Nil -> case ys of {
+           Nil -> True;
+           Cons _ _ -> False};
+   Cons x xs' ->
+    case ys of {
+     Nil -> False;
+     Cons y ys' -> andb (time_pair_eqb x y) (time_pair_list_eqb xs' ys')}}
+
+check_jittered_edf_dbf_certificate_fields :: Time -> (List (Prod Time Time))
+                                             -> JitteredEDFDbfCertificate ->
+                                             Bool
+check_jittered_edf_dbf_certificate_fields expected_cutoff expected_windows cert =
+  andb
+    (andb (eqb (jedf_cutoff cert) expected_cutoff)
+      (time_pair_list_eqb (jedf_checked_windows cert) expected_windows))
+    (jedf_all_windows_checked cert)
 
 expected_release :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId -> Nat ->
                     Time
@@ -539,4 +596,31 @@ jittered_periodic_offset_window_schedulability_counterexample :: (List
                                                                  Time)
 jittered_periodic_offset_window_schedulability_counterexample =
   extracted_jittered_offset_window_dbf_counterexample_by_cutoff
+
+jittered_edf_dbf_certificate_expected_cutoff :: (List
+                                                ExtractedJitteredPeriodicTask)
+                                                -> Time
+jittered_edf_dbf_certificate_expected_cutoff =
+  extracted_jittered_offset_window_dbf_cutoff_bound
+
+jittered_edf_dbf_certificate_expected_windows :: (List
+                                                 ExtractedJitteredPeriodicTask)
+                                                 -> List (Prod Time Time)
+jittered_edf_dbf_certificate_expected_windows ts =
+  critical_dbf_windows_upto (jittered_tasks_of_extracted_list ts)
+    (jittered_offset_of_extracted_list ts)
+    (jittered_enumT_of_extracted_list ts)
+    (jittered_edf_dbf_certificate_expected_cutoff ts)
+
+check_jittered_edf_dbf_certificate_extracted :: (List
+                                                ExtractedJitteredPeriodicTask)
+                                                -> JitteredEDFDbfCertificate
+                                                -> Bool
+check_jittered_edf_dbf_certificate_extracted ts cert =
+  andb
+    (andb (extracted_jittered_taskset_wf ts)
+      (check_jittered_edf_dbf_certificate_fields
+        (jittered_edf_dbf_certificate_expected_cutoff ts)
+        (jittered_edf_dbf_certificate_expected_windows ts) cert))
+    (extracted_jittered_offset_window_dbf_test_by_cutoff ts)
 

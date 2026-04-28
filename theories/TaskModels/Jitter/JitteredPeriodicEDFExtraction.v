@@ -1,4 +1,6 @@
 From Stdlib Require Extraction.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFCertificate.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFFinalCertificateChecker.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionDecision.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionSoundness.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionTypes.
@@ -7,7 +9,11 @@ Extraction Language Haskell.
 
 Extraction "extracted/haskell/JitteredPeriodicEDFSchedulability.hs"
   ExtractedJitteredPeriodicTask
+  JitteredEDFDbfCertificate
   extracted_periodic_as_jittered_zero_jitter
+  jittered_edf_dbf_certificate_expected_cutoff
+  jittered_edf_dbf_certificate_expected_windows
+  check_jittered_edf_dbf_certificate_extracted
   extracted_jittered_offset_window_dbf_cutoff_bound
   extracted_jittered_offset_window_dbf_test_by_cutoff
   extracted_jittered_offset_window_dbf_counterexample_by_cutoff

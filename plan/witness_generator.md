@@ -397,3 +397,127 @@ Update this section after each implementation batch.
   - benchmark rows compare Rust witness generation across `--threads 1`,
     `--threads 2`, and `--threads auto` with the existing Haskell prefix
     checker path
+- v1 complete:
+  - PR 1 through PR 6 establish the CSV-driven periodic EDF witness pipeline
+    with Rust generation, extracted-Haskell checking, deterministic output,
+    integration tests, and benchmark tooling
+  - the next batch must start from the v2 roadmap below before any
+    release-jitter witness generator implementation begins
+
+---
+
+## V2 Roadmap: Release-Jitter Witness Generation
+
+This v2 roadmap extends the CSV-driven witness pipeline toward release-jitter
+periodic EDF tasksets.  It is a roadmap for future implementation, not an
+implementation batch.  The first v2 work item is checker-facing: expose a
+jittered-periodic checked sidecar certificate API on the Rocq / extracted
+Haskell side.  Rust-side jittered witness generation must wait until that
+checker API exists.
+
+### V2 semantic assumptions
+
+- The Rust witness generator remains untrusted.
+- The extracted Haskell checker remains the trusted executable boundary.
+- V2 remains CSV-driven; Awkernel traces, runtime event vocabularies, GraphML,
+  and YAML witnesses remain out of scope.
+- Release jitter is task-generation metadata, not part of the core `Task`
+  record and not a runtime event.
+- Arrival offset and release jitter are separate parameters.
+- Until a checked sidecar API exists for jittered periodic EDF, jittered CSVs
+  stay on the existing cutoff/window DBF checker path.
+
+### V2 interface direction
+
+The intended future CSV shape is:
+
+```text
+cost,period,deadline,offset,jitter
+```
+
+The v1 CSV shapes remain valid for the v1 periodic EDF witness pipeline:
+
+```text
+cost,period,deadline
+cost,period,deadline,offset
+```
+
+Jittered witnesses should use a new witness schema version rather than
+overloading schema v1 with optional jitter fields.  The checker must reject
+schema/policy/domain/task-hash mismatches before calling extracted certificate
+checking code.
+
+### V2 implementation roadmap
+
+#### V2 PR 1: Jittered checked sidecar API design
+
+- Define the Rocq-side certificate shape needed for jittered periodic EDF.
+- Expose extracted Haskell checker entry points for jittered sidecar
+  certificates.
+- Keep the API checker-facing and independent from Rust generation details.
+- Required obligations include:
+  - jittered release-window coverage;
+  - offset and jitter bound checking;
+  - window DBF coverage;
+  - certificate field well-formedness;
+  - rejection of malformed or incomplete certificate data.
+
+#### V2 PR 2: Haskell JSON checker frontend
+
+- Add a schema-v2 JSON parser for jittered periodic EDF witnesses.
+- Parse CSV tasks with explicit `offset,jitter` columns.
+- Recompute the canonical task hash over `cost,period,deadline,offset,jitter`.
+- Convert parsed JSON into extracted jittered certificate constructors.
+- Print `ACCEPT` only when the extracted checker accepts.
+
+#### V2 PR 3: Rust CSV parsing and task identity
+
+- Extend Rust-side task parsing for the v2 jittered CSV shape.
+- Keep v1 periodic CSV parsing unchanged.
+- Add v2 task hashing that includes jitter separately from offset.
+- Reject jittered witness generation when the checker-facing API is not
+  available.
+
+#### V2 PR 4: Rust jittered certificate generation
+
+- Implement jittered witness generation only after V2 PR 1 and V2 PR 2 exist.
+- Generate certificate data accepted by the extracted Haskell jittered checker.
+- Preserve deterministic ordering and thread-independent output.
+- Keep timing and performance data outside canonical witness JSON.
+
+#### V2 PR 5: Integration and mutation tests
+
+- Add accepted jittered CSV fixtures.
+- Add rejected malformed and unschedulable jittered cases.
+- Add mutation tests for jitter, offset, release-window coverage, DBF table
+  fields, and task hash.
+- Keep existing v1 periodic EDF pipeline tests unchanged.
+
+#### V2 PR 6: Performance and limit tuning
+
+- Reuse the v1 benchmark infrastructure for jittered tasksets.
+- Compare jittered Rust generation against the extracted cutoff/window DBF
+  path.
+- Use benchmark data before raising generator limits or adding limit override
+  flags.
+
+### V2 risks for the Rust design
+
+- Do not implement jittered Rust witness generation before the extracted
+  checker can validate jittered certificates.
+- Do not encode release jitter as Awkernel trace behavior.
+- Do not collapse offset and jitter into one field.
+- Do not make schema v1 accept optional jitter fields.
+- Do not add timing or worker-count fields to canonical witness JSON.
+
+### V2 progress
+
+- V2 PR 1 started:
+  - added a DBF-only `JitteredEDFDbfCertificate` Rocq certificate shape
+  - added an extraction-facing jittered EDF DBF certificate checker
+  - the checker recomputes task well-formedness, cutoff, critical windows, and
+    the cutoff DBF decision instead of trusting Rust-provided fields
+  - proved that accepted DBF certificates imply the existing global jittered
+    offset-window DBF property
+  - exposed the certificate constructor and checker entry point in the
+    extracted Haskell jittered schedulability module
