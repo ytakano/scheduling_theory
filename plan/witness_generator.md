@@ -531,3 +531,11 @@ checking code.
   - parsed JSON is converted into extracted `JitteredEDFDbfCertificate`
     constructors and checked by `check_jittered_edf_dbf_certificate_extracted`
   - added make targets to build and test the jittered witness checker frontend
+- V2 PR 3 started:
+  - added a `jittered-periodic-edf` Rust generator subcommand
+  - added Rust parsing for explicit five-column jittered CSV tasksets
+  - added schema-v2 jittered task hashing that keeps `offset` and `jitter`
+    separate and matches the Haskell witness checker canonical metadata
+  - the jittered Rust path validates `--threads`, parses CSV, computes the
+    task hash, and then rejects generation until V2 PR4
+  - kept the existing schema-v1 `periodic-edf` generator path unchanged

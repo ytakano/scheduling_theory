@@ -58,6 +58,29 @@ test-sched-witness-gen-determinism:: sched-witness-gen
 	fi; \
 	grep -q -- '--threads must be positive or auto' "$$tmp/bad.out"
 
+test-sched-witness-gen-jittered-parse:: sched-witness-gen
+	@tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	printf 'cost,period,deadline,offset,jitter\n1,1,1,0,0\n' > "$$tmp/jittered.csv"; \
+	if ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.json" --threads auto > "$$tmp/jittered.out" 2>&1; then \
+		cat "$$tmp/jittered.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'jittered-periodic-edf witness generation is not implemented until V2 PR4' "$$tmp/jittered.out"; \
+	grep -q 'task_hash=sha256:4d975dd17f1887dc34f2607b632fe1430a674efa7c5c6ad07b8116697b490011' "$$tmp/jittered.out"; \
+	test ! -e "$$tmp/jittered.json"; \
+	printf 'cost,period,deadline,offset\n1,1,1,0\n' > "$$tmp/four-column.csv"; \
+	if ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/four-column.csv" --out "$$tmp/four-column.json" --threads auto > "$$tmp/four-column.out" 2>&1; then \
+		cat "$$tmp/four-column.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'expected 5 columns' "$$tmp/four-column.out"; \
+	if grep -q 'not implemented until V2 PR4' "$$tmp/four-column.out"; then \
+		cat "$$tmp/four-column.out"; \
+		exit 1; \
+	fi; \
+	test ! -e "$$tmp/four-column.json"
+
 test-periodic-edf-witness-pipeline:: sched-witness-gen build-periodic-edf-witness-check
 	@set -e; \
 	tmp=$$(mktemp -d); \
@@ -215,4 +238,4 @@ test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	fi; \
 	grep -q 'offset must be nonnegative' "$$tmp/negative-offset.out"
 
-.PHONY: extract-periodic-edf-sched-hs extract-jittered-edf-sched-hs build-periodic-edf-sched-csv build-periodic-edf-witness-check build-jittered-edf-witness-check run-periodic-edf-sched-csv sched-witness-gen test-sched-witness-gen-determinism test-periodic-edf-witness-pipeline test-jittered-edf-witness-check bench-periodic-edf-witness test-periodic-edf-sched-csv
+.PHONY: extract-periodic-edf-sched-hs extract-jittered-edf-sched-hs build-periodic-edf-sched-csv build-periodic-edf-witness-check build-jittered-edf-witness-check run-periodic-edf-sched-csv sched-witness-gen test-sched-witness-gen-determinism test-sched-witness-gen-jittered-parse test-periodic-edf-witness-pipeline test-jittered-edf-witness-check bench-periodic-edf-witness test-periodic-edf-sched-csv

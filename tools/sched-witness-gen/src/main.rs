@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
-use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
+use rayon::prelude::*;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
@@ -21,6 +21,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     PeriodicEdf(PeriodicEdfArgs),
+    JitteredPeriodicEdf(JitteredPeriodicEdfArgs),
 }
 
 #[derive(Parser)]
@@ -35,12 +36,31 @@ struct PeriodicEdfArgs {
     metrics_out: Option<PathBuf>,
 }
 
+#[derive(Parser)]
+struct JitteredPeriodicEdfArgs {
+    #[arg(long)]
+    tasks: PathBuf,
+    #[arg(long)]
+    out: PathBuf,
+    #[arg(long, default_value = "auto")]
+    threads: String,
+}
+
 #[derive(Clone, Debug)]
 struct Task {
     cost: u64,
     period: u64,
     deadline: u64,
     offset: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct JitteredTask {
+    cost: u64,
+    period: u64,
+    deadline: u64,
+    offset: u64,
+    jitter: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -154,6 +174,7 @@ fn run() -> Result<(), String> {
     let cli = Cli::parse();
     match cli.command {
         Command::PeriodicEdf(args) => run_periodic_edf(args),
+        Command::JitteredPeriodicEdf(args) => run_jittered_periodic_edf(args),
     }
 }
 
@@ -182,6 +203,18 @@ fn run_periodic_edf(args: PeriodicEdfArgs) -> Result<(), String> {
     Ok(())
 }
 
+fn run_jittered_periodic_edf(args: JitteredPeriodicEdfArgs) -> Result<(), String> {
+    let _thread_mode = ThreadMode::parse(&args.threads)?;
+    let csv = fs::read_to_string(&args.tasks)
+        .map_err(|err| format!("failed to read {}: {err}", args.tasks.display()))?;
+    let tasks = parse_jittered_csv(&csv)?;
+    let hash = jittered_task_hash(&tasks);
+    let _ = args.out;
+    Err(format!(
+        "jittered-periodic-edf witness generation is not implemented until V2 PR4; task_hash={hash}"
+    ))
+}
+
 fn write_metrics(path: &PathBuf, witness: &Witness, requested_threads: &str) -> Result<(), String> {
     let stats = &witness.generator_stats;
     let metrics = format!(
@@ -200,8 +233,7 @@ fn write_metrics(path: &PathBuf, witness: &Witness, requested_threads: &str) -> 
         stats.post_reset_window_target_count,
         requested_threads
     );
-    fs::write(path, metrics)
-        .map_err(|err| format!("failed to write {}: {err}", path.display()))
+    fs::write(path, metrics).map_err(|err| format!("failed to write {}: {err}", path.display()))
 }
 
 #[derive(Clone, Debug)]
@@ -235,11 +267,13 @@ impl ThreadMode {
 }
 
 fn generate_witness(tasks: &[Task], thread_mode: &ThreadMode) -> Result<Witness, String> {
-    let hyperperiod = tasks.iter().try_fold(1, |acc, task| checked_lcm(acc, task.period))?;
+    let hyperperiod = tasks
+        .iter()
+        .try_fold(1, |acc, task| checked_lcm(acc, task.period))?;
     let max_offset = tasks.iter().map(|task| task.offset).max().unwrap_or(0);
     let max_deadline = tasks.iter().map(|task| task.deadline).max().unwrap_or(0);
     let base_horizon = max_offset
-        .checked_add(checked_mul(2, hyperperiod)?) 
+        .checked_add(checked_mul(2, hyperperiod)?)
         .and_then(|x| x.checked_add(max_deadline))
         .ok_or_else(|| "prefix horizon overflow".to_string())?;
     let residue_horizon = transport_residue_horizon(tasks, hyperperiod)?;
@@ -249,12 +283,17 @@ fn generate_witness(tasks: &[Task], thread_mode: &ThreadMode) -> Result<Witness,
     let prefix_jobs = jobs_before(tasks, horizon)?;
     ensure_limit(prefix_jobs.len() <= MAX_BASIS_JOBS, "prefix job count")?;
     let slots = simulate_edf(&prefix_jobs, horizon);
-    let completed_by = map_vec(thread_mode, &prefix_jobs, |job| Ok(completion_time(&slots, job)))?;
+    let completed_by = map_vec(thread_mode, &prefix_jobs, |job| {
+        Ok(completion_time(&slots, job))
+    })?;
     let backlog_free_matrix = backlog_matrix(thread_mode, &prefix_jobs, &completed_by)?;
     let prefix_basis_jobs = prefix_jobs.iter().map(|job| job.id).collect::<Vec<_>>();
 
     let transport_basis_jobs = transport_residue_jobs(tasks, hyperperiod)?;
-    ensure_limit(transport_basis_jobs.len() <= MAX_BASIS_JOBS, "transport basis job count")?;
+    ensure_limit(
+        transport_basis_jobs.len() <= MAX_BASIS_JOBS,
+        "transport basis job count",
+    )?;
     let transport_basis_job_count = transport_basis_jobs.len();
     let classes = map_vec(thread_mode, &transport_basis_jobs, |job_id| {
         Ok(TransportClass {
@@ -263,11 +302,14 @@ fn generate_witness(tasks: &[Task], thread_mode: &ThreadMode) -> Result<Witness,
             backlog_offset: hyperperiod,
         })
     })?;
-    let job_class = (0..transport_basis_jobs.len()).map(|i| i as u64).collect::<Vec<_>>();
+    let job_class = (0..transport_basis_jobs.len())
+        .map(|i| i as u64)
+        .collect::<Vec<_>>();
     let job_shift = vec![hyperperiod; transport_basis_jobs.len()];
 
-    let class_relevant_jobs =
-        map_vec(thread_mode, &transport_basis_jobs, |job_id| relevant_earlier_jobs(tasks, *job_id))?;
+    let class_relevant_jobs = map_vec(thread_mode, &transport_basis_jobs, |job_id| {
+        relevant_earlier_jobs(tasks, *job_id)
+    })?;
     let window_target_certs =
         map_indexed_vec(thread_mode, &transport_basis_jobs, |class_id, target| {
             window_target_cert(tasks, hyperperiod, &transport_basis_jobs, class_id, *target)
@@ -286,14 +328,16 @@ fn generate_witness(tasks: &[Task], thread_mode: &ThreadMode) -> Result<Witness,
     }
     post_reset_targets.sort_unstable();
     let post_reset_window_target_certs = map_vec(thread_mode, &post_reset_targets, |job_id| {
-            let class_id = transport_class_for(tasks, hyperperiod, &transport_basis_jobs, *job_id)?;
-            window_target_cert(tasks, hyperperiod, &transport_basis_jobs, class_id, *job_id)
-        })?;
+        let class_id = transport_class_for(tasks, hyperperiod, &transport_basis_jobs, *job_id)?;
+        window_target_cert(tasks, hyperperiod, &transport_basis_jobs, class_id, *job_id)
+    })?;
 
     let dbf_cutoff = scalar_dbf_cutoff(tasks, hyperperiod)?;
     ensure_limit(dbf_cutoff <= MAX_HORIZON, "DBF cutoff")?;
     let critical_points = critical_dbf_points(tasks, dbf_cutoff);
-    let ok_table = map_vec(thread_mode, &critical_points, |t| Ok(periodic_dbf(tasks, *t) <= *t))?;
+    let ok_table = map_vec(thread_mode, &critical_points, |t| {
+        Ok(periodic_dbf(tasks, *t) <= *t)
+    })?;
 
     Ok(Witness {
         schema_version: 1,
@@ -362,9 +406,17 @@ where
     F: Fn(usize, &T) -> Result<U, String> + Sync + Send,
 {
     if thread_mode.is_serial() {
-        input.iter().enumerate().map(|(i, value)| f(i, value)).collect()
+        input
+            .iter()
+            .enumerate()
+            .map(|(i, value)| f(i, value))
+            .collect()
     } else {
-        input.par_iter().enumerate().map(|(i, value)| f(i, value)).collect()
+        input
+            .par_iter()
+            .enumerate()
+            .map(|(i, value)| f(i, value))
+            .collect()
     }
 }
 
@@ -380,11 +432,40 @@ fn parse_csv(content: &str) -> Result<Vec<Task>, String> {
     if rows.is_empty() {
         return Err("empty CSV: expected at least one task row".to_string());
     }
-    let rows = if is_header(rows[0].1) { &rows[1..] } else { &rows[..] };
+    let rows = if is_header(rows[0].1) {
+        &rows[1..]
+    } else {
+        &rows[..]
+    };
     if rows.is_empty() {
         return Err("CSV contains a header but no task rows".to_string());
     }
     rows.iter().map(|row| parse_task_row(*row)).collect()
+}
+
+fn parse_jittered_csv(content: &str) -> Result<Vec<JitteredTask>, String> {
+    let rows = content
+        .lines()
+        .enumerate()
+        .filter_map(|(index, line)| {
+            let trimmed = line.trim();
+            (!trimmed.is_empty() && !trimmed.starts_with('#')).then_some((index + 1, trimmed))
+        })
+        .collect::<Vec<_>>();
+    if rows.is_empty() {
+        return Err("empty CSV: expected at least one task row".to_string());
+    }
+    let rows = if is_jittered_header(rows[0].1) {
+        &rows[1..]
+    } else {
+        &rows[..]
+    };
+    if rows.is_empty() {
+        return Err("CSV contains a header but no task rows".to_string());
+    }
+    rows.iter()
+        .map(|row| parse_jittered_task_row(*row))
+        .collect()
 }
 
 fn is_header(line: &str) -> bool {
@@ -395,10 +476,25 @@ fn is_header(line: &str) -> bool {
     cells == ["cost", "period", "deadline"] || cells == ["cost", "period", "deadline", "offset"]
 }
 
+fn is_jittered_header(line: &str) -> bool {
+    let cells = split_csv_line(line)
+        .into_iter()
+        .map(|cell| normalize_header_cell(&cell))
+        .collect::<Vec<_>>();
+    cells == ["cost", "period", "deadline", "offset", "jitter"]
+        || cells == ["cost", "period", "deadline", "offset", "release_jitter"]
+}
+
 fn normalize_header_cell(cell: &str) -> String {
     cell.trim()
         .chars()
-        .map(|c| if c.is_whitespace() || c == '-' { '_' } else { c.to_ascii_lowercase() })
+        .map(|c| {
+            if c.is_whitespace() || c == '-' {
+                '_'
+            } else {
+                c.to_ascii_lowercase()
+            }
+        })
         .collect()
 }
 
@@ -417,12 +513,34 @@ fn parse_task_row((line_no, line): (usize, &str)) -> Result<Task, String> {
             deadline: parse_positive(line_no, "deadline", deadline)?,
             offset: parse_nonnegative(line_no, "offset", offset)?,
         }),
-        cols => Err(format!("line {line_no}: expected 3 or 4 columns, got {}", cols.len())),
+        cols => Err(format!(
+            "line {line_no}: expected 3 or 4 columns, got {}",
+            cols.len()
+        )),
+    }
+}
+
+fn parse_jittered_task_row((line_no, line): (usize, &str)) -> Result<JitteredTask, String> {
+    let cells = split_csv_line(line);
+    match cells.as_slice() {
+        [cost, period, deadline, offset, jitter] => Ok(JitteredTask {
+            cost: parse_positive(line_no, "cost", cost)?,
+            period: parse_positive(line_no, "period", period)?,
+            deadline: parse_positive(line_no, "deadline", deadline)?,
+            offset: parse_nonnegative(line_no, "offset", offset)?,
+            jitter: parse_nonnegative(line_no, "jitter", jitter)?,
+        }),
+        cols => Err(format!(
+            "line {line_no}: expected 5 columns, got {}",
+            cols.len()
+        )),
     }
 }
 
 fn split_csv_line(line: &str) -> Vec<String> {
-    line.split(',').map(|cell| cell.trim().to_string()).collect()
+    line.split(',')
+        .map(|cell| cell.trim().to_string())
+        .collect()
 }
 
 fn parse_positive(line_no: usize, name: &str, text: &str) -> Result<u64, String> {
@@ -489,7 +607,10 @@ fn job_by_id(tasks: &[Task], job_id: u64) -> Result<Job, String> {
 }
 
 fn simulate_edf(jobs: &[Job], horizon: u64) -> Vec<Option<u64>> {
-    let mut remaining = jobs.iter().map(|job| (job.id, job.cost)).collect::<Vec<_>>();
+    let mut remaining = jobs
+        .iter()
+        .map(|job| (job.id, job.cost))
+        .collect::<Vec<_>>();
     let mut slots = Vec::with_capacity(horizon as usize);
     for t in 0..horizon {
         let selected = jobs
@@ -531,14 +652,16 @@ fn completion_time(slots: &[Option<u64>], job: &Job) -> u64 {
     slots.len() as u64
 }
 
-fn backlog_matrix(thread_mode: &ThreadMode, jobs: &[Job], completed_by: &[u64]) -> Result<Vec<Vec<bool>>, String> {
+fn backlog_matrix(
+    thread_mode: &ThreadMode,
+    jobs: &[Job],
+    completed_by: &[u64],
+) -> Result<Vec<Vec<bool>>, String> {
     map_vec(thread_mode, jobs, |target| {
-        Ok(
-            completed_by
-                .iter()
-                .map(|completion| *completion <= target.release)
-                .collect()
-        )
+        Ok(completed_by
+            .iter()
+            .map(|completion| *completion <= target.release)
+            .collect())
     })
 }
 
@@ -611,7 +734,9 @@ fn window_target_cert(
                         })
                         .unwrap_or(false)
                 })
-                .ok_or_else(|| format!("missing representative earlier job for target job {earlier_id}"))?;
+                .ok_or_else(|| {
+                    format!("missing representative earlier job for target job {earlier_id}")
+                })?;
             Ok(WindowPairCert {
                 target_earlier_job: earlier_id,
                 rep_earlier_job: rep_earlier,
@@ -627,7 +752,12 @@ fn window_target_cert(
     })
 }
 
-fn transport_class_for(tasks: &[Task], hyperperiod: u64, basis: &[u64], job_id: u64) -> Result<usize, String> {
+fn transport_class_for(
+    tasks: &[Task],
+    hyperperiod: u64,
+    basis: &[u64],
+    job_id: u64,
+) -> Result<usize, String> {
     if let Some(position) = basis.iter().position(|basis_id| *basis_id == job_id) {
         return Ok(position);
     }
@@ -638,8 +768,7 @@ fn transport_class_for(tasks: &[Task], hyperperiod: u64, basis: &[u64], job_id: 
         .position(|basis_id| {
             job_by_id(tasks, *basis_id)
                 .map(|basis_job| {
-                    basis_job.task == target.task
-                        && basis_job.index == target.index % residue_span
+                    basis_job.task == target.task && basis_job.index == target.index % residue_span
                 })
                 .unwrap_or(false)
         })
@@ -690,10 +819,30 @@ fn periodic_dbf(tasks: &[Task], h: u64) -> u64 {
 fn task_hash(tasks: &[Task]) -> String {
     let mut canonical = String::from("schema=periodic-edf-tasks-v1\ncost,period,deadline,offset\n");
     for task in tasks {
-        canonical.push_str(&format!("{},{},{},{}\n", task.cost, task.period, task.deadline, task.offset));
+        canonical.push_str(&format!(
+            "{},{},{},{}\n",
+            task.cost, task.period, task.deadline, task.offset
+        ));
     }
     let digest = Sha256::digest(canonical.as_bytes());
     format!("sha256:{digest:x}")
+}
+
+fn jittered_task_hash(tasks: &[JitteredTask]) -> String {
+    let digest = Sha256::digest(canonical_jittered_task_text(tasks).as_bytes());
+    format!("sha256:{digest:x}")
+}
+
+fn canonical_jittered_task_text(tasks: &[JitteredTask]) -> String {
+    let mut canonical =
+        String::from("schema=jittered-periodic-edf-tasks-v2\ncost,period,deadline,offset,jitter\n");
+    for task in tasks {
+        canonical.push_str(&format!(
+            "{},{},{},{},{}\n",
+            task.cost, task.period, task.deadline, task.offset, task.jitter
+        ));
+    }
+    canonical
 }
 
 fn checked_gcd(mut a: u64, mut b: u64) -> u64 {
@@ -710,7 +859,8 @@ fn checked_lcm(a: u64, b: u64) -> Result<u64, String> {
 }
 
 fn checked_mul(a: u64, b: u64) -> Result<u64, String> {
-    a.checked_mul(b).ok_or_else(|| "integer overflow".to_string())
+    a.checked_mul(b)
+        .ok_or_else(|| "integer overflow".to_string())
 }
 
 fn ensure_limit(ok: bool, what: &str) -> Result<(), String> {
@@ -718,5 +868,82 @@ fn ensure_limit(ok: bool, what: &str) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!("{what} exceeds PR2 resource limit"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_jittered_csv_with_jitter_header() {
+        let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,4,4,0,1\n")
+            .expect("jittered CSV should parse");
+        assert_eq!(
+            tasks,
+            vec![JitteredTask {
+                cost: 1,
+                period: 4,
+                deadline: 4,
+                offset: 0,
+                jitter: 1,
+            }]
+        );
+    }
+
+    #[test]
+    fn parses_jittered_csv_with_release_jitter_header() {
+        let tasks = parse_jittered_csv("cost,period,deadline,offset,release_jitter\n2,5,5,3,2\n")
+            .expect("release_jitter CSV should parse");
+        assert_eq!(
+            tasks,
+            vec![JitteredTask {
+                cost: 2,
+                period: 5,
+                deadline: 5,
+                offset: 3,
+                jitter: 2,
+            }]
+        );
+    }
+
+    #[test]
+    fn rejects_non_jittered_csv_shapes() {
+        let err = parse_jittered_csv("cost,period,deadline,offset\n1,4,4,0\n")
+            .expect_err("four-column CSV must be rejected");
+        assert!(err.contains("expected 5 columns"));
+    }
+
+    #[test]
+    fn rejects_invalid_jittered_values() {
+        let err = parse_jittered_csv("cost,period,deadline,offset,jitter\n0,4,4,0,1\n")
+            .expect_err("zero cost must be rejected");
+        assert!(err.contains("cost must be positive"));
+
+        let err = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,4,4,0,-1\n")
+            .expect_err("negative jitter must be rejected");
+        assert!(err.contains("invalid jitter"));
+    }
+
+    #[test]
+    fn hashes_canonical_jittered_task_text() {
+        let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,1,1,0,0\n")
+            .expect("jittered CSV should parse");
+        assert_eq!(
+            canonical_jittered_task_text(&tasks),
+            "schema=jittered-periodic-edf-tasks-v2\ncost,period,deadline,offset,jitter\n1,1,1,0,0\n"
+        );
+        assert_eq!(
+            jittered_task_hash(&tasks),
+            "sha256:4d975dd17f1887dc34f2607b632fe1430a674efa7c5c6ad07b8116697b490011"
+        );
+
+        let tasks =
+            parse_jittered_csv("cost,period,deadline,offset,jitter\n1,4,4,0,1\n2,5,5,3,2\n")
+                .expect("multi-row jittered CSV should parse");
+        assert_eq!(
+            jittered_task_hash(&tasks),
+            "sha256:fea75940a9369d5153b5bd0e6c0e11ca396332982ad218873590323f77a74b73"
+        );
     }
 }
