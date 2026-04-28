@@ -52,22 +52,22 @@ run_rust() {
   wall_ms=$((end - start))
   if [ "$status" = ok ] && [ -f "$metrics" ]; then
     row=$(sed -n '2p' "$metrics")
-    IFS=, read -r task_count schema_version cutoff basis_window_count requested_threads _status <<EOF
+    IFS=, read -r task_count schema_ver cutoff basis_window_count requested_threads _status <<EOF
 $row
 EOF
-    if [ "$schema_version" != 3 ]; then
+    if [ "$schema_ver" != 3 ]; then
       printf '%s,rust-generator,%s,%s,%s,%s,%s,unavailable,%s,unavailable,failed\n' \
-        "$name" "$requested_threads" "$task_count" "$schema_version" "$cutoff" \
+        "$name" "$requested_threads" "$task_count" "$schema_ver" "$cutoff" \
         "$basis_window_count" "$wall_ms" >> "$out"
-      echo "expected jittered witness schema_version 3, got $schema_version" >&2
+      echo "expected jittered witness schema 3; got $schema_ver" >&2
       return 1
     fi
     witness_bytes=$(wc -c < "$witness" | tr -d ' ')
     printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,%s,unavailable,%s\n' \
-      "$name" "$requested_threads" "$task_count" "$schema_version" "$cutoff" \
+      "$name" "$requested_threads" "$task_count" "$schema_ver" "$cutoff" \
       "$basis_window_count" "$witness_bytes" "$wall_ms" "$status" >> "$out"
     if [ "$threads" = auto ]; then
-      run_haskell_witness_check "$name" "$witness" "$task_count" "$schema_version" "$cutoff" \
+      run_haskell_witness_check "$name" "$witness" "$task_count" "$schema_ver" "$cutoff" \
         "$basis_window_count" "$witness_bytes"
     fi
   else
@@ -80,11 +80,11 @@ run_haskell_witness_check() {
   name=$1
   witness=$2
   task_count=$3
-  schema_version=$4
+  schema_ver=$4
   cutoff=$5
   basis_window_count=$6
   witness_bytes=$7
-  err="$tmp/$name.schema$schema_version.check.err"
+  err="$tmp/$name.schema$schema_ver.check.err"
   start=$(now_ms)
   status=ok
   if ! ./scripts/jittered_edf_witness_check --tasks "$tmp/$name.csv" --witness "$witness" > /dev/null 2> "$err"; then
@@ -93,7 +93,7 @@ run_haskell_witness_check() {
   end=$(now_ms)
   wall_ms=$((end - start))
   printf '%s,haskell-witness-check,auto,%s,%s,%s,%s,%s,%s,unavailable,%s\n' \
-    "$name" "$task_count" "$schema_version" "$cutoff" \
+    "$name" "$task_count" "$schema_ver" "$cutoff" \
     "$basis_window_count" "$witness_bytes" "$wall_ms" "$status" >> "$out"
 }
 
