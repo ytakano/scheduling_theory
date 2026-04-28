@@ -74,9 +74,6 @@ test-sched-witness-gen-jittered-parse:: sched-witness-gen build-jittered-edf-wit
 	cmp "$$tmp/jittered.threads1.json" "$$tmp/jittered.auto.json"; \
 	./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/jittered.threads1.json"; \
 	grep -q '"schema_version": 3' "$$tmp/jittered.threads1.json"; \
-	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.schema2.json" --threads auto --witness-schema 2; \
-	./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/jittered.schema2.json"; \
-	grep -q '"schema_version": 2' "$$tmp/jittered.schema2.json"; \
 	perl -0pe 's/"task_hash": "sha256:[^"]+"/"task_hash": "sha256:0"/' "$$tmp/jittered.threads1.json" > "$$tmp/hash-mut.json"; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/hash-mut.json" > "$$tmp/hash-mut.out" 2>&1; then \
 		cat "$$tmp/hash-mut.out"; \
@@ -85,11 +82,6 @@ test-sched-witness-gen-jittered-parse:: sched-witness-gen build-jittered-edf-wit
 	perl -0pe 's/"all_basis_checked": true/"all_basis_checked": false/' "$$tmp/jittered.threads1.json" > "$$tmp/all-basis-mut.json"; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/all-basis-mut.json" > "$$tmp/all-basis-mut.out" 2>&1; then \
 		cat "$$tmp/all-basis-mut.out"; \
-		exit 1; \
-	fi; \
-	perl -0pe 's/"all_windows_checked": true/"all_windows_checked": false/' "$$tmp/jittered.schema2.json" > "$$tmp/all-windows-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/all-windows-mut.json" > "$$tmp/all-windows-mut.out" 2>&1; then \
-		cat "$$tmp/all-windows-mut.out"; \
 		exit 1; \
 	fi; \
 	printf 'cost,period,deadline,offset\n1,1,1,0\n' > "$$tmp/four-column.csv"; \
@@ -162,8 +154,6 @@ test-jittered-edf-witness-pipeline:: sched-witness-gen build-jittered-edf-witnes
 	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$fixtures/accepted_zero_jitter.csv" --out "$$tmp/zero.auto.json" --threads auto; \
 	cmp "$$tmp/zero.threads1.json" "$$tmp/zero.threads2.json"; \
 	cmp "$$tmp/zero.threads1.json" "$$tmp/zero.auto.json"; \
-	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$fixtures/accepted_zero_jitter.csv" --out "$$tmp/zero.schema2.json" --threads auto --witness-schema 2; \
-	./scripts/jittered_edf_witness_check --tasks "$$fixtures/accepted_zero_jitter.csv" --witness "$$tmp/zero.schema2.json"; \
 	if ./scripts/run_jittered_edf_witness_pipeline "$$fixtures/four_column.csv" "$$tmp/four-column.json" > "$$tmp/four-column.out" 2>&1; then \
 		cat "$$tmp/four-column.out"; \
 		exit 1; \
@@ -222,19 +212,17 @@ test-jittered-edf-witness-check:: build-jittered-edf-witness-check
 	printf 'cost,period,deadline,offset,jitter\n1,1,1,0,0\n' > "$$tmp/accepted.csv"; \
 	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --emit-expected-witness "$$tmp/accepted.json"; \
 	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.json"; \
-	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --emit-expected-witness-schema 3 "$$tmp/accepted-v3.json"; \
-	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted-v3.json"; \
-	perl -0pe 's/"basis":\[/"basis":[{"t2":999,"left_edges":[999]},/' "$$tmp/accepted-v3.json" > "$$tmp/v3-basis-extra.json"; \
+	perl -0pe 's/"basis":\[/"basis":[{"t2":999,"left_edges":[999]},/' "$$tmp/accepted.json" > "$$tmp/v3-basis-extra.json"; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-basis-extra.json" > "$$tmp/v3-basis-extra.out" 2>&1; then \
 		cat "$$tmp/v3-basis-extra.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"left_edges":\[\K[0-9]+/999/' "$$tmp/accepted-v3.json" > "$$tmp/v3-left-edge-mut.json"; \
+	perl -0pe 's/"left_edges":\[\K[0-9]+/999/' "$$tmp/accepted.json" > "$$tmp/v3-left-edge-mut.json"; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-left-edge-mut.json" > "$$tmp/v3-left-edge-mut.out" 2>&1; then \
 		cat "$$tmp/v3-left-edge-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"all_basis_checked":true/"all_basis_checked":false/' "$$tmp/accepted-v3.json" > "$$tmp/v3-all-basis-mut.json"; \
+	perl -0pe 's/"all_basis_checked":true/"all_basis_checked":false/' "$$tmp/accepted.json" > "$$tmp/v3-all-basis-mut.json"; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-all-basis-mut.json" > "$$tmp/v3-all-basis-mut.out" 2>&1; then \
 		cat "$$tmp/v3-all-basis-mut.out"; \
 		exit 1; \
@@ -251,7 +239,7 @@ test-jittered-edf-witness-check:: build-jittered-edf-witness-check
 		exit 1; \
 	fi; \
 	grep -q 'jitter must be nonnegative' "$$tmp/malformed.out"; \
-	perl -0pe 's/"schema_version":2/"schema_version":1/' "$$tmp/accepted.json" > "$$tmp/schema-mut.json"; \
+	perl -0pe 's/"schema_version":3/"schema_version":1/' "$$tmp/accepted.json" > "$$tmp/schema-mut.json"; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/schema-mut.json" > "$$tmp/schema-mut.out" 2>&1; then \
 		cat "$$tmp/schema-mut.out"; \
 		exit 1; \
@@ -274,16 +262,6 @@ test-jittered-edf-witness-check:: build-jittered-edf-witness-check
 	perl -0pe 's/"cutoff":[0-9]+/"cutoff":-1/' "$$tmp/accepted.json" > "$$tmp/cutoff-mut.json"; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/cutoff-mut.json" > "$$tmp/cutoff-mut.out" 2>&1; then \
 		cat "$$tmp/cutoff-mut.out"; \
-		exit 1; \
-	fi; \
-	perl -0pe 's/"checked_windows":\[/"checked_windows":[[999,999],/' "$$tmp/accepted.json" > "$$tmp/windows-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/windows-mut.json" > "$$tmp/windows-mut.out" 2>&1; then \
-		cat "$$tmp/windows-mut.out"; \
-		exit 1; \
-	fi; \
-	perl -0pe 's/"all_windows_checked":true/"all_windows_checked":false/' "$$tmp/accepted.json" > "$$tmp/all-windows-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/all-windows-mut.json" > "$$tmp/all-windows-mut.out" 2>&1; then \
-		cat "$$tmp/all-windows-mut.out"; \
 		exit 1; \
 	fi
 

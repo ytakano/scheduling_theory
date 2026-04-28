@@ -9,12 +9,8 @@ Extraction Language Haskell.
 
 Extraction "extracted/haskell/JitteredPeriodicEDFSchedulability.hs"
   ExtractedJitteredPeriodicTask
-  JitteredEDFDbfCertificate
   JitteredEDFCompactDbfCertificate
   extracted_periodic_as_jittered_zero_jitter
-  jittered_edf_dbf_certificate_expected_cutoff
-  jittered_edf_dbf_certificate_expected_windows
-  check_jittered_edf_dbf_certificate_extracted
   jittered_edf_compact_dbf_certificate_expected_cutoff
   jittered_edf_compact_dbf_certificate_expected_basis
   check_jittered_edf_compact_dbf_certificate_extracted

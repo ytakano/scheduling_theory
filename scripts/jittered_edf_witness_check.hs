@@ -15,7 +15,6 @@ import Data.Aeson
   , withObject
   , (.=)
   , (.:)
-  , (.:?)
   )
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
@@ -48,10 +47,8 @@ newtype CertJson = CertJson
 
 data DbfJson = DbfJson
   { dbfCutoffJson :: Int
-  , dbfCheckedWindowsJson :: Maybe [[Int]]
-  , dbfAllWindowsCheckedJson :: Maybe Bool
-  , dbfBasisJson :: Maybe [BasisRowJson]
-  , dbfAllBasisCheckedJson :: Maybe Bool
+  , dbfBasisJson :: [BasisRowJson]
+  , dbfAllBasisCheckedJson :: Bool
   }
 
 data BasisRowJson = BasisRowJson
@@ -80,10 +77,8 @@ instance FromJSON DbfJson where
     withObject "dbf" $ \o ->
       DbfJson
         <$> o .: "cutoff"
-        <*> o .:? "checked_windows"
-        <*> o .:? "all_windows_checked"
-        <*> o .:? "basis"
-        <*> o .:? "all_basis_checked"
+        <*> o .: "basis"
+        <*> o .: "all_basis_checked"
 
 instance FromJSON BasisRowJson where
   parseJSON =
@@ -99,19 +94,13 @@ main = do
     ["--tasks", taskPath, "--witness", witnessPath] ->
       runCheck taskPath witnessPath
     ["--tasks", taskPath, "--emit-expected-witness", witnessPath] ->
-      emitExpectedWitness 2 taskPath witnessPath
-    ["--tasks", taskPath, "--emit-expected-witness-schema", schemaText, witnessPath] ->
-      case readMaybe schemaText of
-        Just schema | schema == 2 || schema == 3 ->
-          emitExpectedWitness schema taskPath witnessPath
-        _ -> reject "--emit-expected-witness-schema must be 2 or 3"
+      emitExpectedWitness taskPath witnessPath
     _ -> printUsage >> exitFailure
 
 printUsage :: IO ()
 printUsage = do
   putStrLn "usage: jittered_edf_witness_check --tasks TASKS.csv --witness WITNESS.json"
   putStrLn "       jittered_edf_witness_check --tasks TASKS.csv --emit-expected-witness WITNESS.json"
-  putStrLn "       jittered_edf_witness_check --tasks TASKS.csv --emit-expected-witness-schema 3 WITNESS.json"
 
 runCheck :: FilePath -> FilePath -> IO ()
 runCheck taskPath witnessPath = do
@@ -131,41 +120,27 @@ runCheck taskPath witnessPath = do
                 Right EDF.True -> putStrLn "ACCEPT" >> exitSuccess
                 Right EDF.False -> reject "extracted checker rejected witness"
 
-emitExpectedWitness :: Int -> FilePath -> FilePath -> IO ()
-emitExpectedWitness schema taskPath witnessPath = do
+emitExpectedWitness :: FilePath -> FilePath -> IO ()
+emitExpectedWitness taskPath witnessPath = do
   taskContent <- readFile taskPath
   case parseCsv taskContent of
     Left err -> reject ("invalid CSV: " ++ err)
     Right tasks -> do
       let input = toEDFList (map toEDFTask tasks)
           cutoff =
-            fromNat (EDF.jittered_edf_dbf_certificate_expected_cutoff input)
-          windows =
-            map fromEDFPair
-              (fromEDFList (EDF.jittered_edf_dbf_certificate_expected_windows input))
-          compactCutoff =
             fromNat (EDF.jittered_edf_compact_dbf_certificate_expected_cutoff input)
           basis =
             map fromEDFBasisRow
               (fromEDFList (EDF.jittered_edf_compact_dbf_certificate_expected_basis input))
           dbfObject =
-            case schema of
-              2 ->
-                object
-                  [ "cutoff" .= cutoff
-                  , "checked_windows" .= windows
-                  , "all_windows_checked" .= True
-                  ]
-              3 ->
-                object
-                  [ "cutoff" .= compactCutoff
-                  , "basis" .= basis
-                  , "all_basis_checked" .= True
-                  ]
-              _ -> object []
+            object
+              [ "cutoff" .= cutoff
+              , "basis" .= basis
+              , "all_basis_checked" .= True
+              ]
           witness =
             object
-              [ "schema_version" .= schema
+              [ "schema_version" .= (3 :: Int)
               , "policy" .= ("jittered-periodic-edf" :: String)
               , "domain" .= ("uniprocessor" :: String)
               , "task_hash" .= taskHash tasks
@@ -181,7 +156,7 @@ reject err = do
 
 validateWitnessMetadata :: [ParsedTask] -> Witness -> Either String ()
 validateWitnessMetadata tasks witness
-  | witnessSchemaVersion witness /= 2 && witnessSchemaVersion witness /= 3 =
+  | witnessSchemaVersion witness /= 3 =
       Left "unsupported schema_version"
   | witnessPolicy witness /= "jittered-periodic-edf" =
       Left "unsupported policy"
@@ -196,40 +171,16 @@ checkWitness tasks witness =
   let input = toEDFList (map toEDFTask tasks)
       dbf = certDbf (witnessCert witness)
   in case witnessSchemaVersion witness of
-       2 ->
-         EDF.check_jittered_edf_dbf_certificate_extracted input
-           <$> buildDbfV2 dbf
        3 ->
-         EDF.check_jittered_edf_compact_dbf_certificate_extracted input
-           <$> buildDbfV3 dbf
+         EDF.check_jittered_edf_compact_dbf_certificate_extracted input <$> buildDbf dbf
        _ -> Left "unsupported schema_version"
 
-buildDbfV2 :: DbfJson -> Either String EDF.JitteredEDFDbfCertificate
-buildDbfV2 dbf = do
-  checkedWindows <-
-    requireField "cert.dbf.checked_windows" (dbfCheckedWindowsJson dbf)
-  allWindowsChecked <-
-    requireField "cert.dbf.all_windows_checked" (dbfAllWindowsCheckedJson dbf)
-  EDF.Build_JitteredEDFDbfCertificate
-    <$> checkedNat "cert.dbf.cutoff" (dbfCutoffJson dbf)
-    <*> checkedWindowRows "cert.dbf.checked_windows" checkedWindows
-    <*> pure (toEDFBool allWindowsChecked)
-
-buildDbfV3 :: DbfJson -> Either String EDF.JitteredEDFCompactDbfCertificate
-buildDbfV3 dbf = do
-  basis <- requireField "cert.dbf.basis" (dbfBasisJson dbf)
-  allBasisChecked <-
-    requireField "cert.dbf.all_basis_checked" (dbfAllBasisCheckedJson dbf)
+buildDbf :: DbfJson -> Either String EDF.JitteredEDFCompactDbfCertificate
+buildDbf dbf =
   EDF.Build_JitteredEDFCompactDbfCertificate
     <$> checkedNat "cert.dbf.cutoff" (dbfCutoffJson dbf)
-    <*> checkedBasisRows "cert.dbf.basis" basis
-    <*> pure (toEDFBool allBasisChecked)
-
-requireField :: String -> Maybe a -> Either String a
-requireField label value =
-  case value of
-    Just x -> Right x
-    Nothing -> Left (label ++ " is required")
+    <*> checkedBasisRows "cert.dbf.basis" (dbfBasisJson dbf)
+    <*> pure (toEDFBool (dbfAllBasisCheckedJson dbf))
 
 parseCsv :: String -> Either String [ParsedTask]
 parseCsv content =
@@ -331,17 +282,6 @@ checkedNat label n
   | n >= 0 = Right (toNat n)
   | otherwise = Left (label ++ " must be nonnegative")
 
-checkedWindowRows :: String -> [[Int]] -> Either String (EDF.List (EDF.Prod EDF.Time EDF.Time))
-checkedWindowRows label rows =
-  toEDFList <$> traverse checkedWindow rows
-  where
-    checkedWindow [t1, t2] =
-      EDF.Pair
-        <$> checkedNat (label ++ "[][0]") t1
-        <*> checkedNat (label ++ "[][1]") t2
-    checkedWindow row =
-      Left (label ++ " entries must have exactly two elements, got " ++ show (length row))
-
 checkedBasisRows :: String -> [BasisRowJson] -> Either String (EDF.List (EDF.Prod EDF.Time (EDF.List EDF.Time)))
 checkedBasisRows label rows =
   toEDFList <$> traverse checkedBasisRow rows
@@ -371,9 +311,6 @@ fromNat (EDF.S n) = 1 + fromNat n
 toEDFBool :: Bool -> EDF.Bool
 toEDFBool True = EDF.True
 toEDFBool False = EDF.False
-
-fromEDFPair :: EDF.Prod EDF.Time EDF.Time -> [Int]
-fromEDFPair (EDF.Pair t1 t2) = [fromNat t1, fromNat t2]
 
 fromEDFBasisRow :: EDF.Prod EDF.Time (EDF.List EDF.Time) -> Value
 fromEDFBasisRow (EDF.Pair t2 leftEdges) =
