@@ -19,6 +19,11 @@ run-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	@test -n "$(CSV)" || (echo "usage: make run-periodic-edf-sched-csv CSV=tasks.csv" && exit 2)
 	./scripts/periodic_edf_schedulability_csv "$(CSV)"
 
+sched-witness-gen::
+	cargo build -p sched-witness-gen
+
+post-all:: sched-witness-gen
+
 test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
@@ -71,4 +76,4 @@ test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	fi; \
 	grep -q 'offset must be nonnegative' "$$tmp/negative-offset.out"
 
-.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv run-periodic-edf-sched-csv test-periodic-edf-sched-csv
+.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv run-periodic-edf-sched-csv sched-witness-gen test-periodic-edf-sched-csv

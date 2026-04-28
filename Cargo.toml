@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "tools/sched-witness-gen",
+]
+
+resolver = "2"
