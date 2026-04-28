@@ -539,3 +539,14 @@ checking code.
   - the jittered Rust path validates `--threads`, parses CSV, computes the
     task hash, and then rejects generation until V2 PR4
   - kept the existing schema-v1 `periodic-edf` generator path unchanged
+- V2 PR 4 started:
+  - implemented DBF-only schema-v2 witness generation for
+    `sched-witness-gen jittered-periodic-edf`
+  - generated jittered witnesses contain cutoff, checked critical windows, and
+    `all_windows_checked` for the extracted Haskell checker
+  - Rust computes critical windows in the same order as the Rocq/extracted
+    checker and rejects unschedulable tasksets before writing output
+  - `--threads 1`, fixed-thread, and `--threads auto` preserve deterministic
+    JSON output for the same jittered CSV
+  - integration tests now generate a jittered witness and validate it with
+    `scripts/jittered_edf_witness_check`

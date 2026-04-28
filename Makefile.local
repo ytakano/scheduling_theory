@@ -58,28 +58,40 @@ test-sched-witness-gen-determinism:: sched-witness-gen
 	fi; \
 	grep -q -- '--threads must be positive or auto' "$$tmp/bad.out"
 
-test-sched-witness-gen-jittered-parse:: sched-witness-gen
+test-sched-witness-gen-jittered-parse:: sched-witness-gen build-jittered-edf-witness-check
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	printf 'cost,period,deadline,offset,jitter\n1,1,1,0,0\n' > "$$tmp/jittered.csv"; \
-	if ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.json" --threads auto > "$$tmp/jittered.out" 2>&1; then \
-		cat "$$tmp/jittered.out"; \
+	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.threads1.json" --threads 1; \
+	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.threads2.json" --threads 2; \
+	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.auto.json" --threads auto; \
+	cmp "$$tmp/jittered.threads1.json" "$$tmp/jittered.threads2.json"; \
+	cmp "$$tmp/jittered.threads1.json" "$$tmp/jittered.auto.json"; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/jittered.threads1.json"; \
+	perl -0pe 's/"task_hash": "sha256:[^"]+"/"task_hash": "sha256:0"/' "$$tmp/jittered.threads1.json" > "$$tmp/hash-mut.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/hash-mut.json" > "$$tmp/hash-mut.out" 2>&1; then \
+		cat "$$tmp/hash-mut.out"; \
 		exit 1; \
 	fi; \
-	grep -q 'jittered-periodic-edf witness generation is not implemented until V2 PR4' "$$tmp/jittered.out"; \
-	grep -q 'task_hash=sha256:4d975dd17f1887dc34f2607b632fe1430a674efa7c5c6ad07b8116697b490011' "$$tmp/jittered.out"; \
-	test ! -e "$$tmp/jittered.json"; \
+	perl -0pe 's/"all_windows_checked": true/"all_windows_checked": false/' "$$tmp/jittered.threads1.json" > "$$tmp/all-windows-mut.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/all-windows-mut.json" > "$$tmp/all-windows-mut.out" 2>&1; then \
+		cat "$$tmp/all-windows-mut.out"; \
+		exit 1; \
+	fi; \
 	printf 'cost,period,deadline,offset\n1,1,1,0\n' > "$$tmp/four-column.csv"; \
 	if ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/four-column.csv" --out "$$tmp/four-column.json" --threads auto > "$$tmp/four-column.out" 2>&1; then \
 		cat "$$tmp/four-column.out"; \
 		exit 1; \
 	fi; \
 	grep -q 'expected 5 columns' "$$tmp/four-column.out"; \
-	if grep -q 'not implemented until V2 PR4' "$$tmp/four-column.out"; then \
-		cat "$$tmp/four-column.out"; \
+	test ! -e "$$tmp/four-column.json"; \
+	printf 'cost,period,deadline,offset,jitter\n2,1,1,0,0\n' > "$$tmp/unsched.csv"; \
+	if ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/unsched.csv" --out "$$tmp/unsched.json" --threads auto > "$$tmp/unsched.out" 2>&1; then \
+		cat "$$tmp/unsched.out"; \
 		exit 1; \
 	fi; \
-	test ! -e "$$tmp/four-column.json"
+	grep -q 'rejected unschedulable taskset' "$$tmp/unsched.out"; \
+	test ! -e "$$tmp/unsched.json"
 
 test-periodic-edf-witness-pipeline:: sched-witness-gen build-periodic-edf-witness-check
 	@set -e; \

@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 const MAX_HORIZON: u64 = 200_000;
 const MAX_BASIS_JOBS: usize = 200_000;
+const MAX_JITTERED_DBF_WINDOWS: usize = 200_000;
 
 #[derive(Parser)]
 #[command(name = "sched-witness-gen")]
@@ -85,7 +86,7 @@ struct Witness {
     generator_stats: GeneratorStats,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct GeneratorInfo {
     name: &'static str,
     version: &'static str,
@@ -163,6 +164,37 @@ struct GeneratorStats {
     thread_mode: String,
 }
 
+#[derive(Debug, Serialize)]
+struct JitteredWitness {
+    schema_version: u64,
+    policy: &'static str,
+    domain: &'static str,
+    task_hash: String,
+    generator: GeneratorInfo,
+    cert: JitteredCert,
+    generator_stats: JitteredGeneratorStats,
+}
+
+#[derive(Debug, Serialize)]
+struct JitteredCert {
+    dbf: JitteredDbfCert,
+}
+
+#[derive(Debug, Serialize)]
+struct JitteredDbfCert {
+    cutoff: u64,
+    checked_windows: Vec<[u64; 2]>,
+    all_windows_checked: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct JitteredGeneratorStats {
+    task_count: usize,
+    cutoff: u64,
+    checked_window_count: usize,
+    thread_mode: String,
+}
+
 fn main() {
     if let Err(err) = run() {
         eprintln!("error: {err}");
@@ -204,15 +236,23 @@ fn run_periodic_edf(args: PeriodicEdfArgs) -> Result<(), String> {
 }
 
 fn run_jittered_periodic_edf(args: JitteredPeriodicEdfArgs) -> Result<(), String> {
-    let _thread_mode = ThreadMode::parse(&args.threads)?;
+    let thread_mode = ThreadMode::parse(&args.threads)?;
     let csv = fs::read_to_string(&args.tasks)
         .map_err(|err| format!("failed to read {}: {err}", args.tasks.display()))?;
     let tasks = parse_jittered_csv(&csv)?;
-    let hash = jittered_task_hash(&tasks);
-    let _ = args.out;
-    Err(format!(
-        "jittered-periodic-edf witness generation is not implemented until V2 PR4; task_hash={hash}"
-    ))
+    let witness = match thread_mode {
+        ThreadMode::Serial => generate_jittered_witness(&tasks, &thread_mode)?,
+        ThreadMode::Auto => generate_jittered_witness(&tasks, &thread_mode)?,
+        ThreadMode::Fixed(n) => ThreadPoolBuilder::new()
+            .num_threads(n)
+            .build()
+            .map_err(|err| format!("failed to build rayon thread pool: {err}"))?
+            .install(|| generate_jittered_witness(&tasks, &thread_mode))?,
+    };
+    let json = serde_json::to_string_pretty(&witness)
+        .map_err(|err| format!("failed to serialize witness: {err}"))?;
+    fs::write(&args.out, format!("{json}\n"))
+        .map_err(|err| format!("failed to write {}: {err}", args.out.display()))
 }
 
 fn write_metrics(path: &PathBuf, witness: &Witness, requested_threads: &str) -> Result<(), String> {
@@ -381,6 +421,48 @@ fn generate_witness(tasks: &[Task], thread_mode: &ThreadMode) -> Result<Witness,
             transport_basis_job_count,
             window_target_count: transport_basis_job_count,
             post_reset_window_target_count: post_reset_jobs.len(),
+            thread_mode: "deterministic".to_string(),
+        },
+    })
+}
+
+fn generate_jittered_witness(
+    tasks: &[JitteredTask],
+    thread_mode: &ThreadMode,
+) -> Result<JitteredWitness, String> {
+    let cutoff = jittered_dbf_cutoff(tasks)?;
+    ensure_limit(cutoff <= MAX_HORIZON, "jittered DBF cutoff")?;
+    let windows = jittered_critical_windows(tasks, cutoff)?;
+    ensure_limit(
+        windows.len() <= MAX_JITTERED_DBF_WINDOWS,
+        "jittered DBF window count",
+    )?;
+    let ok_table = map_vec(thread_mode, &windows, |window| {
+        Ok(jittered_window_demand(tasks, window[0], window[1])? <= window[1] - window[0])
+    })?;
+    if !ok_table.iter().all(|ok| *ok) {
+        return Err("jittered DBF witness generation rejected unschedulable taskset".to_string());
+    }
+    Ok(JitteredWitness {
+        schema_version: 2,
+        policy: "jittered-periodic-edf",
+        domain: "uniprocessor",
+        task_hash: jittered_task_hash(tasks),
+        generator: GeneratorInfo {
+            name: "sched-witness-gen",
+            version: "0.1",
+        },
+        cert: JitteredCert {
+            dbf: JitteredDbfCert {
+                cutoff,
+                checked_windows: windows,
+                all_windows_checked: true,
+            },
+        },
+        generator_stats: JitteredGeneratorStats {
+            task_count: tasks.len(),
+            cutoff,
+            checked_window_count: ok_table.len(),
             thread_mode: "deterministic".to_string(),
         },
     })
@@ -816,6 +898,95 @@ fn periodic_dbf(tasks: &[Task], h: u64) -> u64 {
         .sum()
 }
 
+fn jittered_dbf_cutoff(tasks: &[JitteredTask]) -> Result<u64, String> {
+    let hyperperiod = tasks
+        .iter()
+        .try_fold(1, |acc, task| checked_lcm(acc, task.period))?;
+    let max_offset = tasks.iter().map(|task| task.offset).max().unwrap_or(0);
+    let max_deadline = tasks.iter().map(|task| task.deadline).max().unwrap_or(0);
+    let max_jitter = tasks.iter().map(|task| task.jitter).max().unwrap_or(0);
+    let horizon_base = max_offset
+        .checked_add(max_deadline)
+        .and_then(|x| x.checked_add(hyperperiod))
+        .ok_or_else(|| "jittered DBF cutoff overflow".to_string())?;
+    let offset_cutoff = horizon_base
+        .checked_add(checked_mul(
+            horizon_base
+                .checked_add(1)
+                .ok_or_else(|| "jittered DBF cutoff overflow".to_string())?,
+            hyperperiod,
+        )?)
+        .ok_or_else(|| "jittered DBF cutoff overflow".to_string())?;
+    offset_cutoff
+        .checked_add(max_jitter)
+        .ok_or_else(|| "jittered DBF cutoff overflow".to_string())
+}
+
+fn jittered_critical_points(tasks: &[JitteredTask], cutoff: u64) -> Result<Vec<u64>, String> {
+    let mut points = (0..=cutoff).collect::<Vec<_>>();
+    for task in tasks {
+        for index in 0..=cutoff {
+            let release = task
+                .offset
+                .checked_add(checked_mul(index, task.period)?)
+                .ok_or_else(|| "jittered deadline point overflow".to_string())?;
+            let deadline = release
+                .checked_add(task.deadline)
+                .ok_or_else(|| "jittered deadline point overflow".to_string())?;
+            if deadline <= cutoff {
+                points.push(deadline);
+            } else {
+                break;
+            }
+        }
+    }
+    Ok(points)
+}
+
+fn jittered_critical_windows(tasks: &[JitteredTask], cutoff: u64) -> Result<Vec<[u64; 2]>, String> {
+    let points = jittered_critical_points(tasks, cutoff)?;
+    let mut windows = Vec::new();
+    for t1 in &points {
+        for t2 in &points {
+            if t1 <= t2 && *t2 <= cutoff {
+                windows.push([*t1, *t2]);
+            }
+        }
+    }
+    Ok(windows)
+}
+
+fn jittered_window_demand(tasks: &[JitteredTask], t1: u64, t2: u64) -> Result<u64, String> {
+    tasks.iter().try_fold(0_u64, |acc, task| {
+        let count = jittered_task_window_count(task, t1, t2)?;
+        let demand = checked_mul(count, task.cost)?;
+        acc.checked_add(demand)
+            .ok_or_else(|| "jittered DBF demand overflow".to_string())
+    })
+}
+
+fn jittered_task_window_count(task: &JitteredTask, t1: u64, t2: u64) -> Result<u64, String> {
+    let mut count = 0_u64;
+    for index in 0..=t2 {
+        if task.deadline <= t2 {
+            let release = task
+                .offset
+                .checked_add(checked_mul(index, task.period)?)
+                .ok_or_else(|| "jittered release overflow".to_string())?;
+            let latest = release
+                .checked_add(task.jitter)
+                .ok_or_else(|| "jittered latest release overflow".to_string())?;
+            let deadline_release_latest = t2 - task.deadline;
+            if t1.max(release) <= deadline_release_latest.min(latest) {
+                count = count
+                    .checked_add(1)
+                    .ok_or_else(|| "jittered DBF count overflow".to_string())?;
+            }
+        }
+    }
+    Ok(count)
+}
+
 fn task_hash(tasks: &[Task]) -> String {
     let mut canonical = String::from("schema=periodic-edf-tasks-v1\ncost,period,deadline,offset\n");
     for task in tasks {
@@ -945,5 +1116,47 @@ mod tests {
             jittered_task_hash(&tasks),
             "sha256:fea75940a9369d5153b5bd0e6c0e11ca396332982ad218873590323f77a74b73"
         );
+    }
+
+    #[test]
+    fn computes_tiny_jittered_cutoff() {
+        let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,1,1,0,0\n")
+            .expect("tiny jittered CSV should parse");
+        assert_eq!(jittered_dbf_cutoff(&tasks).unwrap(), 5);
+    }
+
+    #[test]
+    fn preserves_tiny_critical_window_order() {
+        let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,1,1,0,0\n")
+            .expect("tiny jittered CSV should parse");
+        let windows = jittered_critical_windows(&tasks, 1).unwrap();
+        assert_eq!(
+            windows,
+            vec![[0, 0], [0, 1], [0, 1], [1, 1], [1, 1], [1, 1], [1, 1]]
+        );
+    }
+
+    #[test]
+    fn generates_tiny_jittered_witness() {
+        let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,1,1,0,0\n")
+            .expect("tiny jittered CSV should parse");
+        let witness = generate_jittered_witness(&tasks, &ThreadMode::Serial).unwrap();
+        assert_eq!(witness.schema_version, 2);
+        assert_eq!(witness.policy, "jittered-periodic-edf");
+        assert_eq!(witness.cert.dbf.cutoff, 5);
+        assert!(witness.cert.dbf.all_windows_checked);
+        assert_eq!(
+            witness.task_hash,
+            "sha256:4d975dd17f1887dc34f2607b632fe1430a674efa7c5c6ad07b8116697b490011"
+        );
+    }
+
+    #[test]
+    fn rejects_unschedulable_jittered_taskset() {
+        let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n2,1,1,0,0\n")
+            .expect("unschedulable jittered CSV should parse");
+        let err = generate_jittered_witness(&tasks, &ThreadMode::Serial)
+            .expect_err("unschedulable taskset should not generate a witness");
+        assert!(err.contains("rejected unschedulable taskset"));
     }
 }
