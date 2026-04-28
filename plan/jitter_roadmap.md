@@ -381,7 +381,14 @@ Update this document after implementing.
     `offset_window_dbf_cutoff_bound + max_jitter`
   - proved cutoff-bounded checker soundness for windows with `t2` below the
     conservative cutoff
-  - full hyperperiod-shift soundness for all windows remains the next PR4 task
+  - added hyperperiod-shift lemmas for the jittered may-be-in-window DBF bound
+  - proved taskset jittered window DBF equality under post-jitter-offset
+    hyperperiod shifts
+  - added a post-jitter-offset shifted cutoff theorem that transports bounded
+    checker success to shifted windows
+  - full all-window cutoff soundness remains the next PR4 task; it needs a
+    jitter-aware carry-in/load increment lemma rather than a direct copy of the
+    periodic one-hyperperiod growth bound
 - Verification:
   - `JitteredPeriodicEDFWindowBridge.v` compiles
   - `JitteredPeriodicEDFInfiniteBridge.v` compiles
