@@ -398,3 +398,18 @@ Update this document after implementing.
   - `JitteredPeriodicEDFInfiniteBridge.v` compiles
   - `JitteredPeriodicEDFAnalysisEntryPoints.v` compiles
   - downstream jitter EDF / LLF bridge files compile
+- PR 5 started:
+  - added `JitteredPeriodicEDFExtractionTypes.v`
+  - added extraction-facing jittered task records and list-to-semantic-task
+    adapters
+  - added zero-jitter coercion from extracted periodic tasks to extracted
+    jittered-periodic tasks
+  - added `JitteredPeriodicEDFExtractionDecision.v`
+  - exposed cutoff-bound, decision, and counterexample wrappers over the
+    jittered offset-window DBF cutoff checker
+  - added `JitteredPeriodicEDFExtractionSoundness.v`
+  - proved decision success implies the global jittered window-DBF obligation
+  - exposed EDF schedulability soundness with codec, nonblocking, and
+    no-carry-in bridge obligations explicit
+  - added `JitteredPeriodicEDFExtraction.v` for Haskell extraction of the new
+    checker surface

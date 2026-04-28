@@ -1,0 +1,17 @@
+From Stdlib Require Extraction.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionDecision.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionSoundness.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionTypes.
+
+Extraction Language Haskell.
+
+Extraction "extracted/haskell/JitteredPeriodicEDFSchedulability.hs"
+  ExtractedJitteredPeriodicTask
+  extracted_periodic_as_jittered_zero_jitter
+  extracted_jittered_offset_window_dbf_cutoff_bound
+  extracted_jittered_offset_window_dbf_test_by_cutoff
+  extracted_jittered_offset_window_dbf_counterexample_by_cutoff
+  extracted_jittered_offset_window_dbf_decide_by_cutoff
+  jittered_periodic_offset_window_schedulability_cutoff_bound
+  jittered_periodic_offset_window_schedulability_decide
+  jittered_periodic_offset_window_schedulability_counterexample.
