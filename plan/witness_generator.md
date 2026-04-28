@@ -360,3 +360,11 @@ Update this section after each implementation batch.
 - Verification:
   - `stack exec -- ghc -package aeson -package crypton -iextracted/haskell ...`
     builds `scripts/periodic_edf_witness_check`
+- PR 2 started:
+  - added Rust workspace crate `tools/sched-witness-gen`
+  - implemented `sched-witness-gen periodic-edf --tasks TASKS.csv --out WITNESS.json`
+  - PR2 accepts `--threads auto` and `--threads 1`; multi-threaded generation
+    remains reserved for PR3
+  - generator parses legacy periodic EDF CSV input, computes the canonical task
+    hash, simulates a deterministic EDF prefix, builds transport/window
+    sidecar certificate data, and emits schema v1 JSON for the Haskell checker
