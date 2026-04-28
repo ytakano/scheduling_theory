@@ -1,0 +1,91 @@
+#!/bin/sh
+set -eu
+
+out=${1:-}
+if [ -z "$out" ]; then
+  out=$(mktemp)
+  echo "writing benchmark CSV to $out" >&2
+fi
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+printf 'case,engine,thread_mode,task_count,cutoff,checked_window_count,wall_ms,peak_kb,status\n' > "$out"
+
+cat > "$tmp/small.csv" <<'CSV'
+cost,period,deadline,offset,jitter
+1,2,2,0,0
+CSV
+
+cat > "$tmp/medium.csv" <<'CSV'
+cost,period,deadline,offset,jitter
+1,2,2,0,0
+1,3,3,0,1
+CSV
+
+cat > "$tmp/large.csv" <<'CSV'
+cost,period,deadline,offset,jitter
+1,8,8,0,1
+CSV
+
+cat > "$tmp/limit_near.csv" <<'CSV'
+cost,period,deadline,offset,jitter
+1,16,16,0,1
+CSV
+
+now_ms() {
+  date +%s%3N
+}
+
+run_rust() {
+  name=$1
+  threads=$2
+  witness="$tmp/$name.$threads.json"
+  metrics="$tmp/$name.$threads.metrics.csv"
+  err="$tmp/$name.$threads.err"
+  start=$(now_ms)
+  status=ok
+  if ! ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$tmp/$name.csv" --out "$witness" --threads "$threads" --metrics-out "$metrics" > /dev/null 2> "$err"; then
+    status=failed
+  fi
+  end=$(now_ms)
+  wall_ms=$((end - start))
+  if [ "$status" = ok ] && [ -f "$metrics" ]; then
+    row=$(sed -n '2p' "$metrics")
+    IFS=, read -r task_count cutoff checked_window_count requested_threads _status <<EOF
+$row
+EOF
+    printf '%s,rust-generator,%s,%s,%s,%s,%s,unavailable,%s\n' \
+      "$name" "$requested_threads" "$task_count" "$cutoff" "$checked_window_count" \
+      "$wall_ms" "$status" >> "$out"
+  else
+    printf '%s,rust-generator,%s,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
+      "$name" "$threads" "$wall_ms" "$status" >> "$out"
+  fi
+}
+
+run_haskell_cutoff() {
+  name=$1
+  err="$tmp/$name.haskell.err"
+  start=$(now_ms)
+  status=ok
+  if ! ./scripts/jittered_edf_schedulability_csv --check-offset-window-dbf-cutoff "$tmp/$name.csv" > /dev/null 2> "$err"; then
+    status=failed
+  fi
+  end=$(now_ms)
+  wall_ms=$((end - start))
+  printf '%s,haskell-cutoff,na,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
+    "$name" "$wall_ms" "$status" >> "$out"
+}
+
+for name in small medium large limit_near; do
+  run_rust "$name" 1
+  run_rust "$name" 2
+  run_rust "$name" auto
+  if [ "$name" = limit_near ]; then
+    printf '%s,haskell-cutoff,na,unavailable,unavailable,unavailable,unavailable,unavailable,skipped\n' \
+      "$name" >> "$out"
+  else
+    run_haskell_cutoff "$name"
+  fi
+done

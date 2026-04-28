@@ -558,3 +558,13 @@ checking code.
   - added malformed, four-column, and unschedulable rejected fixtures
   - added pipeline mutation coverage for task hash, offset, jitter, cutoff,
     checked DBF windows, and `all_windows_checked`
+- V2 PR 6 started:
+  - added generator-side `--metrics-out` for deterministic jittered DBF
+    structural metrics outside canonical schema-v2 witness JSON
+  - added a jittered benchmark script and make target for small, medium,
+    large, and limit-near CSV tasksets
+  - benchmark rows compare Rust witness generation across `--threads 1`,
+    `--threads 2`, and `--threads auto` with the extracted Haskell jittered
+    cutoff checker path
+  - the limit-near Haskell comparison is skipped by default because the
+    extracted cutoff checker is intentionally much heavier on that case

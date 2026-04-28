@@ -45,6 +45,8 @@ struct JitteredPeriodicEdfArgs {
     out: PathBuf,
     #[arg(long, default_value = "auto")]
     threads: String,
+    #[arg(long)]
+    metrics_out: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
@@ -252,7 +254,11 @@ fn run_jittered_periodic_edf(args: JitteredPeriodicEdfArgs) -> Result<(), String
     let json = serde_json::to_string_pretty(&witness)
         .map_err(|err| format!("failed to serialize witness: {err}"))?;
     fs::write(&args.out, format!("{json}\n"))
-        .map_err(|err| format!("failed to write {}: {err}", args.out.display()))
+        .map_err(|err| format!("failed to write {}: {err}", args.out.display()))?;
+    if let Some(path) = args.metrics_out {
+        write_jittered_metrics(&path, &witness, &args.threads)?;
+    }
+    Ok(())
 }
 
 fn write_metrics(path: &PathBuf, witness: &Witness, requested_threads: &str) -> Result<(), String> {
@@ -272,6 +278,22 @@ fn write_metrics(path: &PathBuf, witness: &Witness, requested_threads: &str) -> 
         stats.window_target_count,
         stats.post_reset_window_target_count,
         requested_threads
+    );
+    fs::write(path, metrics).map_err(|err| format!("failed to write {}: {err}", path.display()))
+}
+
+fn write_jittered_metrics(
+    path: &PathBuf,
+    witness: &JitteredWitness,
+    requested_threads: &str,
+) -> Result<(), String> {
+    let stats = &witness.generator_stats;
+    let metrics = format!(
+        concat!(
+            "task_count,cutoff,checked_window_count,requested_threads,status\n",
+            "{},{},{},{},ok\n"
+        ),
+        stats.task_count, stats.cutoff, stats.checked_window_count, requested_threads
     );
     fs::write(path, metrics).map_err(|err| format!("failed to write {}: {err}", path.display()))
 }
