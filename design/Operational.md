@@ -382,8 +382,8 @@ The intended progression is:
    scheduler-facing witness over the accepted family,
 8. `accepted_workload_scheduler_facing_sound_from_contract` lifts that witness
    to a scheduler-relation contract for `GlobalFIFO` over the adapter-local
-   logical worker schedule with capacity `m`; the current Awkernel handoff
-   witness uses the `m = 1` instantiation,
+   logical worker schedule with capacity `m`; the current Awkernel workload
+   path uses the `m = 1` instantiation,
 9. `accepted_workload_scheduler_facing_adapter_contract` packages the result
    as the corresponding OS-local scheduler-relation adapter contract,
 10. `accepted_workload_scheduler_facing_scheduler_rel` and
