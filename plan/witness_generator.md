@@ -568,3 +568,152 @@ checking code.
     cutoff checker path
   - the limit-near Haskell comparison is skipped by default because the
     extracted cutoff checker is intentionally much heavier on that case
+
+---
+
+## V3 Roadmap: Compact Jittered DBF Certificates And Fast Checking
+
+V3 reduces the cost of the release-jitter witness path introduced in V2.  The
+current schema-v2 certificate records every bounded critical window and the
+checker recomputes that full list before calling the cutoff DBF decision.  This
+keeps the trust boundary simple, but it makes large witnesses and checker runs
+expensive.
+
+V3 replaces the full `checked_windows` list with a compact, checker-validated
+basis and adds a faster arithmetic demand checker.  The goal is to reduce
+witness size, Rust generation time, and extracted-Haskell checking time without
+trusting Rust-provided demand values.
+
+### V3 semantic assumptions
+
+- The Rust witness generator remains untrusted.
+- The extracted Haskell checker remains the trusted executable boundary.
+- V3 remains CSV-driven; Awkernel traces, runtime event vocabularies, GraphML,
+  and YAML witnesses remain out of scope.
+- Release jitter remains task metadata, not part of a runtime event stream.
+- Schema v2 remains supported until schema v3 has stable benchmarks and
+  mutation tests.
+- Metrics and timing data remain outside canonical witness JSON.
+
+### V3 interface direction
+
+Add schema version 3 for jittered periodic EDF witnesses.  Schema v2 keeps:
+
+```json
+"checked_windows": [[0, 0]],
+"all_windows_checked": true
+```
+
+Schema v3 should replace this full list with a compact basis:
+
+```json
+"basis": [
+  { "t2": 0, "left_edges": [0] }
+],
+"all_basis_checked": true
+```
+
+The Rust generator should support:
+
+```text
+sched-witness-gen jittered-periodic-edf --tasks TASKS.csv --out WITNESS.json --witness-schema 2
+sched-witness-gen jittered-periodic-edf --tasks TASKS.csv --out WITNESS.json --witness-schema 3
+```
+
+Default to schema v3 only after the schema-v3 extracted Haskell checker exists.
+Extend generator metrics with `basis_window_count`, still outside canonical
+witness JSON.
+
+### V3 implementation roadmap
+
+#### V3 PR 1: Compact basis theory
+
+- Define a compact jittered DBF basis at the Rocq analysis layer.
+- Keep all bounded right endpoints `t2 <= cutoff`, but reduce left endpoints to
+  demand-plateau right edges.
+- Prove that checking the compact basis implies the current bounded window DBF
+  property for every `t1 <= t2 <= cutoff`.
+- Keep the proof independent from Rust ordering, JSON shape, and thread count.
+
+#### V3 PR 2: Fast arithmetic demand checker
+
+- Add an extraction-friendly closed-form release count for one task/window.
+- Prove that the arithmetic count equals the current enumerated
+  `jittered_periodic_dbf_window` count.
+- Use the closed-form count in the extracted checker path for compact basis
+  validation.
+- Keep the old enumerating checker available until schema-v3 regression tests
+  are stable.
+
+#### V3 PR 3: Schema-v3 Haskell checker frontend
+
+- Parse schema-v3 compact basis certificates in
+  `scripts/jittered_edf_witness_check.hs`.
+- Convert schema-v3 JSON into a new Rocq/extracted compact certificate type.
+- Reject malformed basis rows, unsorted basis data, duplicate rows, incomplete
+  basis coverage, cutoff mismatch, schema/policy/domain mismatch, and task-hash
+  mismatch.
+- Continue accepting schema-v2 witnesses through the existing DBF-only checker.
+
+#### V3 PR 4: Rust schema-v3 generator
+
+- Generate compact basis rows instead of full `checked_windows` for schema v3.
+- Preserve deterministic output for `--threads 1`, fixed-thread modes, and
+  `--threads auto`.
+- Keep `--witness-schema 2` for compatibility during the transition.
+- Do not emit Rust-computed demand values as trusted certificate fields.
+
+#### V3 PR 5: Integration, mutation, and benchmark comparison
+
+- Add accepted and rejected schema-v3 jittered fixtures.
+- Add mutation tests for omitted basis rows, altered left edges, duplicate
+  rows, cutoff mismatch, `all_basis_checked`, and task hash.
+- Compare schema v2 and schema v3 for witness size, Rust generation time,
+  Haskell checking time, full window count, and compact basis count.
+- Use benchmark data before raising any generator or checker limits.
+
+### V3 proof obligations
+
+- Compact basis completeness: every bounded window is covered by a checked
+  basis window.
+- Left-edge monotonicity: within a demand plateau, the selected basis left edge
+  is sufficient to imply all represented windows.
+- Closed-form demand equivalence: arithmetic release counting equals the
+  existing enumerated window-demand definition.
+- Schema-v3 checker soundness: accepted compact certificates imply
+  `extracted_jittered_offset_window_dbf_ok_global`.
+- Compatibility: schema-v2 soundness remains unchanged.
+
+### V3 test plan
+
+- Build the affected Rocq files, then run `make -j2`.
+- Run Rust formatting and unit tests.
+- Run schema-v2 and schema-v3 jittered checker tests.
+- Run schema-v3 pipeline mutation tests.
+- Run jittered benchmarks and verify schema v3 reduces witness size and
+  extracted-Haskell check time versus schema v2.
+- Run `git diff --check`.
+
+### V3 risks for the Rust design
+
+- Do not let Rust choose an unchecked subset of windows; the checker must
+  recompute and validate the expected compact basis.
+- Do not trust Rust-provided demand values unless the checker independently
+  validates them.
+- Do not remove schema-v2 support until schema-v3 benchmarks and mutation tests
+  are stable.
+- Do not raise `MAX_JITTERED_DBF_WINDOWS` as a substitute for compact
+  certificates.
+- Do not add timing or worker-count fields to canonical witness JSON.
+
+### V3 progress
+
+- V3 PR 1 started:
+  - added `JitteredPeriodicCompactDBF.v` as a proof-facing compact DBF basis
+    layer for jittered-periodic task sets
+  - represented compact bases as right-endpoint rows with selected left edges
+  - defined coverage by a later left edge with equal jittered window demand
+  - proved that a DBF test over covered basis windows implies bounded jittered
+    window DBF for every `t1 <= t2 <= H`
+  - added an identity compact basis helper that covers all bounded windows and
+    preserves the schema-v2 proof baseline
