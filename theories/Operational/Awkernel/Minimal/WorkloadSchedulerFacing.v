@@ -157,42 +157,63 @@ Fixpoint job_list_eqb (xs ys : list JobId) : bool :=
   | _, _ => false
   end.
 
+Definition task_trace_blocks_at
+    (task_trace : list AwkernelTaskTraceEntry)
+    (event_id task_id : nat) : bool :=
+  match summarize_task_trace initial_task_trace_summary task_trace with
+  | Some summary => task_trace_blocked_at summary event_id task_id
+  | None => false
+  end.
+
 Definition workload_scheduler_relation_candidates
+    (task_trace : list AwkernelTaskTraceEntry)
     (entry : AwkernelSchedTraceEntry) : list JobId :=
   match aste_event entry with
-  | EvChoose cpu _ =>
-      if Nat.eqb cpu 1 then sched_trace_fifo_candidates entry else []
+  | EvChoose cpu j =>
+      if Nat.eqb cpu 1 &&
+         negb (task_trace_blocks_at task_trace (aste_event_id entry) j)
+      then sched_trace_fifo_candidates entry
+      else []
   | _ => []
   end.
 
 Definition workload_fifo_candidate_row_contract
+    (task_trace : list AwkernelTaskTraceEntry)
     (entry : AwkernelSchedTraceEntry) (cand : list JobId) : Prop :=
-  cand = workload_scheduler_relation_candidates entry.
+  cand = workload_scheduler_relation_candidates task_trace entry.
 
 Definition workload_fifo_candidate_table
+    (task_trace : list AwkernelTaskTraceEntry)
     (sched_trace : list AwkernelSchedTraceEntry) : list (list JobId) :=
-  map workload_scheduler_relation_candidates sched_trace.
+  map (workload_scheduler_relation_candidates task_trace) sched_trace.
 
 Definition workload_fifo_candidate_table_contract
+    (task_trace : list AwkernelTaskTraceEntry)
     (sched_trace : list AwkernelSchedTraceEntry)
     (table : list (list JobId)) : Prop :=
   length sched_trace = length table /\
-  Forall2 workload_fifo_candidate_row_contract sched_trace table.
+  Forall2 (workload_fifo_candidate_row_contract task_trace) sched_trace table.
 
 Definition workload_scheduler_relation_choice
+    (task_trace : list AwkernelTaskTraceEntry)
     (entry : AwkernelSchedTraceEntry) : list JobId :=
   match aste_event entry with
   | EvChoose cpu j =>
-      if Nat.eqb cpu 1 then [j] else []
+      if Nat.eqb cpu 1 &&
+         negb (task_trace_blocks_at task_trace (aste_event_id entry) j)
+      then [j]
+      else []
   | _ => []
   end.
 
 Definition workload_scheduler_relation_schedule
+    (task_trace : list AwkernelTaskTraceEntry)
     (sched_trace : list AwkernelSchedTraceEntry) : Schedule :=
   fun t c =>
     if c <? 1 then
       nth_error
         (workload_scheduler_relation_choice
+           task_trace
            (nth t sched_trace empty_sched_trace_entry))
         c
     else None.
@@ -210,37 +231,42 @@ Fixpoint task_trace_has_completeb
   end.
 
 Fixpoint count_scheduler_relation_service
+    (task_trace : list AwkernelTaskTraceEntry)
     (task_id : JobId) (sched_trace : list AwkernelSchedTraceEntry) : nat :=
   match sched_trace with
   | [] => 0
   | entry :: sched_trace' =>
-      let rest := count_scheduler_relation_service task_id sched_trace' in
-      match workload_scheduler_relation_choice entry with
+      let rest := count_scheduler_relation_service task_trace task_id sched_trace' in
+      match workload_scheduler_relation_choice task_trace entry with
       | [j] => if Nat.eqb j task_id then S rest else rest
       | _ => rest
       end
   end.
 
 Fixpoint first_scheduler_visible_index_from
+    (task_trace : list AwkernelTaskTraceEntry)
     (task_id n : nat)
     (sched_trace : list AwkernelSchedTraceEntry) : option nat :=
   match sched_trace with
   | [] => None
   | entry :: sched_trace' =>
-      if row_candidate_visibleb entry task_id
+      if job_list_contains task_id
+           (workload_scheduler_relation_candidates task_trace entry)
       then Some n
-      else first_scheduler_visible_index_from task_id (S n) sched_trace'
+      else first_scheduler_visible_index_from task_trace task_id (S n) sched_trace'
   end.
 
 Definition first_scheduler_visible_index
+    (task_trace : list AwkernelTaskTraceEntry)
     (task_id : JobId)
     (sched_trace : list AwkernelSchedTraceEntry) : option nat :=
-  first_scheduler_visible_index_from task_id 0 sched_trace.
+  first_scheduler_visible_index_from task_trace task_id 0 sched_trace.
 
 Definition reconstructed_scheduler_relation_release
+    (task_trace : list AwkernelTaskTraceEntry)
     (task_id : JobId)
     (sched_trace : list AwkernelSchedTraceEntry) : nat :=
-  match first_scheduler_visible_index task_id sched_trace with
+  match first_scheduler_visible_index task_trace task_id sched_trace with
   | Some t => t
   | None => 0
   end.
@@ -249,7 +275,7 @@ Definition reconstructed_scheduler_relation_cost
     (task_trace : list AwkernelTaskTraceEntry)
     (sched_trace : list AwkernelSchedTraceEntry)
     (task_id : JobId) : nat :=
-  let service := count_scheduler_relation_service task_id sched_trace in
+  let service := count_scheduler_relation_service task_trace task_id sched_trace in
   if task_trace_has_completeb task_id task_trace
   then match service with
        | 0 => 1
@@ -261,7 +287,7 @@ Definition reconstructed_scheduler_relation_abs_deadline
     (task_trace : list AwkernelTaskTraceEntry)
     (sched_trace : list AwkernelSchedTraceEntry)
     (task_id : JobId) : nat :=
-  reconstructed_scheduler_relation_release task_id sched_trace +
+  reconstructed_scheduler_relation_release task_trace task_id sched_trace +
   reconstructed_scheduler_relation_cost task_trace sched_trace task_id +
   length sched_trace.
 
@@ -272,7 +298,7 @@ Definition workload_scheduler_relation_jobs
     mkJob
       task_id
       0
-      (reconstructed_scheduler_relation_release task_id sched_trace)
+      (reconstructed_scheduler_relation_release task_trace task_id sched_trace)
       (reconstructed_scheduler_relation_cost task_trace sched_trace task_id)
       (reconstructed_scheduler_relation_abs_deadline task_trace sched_trace task_id)
       (fun _ => false).
@@ -286,10 +312,10 @@ Definition workload_global_fifo_scheduler_relation_row
     global_fifo_top_m_spec
     (workload_scheduler_relation_jobs task_trace sched_trace)
     1
-    (workload_scheduler_relation_schedule sched_trace)
+    (workload_scheduler_relation_schedule task_trace sched_trace)
     t
-    (workload_scheduler_relation_candidates entry) =
-  workload_scheduler_relation_choice entry.
+    (workload_scheduler_relation_candidates task_trace entry) =
+  workload_scheduler_relation_choice task_trace entry.
 
 Definition workload_global_fifo_scheduler_relation_rowb
     (task_trace : list AwkernelTaskTraceEntry)
@@ -301,10 +327,10 @@ Definition workload_global_fifo_scheduler_relation_rowb
        global_fifo_top_m_spec
        (workload_scheduler_relation_jobs task_trace sched_trace)
        1
-       (workload_scheduler_relation_schedule sched_trace)
+       (workload_scheduler_relation_schedule task_trace sched_trace)
        t
-       (workload_scheduler_relation_candidates entry))
-    (workload_scheduler_relation_choice entry).
+       (workload_scheduler_relation_candidates task_trace entry))
+    (workload_scheduler_relation_choice task_trace entry).
 
 Fixpoint sched_trace_global_fifo_scheduler_relation_check_from
     (task_trace : list AwkernelTaskTraceEntry)
@@ -780,12 +806,13 @@ Proof.
 Qed.
 
 Lemma workload_fifo_candidate_table_contract_canonical :
-  forall sched_trace,
+  forall task_trace sched_trace,
     workload_fifo_candidate_table_contract
+      task_trace
       sched_trace
-      (workload_fifo_candidate_table sched_trace).
+      (workload_fifo_candidate_table task_trace sched_trace).
 Proof.
-  intros sched_trace.
+  intros task_trace sched_trace.
   unfold workload_fifo_candidate_table_contract,
     workload_fifo_candidate_table.
   split.
@@ -798,11 +825,11 @@ Proof.
 Qed.
 
 Lemma workload_fifo_candidate_table_contract_eq :
-  forall sched_trace table,
-    workload_fifo_candidate_table_contract sched_trace table ->
-    table = workload_fifo_candidate_table sched_trace.
+  forall task_trace sched_trace table,
+    workload_fifo_candidate_table_contract task_trace sched_trace table ->
+    table = workload_fifo_candidate_table task_trace sched_trace.
 Proof.
-  intros sched_trace table [_ Hrows].
+  intros task_trace sched_trace table [_ Hrows].
   induction Hrows as [|entry cand sched_trace table Hrow _ IH]; simpl.
   - reflexivity.
   - unfold workload_fifo_candidate_row_contract in Hrow.
@@ -812,14 +839,15 @@ Proof.
 Qed.
 
 Lemma workload_fifo_candidate_source_matches_relation_candidates :
-  forall sched_trace jobs m sched t,
+  forall task_trace sched_trace jobs m sched t,
     candidate_source_of_table
-      (workload_fifo_candidate_table sched_trace)
+      (workload_fifo_candidate_table task_trace sched_trace)
       jobs m sched t =
     workload_scheduler_relation_candidates
+      task_trace
       (nth t sched_trace empty_sched_trace_entry).
 Proof.
-  intros sched_trace jobs m sched t.
+  intros task_trace sched_trace jobs m sched t.
   revert sched_trace.
   induction t as [|t IH]; intros [|entry sched_trace]; simpl; try reflexivity.
   apply IH.
@@ -1665,13 +1693,13 @@ Lemma awk_workload_checker_acceptance_global_fifo_scheduler_rel_from_fifo_table 
   forall task_trace sched_trace table,
     awk_workload_accepts_global_fifo_scheduler_relation_sched_trace
       task_trace sched_trace = true ->
-    workload_fifo_candidate_table_contract sched_trace table ->
+    workload_fifo_candidate_table_contract task_trace sched_trace table ->
     scheduler_rel
       (top_m_algorithm_schedule global_fifo_top_m_spec
          (candidate_source_of_table table))
       (workload_scheduler_relation_jobs task_trace sched_trace)
       1
-      (workload_scheduler_relation_schedule sched_trace).
+      (workload_scheduler_relation_schedule task_trace sched_trace).
 Proof.
   intros task_trace sched_trace table Haccept Htable.
   pose proof
@@ -1680,7 +1708,7 @@ Proof.
     as [_ Hrelation].
   pose proof
     (workload_fifo_candidate_table_contract_eq
-       sched_trace table Htable) as Htable_eq.
+       task_trace sched_trace table Htable) as Htable_eq.
   subst table.
   unfold top_m_algorithm_schedule.
   simpl.
@@ -1715,11 +1743,11 @@ Lemma awk_workload_checker_acceptance_global_fifo_scheduler_rel :
       task_trace sched_trace = true ->
     scheduler_rel
       (top_m_algorithm_schedule global_fifo_top_m_spec
-         (candidate_source_of_table
-            (workload_fifo_candidate_table sched_trace)))
+      (candidate_source_of_table
+            (workload_fifo_candidate_table task_trace sched_trace)))
       (workload_scheduler_relation_jobs task_trace sched_trace)
       1
-      (workload_scheduler_relation_schedule sched_trace).
+      (workload_scheduler_relation_schedule task_trace sched_trace).
 Proof.
   intros task_trace sched_trace Haccept.
   eapply awk_workload_checker_acceptance_global_fifo_scheduler_rel_from_fifo_table.

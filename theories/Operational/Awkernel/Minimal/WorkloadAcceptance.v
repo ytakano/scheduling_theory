@@ -516,9 +516,16 @@ Definition sched_trace_step_after_start
          job_list_contains j known &&
          negb (job_list_contains j (astas_completed st)) &&
          negb (job_list_contains j (astas_blocked st)) &&
-         negb (task_trace_blocked_at summary (aste_event_id entry) j) &&
          option_job_eqb (astas_selected st) None
       then Some (mkAwkernelSchedTraceAcceptanceState true (Some j) (astas_dispatched st) (astas_completed st) (astas_ready_targets st) (astas_blocked st))
+      else None in
+  let try_spurious_dispatch_job (j : JobId) :=
+      if sched_trace_is_dispatch j entry &&
+         option_job_eqb (astas_selected st) (Some j) &&
+         job_list_contains j known &&
+         negb (job_list_contains j (astas_completed st)) &&
+         task_trace_blocked_at summary (aste_event_id entry) j
+      then Some (mkAwkernelSchedTraceAcceptanceState true None (astas_dispatched st) (astas_completed st) (astas_ready_targets st) (astas_blocked st))
       else None in
   let try_dispatch_job (j : JobId) :=
       if sched_trace_is_dispatch j entry &&
@@ -554,12 +561,16 @@ Definition sched_trace_step_after_start
                match first_some try_choose_job known with
                | Some st' => Some st'
                | None =>
-                   match first_some try_dispatch_job known with
+                   match first_some try_spurious_dispatch_job known with
                    | Some st' => Some st'
                    | None =>
-                       match first_some try_join_target_ready known with
+                       match first_some try_dispatch_job known with
                        | Some st' => Some st'
-                       | None => first_some try_complete_job known
+                       | None =>
+                           match first_some try_join_target_ready known with
+                           | Some st' => Some st'
+                           | None => first_some try_complete_job known
+                           end
                        end
                    end
                end
@@ -793,13 +804,26 @@ Proof.
               job_list_contains j known &&
               negb (job_list_contains j (astas_completed st)) &&
               negb (job_list_contains j (astas_blocked st)) &&
-              negb (task_trace_blocked_at summary (aste_event_id entry) j) &&
               option_job_eqb (astas_selected st) None
            then Some
                   (mkAwkernelSchedTraceAcceptanceState
                      true
                      (Some j)
                      (astas_dispatched st)
+                     (astas_completed st)
+                     (astas_ready_targets st)
+                     (astas_blocked st))
+           else None) in *.
+  set (try_spurious_dispatch_job :=
+         fun j : JobId =>
+           if sched_trace_is_dispatch j entry &&
+              option_job_eqb (astas_selected st) (Some j) &&
+              job_list_contains j known &&
+              negb (job_list_contains j (astas_completed st)) &&
+              task_trace_blocked_at summary (aste_event_id entry) j
+           then Some
+                  (mkAwkernelSchedTraceAcceptanceState
+                     true None (astas_dispatched st)
                      (astas_completed st)
                      (astas_ready_targets st)
                      (astas_blocked st))
@@ -887,54 +911,68 @@ Proof.
                job_list_contains j known &&
                negb (job_list_contains j (astas_completed st)) &&
                negb (job_list_contains j (astas_blocked st)) &&
-               negb (task_trace_blocked_at summary (aste_event_id entry) j) &&
                option_job_eqb (astas_selected st) None) eqn:Hcond;
               simpl in Hj; try discriminate.
             inversion Hj; subst.
           peel_andb_left.
           eapply sched_trace_is_choose_cpu_in_range; eauto. }
-        { destruct (first_some try_dispatch_job known) as [st4|] eqn:Hdispatches.
+        { destruct (first_some try_spurious_dispatch_job known) as [st4s|] eqn:Hspurious_dispatches.
           - inversion Hstep; subst.
-            apply first_some_some in Hdispatches.
-            destruct Hdispatches as [j [_ Hj]].
-            unfold try_dispatch_job in Hj.
+            apply first_some_some in Hspurious_dispatches.
+            destruct Hspurious_dispatches as [j [_ Hj]].
+            unfold try_spurious_dispatch_job in Hj.
             destruct
               (sched_trace_is_dispatch j entry &&
                option_job_eqb (astas_selected st) (Some j) &&
-               negb (job_list_contains j (astas_blocked st)) &&
-               negb (task_trace_blocked_at summary (aste_event_id entry) j)) eqn:Hcond;
+               job_list_contains j known &&
+               negb (job_list_contains j (astas_completed st)) &&
+               task_trace_blocked_at summary (aste_event_id entry) j) eqn:Hcond;
               simpl in Hj; try discriminate.
             inversion Hj; subst.
             peel_andb_left.
             eapply sched_trace_is_dispatch_cpu_in_range; eauto.
-          - destruct (first_some try_join_target_ready known) as [st5|] eqn:Hready.
+          - destruct (first_some try_dispatch_job known) as [st4|] eqn:Hdispatches.
             + inversion Hstep; subst.
-              apply first_some_some in Hready.
-              destruct Hready as [j [_ Hj]].
-              unfold try_join_target_ready in Hj.
+              apply first_some_some in Hdispatches.
+              destruct Hdispatches as [j [_ Hj]].
+              unfold try_dispatch_job in Hj.
               destruct
-                (sched_trace_is_join_target_ready j entry &&
-                 job_list_contains j known &&
-                 job_list_contains j ready_targets &&
-                 negb (job_list_contains j (astas_ready_targets st))) eqn:Hcond;
-                simpl in Hj; try discriminate.
-              inversion Hj; subst.
-              peel_andb_left.
-              eapply sched_trace_is_join_target_ready_cpu_in_range; eauto.
-            + apply first_some_some in Hstep.
-              destruct Hstep as [j [_ Hj]].
-              unfold try_complete_job in Hj.
-              destruct
-                (sched_trace_is_complete j entry &&
-                 job_list_contains j (astas_dispatched st) &&
-                 negb (job_list_contains j (astas_completed st)) &&
+                (sched_trace_is_dispatch j entry &&
+                 option_job_eqb (astas_selected st) (Some j) &&
                  negb (job_list_contains j (astas_blocked st)) &&
-                 negb (task_trace_blocked_at summary (aste_event_id entry) j) &&
-                 all_dependencies_ready j deps (astas_ready_targets st)) eqn:Hcond;
+                 negb (task_trace_blocked_at summary (aste_event_id entry) j)) eqn:Hcond;
                 simpl in Hj; try discriminate.
               inversion Hj; subst.
               peel_andb_left.
-              eapply sched_trace_is_complete_cpu_in_range; eauto. }
+              eapply sched_trace_is_dispatch_cpu_in_range; eauto.
+            + destruct (first_some try_join_target_ready known) as [st5|] eqn:Hready.
+              * inversion Hstep; subst.
+                apply first_some_some in Hready.
+                destruct Hready as [j [_ Hj]].
+                unfold try_join_target_ready in Hj.
+                destruct
+                  (sched_trace_is_join_target_ready j entry &&
+                   job_list_contains j known &&
+                   job_list_contains j ready_targets &&
+                   negb (job_list_contains j (astas_ready_targets st))) eqn:Hcond;
+                  simpl in Hj; try discriminate.
+                inversion Hj; subst.
+                peel_andb_left.
+                eapply sched_trace_is_join_target_ready_cpu_in_range; eauto.
+              * apply first_some_some in Hstep.
+                destruct Hstep as [j [_ Hj]].
+                unfold try_complete_job in Hj.
+                destruct
+                  (sched_trace_is_complete j entry &&
+                   job_list_contains j (astas_dispatched st) &&
+                   negb (job_list_contains j (astas_completed st)) &&
+                   negb (job_list_contains j (astas_blocked st)) &&
+                   negb (task_trace_blocked_at summary (aste_event_id entry) j) &&
+                   all_dependencies_ready j deps (astas_ready_targets st)) eqn:Hcond;
+                  simpl in Hj; try discriminate.
+                inversion Hj; subst.
+                peel_andb_left.
+                eapply sched_trace_is_complete_cpu_in_range; eauto. }
 Qed.
 
 Lemma sched_trace_step_cpu_in_range :

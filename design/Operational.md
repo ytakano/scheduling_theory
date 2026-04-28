@@ -190,6 +190,16 @@ Their role is intentionally adapter-local:
 - and any reconstruction from `sched_trace` into a logical worker schedule
   belongs to the adapter layer, not to `Operational/Common`.
 
+Raw scheduler rows are not automatically common scheduling events. In
+particular, a raw `Choose`/`Dispatch` row for a task that is still blocked in
+the task-trace-derived adapter summary may be classified as an adapter-local
+spurious wakeup artifact. The current Awkernel adapter keeps such raw `Choose`
+rows available to the trace-local FIFO diagnostic, but filters blocked
+`Choose`/`Dispatch` observations out of the scheduler-relation schedule,
+candidate table, and service accounting. This preserves the common invariant
+that blocked work is not eligible, without adding `spurious wakeup` to the
+common event vocabulary.
+
 This distinction matters for multiple-worker support. The common layer already
 supports generic single-CPU and top-`m` scheduler-relation packages. An
 adapter may therefore widen its local `sched_trace` semantics from a
@@ -370,12 +380,12 @@ The intended progression is:
    `task_trace + sched_trace` family,
 2. `accepted_workload_global_fifo_sched_trace_family` adds the current
    trace-local `GlobalFIFO` choose-order diagnostic used by the extracted
-   Haskell checker over adapter-local choose rows corresponding to projected
-   `EvChoose` labels,
+   Haskell checker over raw adapter-local choose rows,
 3. `accepted_workload_global_fifo_scheduler_relation_family` and
    `awk_workload_accepts_global_fifo_scheduler_relation_sched_trace` add the
    extracted full `GlobalFIFO` scheduler-relation check over the accepted
-   emitted `sched_trace`; `first_non_scheduler_relation_sched_trace_index`
+   emitted `sched_trace`, after filtering adapter-local spurious rows that do
+   not contribute abstract scheduler service; `first_non_scheduler_relation_sched_trace_index`
    localizes the first failing row,
 4. `workload_candidate_table_contract` and `candidate_source_of_table` define
    a proof-side candidate witness over accepted `sched_trace`,
