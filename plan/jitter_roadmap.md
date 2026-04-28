@@ -348,3 +348,15 @@ Update this document after implementing.
   - `JitteredPeriodicWindowDemandBound.v` compiles
   - downstream jitter EDF / LLF bridge files compile
   - full `make -j2` passes
+- PR 3 started:
+  - added jittered EDF window bridge entry points
+  - added generated jittered EDF schedule definitions
+  - added generated jittered EDF scheduler relation and validity lemmas
+  - exposed the infinite window-DBF schedulability wrapper with explicit
+    finite-prefix feasibility / no-carry-in obligations
+  - registered the new files in `_CoqProject`
+- Verification:
+  - `JitteredPeriodicEDFWindowBridge.v` compiles
+  - `JitteredPeriodicEDFInfiniteBridge.v` compiles
+  - `JitteredPeriodicEDFAnalysisEntryPoints.v` compiles
+  - downstream jitter EDF / LLF bridge files compile
