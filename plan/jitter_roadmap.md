@@ -364,6 +364,14 @@ Update this document after implementing.
   - infinite generated-EDF schedulability now keeps finite/infinite
     `agrees_before` prefix coherence as an explicit proof obligation
   - full automatic finite/infinite prefix coherence remains the next PR3 task
+- PR 3 continued:
+  - added `JitteredPeriodicEDFPrefixCoherence.v`
+  - proved finite-horizon / infinite generated EDF prefix coherence for
+    jittered candidates-before
+  - internalized the finite/infinite `agrees_before` obligation in
+    `jittered_periodic_edf_schedulable_by_window_dbf_on`
+  - kept the no-carry-in busy-prefix bridge explicit as the remaining
+    analysis-side PR3 obligation
 - Verification:
   - `JitteredPeriodicEDFWindowBridge.v` compiles
   - `JitteredPeriodicEDFInfiniteBridge.v` compiles

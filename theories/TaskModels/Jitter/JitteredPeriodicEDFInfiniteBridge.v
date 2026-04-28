@@ -17,6 +17,7 @@ From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicCodec.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEnumeration.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicPrefixCoherence.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicWindowDemandBound.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFPrefixCoherence.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFWindowBridge.
 
 Definition generated_jittered_periodic_edf_schedule
@@ -147,15 +148,6 @@ Theorem jittered_periodic_edf_schedulable_by_window_dbf_on :
            T tasks offset jitter jobs
            (S (job_abs_deadline (jobs j))) enumT codec)
         j) ->
-    (forall j,
-      jittered_periodic_jobset T tasks offset jitter jobs j ->
-      agrees_before
-        (generated_jittered_periodic_edf_schedule_upto
-           T tasks offset jitter jobs
-           (S (job_abs_deadline (jobs j))) enumT codec)
-        (generated_jittered_periodic_edf_schedule
-           T tasks offset jitter jobs enumT codec)
-        (job_abs_deadline (jobs j))) ->
     (forall t1 t2,
       t1 <= t2 ->
       taskset_jittered_periodic_dbf_window tasks offset jitter enumT t1 t2 <=
@@ -169,7 +161,7 @@ Theorem jittered_periodic_edf_schedulable_by_window_dbf_on :
 Proof.
   intros T tasks offset jitter enumT jobs codec
          Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
-         Hbridge Hagree Hdbf.
+         Hbridge Hdbf.
   eapply schedulable_by_on_intro with
     (sched := generated_jittered_periodic_edf_schedule
                 T tasks offset jitter jobs enumT codec).
@@ -216,11 +208,26 @@ Proof.
     unfold missed_deadline in *.
     intro Hcomp_fin.
     apply Hmiss_inf.
+    assert (Hagree :
+      agrees_before sched_fin
+        (generated_jittered_periodic_edf_schedule
+           T tasks offset jitter jobs enumT codec)
+        (job_abs_deadline (jobs j))).
+    {
+      unfold sched_fin, generated_jittered_periodic_edf_schedule_upto,
+             generated_jittered_periodic_edf_schedule, HH.
+      intros t c Hlt.
+      eapply infinite_generated_jittered_edf_prefix_coherence.
+      - exact Hwf.
+      - exact HenumT_complete.
+      - exact HenumT_sound.
+      - lia.
+    }
     destruct (agrees_before_completed
                 jobs 1 sched_fin
                 (generated_jittered_periodic_edf_schedule
                    T tasks offset jitter jobs enumT codec)
                 j (job_abs_deadline (jobs j))
-                (Hagree j Hj)) as [Hcomp_inf _].
+                Hagree) as [Hcomp_inf _].
     exact (Hcomp_inf Hcomp_fin).
 Qed.
