@@ -1,6 +1,8 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Semantics.Schedule.
+From RocqSched Require Import Semantics.ScheduleLemmas.ScheduleFacts.
+From RocqSched Require Import Semantics.ScheduleLemmas.SchedulePrefix.
 From RocqSched Require Import Abstractions.Scheduler.Interface.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.EnumCandidates.
 From RocqSched Require Import Abstractions.SchedulingAlgorithm.SchedulerBridge.
@@ -8,6 +10,7 @@ From RocqSched Require Import Uniprocessor.Generic.FinitePrefixScheduleWitness.
 From RocqSched Require Import Uniprocessor.Policies.EDF.
 From RocqSched Require Import Uniprocessor.Policies.EDFLemmas.
 From RocqSched Require Import TaskModels.Periodic.PeriodicTasks.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicTasks.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicInfiniteJobset.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicFiniteHorizon.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicCodec.
@@ -144,15 +147,19 @@ Theorem jittered_periodic_edf_schedulable_by_window_dbf_on :
            T tasks offset jitter jobs
            (S (job_abs_deadline (jobs j))) enumT codec)
         j) ->
+    (forall j,
+      jittered_periodic_jobset T tasks offset jitter jobs j ->
+      agrees_before
+        (generated_jittered_periodic_edf_schedule_upto
+           T tasks offset jitter jobs
+           (S (job_abs_deadline (jobs j))) enumT codec)
+        (generated_jittered_periodic_edf_schedule
+           T tasks offset jitter jobs enumT codec)
+        (job_abs_deadline (jobs j))) ->
     (forall t1 t2,
       t1 <= t2 ->
       taskset_jittered_periodic_dbf_window tasks offset jitter enumT t1 t2 <=
       t2 - t1) ->
-    feasible_schedule_on
-      (jittered_periodic_jobset T tasks offset jitter jobs)
-      jobs 1
-      (generated_jittered_periodic_edf_schedule
-         T tasks offset jitter jobs enumT codec) ->
     schedulable_by_on
       (jittered_periodic_jobset T tasks offset jitter jobs)
       (edf_scheduler
@@ -161,12 +168,59 @@ Theorem jittered_periodic_edf_schedulable_by_window_dbf_on :
       jobs 1.
 Proof.
   intros T tasks offset jitter enumT jobs codec
-         _Hwf _Hnonblocked _HnodupT _HenumT_complete _HenumT_sound
-         _Hbridge _Hdbf Hfeas.
+         Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
+         Hbridge Hagree Hdbf.
   eapply schedulable_by_on_intro with
     (sched := generated_jittered_periodic_edf_schedule
                 T tasks offset jitter jobs enumT codec).
   - apply infinite_generated_jittered_edf_scheduler_rel.
   - apply generated_jittered_periodic_edf_schedule_valid.
-  - exact Hfeas.
+  - unfold feasible_schedule_on.
+    intros j Hj Hmiss_inf.
+    set (HH := S (job_abs_deadline (jobs j))).
+    set (sched_fin :=
+      generated_jittered_periodic_edf_schedule_upto
+        T tasks offset jitter jobs HH enumT codec).
+    assert (Hjob_upto :
+      jittered_periodic_jobset_upto T tasks offset jitter jobs HH j).
+    {
+      unfold HH.
+      apply jittered_periodic_jobset_with_release_lt_implies_upto.
+      - exact Hj.
+      - pose proof (jittered_periodic_jobset_implies_generated
+                      T tasks offset jitter jobs j Hj) as Hgen.
+        pose proof (generated_by_jittered_periodic_deadline_eq
+                      tasks offset jitter jobs j Hgen) as Hdl.
+        lia.
+    }
+    assert (Hfin_no_miss :
+      ~ missed_deadline jobs 1 sched_fin j).
+    {
+      unfold sched_fin, generated_jittered_periodic_edf_schedule_upto, HH.
+      eapply jittered_window_dbf_implies_no_deadline_miss_under_generated_edf_with_no_carry_in_bridge.
+      - exact Hwf.
+      - intros j' t Hj'.
+        apply Hnonblocked.
+        exact (jittered_periodic_jobset_upto_implies_jittered_periodic_jobset
+                 T tasks offset jitter jobs (S (job_abs_deadline (jobs j))) j' Hj').
+      - exact HnodupT.
+      - exact HenumT_complete.
+      - exact HenumT_sound.
+      - exact Hjob_upto.
+      - lia.
+      - exact (Hbridge j Hj).
+      - intros t1 t2 Hle _.
+        exact (Hdbf t1 t2 Hle).
+    }
+    apply Hfin_no_miss.
+    unfold missed_deadline in *.
+    intro Hcomp_fin.
+    apply Hmiss_inf.
+    destruct (agrees_before_completed
+                jobs 1 sched_fin
+                (generated_jittered_periodic_edf_schedule
+                   T tasks offset jitter jobs enumT codec)
+                j (job_abs_deadline (jobs j))
+                (Hagree j Hj)) as [Hcomp_inf _].
+    exact (Hcomp_inf Hcomp_fin).
 Qed.

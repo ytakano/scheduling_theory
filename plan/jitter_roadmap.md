@@ -355,6 +355,15 @@ Update this document after implementing.
   - exposed the infinite window-DBF schedulability wrapper with explicit
     finite-prefix feasibility / no-carry-in obligations
   - registered the new files in `_CoqProject`
+- PR 3 continued:
+  - added jittered EDF processor-demand bridge lemmas for finite horizons
+  - finite generated-EDF schedulability now derives `feasible_on` from
+    `taskset_jittered_periodic_dbf_window` and the no-carry-in bridge
+  - infinite generated-EDF schedulability no longer requires an explicit
+    `feasible_schedule_on` premise
+  - infinite generated-EDF schedulability now keeps finite/infinite
+    `agrees_before` prefix coherence as an explicit proof obligation
+  - full automatic finite/infinite prefix coherence remains the next PR3 task
 - Verification:
   - `JitteredPeriodicEDFWindowBridge.v` compiles
   - `JitteredPeriodicEDFInfiniteBridge.v` compiles
