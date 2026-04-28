@@ -381,3 +381,11 @@ Update this section after each implementation batch.
     `--threads 2`, and `--threads auto`, then compares the JSON byte-for-byte
   - the test also locks the `--threads 0` validation error so invalid thread
     modes continue to fail before witness generation
+- PR 5 started:
+  - added CSV fixtures for zero-offset, offset, unschedulable, and malformed
+    periodic EDF witness pipeline cases
+  - added `scripts/run_periodic_edf_witness_pipeline` to run Rust witness
+    generation followed by extracted-Haskell witness checking
+  - added make targets to build `periodic_edf_witness_check` with `aeson` and
+    `crypton`, then test accepted cases, rejected CSV/tasksets, and mutated
+    witness fields

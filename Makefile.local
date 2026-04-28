@@ -13,7 +13,13 @@ extract-periodic-edf-sched-hs::
 scripts/periodic_edf_schedulability_csv: scripts/periodic_edf_schedulability_csv.hs extracted/haskell/PeriodicEDFSchedulability.hs
 	ghc -O2 -iextracted/haskell -outputdir scripts/.build -o $@ $<
 
+scripts/periodic_edf_witness_check: scripts/periodic_edf_witness_check.hs extracted/haskell/PeriodicEDFSchedulability.hs
+	mkdir -p scripts/.build
+	stack exec -- ghc -O2 -package aeson -package crypton -iextracted/haskell -outputdir scripts/.build -o $@ $<
+
 build-periodic-edf-sched-csv:: extract-periodic-edf-sched-hs scripts/periodic_edf_schedulability_csv
+
+build-periodic-edf-witness-check:: extract-periodic-edf-sched-hs scripts/periodic_edf_witness_check
 
 run-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	@test -n "$(CSV)" || (echo "usage: make run-periodic-edf-sched-csv CSV=tasks.csv" && exit 2)
@@ -41,6 +47,49 @@ test-sched-witness-gen-determinism:: sched-witness-gen
 		exit 1; \
 	fi; \
 	grep -q -- '--threads must be positive or auto' "$$tmp/bad.out"
+
+test-periodic-edf-witness-pipeline:: sched-witness-gen build-periodic-edf-witness-check
+	@set -e; \
+	tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	fixtures=scripts/fixtures/periodic_edf_witness; \
+	./scripts/run_periodic_edf_witness_pipeline "$$fixtures/zero_offset.csv" "$$tmp/zero.json"; \
+	./scripts/run_periodic_edf_witness_pipeline --offsets "$$fixtures/offset.csv" "$$tmp/offset.json"; \
+	if ./target/debug/sched-witness-gen periodic-edf --tasks "$$fixtures/unschedulable.csv" --out "$$tmp/unschedulable.json" > "$$tmp/unschedulable.out" 2>&1; then \
+		if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/unschedulable.csv" --witness "$$tmp/unschedulable.json" > "$$tmp/unschedulable-check.out" 2>&1; then \
+			cat "$$tmp/unschedulable-check.out"; \
+			exit 1; \
+		fi; \
+	fi; \
+	if ./scripts/run_periodic_edf_witness_pipeline --offsets "$$fixtures/malformed.csv" "$$tmp/malformed.json" > "$$tmp/malformed.out" 2>&1; then \
+		cat "$$tmp/malformed.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"slots": \[\n\s*\K[0-9]+/null/' "$$tmp/zero.json" > "$$tmp/slot-mut.json"; \
+	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/slot-mut.json" > "$$tmp/slot-mut.out" 2>&1; then \
+		cat "$$tmp/slot-mut.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"completed_by": \[\n\s*\K[0-9]+/0/' "$$tmp/zero.json" > "$$tmp/completed-mut.json"; \
+	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/completed-mut.json" > "$$tmp/completed-mut.out" 2>&1; then \
+		cat "$$tmp/completed-mut.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"job_class": \[\n\s*\K[0-9]+/1/' "$$tmp/zero.json" > "$$tmp/class-mut.json"; \
+	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/class-mut.json" > "$$tmp/class-mut.out" 2>&1; then \
+		cat "$$tmp/class-mut.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/true/false/g' "$$tmp/zero.json" > "$$tmp/dbf-mut.json"; \
+	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/dbf-mut.json" > "$$tmp/dbf-mut.out" 2>&1; then \
+		cat "$$tmp/dbf-mut.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"task_hash": "sha256:[^"]+"/"task_hash": "sha256:0"/' "$$tmp/zero.json" > "$$tmp/hash-mut.json"; \
+	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/hash-mut.json" > "$$tmp/hash-mut.out" 2>&1; then \
+		cat "$$tmp/hash-mut.out"; \
+		exit 1; \
+	fi
 
 test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	@tmp=$$(mktemp -d); \
@@ -94,4 +143,4 @@ test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	fi; \
 	grep -q 'offset must be nonnegative' "$$tmp/negative-offset.out"
 
-.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv run-periodic-edf-sched-csv sched-witness-gen test-sched-witness-gen-determinism test-periodic-edf-sched-csv
+.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv build-periodic-edf-witness-check run-periodic-edf-sched-csv sched-witness-gen test-sched-witness-gen-determinism test-periodic-edf-witness-pipeline test-periodic-edf-sched-csv

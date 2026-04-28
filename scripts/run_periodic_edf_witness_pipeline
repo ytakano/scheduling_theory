@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+
+offsets=
+if [ "${1:-}" = "--offsets" ]; then
+  offsets=--offsets
+  shift
+fi
+
+if [ "$#" -ne 2 ]; then
+  echo "usage: run_periodic_edf_witness_pipeline [--offsets] TASKS.csv WITNESS.json" >&2
+  exit 2
+fi
+
+tasks=$1
+witness=$2
+
+./target/debug/sched-witness-gen periodic-edf --tasks "$tasks" --out "$witness" --threads auto
+
+if [ -n "$offsets" ]; then
+  ./scripts/periodic_edf_witness_check --tasks "$tasks" --offsets --witness "$witness"
+else
+  ./scripts/periodic_edf_witness_check --tasks "$tasks" --witness "$witness"
+fi
