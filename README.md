@@ -1,17 +1,34 @@
-# RocqSched: Bridging Scheduling Theory and Executable Scheduler Semantics in Rocq
+# RocqSched: Bridging Scheduling Theory and OS-Level Scheduler Semantics in Rocq
 
-**RocqSched** is a Rocq library for scheduling theory, executable scheduler semantics, and refinement between abstract scheduling specifications and concrete scheduling algorithms.
+**RocqSched** is a Rocq library for scheduling theory, executable scheduler
+models, scheduler semantic layers, and refinement theories.
 
-The library is built around a layered view of scheduling.
+The library is organized around scheduler semantic layers.
 
-- A **schedule** is treated as the semantic object: an execution timeline that describes which job runs on which CPU at each time.
-- A **scheduling algorithm** is treated as an executable decision procedure that selects jobs based on the current system state.
-- A **scheduler** connects algorithmic decisions with semantic validity conditions and system-level constraints.
-- **Refinement** is used to relate executable scheduling rules to abstract scheduling specifications.
+- **Schedule semantics** is the mathematical schedule model used by policy
+  specifications and schedulability analysis.
+- **Trace semantics** describes observable scheduling events and connects
+  execution logs to schedule-level reasoning.
+- **OS-level scheduler operational semantics** models implementation-facing
+  scheduler mechanisms as state transitions that produce traces.
 
-This structure is intended to support both foundational scheduling theory and extensible system modeling. RocqSched is designed to grow from uniprocessor models to multicore scheduling, and further toward OS-level semantics. It also aims to support richer task models, including periodic and DAG-based workloads, within the same overall framework.
+RocqSched also separates semantic objects from reasoning theories.
 
-The long-term goal of RocqSched is not only to verify isolated scheduling results, but to provide a reusable formal foundation that connects scheduling theory, executable schedulers, and system semantics in a single Rocq development.
+- **Analysis theory** proves timing and schedulability properties over schedule
+  semantics.
+- **Refinement theory** connects executable algorithms, operational executions,
+  traces, schedules, and abstract policy specifications.
+- **Executable scheduler models** provide decision procedures whose behavior can
+  be related back to declarative scheduling specifications.
+
+This structure supports reusable developments across scheduler policies, task
+models, uniprocessor and multicore settings, trace-based validation, and
+OS-level scheduler modeling.
+
+The long-term goal of RocqSched is to provide a reusable formal foundation that
+connects scheduling theory, executable scheduler models, trace semantics,
+OS-level operational semantics, and schedulability analysis in a single Rocq
+development.
 
 # Design Principles and Design
 
