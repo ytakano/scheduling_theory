@@ -10,7 +10,7 @@ fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-printf 'case,engine,thread_mode,task_count,cutoff,checked_window_count,wall_ms,peak_kb,status\n' > "$out"
+printf 'case,engine,thread_mode,task_count,schema_version,cutoff,checked_window_count,basis_window_count,wall_ms,peak_kb,status\n' > "$out"
 
 cat > "$tmp/small.csv" <<'CSV'
 cost,period,deadline,offset,jitter
@@ -52,14 +52,14 @@ run_rust() {
   wall_ms=$((end - start))
   if [ "$status" = ok ] && [ -f "$metrics" ]; then
     row=$(sed -n '2p' "$metrics")
-    IFS=, read -r task_count cutoff checked_window_count requested_threads _status <<EOF
+    IFS=, read -r task_count schema_version cutoff checked_window_count basis_window_count requested_threads _status <<EOF
 $row
 EOF
-    printf '%s,rust-generator,%s,%s,%s,%s,%s,unavailable,%s\n' \
-      "$name" "$requested_threads" "$task_count" "$cutoff" "$checked_window_count" \
-      "$wall_ms" "$status" >> "$out"
+    printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,%s,unavailable,%s\n' \
+      "$name" "$requested_threads" "$task_count" "$schema_version" "$cutoff" \
+      "$checked_window_count" "$basis_window_count" "$wall_ms" "$status" >> "$out"
   else
-    printf '%s,rust-generator,%s,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
+    printf '%s,rust-generator,%s,unavailable,unavailable,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
       "$name" "$threads" "$wall_ms" "$status" >> "$out"
   fi
 }
@@ -74,7 +74,7 @@ run_haskell_cutoff() {
   fi
   end=$(now_ms)
   wall_ms=$((end - start))
-  printf '%s,haskell-cutoff,na,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
+  printf '%s,haskell-cutoff,na,unavailable,unavailable,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
     "$name" "$wall_ms" "$status" >> "$out"
 }
 
@@ -83,7 +83,7 @@ for name in small medium large limit_near; do
   run_rust "$name" 2
   run_rust "$name" auto
   if [ "$name" = limit_near ]; then
-    printf '%s,haskell-cutoff,na,unavailable,unavailable,unavailable,unavailable,unavailable,skipped\n' \
+    printf '%s,haskell-cutoff,na,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,skipped\n' \
       "$name" >> "$out"
   else
     run_haskell_cutoff "$name"

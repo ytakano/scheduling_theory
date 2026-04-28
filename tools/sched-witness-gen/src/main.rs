@@ -45,6 +45,8 @@ struct JitteredPeriodicEdfArgs {
     out: PathBuf,
     #[arg(long, default_value = "auto")]
     threads: String,
+    #[arg(long, default_value_t = 3)]
+    witness_schema: u64,
     #[arg(long)]
     metrics_out: Option<PathBuf>,
 }
@@ -183,17 +185,39 @@ struct JitteredCert {
 }
 
 #[derive(Debug, Serialize)]
-struct JitteredDbfCert {
+#[serde(untagged)]
+enum JitteredDbfCert {
+    Schema2(JitteredDbfV2Cert),
+    Schema3(JitteredDbfV3Cert),
+}
+
+#[derive(Debug, Serialize)]
+struct JitteredDbfV2Cert {
     cutoff: u64,
     checked_windows: Vec<[u64; 2]>,
     all_windows_checked: bool,
 }
 
 #[derive(Debug, Serialize)]
+struct JitteredDbfV3Cert {
+    cutoff: u64,
+    basis: Vec<JitteredDbfBasisRow>,
+    all_basis_checked: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct JitteredDbfBasisRow {
+    t2: u64,
+    left_edges: Vec<u64>,
+}
+
+#[derive(Debug, Serialize)]
 struct JitteredGeneratorStats {
     task_count: usize,
+    schema_version: u64,
     cutoff: u64,
     checked_window_count: usize,
+    basis_window_count: usize,
     thread_mode: String,
 }
 
@@ -239,17 +263,18 @@ fn run_periodic_edf(args: PeriodicEdfArgs) -> Result<(), String> {
 
 fn run_jittered_periodic_edf(args: JitteredPeriodicEdfArgs) -> Result<(), String> {
     let thread_mode = ThreadMode::parse(&args.threads)?;
+    let witness_schema = parse_jittered_witness_schema(args.witness_schema)?;
     let csv = fs::read_to_string(&args.tasks)
         .map_err(|err| format!("failed to read {}: {err}", args.tasks.display()))?;
     let tasks = parse_jittered_csv(&csv)?;
     let witness = match thread_mode {
-        ThreadMode::Serial => generate_jittered_witness(&tasks, &thread_mode)?,
-        ThreadMode::Auto => generate_jittered_witness(&tasks, &thread_mode)?,
+        ThreadMode::Serial => generate_jittered_witness(&tasks, &thread_mode, witness_schema)?,
+        ThreadMode::Auto => generate_jittered_witness(&tasks, &thread_mode, witness_schema)?,
         ThreadMode::Fixed(n) => ThreadPoolBuilder::new()
             .num_threads(n)
             .build()
             .map_err(|err| format!("failed to build rayon thread pool: {err}"))?
-            .install(|| generate_jittered_witness(&tasks, &thread_mode))?,
+            .install(|| generate_jittered_witness(&tasks, &thread_mode, witness_schema))?,
     };
     let json = serde_json::to_string_pretty(&witness)
         .map_err(|err| format!("failed to serialize witness: {err}"))?;
@@ -290,12 +315,25 @@ fn write_jittered_metrics(
     let stats = &witness.generator_stats;
     let metrics = format!(
         concat!(
-            "task_count,cutoff,checked_window_count,requested_threads,status\n",
-            "{},{},{},{},ok\n"
+            "task_count,schema_version,cutoff,checked_window_count,basis_window_count,",
+            "requested_threads,status\n",
+            "{},{},{},{},{},{},ok\n"
         ),
-        stats.task_count, stats.cutoff, stats.checked_window_count, requested_threads
+        stats.task_count,
+        stats.schema_version,
+        stats.cutoff,
+        stats.checked_window_count,
+        stats.basis_window_count,
+        requested_threads
     );
     fs::write(path, metrics).map_err(|err| format!("failed to write {}: {err}", path.display()))
+}
+
+fn parse_jittered_witness_schema(schema: u64) -> Result<u64, String> {
+    match schema {
+        2 | 3 => Ok(schema),
+        _ => Err("--witness-schema must be 2 or 3".to_string()),
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -451,22 +489,52 @@ fn generate_witness(tasks: &[Task], thread_mode: &ThreadMode) -> Result<Witness,
 fn generate_jittered_witness(
     tasks: &[JitteredTask],
     thread_mode: &ThreadMode,
+    witness_schema: u64,
 ) -> Result<JitteredWitness, String> {
     let cutoff = jittered_dbf_cutoff(tasks)?;
     ensure_limit(cutoff <= MAX_HORIZON, "jittered DBF cutoff")?;
-    let windows = jittered_critical_windows(tasks, cutoff)?;
-    ensure_limit(
-        windows.len() <= MAX_JITTERED_DBF_WINDOWS,
-        "jittered DBF window count",
-    )?;
-    let ok_table = map_vec(thread_mode, &windows, |window| {
-        Ok(jittered_window_demand(tasks, window[0], window[1])? <= window[1] - window[0])
-    })?;
-    if !ok_table.iter().all(|ok| *ok) {
-        return Err("jittered DBF witness generation rejected unschedulable taskset".to_string());
-    }
+
+    let (dbf, checked_window_count, basis_window_count) = match witness_schema {
+        2 => {
+            let windows = jittered_critical_windows(tasks, cutoff)?;
+            ensure_limit(
+                windows.len() <= MAX_JITTERED_DBF_WINDOWS,
+                "jittered DBF window count",
+            )?;
+            let checked_window_count = validate_jittered_windows(tasks, thread_mode, &windows)?;
+            (
+                JitteredDbfCert::Schema2(JitteredDbfV2Cert {
+                    cutoff,
+                    checked_windows: windows,
+                    all_windows_checked: true,
+                }),
+                checked_window_count,
+                0,
+            )
+        }
+        3 => {
+            let basis_window_count = identity_basis_window_count(cutoff)?;
+            ensure_limit(
+                basis_window_count <= MAX_JITTERED_DBF_WINDOWS,
+                "jittered DBF basis window count",
+            )?;
+            let basis = jittered_identity_dbf_basis(cutoff);
+            let checked_basis_window_count = validate_jittered_basis(tasks, thread_mode, &basis)?;
+            (
+                JitteredDbfCert::Schema3(JitteredDbfV3Cert {
+                    cutoff,
+                    basis,
+                    all_basis_checked: true,
+                }),
+                0,
+                checked_basis_window_count,
+            )
+        }
+        _ => return Err("--witness-schema must be 2 or 3".to_string()),
+    };
+
     Ok(JitteredWitness {
-        schema_version: 2,
+        schema_version: witness_schema,
         policy: "jittered-periodic-edf",
         domain: "uniprocessor",
         task_hash: jittered_task_hash(tasks),
@@ -474,17 +542,13 @@ fn generate_jittered_witness(
             name: "sched-witness-gen",
             version: "0.1",
         },
-        cert: JitteredCert {
-            dbf: JitteredDbfCert {
-                cutoff,
-                checked_windows: windows,
-                all_windows_checked: true,
-            },
-        },
+        cert: JitteredCert { dbf },
         generator_stats: JitteredGeneratorStats {
             task_count: tasks.len(),
+            schema_version: witness_schema,
             cutoff,
-            checked_window_count: ok_table.len(),
+            checked_window_count,
+            basis_window_count,
             thread_mode: "deterministic".to_string(),
         },
     })
@@ -978,6 +1042,66 @@ fn jittered_critical_windows(tasks: &[JitteredTask], cutoff: u64) -> Result<Vec<
     Ok(windows)
 }
 
+fn identity_basis_window_count(cutoff: u64) -> Result<usize, String> {
+    let count = (cutoff as u128 + 1)
+        .checked_mul(cutoff as u128 + 2)
+        .and_then(|x| x.checked_div(2))
+        .ok_or_else(|| "jittered DBF basis window count overflow".to_string())?;
+    usize::try_from(count).map_err(|_| "jittered DBF basis window count overflow".to_string())
+}
+
+fn jittered_identity_dbf_basis(cutoff: u64) -> Vec<JitteredDbfBasisRow> {
+    (0..=cutoff)
+        .map(|t2| JitteredDbfBasisRow {
+            t2,
+            left_edges: (0..=t2).collect(),
+        })
+        .collect()
+}
+
+fn validate_jittered_windows(
+    tasks: &[JitteredTask],
+    thread_mode: &ThreadMode,
+    windows: &[[u64; 2]],
+) -> Result<usize, String> {
+    let ok_table = map_vec(thread_mode, windows, |window| {
+        Ok(jittered_window_demand(tasks, window[0], window[1])? <= window[1] - window[0])
+    })?;
+    if !ok_table.iter().all(|ok| *ok) {
+        return Err("jittered DBF witness generation rejected unschedulable taskset".to_string());
+    }
+    Ok(ok_table.len())
+}
+
+fn validate_jittered_basis(
+    tasks: &[JitteredTask],
+    thread_mode: &ThreadMode,
+    basis: &[JitteredDbfBasisRow],
+) -> Result<usize, String> {
+    let row_counts = map_vec(thread_mode, basis, |row| {
+        let mut count = 0_usize;
+        for t1 in &row.left_edges {
+            let window_width = row
+                .t2
+                .checked_sub(*t1)
+                .ok_or_else(|| "jittered DBF basis left edge exceeds right endpoint".to_string())?;
+            if jittered_window_demand(tasks, *t1, row.t2)? > window_width {
+                return Err(
+                    "jittered DBF witness generation rejected unschedulable taskset".to_string(),
+                );
+            }
+            count = count
+                .checked_add(1)
+                .ok_or_else(|| "jittered DBF basis window count overflow".to_string())?;
+        }
+        Ok(count)
+    })?;
+    row_counts.into_iter().try_fold(0_usize, |acc, count| {
+        acc.checked_add(count)
+            .ok_or_else(|| "jittered DBF basis window count overflow".to_string())
+    })
+}
+
 fn jittered_window_demand(tasks: &[JitteredTask], t1: u64, t2: u64) -> Result<u64, String> {
     tasks.iter().try_fold(0_u64, |acc, task| {
         let count = jittered_task_window_count(task, t1, t2)?;
@@ -1159,14 +1283,61 @@ mod tests {
     }
 
     #[test]
-    fn generates_tiny_jittered_witness() {
+    fn preserves_tiny_identity_basis_order() {
         let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,1,1,0,0\n")
             .expect("tiny jittered CSV should parse");
-        let witness = generate_jittered_witness(&tasks, &ThreadMode::Serial).unwrap();
+        let basis = jittered_identity_dbf_basis(2);
+        assert_eq!(identity_basis_window_count(2).unwrap(), 6);
+        assert_eq!(
+            validate_jittered_basis(&tasks, &ThreadMode::Serial, &basis).unwrap(),
+            6
+        );
+        assert_eq!(basis[0].t2, 0);
+        assert_eq!(basis[0].left_edges, vec![0]);
+        assert_eq!(basis[2].t2, 2);
+        assert_eq!(basis[2].left_edges, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn generates_tiny_jittered_schema2_witness() {
+        let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,1,1,0,0\n")
+            .expect("tiny jittered CSV should parse");
+        let witness = generate_jittered_witness(&tasks, &ThreadMode::Serial, 2).unwrap();
         assert_eq!(witness.schema_version, 2);
         assert_eq!(witness.policy, "jittered-periodic-edf");
-        assert_eq!(witness.cert.dbf.cutoff, 5);
-        assert!(witness.cert.dbf.all_windows_checked);
+        match witness.cert.dbf {
+            JitteredDbfCert::Schema2(dbf) => {
+                assert_eq!(dbf.cutoff, 5);
+                assert!(dbf.all_windows_checked);
+            }
+            JitteredDbfCert::Schema3(_) => panic!("expected schema-v2 DBF certificate"),
+        }
+        assert_eq!(witness.generator_stats.checked_window_count, 71);
+        assert_eq!(witness.generator_stats.basis_window_count, 0);
+        assert_eq!(
+            witness.task_hash,
+            "sha256:4d975dd17f1887dc34f2607b632fe1430a674efa7c5c6ad07b8116697b490011"
+        );
+    }
+
+    #[test]
+    fn generates_tiny_jittered_schema3_witness_by_default() {
+        let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,1,1,0,0\n")
+            .expect("tiny jittered CSV should parse");
+        let witness = generate_jittered_witness(&tasks, &ThreadMode::Serial, 3).unwrap();
+        assert_eq!(witness.schema_version, 3);
+        assert_eq!(witness.policy, "jittered-periodic-edf");
+        match witness.cert.dbf {
+            JitteredDbfCert::Schema2(_) => panic!("expected schema-v3 DBF certificate"),
+            JitteredDbfCert::Schema3(dbf) => {
+                assert_eq!(dbf.cutoff, 5);
+                assert!(dbf.all_basis_checked);
+                assert_eq!(dbf.basis.len(), 6);
+                assert_eq!(dbf.basis[5].left_edges, vec![0, 1, 2, 3, 4, 5]);
+            }
+        }
+        assert_eq!(witness.generator_stats.checked_window_count, 0);
+        assert_eq!(witness.generator_stats.basis_window_count, 21);
         assert_eq!(
             witness.task_hash,
             "sha256:4d975dd17f1887dc34f2607b632fe1430a674efa7c5c6ad07b8116697b490011"
@@ -1177,7 +1348,7 @@ mod tests {
     fn rejects_unschedulable_jittered_taskset() {
         let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n2,1,1,0,0\n")
             .expect("unschedulable jittered CSV should parse");
-        let err = generate_jittered_witness(&tasks, &ThreadMode::Serial)
+        let err = generate_jittered_witness(&tasks, &ThreadMode::Serial, 3)
             .expect_err("unschedulable taskset should not generate a witness");
         assert!(err.contains("rejected unschedulable taskset"));
     }

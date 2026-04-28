@@ -745,3 +745,14 @@ witness JSON.
     tests, leaving Rust schema-v3 generation to V3 PR4
   - extended local make coverage for schema-v3 accept/reject checks without
     requiring Rust schema-v3 generation
+- V3 PR 4 started:
+  - added `--witness-schema 2|3` to
+    `sched-witness-gen jittered-periodic-edf`
+  - schema v3 is now the Rust generator default while schema v2 remains
+    available for compatibility tests
+  - schema-v3 generation emits the current checker-facing identity compact
+    basis: for every `t2 <= cutoff`, `left_edges` contains every `t1 <= t2`
+  - Rust validates each emitted basis window with the existing DBF demand
+    routine before writing the witness, but does not serialize demand values
+  - extended deterministic generator stats and jittered benchmark CSV metrics
+    with `schema_version` and `basis_window_count`
