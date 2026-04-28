@@ -24,6 +24,24 @@ sched-witness-gen::
 
 post-all:: sched-witness-gen
 
+test-sched-witness-gen-determinism:: sched-witness-gen
+	@tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	printf 'cost,period,deadline\n1,4,4\n1,5,5\n' > "$$tmp/zero.csv"; \
+	printf 'cost,period,deadline,offset\n1,4,4,1\n1,5,5,2\n' > "$$tmp/offset.csv"; \
+	for csv in zero offset; do \
+		./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/$$csv.csv" --out "$$tmp/$$csv.threads1.json" --threads 1; \
+		./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/$$csv.csv" --out "$$tmp/$$csv.threads2.json" --threads 2; \
+		./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/$$csv.csv" --out "$$tmp/$$csv.auto.json" --threads auto; \
+		cmp "$$tmp/$$csv.threads1.json" "$$tmp/$$csv.threads2.json"; \
+		cmp "$$tmp/$$csv.threads1.json" "$$tmp/$$csv.auto.json"; \
+	done; \
+	if ./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/zero.csv" --out "$$tmp/bad.json" --threads 0 > "$$tmp/bad.out" 2>&1; then \
+		cat "$$tmp/bad.out"; \
+		exit 1; \
+	fi; \
+	grep -q -- '--threads must be positive or auto' "$$tmp/bad.out"
+
 test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
@@ -76,4 +94,4 @@ test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	fi; \
 	grep -q 'offset must be nonnegative' "$$tmp/negative-offset.out"
 
-.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv run-periodic-edf-sched-csv sched-witness-gen test-periodic-edf-sched-csv
+.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv run-periodic-edf-sched-csv sched-witness-gen test-sched-witness-gen-determinism test-periodic-edf-sched-csv

@@ -374,3 +374,10 @@ Update this section after each implementation batch.
     pool, and `--threads auto` uses Rayon default parallelism
   - parallelized independent certificate construction phases while preserving
     deterministic vector ordering and JSON serialization
+- PR 4 started:
+  - added `test-sched-witness-gen-determinism` to exercise reproducible witness
+    generation from the scheduling_theory make layer
+  - the test generates zero-offset and offset CSV witnesses with `--threads 1`,
+    `--threads 2`, and `--threads auto`, then compares the JSON byte-for-byte
+  - the test also locks the `--threads 0` validation error so invalid thread
+    modes continue to fail before witness generation
