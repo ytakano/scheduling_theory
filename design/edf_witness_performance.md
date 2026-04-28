@@ -56,6 +56,15 @@ Representative v3-only rows from the optimized compact-basis benchmark:
 | large | 3 | 153 | 1,560 | 37,470 | 5 | 45 | ok |
 | limit_near | 3 | 561 | 10,152 | 213,293 | 11 | 1,628 | ok |
 
+## Operational Generator Guard
+
+The Rust schema-v3 generator caps compact basis windows with
+`MAX_JITTERED_DBF_BASIS_WINDOWS = 2,000,000`. This is an operational generator
+guard for local resource use, not a proof or theory limit. The value is chosen
+under the user's stated tolerance for witnesses in the hundreds of MB and for
+multi-hour local runs. The checker and Rocq proof story remain parameterized by
+the compact basis certificate obligations, not by this Rust-side cap.
+
 ## Historical V2 Baseline
 
 These rows record the pre-v3 full-window baseline used to justify compact

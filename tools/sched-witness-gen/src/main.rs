@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 const MAX_HORIZON: u64 = 200_000;
 const MAX_BASIS_JOBS: usize = 200_000;
-const MAX_JITTERED_DBF_WINDOWS: usize = 200_000;
+const MAX_JITTERED_DBF_BASIS_WINDOWS: usize = 2_000_000;
 
 #[derive(Parser)]
 #[command(name = "sched-witness-gen")]
@@ -468,10 +468,11 @@ fn generate_jittered_witness(
     ensure_limit(cutoff <= MAX_HORIZON, "jittered DBF cutoff")?;
 
     let (basis, basis_window_count) = jittered_reduced_dbf_basis(tasks, thread_mode, cutoff)?;
-    ensure_limit(
-        basis_window_count <= MAX_JITTERED_DBF_WINDOWS,
-        "jittered DBF basis window count",
-    )?;
+    if basis_window_count > MAX_JITTERED_DBF_BASIS_WINDOWS {
+        return Err(
+            "jittered DBF basis window count exceeds schema-v3 generator limit".to_string(),
+        );
+    }
     let dbf = JitteredDbfCert {
         cutoff,
         basis,
@@ -1218,7 +1219,7 @@ fn ensure_limit(ok: bool, what: &str) -> Result<(), String> {
     if ok {
         Ok(())
     } else {
-        Err(format!("{what} exceeds PR2 resource limit"))
+        Err(format!("{what} exceeds generator limit"))
     }
 }
 

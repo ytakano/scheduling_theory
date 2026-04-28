@@ -697,8 +697,11 @@ must report schema version 3.
 - Do not trust Rust-provided demand values unless the checker independently
   validates them.
 - Do not reintroduce schema-v2 runtime support after the v3-only cleanup.
-- Do not raise `MAX_JITTERED_DBF_WINDOWS` as a substitute for compact
-  certificates.
+- The schema-v3 Rust generator applies
+  `MAX_JITTERED_DBF_BASIS_WINDOWS = 2,000,000` only to the compact basis window
+  count. This is an operational guard for the untrusted generator, not a
+  proof/theory limit, and was chosen under the user's tolerance for hundreds of
+  MB of witness data and multi-hour local runs.
 - Do not add timing or worker-count fields to canonical witness JSON.
 
 ### V3 progress
@@ -770,3 +773,10 @@ must report schema version 3.
     thread mode, keeping schema-v3 JSON order stable
   - removed the post-generation schema-v3 basis revalidation pass by checking
     each selected basis window during row construction
+- V3 v3-only generator guard update:
+  - renamed the Rust compact-basis guard to
+    `MAX_JITTERED_DBF_BASIS_WINDOWS`
+  - raised the schema-v3 basis window count guard to 2,000,000 after runtime
+    support became v3-only
+  - kept the limit scoped to compact basis rows; it is not a theory limit and
+    does not revive the deleted full checked-windows path
