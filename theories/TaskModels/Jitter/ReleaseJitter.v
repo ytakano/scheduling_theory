@@ -36,3 +36,27 @@ Proof.
   exact Hub.
 Qed.
 
+Lemma within_jitter_refl_zero :
+  forall nominal,
+    within_jitter nominal nominal 0.
+Proof.
+  intros nominal.
+  unfold within_jitter.
+  lia.
+Qed.
+
+Lemma within_jitter_actual_ge_nominal :
+  forall nominal actual delta,
+    within_jitter nominal actual delta ->
+    nominal <= actual.
+Proof.
+  exact within_jitter_implies_lower_bound.
+Qed.
+
+Lemma within_jitter_actual_le_nominal_plus_jitter :
+  forall nominal actual delta,
+    within_jitter nominal actual delta ->
+    actual <= nominal + delta.
+Proof.
+  exact within_jitter_implies_upper_bound.
+Qed.

@@ -129,3 +129,69 @@ Proof.
       lia.
   - exact (generated_implies_valid_job_of_task tasks offset jobs j Hgen).
 Qed.
+
+Lemma generated_by_jittered_periodic_release_lb :
+  forall tasks offset jitter jobs j,
+    generated_by_jittered_periodic_task tasks offset jitter jobs j ->
+    expected_release tasks offset (job_task (jobs j)) (job_index (jobs j))
+      <= job_release (jobs j).
+Proof.
+  exact generated_jittered_job_release_lb.
+Qed.
+
+Lemma generated_by_jittered_periodic_release_ub :
+  forall tasks offset jitter jobs j,
+    generated_by_jittered_periodic_task tasks offset jitter jobs j ->
+    job_release (jobs j) <=
+      expected_release tasks offset (job_task (jobs j)) (job_index (jobs j))
+      + jitter (job_task (jobs j)).
+Proof.
+  exact generated_jittered_job_release_ub.
+Qed.
+
+Lemma generated_by_jittered_periodic_deadline_eq :
+  forall tasks offset jitter jobs j,
+    generated_by_jittered_periodic_task tasks offset jitter jobs j ->
+    job_abs_deadline (jobs j) =
+      job_release (jobs j) + task_relative_deadline (tasks (job_task (jobs j))).
+Proof.
+  exact generated_jittered_job_deadline.
+Qed.
+
+Lemma generated_by_jittered_periodic_cost_le :
+  forall tasks offset jitter jobs j,
+    generated_by_jittered_periodic_task tasks offset jitter jobs j ->
+    job_cost (jobs j) <= task_cost (tasks (job_task (jobs j))).
+Proof.
+  exact generated_jittered_job_cost_bounded.
+Qed.
+
+Lemma generated_by_jittered_periodic_zero_jitter_iff_periodic :
+  forall tasks offset jobs j,
+    generated_by_jittered_periodic_task tasks offset (fun _ => 0) jobs j <->
+    generated_by_periodic_task tasks offset jobs j.
+Proof.
+  intros tasks offset jobs j.
+  split.
+  - intros [Hjit Hvalid].
+    unfold generated_by_periodic_task, valid_job_of_task in *.
+    destruct Hvalid as [Hdeadline Hcost].
+    assert (Hrelease :
+      job_release (jobs j) =
+      expected_release tasks offset (job_task (jobs j)) (job_index (jobs j))).
+    {
+      unfold within_jitter in Hjit.
+      destruct Hjit as [Hlb Hub].
+      lia.
+    }
+    split.
+    + exact Hrelease.
+    + split.
+      * unfold expected_abs_deadline.
+        rewrite <- Hrelease.
+        exact Hdeadline.
+      * exact Hcost.
+  - intros Hgen.
+    exact (generated_by_periodic_implies_jittered_periodic
+             tasks offset (fun _ => 0) jobs j Hgen).
+Qed.
