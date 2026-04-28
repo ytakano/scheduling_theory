@@ -211,6 +211,23 @@ test-jittered-edf-witness-check:: build-jittered-edf-witness-check
 	printf 'cost,period,deadline,offset,jitter\n1,1,1,0,0\n' > "$$tmp/accepted.csv"; \
 	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --emit-expected-witness "$$tmp/accepted.json"; \
 	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.json"; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --emit-expected-witness-schema 3 "$$tmp/accepted-v3.json"; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted-v3.json"; \
+	perl -0pe 's/"basis":\[/"basis":[{"t2":999,"left_edges":[999]},/' "$$tmp/accepted-v3.json" > "$$tmp/v3-basis-extra.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-basis-extra.json" > "$$tmp/v3-basis-extra.out" 2>&1; then \
+		cat "$$tmp/v3-basis-extra.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"left_edges":\[\K[0-9]+/999/' "$$tmp/accepted-v3.json" > "$$tmp/v3-left-edge-mut.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-left-edge-mut.json" > "$$tmp/v3-left-edge-mut.out" 2>&1; then \
+		cat "$$tmp/v3-left-edge-mut.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"all_basis_checked":true/"all_basis_checked":false/' "$$tmp/accepted-v3.json" > "$$tmp/v3-all-basis-mut.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-all-basis-mut.json" > "$$tmp/v3-all-basis-mut.out" 2>&1; then \
+		cat "$$tmp/v3-all-basis-mut.out"; \
+		exit 1; \
+	fi; \
 	printf 'cost,period,deadline,offset\n1,4,4,0\n' > "$$tmp/four-column.csv"; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/four-column.csv" --emit-expected-witness "$$tmp/four-column.json" > "$$tmp/four-column.out" 2>&1; then \
 		cat "$$tmp/four-column.out"; \

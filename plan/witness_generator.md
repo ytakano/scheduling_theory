@@ -728,3 +728,20 @@ witness JSON.
     enumerated jittered window DBF
   - added a fast compact-basis DBF test and proved its soundness through
     equivalence with the existing compact-basis DBF test
+- V3 PR 3 started:
+  - added `JitteredEDFCompactDbfCertificate` with cutoff, compact basis, and
+    `all_basis_checked` fields
+  - added field-equality helpers and a compact certificate field soundness
+    lemma
+  - exposed extraction-facing expected cutoff, expected compact basis, compact
+    checker, and compact checker soundness theorem
+  - the compact checker uses the fast compact-basis DBF test and derives the
+    existing global jittered offset-window DBF property through the cutoff
+    theorem
+  - extended `scripts/jittered_edf_witness_check.hs` to keep schema v2 support
+    unchanged and accept schema v3 `cert.dbf.basis` rows with
+    `all_basis_checked`
+  - added a schema-v3 expected-witness emit option for frontend-only checker
+    tests, leaving Rust schema-v3 generation to V3 PR4
+  - extended local make coverage for schema-v3 accept/reject checks without
+    requiring Rust schema-v3 generation

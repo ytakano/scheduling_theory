@@ -236,53 +236,6 @@ task_relative_deadline t =
   case t of {
    MkTask _ _ task_relative_deadline0 -> task_relative_deadline0}
 
-data JitteredEDFDbfCertificate =
-   Build_JitteredEDFDbfCertificate Time (List (Prod Time Time)) Bool
-
-jedf_cutoff :: JitteredEDFDbfCertificate -> Time
-jedf_cutoff j =
-  case j of {
-   Build_JitteredEDFDbfCertificate jedf_cutoff0 _ _ -> jedf_cutoff0}
-
-jedf_checked_windows :: JitteredEDFDbfCertificate -> List (Prod Time Time)
-jedf_checked_windows j =
-  case j of {
-   Build_JitteredEDFDbfCertificate _ jedf_checked_windows0 _ ->
-    jedf_checked_windows0}
-
-jedf_all_windows_checked :: JitteredEDFDbfCertificate -> Bool
-jedf_all_windows_checked j =
-  case j of {
-   Build_JitteredEDFDbfCertificate _ _ jedf_all_windows_checked0 ->
-    jedf_all_windows_checked0}
-
-time_pair_eqb :: (Prod Time Time) -> (Prod Time Time) -> Bool
-time_pair_eqb w1 w2 =
-  case w1 of {
-   Pair a1 b1 -> case w2 of {
-                  Pair a2 b2 -> andb (eqb a1 a2) (eqb b1 b2)}}
-
-time_pair_list_eqb :: (List (Prod Time Time)) -> (List (Prod Time Time)) ->
-                      Bool
-time_pair_list_eqb xs ys =
-  case xs of {
-   Nil -> case ys of {
-           Nil -> True;
-           Cons _ _ -> False};
-   Cons x xs' ->
-    case ys of {
-     Nil -> False;
-     Cons y ys' -> andb (time_pair_eqb x y) (time_pair_list_eqb xs' ys')}}
-
-check_jittered_edf_dbf_certificate_fields :: Time -> (List (Prod Time Time))
-                                             -> JitteredEDFDbfCertificate ->
-                                             Bool
-check_jittered_edf_dbf_certificate_fields expected_cutoff expected_windows cert =
-  andb
-    (andb (eqb (jedf_cutoff cert) expected_cutoff)
-      (time_pair_list_eqb (jedf_checked_windows cert) expected_windows))
-    (jedf_all_windows_checked cert)
-
 expected_release :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId -> Nat ->
                     Time
 expected_release tasks offset _UU03c4_ k =
@@ -366,6 +319,211 @@ taskset_jittered_periodic_dbf_window tasks offset jitter enumT t1 t2 =
    Cons _UU03c4_ enumT' ->
     add (jittered_periodic_dbf_window tasks offset jitter _UU03c4_ t1 t2)
       (taskset_jittered_periodic_dbf_window tasks offset jitter enumT' t1 t2)}
+
+nat_interval_count :: Nat -> Nat -> Nat
+nat_interval_count lo hi =
+  case leb lo hi of {
+   True -> S (sub hi lo);
+   False -> O}
+
+ceil_div_pos :: Nat -> Nat -> Nat
+ceil_div_pos n p =
+  div (sub (add n p) (S O)) p
+
+ap_first_index_at_or_after :: Nat -> Nat -> Nat -> Nat
+ap_first_index_at_or_after start period lo =
+  case leb lo start of {
+   True -> O;
+   False -> ceil_div_pos (sub lo start) period}
+
+ap_index_count :: Nat -> Nat -> Nat -> Nat -> Nat -> Nat
+ap_index_count start period lo hi limit =
+  case eqb period O of {
+   True ->
+    case andb (leb lo start) (leb start hi) of {
+     True -> S limit;
+     False -> O};
+   False ->
+    case leb start hi of {
+     True ->
+      let {first = ap_first_index_at_or_after start period lo} in
+      let {last = min limit (div (sub hi start) period)} in
+      nat_interval_count first last;
+     False -> O}}
+
+jittered_periodic_fast_release_count :: (TaskId -> Task) -> (TaskId -> Time)
+                                        -> (TaskId -> Time) -> TaskId -> Time
+                                        -> Time -> Nat
+jittered_periodic_fast_release_count tasks offset jitter _UU03c4_ t1 t2 =
+  let {d = task_relative_deadline (tasks _UU03c4_)} in
+  case andb (leb d t2) (leb t1 (sub t2 d)) of {
+   True ->
+    ap_index_count (offset _UU03c4_) (task_period (tasks _UU03c4_))
+      (sub t1 (jitter _UU03c4_)) (sub t2 d) t2;
+   False -> O}
+
+jittered_periodic_fast_dbf_window :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                     (TaskId -> Time) -> TaskId -> Time ->
+                                     Time -> Nat
+jittered_periodic_fast_dbf_window tasks offset jitter _UU03c4_ t1 t2 =
+  mul
+    (jittered_periodic_fast_release_count tasks offset jitter _UU03c4_ t1 t2)
+    (task_cost (tasks _UU03c4_))
+
+taskset_jittered_periodic_fast_dbf_window :: (TaskId -> Task) -> (TaskId ->
+                                             Time) -> (TaskId -> Time) ->
+                                             (List TaskId) -> Time -> Time ->
+                                             Nat
+taskset_jittered_periodic_fast_dbf_window tasks offset jitter enumT t1 t2 =
+  case enumT of {
+   Nil -> O;
+   Cons _UU03c4_ enumT' ->
+    add
+      (jittered_periodic_fast_dbf_window tasks offset jitter _UU03c4_ t1 t2)
+      (taskset_jittered_periodic_fast_dbf_window tasks offset jitter enumT'
+        t1 t2)}
+
+type JitteredCompactDbfBasis = List (Prod Time (List Time))
+
+jittered_compact_basis_windows :: JitteredCompactDbfBasis -> List
+                                  (Prod Time Time)
+jittered_compact_basis_windows basis =
+  flat_map (\row ->
+    case row of {
+     Pair t2 left_edges -> map (\t1 -> Pair t1 t2) left_edges}) basis
+
+jittered_fast_compact_basis_dbf_test :: (TaskId -> Task) -> (TaskId -> Time)
+                                        -> (TaskId -> Time) -> (List
+                                        TaskId) -> JitteredCompactDbfBasis ->
+                                        Bool
+jittered_fast_compact_basis_dbf_test tasks offset jitter enumT basis =
+  forallb (\w ->
+    case w of {
+     Pair t1 t2 ->
+      andb (leb t1 t2)
+        (leb
+          (taskset_jittered_periodic_fast_dbf_window tasks offset jitter
+            enumT t1 t2)
+          (sub t2 t1))})
+    (jittered_compact_basis_windows basis)
+
+jittered_identity_compact_basis_upto :: Time -> JitteredCompactDbfBasis
+jittered_identity_compact_basis_upto h =
+  map (\t2 -> Pair t2 (bounded_time_points t2)) (bounded_time_points h)
+
+data JitteredEDFDbfCertificate =
+   Build_JitteredEDFDbfCertificate Time (List (Prod Time Time)) Bool
+
+jedf_cutoff :: JitteredEDFDbfCertificate -> Time
+jedf_cutoff j =
+  case j of {
+   Build_JitteredEDFDbfCertificate jedf_cutoff0 _ _ -> jedf_cutoff0}
+
+jedf_checked_windows :: JitteredEDFDbfCertificate -> List (Prod Time Time)
+jedf_checked_windows j =
+  case j of {
+   Build_JitteredEDFDbfCertificate _ jedf_checked_windows0 _ ->
+    jedf_checked_windows0}
+
+jedf_all_windows_checked :: JitteredEDFDbfCertificate -> Bool
+jedf_all_windows_checked j =
+  case j of {
+   Build_JitteredEDFDbfCertificate _ _ jedf_all_windows_checked0 ->
+    jedf_all_windows_checked0}
+
+data JitteredEDFCompactDbfCertificate =
+   Build_JitteredEDFCompactDbfCertificate Time JitteredCompactDbfBasis
+ Bool
+
+jedf_compact_cutoff :: JitteredEDFCompactDbfCertificate -> Time
+jedf_compact_cutoff j =
+  case j of {
+   Build_JitteredEDFCompactDbfCertificate jedf_compact_cutoff0 _ _ ->
+    jedf_compact_cutoff0}
+
+jedf_compact_basis :: JitteredEDFCompactDbfCertificate ->
+                      JitteredCompactDbfBasis
+jedf_compact_basis j =
+  case j of {
+   Build_JitteredEDFCompactDbfCertificate _ jedf_compact_basis0 _ ->
+    jedf_compact_basis0}
+
+jedf_all_basis_checked :: JitteredEDFCompactDbfCertificate -> Bool
+jedf_all_basis_checked j =
+  case j of {
+   Build_JitteredEDFCompactDbfCertificate _ _ jedf_all_basis_checked0 ->
+    jedf_all_basis_checked0}
+
+time_pair_eqb :: (Prod Time Time) -> (Prod Time Time) -> Bool
+time_pair_eqb w1 w2 =
+  case w1 of {
+   Pair a1 b1 -> case w2 of {
+                  Pair a2 b2 -> andb (eqb a1 a2) (eqb b1 b2)}}
+
+time_pair_list_eqb :: (List (Prod Time Time)) -> (List (Prod Time Time)) ->
+                      Bool
+time_pair_list_eqb xs ys =
+  case xs of {
+   Nil -> case ys of {
+           Nil -> True;
+           Cons _ _ -> False};
+   Cons x xs' ->
+    case ys of {
+     Nil -> False;
+     Cons y ys' -> andb (time_pair_eqb x y) (time_pair_list_eqb xs' ys')}}
+
+time_list_eqb :: (List Time) -> (List Time) -> Bool
+time_list_eqb xs ys =
+  case xs of {
+   Nil -> case ys of {
+           Nil -> True;
+           Cons _ _ -> False};
+   Cons x xs' ->
+    case ys of {
+     Nil -> False;
+     Cons y ys' -> andb (eqb x y) (time_list_eqb xs' ys')}}
+
+compact_dbf_basis_row_eqb :: (Prod Time (List Time)) -> (Prod Time
+                             (List Time)) -> Bool
+compact_dbf_basis_row_eqb r1 r2 =
+  case r1 of {
+   Pair t2_1 left_edges1 ->
+    case r2 of {
+     Pair t2_2 left_edges2 ->
+      andb (eqb t2_1 t2_2) (time_list_eqb left_edges1 left_edges2)}}
+
+compact_dbf_basis_eqb :: JitteredCompactDbfBasis -> JitteredCompactDbfBasis
+                         -> Bool
+compact_dbf_basis_eqb xs ys =
+  case xs of {
+   Nil -> case ys of {
+           Nil -> True;
+           Cons _ _ -> False};
+   Cons x xs' ->
+    case ys of {
+     Nil -> False;
+     Cons y ys' ->
+      andb (compact_dbf_basis_row_eqb x y) (compact_dbf_basis_eqb xs' ys')}}
+
+check_jittered_edf_dbf_certificate_fields :: Time -> (List (Prod Time Time))
+                                             -> JitteredEDFDbfCertificate ->
+                                             Bool
+check_jittered_edf_dbf_certificate_fields expected_cutoff expected_windows cert =
+  andb
+    (andb (eqb (jedf_cutoff cert) expected_cutoff)
+      (time_pair_list_eqb (jedf_checked_windows cert) expected_windows))
+    (jedf_all_windows_checked cert)
+
+check_jittered_edf_compact_dbf_certificate_fields :: Time ->
+                                                     JitteredCompactDbfBasis
+                                                     ->
+                                                     JitteredEDFCompactDbfCertificate
+                                                     -> Bool
+check_jittered_edf_compact_dbf_certificate_fields expected_cutoff expected_basis cert =
+  andb
+    (andb (eqb (jedf_compact_cutoff cert) expected_cutoff)
+      (compact_dbf_basis_eqb (jedf_compact_basis cert) expected_basis))
+    (jedf_all_basis_checked cert)
 
 jittered_window_dbf_test_upto :: (TaskId -> Task) -> (TaskId -> Time) ->
                                  (TaskId -> Time) -> (List TaskId) -> Time ->
@@ -612,6 +770,20 @@ jittered_edf_dbf_certificate_expected_windows ts =
     (jittered_enumT_of_extracted_list ts)
     (jittered_edf_dbf_certificate_expected_cutoff ts)
 
+jittered_edf_compact_dbf_certificate_expected_cutoff :: (List
+                                                        ExtractedJitteredPeriodicTask)
+                                                        -> Time
+jittered_edf_compact_dbf_certificate_expected_cutoff =
+  extracted_jittered_offset_window_dbf_cutoff_bound
+
+jittered_edf_compact_dbf_certificate_expected_basis :: (List
+                                                       ExtractedJitteredPeriodicTask)
+                                                       ->
+                                                       JitteredCompactDbfBasis
+jittered_edf_compact_dbf_certificate_expected_basis ts =
+  jittered_identity_compact_basis_upto
+    (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
+
 check_jittered_edf_dbf_certificate_extracted :: (List
                                                 ExtractedJitteredPeriodicTask)
                                                 -> JitteredEDFDbfCertificate
@@ -624,3 +796,18 @@ check_jittered_edf_dbf_certificate_extracted ts cert =
         (jittered_edf_dbf_certificate_expected_windows ts) cert))
     (extracted_jittered_offset_window_dbf_test_by_cutoff ts)
 
+check_jittered_edf_compact_dbf_certificate_extracted :: (List
+                                                        ExtractedJitteredPeriodicTask)
+                                                        ->
+                                                        JitteredEDFCompactDbfCertificate
+                                                        -> Bool
+check_jittered_edf_compact_dbf_certificate_extracted ts cert =
+  andb
+    (andb (extracted_jittered_taskset_wf ts)
+      (check_jittered_edf_compact_dbf_certificate_fields
+        (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
+        (jittered_edf_compact_dbf_certificate_expected_basis ts) cert))
+    (jittered_fast_compact_basis_dbf_test
+      (jittered_tasks_of_extracted_list ts)
+      (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
+      (jittered_enumT_of_extracted_list ts) (jedf_compact_basis cert))
