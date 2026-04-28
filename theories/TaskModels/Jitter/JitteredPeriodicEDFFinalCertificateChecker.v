@@ -34,7 +34,11 @@ Definition jittered_edf_compact_dbf_certificate_expected_cutoff
 
 Definition jittered_edf_compact_dbf_certificate_expected_basis
     (ts : list ExtractedJitteredPeriodicTask) : JitteredCompactDbfBasis :=
-  jittered_identity_compact_basis_upto
+  jittered_reduced_compact_basis_upto
+    (jittered_tasks_of_extracted_list ts)
+    (jittered_offset_of_extracted_list ts)
+    (jitter_of_extracted_list ts)
+    (jittered_enumT_of_extracted_list ts)
     (jittered_edf_compact_dbf_certificate_expected_cutoff ts).
 
 Definition check_jittered_edf_dbf_certificate_extracted
@@ -199,6 +203,6 @@ Proof.
       unfold jittered_edf_compact_dbf_certificate_expected_basis,
              jittered_edf_compact_dbf_certificate_expected_cutoff,
              extracted_jittered_offset_window_dbf_cutoff_bound.
-      apply jittered_identity_compact_basis_covers_upto.
+      apply jittered_reduced_compact_basis_covers_upto.
     + exact Hcompact.
 Qed.

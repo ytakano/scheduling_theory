@@ -294,7 +294,7 @@ bench-periodic-edf-witness:: sched-witness-gen build-periodic-edf-sched-csv
 		./scripts/bench_periodic_edf_witness_pipeline; \
 	fi
 
-bench-jittered-edf-witness:: sched-witness-gen build-jittered-edf-sched-csv
+bench-jittered-edf-witness:: sched-witness-gen build-jittered-edf-sched-csv build-jittered-edf-witness-check
 	@if [ -n "$(BENCH_OUT)" ]; then \
 		./scripts/bench_jittered_edf_witness_pipeline "$(BENCH_OUT)"; \
 	else \

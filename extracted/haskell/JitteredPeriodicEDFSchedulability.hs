@@ -12,6 +12,12 @@ andb b1 b2 =
    True -> b2;
    False -> False}
 
+orb :: Bool -> Bool -> Bool
+orb b1 b2 =
+  case b1 of {
+   True -> True;
+   False -> b2}
+
 negb :: Bool -> Bool
 negb b =
   case b of {
@@ -407,9 +413,32 @@ jittered_fast_compact_basis_dbf_test tasks offset jitter enumT basis =
           (sub t2 t1))})
     (jittered_compact_basis_windows basis)
 
-jittered_identity_compact_basis_upto :: Time -> JitteredCompactDbfBasis
-jittered_identity_compact_basis_upto h =
-  map (\t2 -> Pair t2 (bounded_time_points t2)) (bounded_time_points h)
+jittered_reduced_left_edge_b :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                (TaskId -> Time) -> (List TaskId) -> Time ->
+                                Time -> Bool
+jittered_reduced_left_edge_b tasks offset jitter enumT t2 t1 =
+  orb (eqb t1 t2)
+    (negb
+      (eqb
+        (taskset_jittered_periodic_fast_dbf_window tasks offset jitter enumT
+          t1 t2)
+        (taskset_jittered_periodic_fast_dbf_window tasks offset jitter enumT
+          (S t1) t2)))
+
+jittered_reduced_left_edges_for_t2 :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                      (TaskId -> Time) -> (List TaskId) ->
+                                      Time -> List Time
+jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2 =
+  filter (jittered_reduced_left_edge_b tasks offset jitter enumT t2)
+    (bounded_time_points t2)
+
+jittered_reduced_compact_basis_upto :: (TaskId -> Task) -> (TaskId -> Time)
+                                       -> (TaskId -> Time) -> (List TaskId)
+                                       -> Time -> JitteredCompactDbfBasis
+jittered_reduced_compact_basis_upto tasks offset jitter enumT h =
+  map (\t2 -> Pair t2
+    (jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2))
+    (bounded_time_points h)
 
 data JitteredEDFDbfCertificate =
    Build_JitteredEDFDbfCertificate Time (List (Prod Time Time)) Bool
@@ -781,7 +810,9 @@ jittered_edf_compact_dbf_certificate_expected_basis :: (List
                                                        ->
                                                        JitteredCompactDbfBasis
 jittered_edf_compact_dbf_certificate_expected_basis ts =
-  jittered_identity_compact_basis_upto
+  jittered_reduced_compact_basis_upto (jittered_tasks_of_extracted_list ts)
+    (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
+    (jittered_enumT_of_extracted_list ts)
     (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
 
 check_jittered_edf_dbf_certificate_extracted :: (List

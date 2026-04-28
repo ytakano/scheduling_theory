@@ -10,7 +10,7 @@ fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-printf 'case,engine,thread_mode,task_count,schema_version,cutoff,checked_window_count,basis_window_count,wall_ms,peak_kb,status\n' > "$out"
+printf 'case,engine,thread_mode,task_count,schema_version,cutoff,checked_window_count,basis_window_count,witness_bytes,wall_ms,peak_kb,status\n' > "$out"
 
 cat > "$tmp/small.csv" <<'CSV'
 cost,period,deadline,offset,jitter
@@ -39,13 +39,14 @@ now_ms() {
 
 run_rust() {
   name=$1
-  threads=$2
-  witness="$tmp/$name.$threads.json"
-  metrics="$tmp/$name.$threads.metrics.csv"
-  err="$tmp/$name.$threads.err"
+  schema=$2
+  threads=$3
+  witness="$tmp/$name.schema$schema.$threads.json"
+  metrics="$tmp/$name.schema$schema.$threads.metrics.csv"
+  err="$tmp/$name.schema$schema.$threads.err"
   start=$(now_ms)
   status=ok
-  if ! ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$tmp/$name.csv" --out "$witness" --threads "$threads" --metrics-out "$metrics" > /dev/null 2> "$err"; then
+  if ! ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$tmp/$name.csv" --out "$witness" --threads "$threads" --witness-schema "$schema" --metrics-out "$metrics" > /dev/null 2> "$err"; then
     status=failed
   fi
   end=$(now_ms)
@@ -55,13 +56,44 @@ run_rust() {
     IFS=, read -r task_count schema_version cutoff checked_window_count basis_window_count requested_threads _status <<EOF
 $row
 EOF
-    printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,%s,unavailable,%s\n' \
+    witness_bytes=$(wc -c < "$witness" | tr -d ' ')
+    printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,%s,%s,unavailable,%s\n' \
       "$name" "$requested_threads" "$task_count" "$schema_version" "$cutoff" \
-      "$checked_window_count" "$basis_window_count" "$wall_ms" "$status" >> "$out"
+      "$checked_window_count" "$basis_window_count" "$witness_bytes" "$wall_ms" "$status" >> "$out"
+    if [ "$threads" = auto ] && [ "$name" = limit_near ] && [ "$schema" = 2 ]; then
+      printf '%s,haskell-witness-check,auto,%s,%s,%s,%s,%s,%s,unavailable,unavailable,skipped\n' \
+        "$name" "$task_count" "$schema_version" "$cutoff" "$checked_window_count" \
+        "$basis_window_count" "$witness_bytes" >> "$out"
+    elif [ "$threads" = auto ]; then
+      run_haskell_witness_check "$name" "$witness" "$task_count" "$schema_version" "$cutoff" \
+        "$checked_window_count" "$basis_window_count" "$witness_bytes"
+    fi
   else
-    printf '%s,rust-generator,%s,unavailable,unavailable,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
-      "$name" "$threads" "$wall_ms" "$status" >> "$out"
+    printf '%s,rust-generator,%s,unavailable,%s,unavailable,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
+      "$name" "$threads" "$schema" "$wall_ms" "$status" >> "$out"
   fi
+}
+
+run_haskell_witness_check() {
+  name=$1
+  witness=$2
+  task_count=$3
+  schema_version=$4
+  cutoff=$5
+  checked_window_count=$6
+  basis_window_count=$7
+  witness_bytes=$8
+  err="$tmp/$name.schema$schema_version.check.err"
+  start=$(now_ms)
+  status=ok
+  if ! ./scripts/jittered_edf_witness_check --tasks "$tmp/$name.csv" --witness "$witness" > /dev/null 2> "$err"; then
+    status=failed
+  fi
+  end=$(now_ms)
+  wall_ms=$((end - start))
+  printf '%s,haskell-witness-check,auto,%s,%s,%s,%s,%s,%s,%s,unavailable,%s\n' \
+    "$name" "$task_count" "$schema_version" "$cutoff" "$checked_window_count" \
+    "$basis_window_count" "$witness_bytes" "$wall_ms" "$status" >> "$out"
 }
 
 run_haskell_cutoff() {
@@ -74,16 +106,18 @@ run_haskell_cutoff() {
   fi
   end=$(now_ms)
   wall_ms=$((end - start))
-  printf '%s,haskell-cutoff,na,unavailable,unavailable,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
+  printf '%s,haskell-cutoff,na,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
     "$name" "$wall_ms" "$status" >> "$out"
 }
 
 for name in small medium large limit_near; do
-  run_rust "$name" 1
-  run_rust "$name" 2
-  run_rust "$name" auto
+  for schema in 2 3; do
+    run_rust "$name" "$schema" 1
+    run_rust "$name" "$schema" 2
+    run_rust "$name" "$schema" auto
+  done
   if [ "$name" = limit_near ]; then
-    printf '%s,haskell-cutoff,na,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,skipped\n' \
+    printf '%s,haskell-cutoff,na,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,skipped\n' \
       "$name" >> "$out"
   else
     run_haskell_cutoff "$name"

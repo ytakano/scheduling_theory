@@ -83,6 +83,150 @@ Definition jittered_identity_compact_basis_upto
     (H : Time) : JitteredCompactDbfBasis :=
   map (fun t2 => (t2, bounded_time_points t2)) (bounded_time_points H).
 
+Definition jittered_reduced_left_edge_b
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (t2 t1 : Time) : bool :=
+  Nat.eqb t1 t2
+  || negb
+       (Nat.eqb
+          (taskset_jittered_periodic_fast_dbf_window
+             tasks offset jitter enumT t1 t2)
+          (taskset_jittered_periodic_fast_dbf_window
+             tasks offset jitter enumT (S t1) t2)).
+
+Definition jittered_reduced_left_edges_for_t2
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (t2 : Time) : list Time :=
+  filter
+    (jittered_reduced_left_edge_b tasks offset jitter enumT t2)
+    (bounded_time_points t2).
+
+Definition jittered_reduced_compact_basis_upto
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (H : Time) : JitteredCompactDbfBasis :=
+  map
+    (fun t2 =>
+       (t2, jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2))
+    (bounded_time_points H).
+
+Lemma jittered_reduced_left_edge_b_false_eq :
+  forall tasks offset jitter enumT t1 t2,
+    t1 < t2 ->
+    jittered_reduced_left_edge_b tasks offset jitter enumT t2 t1 = false ->
+    taskset_jittered_periodic_dbf_window tasks offset jitter enumT t1 t2 =
+  taskset_jittered_periodic_dbf_window tasks offset jitter enumT (S t1) t2.
+Proof.
+  intros tasks offset jitter enumT t1 t2 Hlt Hselected.
+  unfold jittered_reduced_left_edge_b in Hselected.
+  assert (Hneq : (t1 =? t2) = false).
+  { apply Nat.eqb_neq. lia. }
+  rewrite Hneq in Hselected.
+  simpl in Hselected.
+  apply negb_false_iff in Hselected.
+  apply Nat.eqb_eq in Hselected.
+  repeat rewrite <- taskset_jittered_periodic_fast_dbf_window_eq_enumerated
+    at 1.
+  exact Hselected.
+Qed.
+
+Lemma jittered_reduced_left_edges_for_t2_covers :
+  forall tasks offset jitter enumT t1 n,
+    exists l,
+      In l
+        (jittered_reduced_left_edges_for_t2
+           tasks offset jitter enumT (t1 + n)) /\
+      t1 <= l /\
+      l <= t1 + n /\
+      taskset_jittered_periodic_dbf_window
+        tasks offset jitter enumT t1 (t1 + n) =
+      taskset_jittered_periodic_dbf_window
+        tasks offset jitter enumT l (t1 + n).
+Proof.
+  intros tasks offset jitter enumT t1 n.
+  revert t1.
+  induction n as [|n IH]; intros t1.
+  - exists t1.
+    repeat split; try lia.
+    unfold jittered_reduced_left_edges_for_t2.
+    apply filter_In.
+    split.
+    + unfold bounded_time_points.
+      rewrite in_seq.
+      lia.
+    + unfold jittered_reduced_left_edge_b.
+      replace (t1 + 0) with t1 by lia.
+      rewrite Nat.eqb_refl.
+      reflexivity.
+  - destruct
+      (jittered_reduced_left_edge_b
+         tasks offset jitter enumT (t1 + S n) t1) eqn:Hselected.
+    + exists t1.
+      repeat split; try lia.
+      unfold jittered_reduced_left_edges_for_t2.
+      apply filter_In.
+      split.
+      * unfold bounded_time_points.
+        rewrite in_seq.
+        lia.
+      * exact Hselected.
+    + destruct (IH (S t1)) as [l [Hin [Hle1 [Hle2 Hdemand]]]].
+      exists l.
+      pose proof
+        (jittered_reduced_left_edge_b_false_eq
+           tasks offset jitter enumT t1 (t1 + S n) ltac:(lia) Hselected)
+        as Hstep.
+      replace (t1 + S n) with (S t1 + n) in * by lia.
+      split; [exact Hin|].
+      repeat split; try lia.
+Qed.
+
+Lemma jittered_reduced_compact_basis_covers_upto :
+  forall tasks offset jitter enumT H,
+    jittered_compact_basis_covers_upto
+      tasks offset jitter enumT H
+      (jittered_reduced_compact_basis_upto tasks offset jitter enumT H).
+Proof.
+  intros tasks offset jitter enumT H t1 t2 Hle12 Hle2H.
+  assert (Hn : exists n, t2 = t1 + n).
+  { exists (t2 - t1). lia. }
+  destruct Hn as [n Ht2].
+  destruct
+    (jittered_reduced_left_edges_for_t2_covers
+       tasks offset jitter enumT t1 n)
+    as [l [Hin [Hle1l [Hlel2 Hdemand]]]].
+  exists l.
+  split.
+  - unfold jittered_reduced_compact_basis_upto,
+           jittered_compact_basis_windows.
+    apply in_flat_map.
+    exists
+      (t2, jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2).
+    split.
+    + apply in_map_iff.
+      exists t2.
+      split; [reflexivity|].
+      unfold bounded_time_points.
+      rewrite in_seq.
+      lia.
+    + apply in_map_iff.
+      exists l.
+      split; [reflexivity|].
+      subst t2.
+      exact Hin.
+  - unfold jittered_left_edge_covers.
+    subst t2.
+    repeat split; try lia.
+Qed.
+
 Lemma jittered_fast_compact_basis_dbf_test_eq :
   forall tasks offset jitter enumT basis,
     jittered_fast_compact_basis_dbf_test tasks offset jitter enumT basis =

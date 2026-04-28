@@ -756,3 +756,12 @@ witness JSON.
     routine before writing the witness, but does not serialize demand values
   - extended deterministic generator stats and jittered benchmark CSV metrics
     with `schema_version` and `basis_window_count`
+- V3 PR 5 started:
+  - replaced the schema-v3 checker expected basis with a reduced compact basis
+    that keeps only adjacent demand-plateau right edges for each right endpoint
+  - updated Rust schema-v3 generation to emit the same reduced compact basis
+    while preserving schema-v2 full-window compatibility
+  - extended jittered benchmarks to compare schema-v2 and schema-v3 witness
+    size, Rust generation time, Haskell witness-check time, full window count,
+    and basis window count
+  - recorded the local comparison in `design/edf_witness_performance.md`

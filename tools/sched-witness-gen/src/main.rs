@@ -513,12 +513,12 @@ fn generate_jittered_witness(
             )
         }
         3 => {
-            let basis_window_count = identity_basis_window_count(cutoff)?;
+            let basis = jittered_reduced_dbf_basis(tasks, cutoff)?;
+            let basis_window_count = jittered_basis_window_count(&basis)?;
             ensure_limit(
                 basis_window_count <= MAX_JITTERED_DBF_WINDOWS,
                 "jittered DBF basis window count",
             )?;
-            let basis = jittered_identity_dbf_basis(cutoff);
             let checked_basis_window_count = validate_jittered_basis(tasks, thread_mode, &basis)?;
             (
                 JitteredDbfCert::Schema3(JitteredDbfV3Cert {
@@ -1042,19 +1042,32 @@ fn jittered_critical_windows(tasks: &[JitteredTask], cutoff: u64) -> Result<Vec<
     Ok(windows)
 }
 
-fn identity_basis_window_count(cutoff: u64) -> Result<usize, String> {
-    let count = (cutoff as u128 + 1)
-        .checked_mul(cutoff as u128 + 2)
-        .and_then(|x| x.checked_div(2))
-        .ok_or_else(|| "jittered DBF basis window count overflow".to_string())?;
-    usize::try_from(count).map_err(|_| "jittered DBF basis window count overflow".to_string())
+fn jittered_basis_window_count(basis: &[JitteredDbfBasisRow]) -> Result<usize, String> {
+    basis.iter().try_fold(0_usize, |acc, row| {
+        acc.checked_add(row.left_edges.len())
+            .ok_or_else(|| "jittered DBF basis window count overflow".to_string())
+    })
 }
 
-fn jittered_identity_dbf_basis(cutoff: u64) -> Vec<JitteredDbfBasisRow> {
+fn jittered_reduced_dbf_basis(
+    tasks: &[JitteredTask],
+    cutoff: u64,
+) -> Result<Vec<JitteredDbfBasisRow>, String> {
     (0..=cutoff)
-        .map(|t2| JitteredDbfBasisRow {
-            t2,
-            left_edges: (0..=t2).collect(),
+        .map(|t2| {
+            let mut left_edges = Vec::new();
+            for t1 in 0..=t2 {
+                if t1 == t2 {
+                    left_edges.push(t1);
+                } else {
+                    let demand = jittered_window_demand(tasks, t1, t2)?;
+                    let next_demand = jittered_window_demand(tasks, t1 + 1, t2)?;
+                    if demand != next_demand {
+                        left_edges.push(t1);
+                    }
+                }
+            }
+            Ok(JitteredDbfBasisRow { t2, left_edges })
         })
         .collect()
 }
@@ -1283,19 +1296,21 @@ mod tests {
     }
 
     #[test]
-    fn preserves_tiny_identity_basis_order() {
-        let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,1,1,0,0\n")
-            .expect("tiny jittered CSV should parse");
-        let basis = jittered_identity_dbf_basis(2);
-        assert_eq!(identity_basis_window_count(2).unwrap(), 6);
+    fn preserves_reduced_basis_plateau_right_edges() {
+        let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,4,4,0,0\n")
+            .expect("plateau jittered CSV should parse");
+        let basis = jittered_reduced_dbf_basis(&tasks, 4).unwrap();
+        assert_eq!(jittered_basis_window_count(&basis).unwrap(), 6);
         assert_eq!(
             validate_jittered_basis(&tasks, &ThreadMode::Serial, &basis).unwrap(),
             6
         );
         assert_eq!(basis[0].t2, 0);
         assert_eq!(basis[0].left_edges, vec![0]);
-        assert_eq!(basis[2].t2, 2);
-        assert_eq!(basis[2].left_edges, vec![0, 1, 2]);
+        assert_eq!(basis[3].t2, 3);
+        assert_eq!(basis[3].left_edges, vec![3]);
+        assert_eq!(basis[4].t2, 4);
+        assert_eq!(basis[4].left_edges, vec![0, 4]);
     }
 
     #[test]
