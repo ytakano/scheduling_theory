@@ -427,3 +427,15 @@ Update this document after implementing.
     no-carry-in bridge obligations explicit
   - added `JitteredPeriodicEDFExtraction.v` for Haskell extraction of the new
     checker surface
+- PR 5 continued:
+  - added tracked Haskell extraction output
+    `extracted/haskell/JitteredPeriodicEDFSchedulability.hs`
+  - added `scripts/jittered_edf_schedulability_csv.hs` as a cutoff-checker CLI
+    over the extracted jittered EDF API
+  - accepted CSV task rows with `cost,period,deadline[,offset[,jitter]]`
+  - kept generated CLI binaries ignored
+- Verification:
+  - `JitteredPeriodicEDFExtraction.v` compiles
+  - jittered CSV harness builds with GHC against the extracted Haskell module
+  - zero-jitter, offset-only, release-jitter, and invalid-input CSV cases were
+    exercised through the CLI
