@@ -64,25 +64,27 @@ This is the semantic basis of schedulability analysis.
 
 ### Trace semantics
 
-Trace semantics describes observable scheduling events.
+Trace semantics describes normalized, observable scheduling events.
 
 It is the bridge between implementation-facing logs and schedule-level
 reasoning. It hosts normalized events, trace well-formedness, trace-to-schedule
 projection, and reconstruction correctness.
 
-Typical trace events include:
+The current common trace-facing vocabulary should stay minimal. Common events
+are the events needed to recover schedule-level facts, such as:
 
 * release,
 * dispatch,
 * preemption,
-* completion,
-* timer events,
-* wakeup events,
-* migration events,
-* IPI-related events.
+* completion.
 
 Trace semantics should remain independent of any one concrete OS log format.
-Concrete OS adapters should normalize their logs into this layer.
+Concrete OS adapters justify how raw logs are interpreted as common
+operational or trace-facing observables; raw logs are not themselves part of the
+common API. Timer, wakeup, migration, and IPI evidence may be important runtime
+or adapter evidence, and may later justify additional normalized events, but
+they should not be described as current common `OpEvent` constructors unless
+the common operational interface actually exposes them.
 
 ### OS-level scheduler operational semantics
 
@@ -100,8 +102,9 @@ It models implementation-facing mechanisms such as:
 * delayed handoff,
 * scheduler state updates.
 
-This layer explains how traces are produced. Its current scope is a minimal
-operational projection slice, not a full OS semantics.
+This layer explains how common operational traces are produced and projected.
+Its current scope is a minimal operational projection slice, not a full OS
+semantics or a commitment to any concrete runtime log format.
 
 ## Reasoning theories
 
@@ -163,19 +166,23 @@ proof layer justifies.
 ### Refinement theory
 
 The refinement theory connects semantic layers and implementation-facing
-objects.
+objects at the level of higher-level correctness statements.
 
 It proves relationships such as:
 
 * executable chooser behavior implies declarative policy compliance,
 * generated schedules are admitted by schedule semantics,
-* traces project to schedules correctly,
-* operational executions produce well-formed traces,
 * concrete or implementation-facing schedulers refine abstract scheduler
   specifications.
 
 In short, refinement is the theory of the arrows between semantic objects, not
 a separate semantic object by itself.
+
+Common operational projection definitions, trace-facing observable definitions,
+and adapter-contract ladders that justify concrete logs as common observables
+belong under `Operational/Common`. Refinement should consume those boundaries
+to prove larger simulation, admission, or scheduler-correctness results rather
+than making raw logs part of its own common interface.
 
 ## Repository dependency direction
 
@@ -198,10 +205,11 @@ In particular:
 
 * `Semantics` contains the schedule-level semantic basis.
 * `Operational` contains implementation-facing state, trace, and operational
-  projection material.
+  projection material, including common operational projections and
+  adapter-contract ladders under `Operational/Common`.
 * `Analysis` is a reasoning theory over schedules.
 * `Refinement` is a reasoning theory connecting executable, trace-level, and
-  schedule-level objects.
+  schedule-level objects through higher-level correctness results.
 
 New developments should preserve the dependency direction unless there is a
 clear structural reason not to.
@@ -257,9 +265,12 @@ It should host correctness theorems for:
 
 * chooser-to-policy connections,
 * executable-to-semantic schedule admission,
-* trace-to-schedule projection,
-* operational-to-trace generation,
-* implementation-facing scheduler refinement.
+* implementation-facing scheduler refinement,
+* higher-level simulations that consume operational projection facts.
+
+It should not be the home for raw runtime log formats, common trace event
+constructors, or adapter log-normalization ladders. Those boundaries belong in
+the operational development.
 
 Primary document:
 
@@ -310,8 +321,8 @@ Primary document:
 
 ### Operational
 
-The operational development introduces implementation-facing states, traces,
-and projection back into schedule semantics.
+The operational development introduces implementation-facing states, common
+operational observables, traces, and projection back into schedule semantics.
 
 It covers the upper part of the scheduler semantic stack:
 
@@ -325,6 +336,13 @@ Schedule semantics
 
 Its current scope is a minimal operational projection slice, not a full OS
 semantics.
+
+`Operational/Common` is the home for common operational projection definitions,
+trace-facing observable interfaces, and adapter-contract ladders. An adapter
+may use runtime-specific evidence such as timer interrupts, migration records,
+wakeup paths, or IPI delivery, but it must justify those details as emitted
+common operational or trace-facing observables instead of making raw runtime
+logs part of the common interface.
 
 Primary document:
 
@@ -365,16 +383,19 @@ Use these rules:
   place it in `Semantics`
 * if it defines reusable scheduler, scheduling-algorithm, chooser, candidate
   source, or declarative policy interfaces, place it in `Abstractions`
-* if it proves executable-to-spec, trace-to-schedule, operational-to-trace, or
-  implementation-to-semantics relationships, place it in `Refinement`
+* if it proves higher-level executable-to-spec, scheduler-refinement,
+  simulation, or implementation-to-semantics relationships that consume the
+  common operational boundary, place it in `Refinement`
 * if it proves interval reasoning, demand/supply reasoning, interference bounds,
   or schedulability-analysis facts, place it in `Analysis`
 * if it is policy-specific single-CPU theory, place it in `Uniprocessor`
 * if it is multicore structure, partitioning, placement/migration invariants, or
   global top-`m` theorem work, place it in `Multicore`
-* if it defines implementation-facing state, observable scheduler events,
-  trace semantics, OS-level operational transitions, or projection invariants,
-  place it in `Operational`
+* if it defines implementation-facing state, common observable scheduler
+  events, trace semantics, OS-level operational transitions, operational
+  projection invariants, or adapter-contract ladders from concrete logs to
+  common observables, place it in `Operational`, with shared material under
+  `Operational/Common`
 * if it defines generated job sets from task parameters, place it in
   `TaskModels`
 * if it is only a proof client or regression-style usage of public theorems,

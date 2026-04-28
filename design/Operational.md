@@ -76,20 +76,45 @@ The common operational event vocabulary is:
 
 ```coq
 Inductive OpEvent : Type :=
-| EvWakeup | EvBlock | EvComplete
-| EvRequestResched | EvHandleResched
-| EvChoose | EvDispatch | EvPreempt
+| EvWakeup (j : JobId)
+| EvBlock (j : JobId)
+| EvComplete (j : JobId)
+| EvJoinTargetReady (j : JobId)
+| EvRequestResched (c : CPU)
+| EvHandleResched (c : CPU)
+| EvChoose (c : CPU) (j : JobId)
+| EvDispatch (c : CPU) (j : JobId)
+| EvPreempt (c : CPU) (old new : JobId)
 | EvStutter | EvTick.
 ```
 
 These constructors define the common event categories used by the operational
 step relation. They are not a concrete interrupt vocabulary, and they do not
-encode full OS-specific causes or routing details.
+encode full OS-specific causes or routing details. Their payloads are the
+minimum common identifiers needed by proof-facing steps:
+
+- `EvWakeup j` projects that job `j` entered the runnable view,
+- `EvBlock j` projects that running job `j` became ineligible,
+- `EvComplete j` projects that running job `j` completed,
+- `EvJoinTargetReady j` projects adapter evidence that a join target for `j`
+  is ready while leaving the common `OpState` unchanged,
+- `EvRequestResched c` and `EvHandleResched c` are per-CPU reschedule
+  request/handling observations,
+- `EvChoose c j` records CPU `c` choosing runnable job `j` as a dispatch
+  target,
+- `EvDispatch c j` records CPU `c` installing job `j`,
+- `EvPreempt c old new` records CPU `c` replacing `old` with `new`,
+- and `EvStutter` / `EvTick` are state-preserving common observations.
 
 At this layer, `EvBlock` only fixes an abstract effect: a released job may
 become temporarily ineligible for selection. The common layer does not define
 which concrete wait cause produced that effect or which concrete hook
 re-enables the job later.
+
+`EvJoinTargetReady` is deliberately also common but weak: it names the job whose
+join dependency became ready without adding concrete join queues, wait lists, or
+waker mechanics to `Operational/Common`. Adapters decide which runtime event
+source justifies that label.
 
 The common small-step skeleton is:
 
@@ -283,8 +308,7 @@ The intended progression is:
 2. prove local projection soundness,
 3. package it as an OS-local adapter contract,
 4. expose stronger scheduler-visible or candidate-visible witnesses,
-5. and only later move toward admissibility-aware candidate reuse or
-   scheduler-relation results.
+5. then consume those witnesses through scheduler-relation theorem wrappers.
 
 This contract ladder is common. Concrete OS-specific witness construction still
 belongs to downstream adapters.
@@ -369,9 +393,24 @@ The intended progression is:
     algorithm-facing statement.
 
 This is an adapter-local bridge built on top of the common contract ladder. It
-does not widen `Operational/Common`, and it still stops before
-`CandidateSourceSpec`, admissibility-aware candidate packages, and
-multiple-worker (`m > 1`) scheduler-relation reuse.
+does not widen `Operational/Common`.
+
+Implemented in the current Awkernel minimal accepted-workload path:
+
+- the candidate-source bridge from accepted `task_trace + sched_trace` evidence
+  to `labeled_concrete_candidate_source_contract`,
+- the scheduler-facing witness bridge from accepted `sched_trace` evidence to
+  the common top-`m` scheduler-relation contract,
+- and the downstream algorithm-facing `m = 1` scheduler-relation path for
+  `GlobalFIFO`.
+
+Still future for this path:
+
+- lifting the accepted-workload bridge to `CandidateSourceSpec`,
+- admissibility-aware and strong-admissibility variants,
+- multiple-worker (`m > 1`) scheduler-relation reuse as an accepted Awkernel
+  workload theorem,
+- and bounded-delay or deadline guarantees over the accepted traces.
 
 ### Constructor-packaging rule in `Operational/Awkernel/Minimal`
 
@@ -516,11 +555,16 @@ does not define common operational semantics by itself.
 
 The current operational layer is prepared for:
 
-- richer event structures,
+- additional event structures beyond the current payload-carrying `OpEvent`
+  vocabulary,
 - stronger projection invariants,
 - more explicit delay, wakeup, timer, and migration modeling,
-- deeper adapter-local bridges such as scheduler-facing witness paths,
-- and stronger candidate-source and scheduler-relation theorem families.
+- stronger adapter-local bridges beyond the current accepted-workload
+  candidate-source, scheduler-facing witness, and `m = 1` scheduler-relation
+  path,
+- `CandidateSourceSpec` and admissibility-aware accepted-workload packages,
+- multiple-worker (`m > 1`) accepted-workload scheduler-relation reuse,
+- and bounded-delay or deadline guarantees.
 
 These extensions should preserve the role of `Operational` as the
 implementation-facing projection layer rather than redefine schedule meaning
@@ -623,8 +667,12 @@ Its current guarantee boundary is:
 - common operational scheduler views and traces,
 - projection into semantic schedules,
 - multicore validity and placement recovery from explicit invariants,
-- and adapter-local contract ladders up through candidate-source reuse in the
-  Awkernel minimal stack.
+- the common adapter contract ladder for projection, scheduler visibility,
+  candidate visibility, handoff, admissibility, scheduler relations, algorithm
+  adapters, and delay adapters,
+- and adapter-local Awkernel minimal accepted-workload bridges up through
+  candidate-source reuse, scheduler-facing witnesses, and the current `m = 1`
+  scheduler-relation path.
 
 It should still be documented as an OS-neutral projection layer, not as a full
 concrete OS semantics or a complete refinement closure.

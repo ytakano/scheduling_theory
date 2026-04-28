@@ -223,23 +223,35 @@ This architecture also clarifies the distinction between:
 
 ## 7. Operational State Machines
 
-The repository also has a minimal `Operational` layer, which is distinct from
-all three concepts above.
+The repository also has a minimal `Operational` layer. It is an OS-level
+operational semantic slice, distinct from all three concepts above.
 
-An operational model records implementation-oriented scheduler state such as:
+An operational model records implementation-oriented scheduler state and
+observable transitions such as:
 
 * per-CPU current jobs
 * runnable-job state
 * pending reschedule requests
 * event-labelled small-step transitions
 
-Its role is not to replace `Schedule`, but to explain how a machine-oriented
-trace projects to a schedule. The intended split is:
+Its role is not to replace `Schedule`, `SchedulingAlgorithm`, or `Scheduler`.
+Instead, it explains how machine-oriented execution evidence is normalized into
+operational or trace-facing observables and then connected back to schedule
+semantics.
+
+The connection to `Schedule` is an explicit projection boundary: operational
+traces are related to schedules through `project_schedule` or equivalent
+trace-to-schedule projection lemmas. Those projections expose schedule-level
+facts while abstracting away runtime details that are not part of the common
+schedule interface.
+
+The intended split is:
 
 * `Schedule`: abstract execution timeline
 * `SchedulingAlgorithm`: local executable choice rule
 * `Scheduler`: semantic admission criterion for full schedules
-* `Operational`: state machine whose traces can be projected back to `Schedule`
+* `Operational`: OS-level state machine and observable-event layer whose traces
+  can be projected back to `Schedule`
 
 This keeps schedule-level theorems stable while opening a refinement-facing
 layer for later Awkernel and delay-aware developments.

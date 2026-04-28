@@ -27,7 +27,10 @@ In the current codebase, that means making the distinction among:
 - `Scheduler`: schedule-level admission relation
 - `Schedule`: semantic execution timeline
 
-Refinement exists to state that an executable chooser implements an abstract policy view, and that schedules induced by that chooser therefore respect the policy.
+Refinement exists to state that an executable chooser implements an abstract
+policy view, that schedules induced by that chooser therefore respect the
+policy, and that selected cross-layer arrows preserve the intended service or
+policy facts.
 
 ## Core concepts and guarantees
 
@@ -49,6 +52,9 @@ The current guarantee boundary is therefore:
 - the bridge is phrased at the schedule-admission level, not as a schedulability theorem
 - bounded-delay refinement connects labeled operational execution to an ideal
   semantic schedule through cumulative delay budgets and service lag
+- correctness-of-arrows reasoning is local to named refinement arrows: a
+  chooser-to-policy arrow, a projected-schedule-to-ideal-service arrow, or a
+  wrapper theorem that preserves a stated semantic property
 
 ## Public entry points
 
@@ -61,6 +67,7 @@ Downstream users should treat this file as the current default import for:
 
 - executable-to-declarative scheduling refinement,
 - schedule-respects-spec bridge lemmas,
+- bounded-delay/service-lag wrappers,
 - the distinction among algorithm, scheduler, and semantic schedule.
 
 ## Design boundaries
@@ -69,9 +76,11 @@ This layer includes:
 
 - executable-to-spec refinement statements,
 - the inheritance of declarative policy properties by schedules induced from executable choosers,
-- schedule-level bridge theorems that rely on the abstraction layer interfaces.
+- schedule-level bridge theorems that rely on abstraction-layer interfaces,
 - service-lag-based bounded-delay interfaces between operational executions and
-  ideal schedules
+  ideal schedules,
+- and correctness statements for explicit arrows between executable choosers,
+  declarative policy specs, projected schedules, and ideal schedules.
 
 This layer does not include:
 
@@ -79,8 +88,9 @@ This layer does not include:
 - policy-specific optimality or local chooser proofs,
 - busy-window, processor-demand, or fairness analysis,
 - operational traces, state machines, or projection theorems.
+- the operational projection theorem ladder or adapter contract ladder.
 
-Those belong respectively to:
+Those belong to the design layers that define the corresponding objects:
 
 - `design/Semantics.md`
 - `design/Uniprocessor.md` and `design/Multicore.md`
@@ -91,53 +101,95 @@ Refinement is also not the same thing as schedulability analysis. A refinement t
 
 ## Extension points
 
-The current refinement layer is ready to grow in two directions:
+The current refinement layer is ready to grow in these directions:
 
 - richer executable-to-declarative results for additional algorithm interfaces, including multicore variants
-- stronger implementation-facing bridges from operational scheduler models to semantic schedules
+- stronger bounded-delay/service-lag results relating projected schedules to
+  ideal schedules
+- additional correctness-of-arrows wrappers that preserve explicitly named
+  policy or service facts
 
 Such growth should preserve the current split:
 
 - semantics defines the target meaning,
 - abstractions define the interfaces,
-- refinement states that one layer implements another.
+- operational/common defines projection objects, projection theorems, and
+  adapter contracts,
+- refinement states that one executable, policy, schedule, or service relation
+  arrow implements another.
 
-## OS-neutral operational refinement boundary
+## Operational/Common Boundary
 
-Concrete multicore OS refinement should not depend on a concrete OS wrapper
-inside the common layer. Instead, each OS should provide an adapter from its
-concrete state to `OpState`.
+Operational projection from concrete behavior to `OpState`, then to a semantic
+`Schedule`, is owned by `design/Operational.md` and the
+`Operational/Common` entry point. The projection theorem ladder and the adapter
+contract ladder are operational/common responsibilities, even when individual
+wrapper theorems live under `theories/Refinement/*` for historical or import
+organization reasons.
 
-The common refinement path is:
+That operational/common ladder is:
 
 Concrete OS state
   -> `OSProjection`
   -> `OpTrace` / `labeled_execution`
+  -> `project_schedule`
+  -> semantic `Schedule`.
+
+Operational/Common also owns the adapter contracts that justify the arrows
+above:
+
+- local concrete projection soundness,
+- multicore projection soundness,
+- scheduler-view and handoff contracts,
+- candidate-source and admissibility-aware candidate-source contracts,
+- scheduler-relation contracts,
+- algorithm adapter contracts,
+- and delay adapter contracts.
+
+The refinement layer may consume the resulting projected schedule, labeled
+execution, or delay budget when proving executable chooser-to-policy,
+bounded-delay/service-lag, or correctness-of-arrows statements. It should not
+redefine the operational projection boundary.
+
+The bounded-delay path that belongs to Refinement starts after an operational
+projection has already supplied the relevant schedule-facing objects:
+
+Projected/labeled operational execution
   -> delay source trace
   -> cumulative delay budget
+  -> actual semantic `Schedule`
+  -> ideal semantic `Schedule`
+  -> service-lag obligation.
+
+The scheduler-policy path that belongs to Refinement is:
+
+Executable chooser
+  -> declarative policy spec
+  -> induced schedule respects that policy
+  -> scheduler-level policy statement.
+
+When an operational adapter also proves that its projected schedule satisfies a
+scheduler relation, that operational theorem can be an input to refinement
+reasoning. The ownership boundary remains:
+
+- Operational/Common: projection theorem ladder and adapter contract ladder.
+- Adapter layer: concrete witness construction from runtime observables.
+- Refinement: executable chooser-to-policy, bounded-delay/service-lag, and
+  correctness of explicit arrows.
+
+An end-to-end concrete OS argument may compose all of these arrows:
+
+Concrete OS state
+  -> `OSProjection`
+  -> `OpTrace` / `labeled_execution`
   -> `project_schedule`
   -> semantic `Schedule`
-  -> service-lag obligation
   -> `multicore_semantic_validity`
   -> placement / admissibility obligations
+  -> optional scheduler-policy or service-lag refinement facts.
 
-The refinement layer may then state that the projected schedule satisfies
-validity, admissibility, placement, bounded-delay, or scheduler-policy
-obligations.
-
-The current common operational bridge now exposes that path through:
-
-- `Operational/Common/ProjectionMulticoreValidity.v`
-- `Operational/Awkernel/Minimal/MulticoreProjection.v`
-
-This operational projection boundary is distinct from
-`theories/Refinement/SchedulingAlgorithmRefinement.v`.
-The latter connects executable chooser interfaces to declarative policy specs,
-whereas the operational boundary connects concrete machine behavior to semantic
-schedules.
-
-Concrete OS-specific operational proofs should therefore live in
-`Operational/<OS>` or `Refinement/<OS>`, not inside `Operational/Common`.
+The first part of that chain is operational/common. The last optional
+policy/service arrows are refinement.
 
 ## File map
 
@@ -151,4 +203,7 @@ Concrete OS-specific operational proofs should therefore live in
 
 The refinement layer is currently a small but important bridge layer.
 
-It makes the relationship between executable local choice and abstract policy specifications explicit, while leaving schedulability analysis and policy-specific theorem work to the higher layers that should own them.
+It makes the relationship between executable local choice and abstract policy
+specifications explicit, and it hosts bounded-delay/service-lag and
+correctness-of-arrows reasoning. Operational projection theorems and adapter
+contracts remain in the Operational/Common design boundary.
