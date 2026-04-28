@@ -439,3 +439,15 @@ Update this document after implementing.
   - jittered CSV harness builds with GHC against the extracted Haskell module
   - zero-jitter, offset-only, release-jitter, and invalid-input CSV cases were
     exercised through the CLI
+- PR 7 started:
+  - added a concrete offset-plus-jitter window DBF checker example
+  - added a zero-jitter compatibility example against periodic window DBF
+  - added infinite jittered EDF and LLF examples that consume the public
+    window-DBF entry points
+  - kept codec, nonblocking, and busy-prefix/no-carry-in obligations explicit
+    at the example boundary
+- Verification:
+  - `JitteredPeriodicOffsetJitterDBFExamples.v` compiles
+  - `JitteredPeriodicZeroJitterCompatExamples.v` compiles
+  - `JitteredPeriodicInfiniteEDFExamples.v` compiles
+  - `JitteredPeriodicLLFExamples.v` compiles

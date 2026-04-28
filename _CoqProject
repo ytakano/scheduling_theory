@@ -42,6 +42,10 @@ theories/Examples/GlobalFairnessExamples.v
 theories/Examples/GlobalExamples.v
 theories/Examples/OperationalProjectionExamples.v
 theories/Examples/JitteredPeriodicExamples.v
+theories/Examples/JitteredPeriodicOffsetJitterDBFExamples.v
+theories/Examples/JitteredPeriodicZeroJitterCompatExamples.v
+theories/Examples/JitteredPeriodicInfiniteEDFExamples.v
+theories/Examples/JitteredPeriodicLLFExamples.v
 theories/Examples/PartitionedExamples.v
 theories/Examples/PeriodicExamples.v
 theories/Examples/PeriodicInfiniteEDFExamples.v
