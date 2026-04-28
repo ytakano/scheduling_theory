@@ -2,6 +2,7 @@ From Stdlib Require Import Arith Arith.PeanoNat Lia List Bool.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicWindowDemandBound.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicFastDBF.
 
 Import ListNotations.
 
@@ -63,9 +64,41 @@ Definition jittered_compact_basis_dbf_test
           tasks offset jitter enumT t1 t2 <=? t2 - t1))
     (jittered_compact_basis_windows basis).
 
+Definition jittered_fast_compact_basis_dbf_test
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (basis : JitteredCompactDbfBasis) : bool :=
+  forallb
+    (fun w =>
+       let '(t1, t2) := w in
+       (t1 <=? t2)
+       &&
+       (taskset_jittered_periodic_fast_dbf_window
+          tasks offset jitter enumT t1 t2 <=? t2 - t1))
+    (jittered_compact_basis_windows basis).
+
 Definition jittered_identity_compact_basis_upto
     (H : Time) : JitteredCompactDbfBasis :=
   map (fun t2 => (t2, bounded_time_points t2)) (bounded_time_points H).
+
+Lemma jittered_fast_compact_basis_dbf_test_eq :
+  forall tasks offset jitter enumT basis,
+    jittered_fast_compact_basis_dbf_test tasks offset jitter enumT basis =
+    jittered_compact_basis_dbf_test tasks offset jitter enumT basis.
+Proof.
+  intros tasks offset jitter enumT basis.
+  unfold jittered_fast_compact_basis_dbf_test,
+         jittered_compact_basis_dbf_test.
+  generalize (jittered_compact_basis_windows basis).
+  intros windows.
+  induction windows as [|[t1 t2] windows IH]; simpl.
+  - reflexivity.
+  - rewrite taskset_jittered_periodic_fast_dbf_window_eq_enumerated.
+    rewrite IH.
+    reflexivity.
+Qed.
 
 Lemma jittered_compact_basis_dbf_test_window_sound :
   forall tasks offset jitter enumT basis t1 t2,
@@ -101,6 +134,21 @@ Proof.
   rewrite Hdemand.
   enough (t2 - l <= t2 - t1) by lia.
   lia.
+Qed.
+
+Theorem jittered_fast_compact_basis_dbf_test_sound :
+  forall tasks offset jitter enumT H basis t1 t2,
+    jittered_compact_basis_covers_upto
+      tasks offset jitter enumT H basis ->
+    jittered_fast_compact_basis_dbf_test tasks offset jitter enumT basis = true ->
+    t1 <= t2 ->
+    t2 <= H ->
+    taskset_jittered_periodic_dbf_window tasks offset jitter enumT t1 t2
+    <= t2 - t1.
+Proof.
+  intros tasks offset jitter enumT H basis t1 t2 Hcovers Htest Hle12 Hle2H.
+  rewrite jittered_fast_compact_basis_dbf_test_eq in Htest.
+  eapply jittered_compact_basis_dbf_test_sound; eauto.
 Qed.
 
 Lemma jittered_identity_compact_basis_covers_upto :

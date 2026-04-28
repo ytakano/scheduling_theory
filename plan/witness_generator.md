@@ -717,3 +717,14 @@ witness JSON.
     window DBF for every `t1 <= t2 <= H`
   - added an identity compact basis helper that covers all bounded windows and
     preserves the schema-v2 proof baseline
+- V3 PR 2 started:
+  - added a proof-facing fast jittered DBF layer for arithmetic release counts
+  - kept the semantic checker boundary at the existing enumerated window DBF
+    definition
+- V3 PR 2 completed:
+  - defined extraction-friendly arithmetic helpers for counting nominal releases
+    in a jitter-adjusted window
+  - proved the fast per-task and task-set DBF windows equal the existing
+    enumerated jittered window DBF
+  - added a fast compact-basis DBF test and proved its soundness through
+    equivalence with the existing compact-basis DBF test
