@@ -7,11 +7,16 @@ Haskell-generated witness flow to a split architecture:
 - Haskell, extracted from Rocq, checks the generated witness.
 
 Awkernel traces are intentionally out of scope for this roadmap.  The generator
-must consume the same CSV task data used by the existing checker frontends.
+consumes the concrete periodic CSV task data and emits the only supported
+runtime validation artifact: a witness checked by extracted Haskell.
 
 Current jittered EDF status: runtime generation, checking, tests, and benchmark
 plumbing are v3-only.  Schema v2 appears below only as historical design and
 performance context for the full-window certificate path that v3 replaced.
+Direct extracted-Haskell CSV schedulability frontends have been retired from
+the runtime interface; Rocq-side decision procedures and extracted modules
+remain only where they support witness checking, proof obligations, or
+historical reference.
 
 This document is the v1 roadmap.  After v1 is completed, do not proceed
 directly to v2 implementation.  First draft the v2 roadmap, append it to this
@@ -40,9 +45,9 @@ Haskell side exposes a checked sidecar certificate API for jittered EDF.
 - The witness must encode certificate data, not an operational trace.
 - No Awkernel trace, timestamp normalization, runtime event vocabulary, YAML
   witness, or GraphML witness is part of this batch.
-- Jittered EDF remains on the existing cutoff-checker path until a
-  jittered-periodic checked sidecar certificate API exists on the Rocq /
-  extracted-Haskell side.
+- Concrete periodic taskset validation must go through Rust witness generation
+  followed by extracted Haskell witness checking.  Direct CSV schedulability
+  checker CLIs are not a supported validation route.
 
 ---
 
@@ -78,8 +83,7 @@ sched-witness-gen periodic-edf --tasks TASKS.csv --out WITNESS.json --threads au
 sched-witness-gen periodic-edf --tasks TASKS.csv --out WITNESS.json --threads N
 ```
 
-The generator accepts the same periodic CSV shape as
-`scripts/periodic_edf_schedulability_csv.hs`:
+The generator accepts the concrete periodic CSV shape:
 
 ```text
 cost,period,deadline
@@ -184,8 +188,9 @@ JSON arrays must be serialized in deterministic order.
 
 - Define the JSON schema in `plan/witness_generator.md` and mirror it in the
   Haskell parser.
-- Parse CSV using the same validation policy as
-  `scripts/periodic_edf_schedulability_csv.hs`.
+- Parse CSV using the witness-only validation policy: the generator validates
+  concrete task metadata, emits a witness, and the extracted Haskell witness
+  checker is the only acceptance authority.
 - Convert JSON fields into extracted Haskell constructors:
   `Build_EDFPrefixCert`, `Build_EDFTransportClass`,
   `Build_EDFTransportCert`, `Build_EDFDBFCert`, `Build_EDFInfiniteCert`,
@@ -325,9 +330,10 @@ by stable indices before writing JSON.
     `--threads auto`;
   - compare output across repeated runs with the same thread count.
 - Compatibility tests:
-  - existing `scripts/periodic_edf_schedulability_csv.hs` behavior remains
-    unchanged;
-  - existing jittered CSV cutoff checker behavior remains unchanged.
+  - periodic and jittered CSV tasksets are accepted only through Rust witness
+    generation plus extracted Haskell witness checking;
+  - direct CSV schedulability checker frontends are absent from build, test,
+    benchmark, and user-facing command surfaces.
 - Performance tests:
   - benchmark small, medium, and large synthetic CSV tasksets;
   - ensure parallel mode improves large cases without changing output.

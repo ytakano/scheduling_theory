@@ -36,8 +36,8 @@ The current benchmark script emits:
 | column | meaning |
 | --- | --- |
 | `case` | synthetic workload name |
-| `engine` | `rust-generator`, `haskell-witness-check`, or `haskell-cutoff` |
-| `thread_mode` | requested generator thread mode, or `na` for cutoff checks |
+| `engine` | `rust-generator` or `haskell-witness-check` |
+| `thread_mode` | requested generator thread mode; witness-check rows use `auto` for the generated witness they check |
 | `task_count` | number of CSV tasks for witness rows |
 | `schema_version` | `3` for witness-generation and witness-check rows |
 | `cutoff` | checker-facing DBF cutoff for witness rows |
