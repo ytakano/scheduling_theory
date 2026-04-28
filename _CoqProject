@@ -211,6 +211,9 @@ theories/TaskModels/Jitter/JitteredPeriodicEDFPrefixCoherence.v
 theories/TaskModels/Jitter/JitteredPeriodicEDFWindowBridge.v
 theories/TaskModels/Jitter/JitteredPeriodicEDFInfiniteBridge.v
 theories/TaskModels/Jitter/JitteredPeriodicEDFAnalysisEntryPoints.v
+theories/TaskModels/Jitter/JitteredPeriodicLLFPrefixCoherence.v
+theories/TaskModels/Jitter/JitteredPeriodicLLFInfiniteBridge.v
+theories/TaskModels/Jitter/JitteredPeriodicLLFAnalysisEntryPoints.v
 theories/TaskModels/Jitter/JitteredPeriodicFiniteOptimalityLift.v
 theories/TaskModels/Jitter/JitteredPeriodicEDFBridge.v
 theories/TaskModels/Jitter/JitteredPeriodicLLFBridge.v

@@ -398,6 +398,20 @@ Update this document after implementing.
   - `JitteredPeriodicEDFInfiniteBridge.v` compiles
   - `JitteredPeriodicEDFAnalysisEntryPoints.v` compiles
   - downstream jitter EDF / LLF bridge files compile
+- PR 6 started:
+  - added `JitteredPeriodicLLFPrefixCoherence.v`
+  - added `JitteredPeriodicLLFInfiniteBridge.v`
+  - added `JitteredPeriodicLLFAnalysisEntryPoints.v`
+  - registered the new LLF bridge/analysis files in `_CoqProject`
+- PR 6 continued:
+  - LLF finite/infinite generated schedules are defined and share a common
+    jittered candidate source
+  - finite DBF obligations are lifted to an infinite LLF schedulability theorem
+  - finite-to-infinite prefix coherence for generated LLF schedules is internalized
+  - `_CoqProject` registration for new LLF files completed
+- PR 6 continued:
+  - `JitteredPeriodicLLFPrefixCoherence.v`, `JitteredPeriodicLLFInfiniteBridge.v`,
+    and `JitteredPeriodicLLFAnalysisEntryPoints.v` compile
 - PR 5 started:
   - added `JitteredPeriodicEDFExtractionTypes.v`
   - added extraction-facing jittered task records and list-to-semantic-task
