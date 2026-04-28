@@ -55,6 +55,13 @@ run_rust() {
     IFS=, read -r task_count schema_version cutoff basis_window_count requested_threads _status <<EOF
 $row
 EOF
+    if [ "$schema_version" != 3 ]; then
+      printf '%s,rust-generator,%s,%s,%s,%s,%s,unavailable,%s,unavailable,failed\n' \
+        "$name" "$requested_threads" "$task_count" "$schema_version" "$cutoff" \
+        "$basis_window_count" "$wall_ms" >> "$out"
+      echo "expected jittered witness schema_version 3, got $schema_version" >&2
+      return 1
+    fi
     witness_bytes=$(wc -c < "$witness" | tr -d ' ')
     printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,%s,unavailable,%s\n' \
       "$name" "$requested_threads" "$task_count" "$schema_version" "$cutoff" \

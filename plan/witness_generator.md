@@ -9,6 +9,10 @@ Haskell-generated witness flow to a split architecture:
 Awkernel traces are intentionally out of scope for this roadmap.  The generator
 must consume the same CSV task data used by the existing checker frontends.
 
+Current jittered EDF status: runtime generation, checking, tests, and benchmark
+plumbing are v3-only.  Schema v2 appears below only as historical design and
+performance context for the full-window certificate path that v3 replaced.
+
 This document is the v1 roadmap.  After v1 is completed, do not proceed
 directly to v2 implementation.  First draft the v2 roadmap, append it to this
 file, and use that roadmap to decide the next implementation batch.  The v2
@@ -406,14 +410,11 @@ Update this section after each implementation batch.
 
 ---
 
-## V2 Roadmap: Release-Jitter Witness Generation
+## Historical V2 Roadmap: Release-Jitter Witness Generation
 
-This v2 roadmap extends the CSV-driven witness pipeline toward release-jitter
-periodic EDF tasksets.  It is a roadmap for future implementation, not an
-implementation batch.  The first v2 work item is checker-facing: expose a
-jittered-periodic checked sidecar certificate API on the Rocq / extracted
-Haskell side.  Rust-side jittered witness generation must wait until that
-checker API exists.
+This historical v2 roadmap extended the CSV-driven witness pipeline toward
+release-jitter periodic EDF tasksets.  It is retained as design history, not as
+the current runtime plan.  The current jittered witness runtime is v3-only.
 
 ### V2 semantic assumptions
 
@@ -447,7 +448,7 @@ overloading schema v1 with optional jitter fields.  The checker must reject
 schema/policy/domain/task-hash mismatches before calling extracted certificate
 checking code.
 
-### V2 implementation roadmap
+### Historical V2 implementation roadmap
 
 #### V2 PR 1: Jittered checked sidecar API design
 
@@ -542,8 +543,8 @@ checking code.
 - V2 PR 4 started:
   - implemented DBF-only schema-v2 witness generation for
     `sched-witness-gen jittered-periodic-edf`
-  - generated jittered witnesses contain cutoff, checked critical windows, and
-    `all_windows_checked` for the extracted Haskell checker
+  - generated jittered witnesses contain cutoff and an explicit full-window
+    completion flag for the extracted Haskell checker
   - Rust computes critical windows in the same order as the Rocq/extracted
     checker and rejects unschedulable tasksets before writing output
   - `--threads 1`, fixed-thread, and `--threads auto` preserve deterministic
@@ -552,15 +553,15 @@ checking code.
     `scripts/jittered_edf_witness_check`
 - V2 PR 5 started:
   - added fixture-backed jittered EDF witness pipeline coverage
-  - added `scripts/run_jittered_edf_witness_pipeline` as the schema-v2
-    generator/checker wrapper
+  - added `scripts/run_jittered_edf_witness_pipeline` as the original
+    full-window generator/checker wrapper
   - added accepted zero-jitter and nonzero-release-jitter CSV fixtures
   - added malformed, four-column, and unschedulable rejected fixtures
   - added pipeline mutation coverage for task hash, offset, jitter, cutoff,
-    checked DBF windows, and `all_windows_checked`
+    checked DBF full-window data, and the full-window completion flag
 - V2 PR 6 started:
   - added generator-side `--metrics-out` for deterministic jittered DBF
-    structural metrics outside canonical schema-v2 witness JSON
+    structural metrics outside canonical full-window witness JSON
   - added a jittered benchmark script and make target for small, medium,
     large, and limit-near CSV tasksets
   - benchmark rows compare Rust witness generation across `--threads 1`,
@@ -574,12 +575,12 @@ checking code.
 ## V3 Roadmap: Compact Jittered DBF Certificates And Fast Checking
 
 V3 reduces the cost of the release-jitter witness path introduced in V2.  The
-current schema-v2 certificate records every bounded critical window and the
-checker recomputes that full list before calling the cutoff DBF decision.  This
-keeps the trust boundary simple, but it makes large witnesses and checker runs
+historical schema-v2 certificate recorded every bounded critical window and the
+checker recomputed that full list before calling the cutoff DBF decision.  That
+kept the trust boundary simple, but made large witnesses and checker runs
 expensive.
 
-V3 replaces the full `checked_windows` list with a compact, checker-validated
+V3 replaces the full-window certificate list with a compact, checker-validated
 basis and adds a faster arithmetic demand checker.  The goal is to reduce
 witness size, Rust generation time, and extracted-Haskell checking time without
 trusting Rust-provided demand values.
@@ -591,20 +592,14 @@ trusting Rust-provided demand values.
 - V3 remains CSV-driven; Awkernel traces, runtime event vocabularies, GraphML,
   and YAML witnesses remain out of scope.
 - Release jitter remains task metadata, not part of a runtime event stream.
-- Schema v2 remains supported until schema v3 has stable benchmarks and
-  mutation tests.
+- The current runtime path is v3-only; schema v2 is retained only as
+  historical design and benchmark context.
 - Metrics and timing data remain outside canonical witness JSON.
 
 ### V3 interface direction
 
-Add schema version 3 for jittered periodic EDF witnesses.  Schema v2 keeps:
-
-```json
-"checked_windows": [[0, 0]],
-"all_windows_checked": true
-```
-
-Schema v3 should replace this full list with a compact basis:
+Schema version 3 is the only current runtime witness schema for jittered
+periodic EDF.  It uses a compact basis:
 
 ```json
 "basis": [
@@ -613,16 +608,15 @@ Schema v3 should replace this full list with a compact basis:
 "all_basis_checked": true
 ```
 
-The Rust generator should support:
+The Rust generator command surface is:
 
 ```text
-sched-witness-gen jittered-periodic-edf --tasks TASKS.csv --out WITNESS.json --witness-schema 2
-sched-witness-gen jittered-periodic-edf --tasks TASKS.csv --out WITNESS.json --witness-schema 3
+sched-witness-gen jittered-periodic-edf --tasks TASKS.csv --out WITNESS.json
 ```
 
-Default to schema v3 only after the schema-v3 extracted Haskell checker exists.
-Extend generator metrics with `basis_window_count`, still outside canonical
-witness JSON.
+Generator metrics include `schema_version` and `basis_window_count`, still
+outside canonical witness JSON.  For the jittered path, emitted witness rows
+must report schema version 3.
 
 ### V3 implementation roadmap
 
@@ -642,8 +636,8 @@ witness JSON.
   `jittered_periodic_dbf_window` count.
 - Use the closed-form count in the extracted checker path for compact basis
   validation.
-- Keep the old enumerating checker available until schema-v3 regression tests
-  are stable.
+- Keep the enumerating checker as proof/benchmark history only; runtime
+  witness checking should use the v3 compact path.
 
 #### V3 PR 3: Schema-v3 Haskell checker frontend
 
@@ -653,14 +647,14 @@ witness JSON.
 - Reject malformed basis rows, unsorted basis data, duplicate rows, incomplete
   basis coverage, cutoff mismatch, schema/policy/domain mismatch, and task-hash
   mismatch.
-- Continue accepting schema-v2 witnesses through the existing DBF-only checker.
+- Reject non-v3 jittered witnesses at the runtime checker boundary.
 
 #### V3 PR 4: Rust schema-v3 generator
 
-- Generate compact basis rows instead of full `checked_windows` for schema v3.
+- Generate compact basis rows for schema v3.
 - Preserve deterministic output for `--threads 1`, fixed-thread modes, and
   `--threads auto`.
-- Keep `--witness-schema 2` for compatibility during the transition.
+- Do not reintroduce schema-selection flags for jittered witness generation.
 - Do not emit Rust-computed demand values as trusted certificate fields.
 
 #### V3 PR 5: Integration, mutation, and benchmark comparison
@@ -668,8 +662,8 @@ witness JSON.
 - Add accepted and rejected schema-v3 jittered fixtures.
 - Add mutation tests for omitted basis rows, altered left edges, duplicate
   rows, cutoff mismatch, `all_basis_checked`, and task hash.
-- Compare schema v2 and schema v3 for witness size, Rust generation time,
-  Haskell checking time, full window count, and compact basis count.
+- Keep the historical v2/v3 comparison in documentation, but current benchmark
+  and test plumbing should exercise only schema v3.
 - Use benchmark data before raising any generator or checker limits.
 
 ### V3 proof obligations
@@ -682,16 +676,18 @@ witness JSON.
   existing enumerated window-demand definition.
 - Schema-v3 checker soundness: accepted compact certificates imply
   `extracted_jittered_offset_window_dbf_ok_global`.
-- Compatibility: schema-v2 soundness remains unchanged.
+- Historical compatibility: the previous schema-v2 soundness argument remains
+  documentation context, not a current runtime obligation.
 
 ### V3 test plan
 
 - Build the affected Rocq files, then run `make -j2`.
 - Run Rust formatting and unit tests.
-- Run schema-v2 and schema-v3 jittered checker tests.
-- Run schema-v3 pipeline mutation tests.
-- Run jittered benchmarks and verify schema v3 reduces witness size and
-  extracted-Haskell check time versus schema v2.
+- Run v3 jittered checker tests.
+- Run v3 pipeline mutation tests.
+- Run jittered benchmarks and verify schema-v3 witness size and
+  extracted-Haskell check time stay within the compact-basis envelope recorded
+  in the performance note.
 - Run `git diff --check`.
 
 ### V3 risks for the Rust design
@@ -700,8 +696,7 @@ witness JSON.
   recompute and validate the expected compact basis.
 - Do not trust Rust-provided demand values unless the checker independently
   validates them.
-- Do not remove schema-v2 support until schema-v3 benchmarks and mutation tests
-  are stable.
+- Do not reintroduce schema-v2 runtime support after the v3-only cleanup.
 - Do not raise `MAX_JITTERED_DBF_WINDOWS` as a substitute for compact
   certificates.
 - Do not add timing or worker-count fields to canonical witness JSON.
@@ -738,18 +733,18 @@ witness JSON.
   - the compact checker uses the fast compact-basis DBF test and derives the
     existing global jittered offset-window DBF property through the cutoff
     theorem
-  - extended `scripts/jittered_edf_witness_check.hs` to keep schema v2 support
-    unchanged and accept schema v3 `cert.dbf.basis` rows with
+  - extended `scripts/jittered_edf_witness_check.hs` to add schema v3
+    `cert.dbf.basis` rows with
     `all_basis_checked`
   - added a schema-v3 expected-witness emit option for frontend-only checker
     tests, leaving Rust schema-v3 generation to V3 PR4
   - extended local make coverage for schema-v3 accept/reject checks without
     requiring Rust schema-v3 generation
 - V3 PR 4 started:
-  - added `--witness-schema 2|3` to
-    `sched-witness-gen jittered-periodic-edf`
-  - schema v3 is now the Rust generator default while schema v2 remains
-    available for compatibility tests
+  - added transitional schema selection to
+    `sched-witness-gen jittered-periodic-edf`; this was later removed when the
+    runtime became v3-only
+  - schema v3 became the Rust generator default during the transition
   - schema-v3 generation emits the current checker-facing identity compact
     basis: for every `t2 <= cutoff`, `left_edges` contains every `t1 <= t2`
   - Rust validates each emitted basis window with the existing DBF demand
@@ -760,10 +755,11 @@ witness JSON.
   - replaced the schema-v3 checker expected basis with a reduced compact basis
     that keeps only adjacent demand-plateau right edges for each right endpoint
   - updated Rust schema-v3 generation to emit the same reduced compact basis
-    while preserving schema-v2 full-window compatibility
-  - extended jittered benchmarks to compare schema-v2 and schema-v3 witness
-    size, Rust generation time, Haskell witness-check time, full window count,
-    and basis window count
+    while the then-current transition still kept the historical full-window
+    path available
+  - extended jittered benchmarks to compare historical full-window witnesses
+    and schema-v3 witnesses for size, Rust generation time,
+    Haskell witness-check time, full window count, and basis window count
   - recorded the local comparison in `design/edf_witness_performance.md`
 - V3 PR 5 generator optimization started:
   - replaced Rust-side jittered window demand enumeration with the same
