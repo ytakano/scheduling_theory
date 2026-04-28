@@ -389,3 +389,11 @@ Update this section after each implementation batch.
   - added make targets to build `periodic_edf_witness_check` with `aeson` and
     `crypton`, then test accepted cases, rejected CSV/tasksets, and mutated
     witness fields
+- PR 6 started:
+  - added generator-side `--metrics-out` for deterministic structural metrics
+    outside the canonical witness JSON
+  - added a benchmark script and make target for synthetic small, medium,
+    large, and limit-near periodic EDF CSV cases
+  - benchmark rows compare Rust witness generation across `--threads 1`,
+    `--threads 2`, and `--threads auto` with the existing Haskell prefix
+    checker path

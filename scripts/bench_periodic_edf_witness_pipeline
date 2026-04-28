@@ -1,0 +1,97 @@
+#!/bin/sh
+set -eu
+
+out=${1:-}
+if [ -z "$out" ]; then
+  out=$(mktemp)
+  echo "writing benchmark CSV to $out" >&2
+fi
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+printf 'case,engine,thread_mode,task_count,prefix_horizon,prefix_job_count,transport_basis_job_count,dbf_window_count,window_target_count,post_reset_window_target_count,wall_ms,peak_kb,status\n' > "$out"
+
+write_case() {
+  name=$1
+  path=$2
+  cp "$path" "$tmp/$name.csv"
+}
+
+cat > "$tmp/small.csv" <<'CSV'
+cost,period,deadline
+1,4,4
+CSV
+
+cat > "$tmp/medium.csv" <<'CSV'
+cost,period,deadline
+1,4,4
+1,5,5
+1,6,6
+CSV
+
+cat > "$tmp/large.csv" <<'CSV'
+cost,period,deadline
+1,6,6
+1,7,7
+1,8,8
+CSV
+
+cat > "$tmp/limit_near.csv" <<'CSV'
+cost,period,deadline
+1,11,11
+1,13,13
+CSV
+
+now_ms() {
+  date +%s%3N
+}
+
+run_rust() {
+  name=$1
+  threads=$2
+  witness="$tmp/$name.$threads.json"
+  metrics="$tmp/$name.$threads.metrics.csv"
+  err="$tmp/$name.$threads.err"
+  start=$(now_ms)
+  status=ok
+  if ! ./target/debug/sched-witness-gen periodic-edf --tasks "$tmp/$name.csv" --out "$witness" --threads "$threads" --metrics-out "$metrics" > /dev/null 2> "$err"; then
+    status=failed
+  fi
+  end=$(now_ms)
+  wall_ms=$((end - start))
+  if [ "$status" = ok ] && [ -f "$metrics" ]; then
+    row=$(sed -n '2p' "$metrics")
+    IFS=, read -r task_count prefix_horizon prefix_job_count transport_basis_job_count dbf_window_count window_target_count post_reset_window_target_count requested_threads _status <<EOF
+$row
+EOF
+    printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,%s,%s,%s,unavailable,%s\n' \
+      "$name" "$requested_threads" "$task_count" "$prefix_horizon" "$prefix_job_count" \
+      "$transport_basis_job_count" "$dbf_window_count" "$window_target_count" \
+      "$post_reset_window_target_count" "$wall_ms" "$status" >> "$out"
+  else
+    printf '%s,rust-generator,%s,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
+      "$name" "$threads" "$wall_ms" "$status" >> "$out"
+  fi
+}
+
+run_haskell_prefix() {
+  name=$1
+  err="$tmp/$name.haskell.err"
+  start=$(now_ms)
+  status=ok
+  if ! ./scripts/periodic_edf_schedulability_csv --check-prefix-cert "$tmp/$name.csv" > /dev/null 2> "$err"; then
+    status=failed
+  fi
+  end=$(now_ms)
+  wall_ms=$((end - start))
+  printf '%s,haskell-prefix,na,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
+    "$name" "$wall_ms" "$status" >> "$out"
+}
+
+for name in small medium large limit_near; do
+  run_rust "$name" 1
+  run_rust "$name" 2
+  run_rust "$name" auto
+  run_haskell_prefix "$name"
+done

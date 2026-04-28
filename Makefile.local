@@ -91,6 +91,13 @@ test-periodic-edf-witness-pipeline:: sched-witness-gen build-periodic-edf-witnes
 		exit 1; \
 	fi
 
+bench-periodic-edf-witness:: sched-witness-gen build-periodic-edf-sched-csv
+	@if [ -n "$(BENCH_OUT)" ]; then \
+		./scripts/bench_periodic_edf_witness_pipeline "$(BENCH_OUT)"; \
+	else \
+		./scripts/bench_periodic_edf_witness_pipeline; \
+	fi
+
 test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
@@ -143,4 +150,4 @@ test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	fi; \
 	grep -q 'offset must be nonnegative' "$$tmp/negative-offset.out"
 
-.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv build-periodic-edf-witness-check run-periodic-edf-sched-csv sched-witness-gen test-sched-witness-gen-determinism test-periodic-edf-witness-pipeline test-periodic-edf-sched-csv
+.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv build-periodic-edf-witness-check run-periodic-edf-sched-csv sched-witness-gen test-sched-witness-gen-determinism test-periodic-edf-witness-pipeline bench-periodic-edf-witness test-periodic-edf-sched-csv
