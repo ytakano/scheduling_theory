@@ -386,9 +386,13 @@ Update this document after implementing.
     hyperperiod shifts
   - added a post-jitter-offset shifted cutoff theorem that transports bounded
     checker success to shifted windows
-  - full all-window cutoff soundness remains the next PR4 task; it needs a
-    jitter-aware carry-in/load increment lemma rather than a direct copy of the
-    periodic one-hyperperiod growth bound
+  - added periodic-to-jittered DBF inclusion lemmas for cutoff load arguments
+  - added a jitter-aware one-hyperperiod growth bound after each task's
+    relative deadline is already covered by the window
+  - proved successful jittered cutoff checking implies
+    `hyperperiod_load <= periodic_hyperperiod`
+  - proved full all-window cutoff soundness via
+    `jittered_offset_window_dbf_check_by_cutoff`
 - Verification:
   - `JitteredPeriodicEDFWindowBridge.v` compiles
   - `JitteredPeriodicEDFInfiniteBridge.v` compiles
