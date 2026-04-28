@@ -765,3 +765,12 @@ witness JSON.
     size, Rust generation time, Haskell witness-check time, full window count,
     and basis window count
   - recorded the local comparison in `design/edf_witness_performance.md`
+- V3 PR 5 generator optimization started:
+  - replaced Rust-side jittered window demand enumeration with the same
+    closed-form release count used by the checker-facing fast DBF path
+  - optimized schema-v3 reduced-basis generation to reuse adjacent demand
+    values while scanning each right endpoint row
+  - parallelized reduced-basis row generation using the existing deterministic
+    thread mode, keeping schema-v3 JSON order stable
+  - removed the post-generation schema-v3 basis revalidation pass by checking
+    each selected basis window during row construction

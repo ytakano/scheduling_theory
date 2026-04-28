@@ -513,13 +513,12 @@ fn generate_jittered_witness(
             )
         }
         3 => {
-            let basis = jittered_reduced_dbf_basis(tasks, cutoff)?;
-            let basis_window_count = jittered_basis_window_count(&basis)?;
+            let (basis, basis_window_count) =
+                jittered_reduced_dbf_basis(tasks, thread_mode, cutoff)?;
             ensure_limit(
                 basis_window_count <= MAX_JITTERED_DBF_WINDOWS,
                 "jittered DBF basis window count",
             )?;
-            let checked_basis_window_count = validate_jittered_basis(tasks, thread_mode, &basis)?;
             (
                 JitteredDbfCert::Schema3(JitteredDbfV3Cert {
                     cutoff,
@@ -527,7 +526,7 @@ fn generate_jittered_witness(
                     all_basis_checked: true,
                 }),
                 0,
-                checked_basis_window_count,
+                basis_window_count,
             )
         }
         _ => return Err("--witness-schema must be 2 or 3".to_string()),
@@ -1051,25 +1050,42 @@ fn jittered_basis_window_count(basis: &[JitteredDbfBasisRow]) -> Result<usize, S
 
 fn jittered_reduced_dbf_basis(
     tasks: &[JitteredTask],
+    thread_mode: &ThreadMode,
     cutoff: u64,
-) -> Result<Vec<JitteredDbfBasisRow>, String> {
-    (0..=cutoff)
-        .map(|t2| {
-            let mut left_edges = Vec::new();
-            for t1 in 0..=t2 {
-                if t1 == t2 {
-                    left_edges.push(t1);
-                } else {
-                    let demand = jittered_window_demand(tasks, t1, t2)?;
-                    let next_demand = jittered_window_demand(tasks, t1 + 1, t2)?;
-                    if demand != next_demand {
-                        left_edges.push(t1);
-                    }
-                }
+) -> Result<(Vec<JitteredDbfBasisRow>, usize), String> {
+    let endpoints = (0..=cutoff).collect::<Vec<_>>();
+    let rows = map_vec(thread_mode, &endpoints, |t2| {
+        jittered_reduced_dbf_basis_row(tasks, *t2)
+    })?;
+    let count = jittered_basis_window_count(&rows)?;
+    Ok((rows, count))
+}
+
+fn jittered_reduced_dbf_basis_row(
+    tasks: &[JitteredTask],
+    t2: u64,
+) -> Result<JitteredDbfBasisRow, String> {
+    let mut left_edges = Vec::new();
+    let mut demand = jittered_window_demand(tasks, 0, t2)?;
+    for t1 in 0..=t2 {
+        let selected = if t1 == t2 {
+            true
+        } else {
+            let next_demand = jittered_window_demand(tasks, t1 + 1, t2)?;
+            let selected = demand != next_demand;
+            demand = next_demand;
+            selected
+        };
+        if selected {
+            if demand > t2 - t1 {
+                return Err(
+                    "jittered DBF witness generation rejected unschedulable taskset".to_string(),
+                );
             }
-            Ok(JitteredDbfBasisRow { t2, left_edges })
-        })
-        .collect()
+            left_edges.push(t1);
+        }
+    }
+    Ok(JitteredDbfBasisRow { t2, left_edges })
 }
 
 fn validate_jittered_windows(
@@ -1086,6 +1102,7 @@ fn validate_jittered_windows(
     Ok(ok_table.len())
 }
 
+#[cfg(test)]
 fn validate_jittered_basis(
     tasks: &[JitteredTask],
     thread_mode: &ThreadMode,
@@ -1117,14 +1134,85 @@ fn validate_jittered_basis(
 
 fn jittered_window_demand(tasks: &[JitteredTask], t1: u64, t2: u64) -> Result<u64, String> {
     tasks.iter().try_fold(0_u64, |acc, task| {
-        let count = jittered_task_window_count(task, t1, t2)?;
+        let count = jittered_task_fast_window_count(task, t1, t2)?;
         let demand = checked_mul(count, task.cost)?;
         acc.checked_add(demand)
             .ok_or_else(|| "jittered DBF demand overflow".to_string())
     })
 }
 
-fn jittered_task_window_count(task: &JitteredTask, t1: u64, t2: u64) -> Result<u64, String> {
+#[cfg(test)]
+fn jittered_enumerated_window_demand(
+    tasks: &[JitteredTask],
+    t1: u64,
+    t2: u64,
+) -> Result<u64, String> {
+    tasks.iter().try_fold(0_u64, |acc, task| {
+        let count = jittered_task_enumerated_window_count(task, t1, t2)?;
+        let demand = checked_mul(count, task.cost)?;
+        acc.checked_add(demand)
+            .ok_or_else(|| "jittered DBF demand overflow".to_string())
+    })
+}
+
+fn jittered_task_fast_window_count(task: &JitteredTask, t1: u64, t2: u64) -> Result<u64, String> {
+    if task.deadline > t2 {
+        return Ok(0);
+    }
+    let hi = t2 - task.deadline;
+    if t1 > hi {
+        return Ok(0);
+    }
+    ap_index_count(
+        task.offset,
+        task.period,
+        t1.saturating_sub(task.jitter),
+        hi,
+        t2,
+    )
+}
+
+fn ap_index_count(start: u64, period: u64, lo: u64, hi: u64, limit: u64) -> Result<u64, String> {
+    if period == 0 {
+        return if lo <= start && start <= hi {
+            limit
+                .checked_add(1)
+                .ok_or_else(|| "jittered DBF count overflow".to_string())
+        } else {
+            Ok(0)
+        };
+    }
+    if start > hi {
+        return Ok(0);
+    }
+    let first = if lo <= start {
+        0
+    } else {
+        ceil_div_pos(lo - start, period)?
+    };
+    let last = limit.min((hi - start) / period);
+    if first <= last {
+        last.checked_sub(first)
+            .and_then(|x| x.checked_add(1))
+            .ok_or_else(|| "jittered DBF count overflow".to_string())
+    } else {
+        Ok(0)
+    }
+}
+
+fn ceil_div_pos(n: u64, p: u64) -> Result<u64, String> {
+    debug_assert!(p > 0);
+    n.checked_add(p - 1)
+        .map(|x| x / p)
+        .ok_or_else(|| "jittered DBF count overflow".to_string())
+}
+
+#[cfg(test)]
+fn jittered_task_enumerated_window_count(
+    task: &JitteredTask,
+    t1: u64,
+    t2: u64,
+) -> Result<u64, String> {
     let mut count = 0_u64;
     for index in 0..=t2 {
         if task.deadline <= t2 {
@@ -1296,11 +1384,27 @@ mod tests {
     }
 
     #[test]
+    fn fast_jittered_demand_matches_enumerated_demand() {
+        let tasks =
+            parse_jittered_csv("cost,period,deadline,offset,jitter\n1,4,4,0,1\n2,5,3,2,2\n")
+                .expect("jittered CSV should parse");
+        for t2 in 0..=20 {
+            for t1 in 0..=t2 {
+                assert_eq!(
+                    jittered_window_demand(&tasks, t1, t2).unwrap(),
+                    jittered_enumerated_window_demand(&tasks, t1, t2).unwrap(),
+                    "demand mismatch at ({t1}, {t2})"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn preserves_reduced_basis_plateau_right_edges() {
         let tasks = parse_jittered_csv("cost,period,deadline,offset,jitter\n1,4,4,0,0\n")
             .expect("plateau jittered CSV should parse");
-        let basis = jittered_reduced_dbf_basis(&tasks, 4).unwrap();
-        assert_eq!(jittered_basis_window_count(&basis).unwrap(), 6);
+        let (basis, count) = jittered_reduced_dbf_basis(&tasks, &ThreadMode::Serial, 4).unwrap();
+        assert_eq!(count, 6);
         assert_eq!(
             validate_jittered_basis(&tasks, &ThreadMode::Serial, &basis).unwrap(),
             6
