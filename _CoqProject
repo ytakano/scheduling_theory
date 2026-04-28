@@ -201,6 +201,8 @@ theories/TaskModels/Jitter/JitteredPeriodicCodec.v
 theories/TaskModels/Jitter/JitteredPeriodicEnumeration.v
 theories/TaskModels/Jitter/JitteredPeriodicPrefixCoherence.v
 theories/TaskModels/Jitter/JitteredPeriodicWindowDemandBound.v
+theories/TaskModels/Jitter/JitteredPeriodicConcreteAnalysis.v
+theories/TaskModels/Jitter/JitteredPeriodicOffsetWindowCutoff.v
 theories/TaskModels/Jitter/JitteredPeriodicEDFPrefixCoherence.v
 theories/TaskModels/Jitter/JitteredPeriodicEDFWindowBridge.v
 theories/TaskModels/Jitter/JitteredPeriodicEDFInfiniteBridge.v

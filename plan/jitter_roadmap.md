@@ -372,6 +372,16 @@ Update this document after implementing.
     `jittered_periodic_edf_schedulable_by_window_dbf_on`
   - kept the no-carry-in busy-prefix bridge explicit as the remaining
     analysis-side PR3 obligation
+- PR 4 started:
+  - added `JitteredPeriodicConcreteAnalysis.v`
+  - added bounded boolean checking for jittered window DBF obligations
+  - added a sound first-overloaded-window helper for bounded checks
+  - added `JitteredPeriodicOffsetWindowCutoff.v`
+  - added conservative cutoff surface
+    `offset_window_dbf_cutoff_bound + max_jitter`
+  - proved cutoff-bounded checker soundness for windows with `t2` below the
+    conservative cutoff
+  - full hyperperiod-shift soundness for all windows remains the next PR4 task
 - Verification:
   - `JitteredPeriodicEDFWindowBridge.v` compiles
   - `JitteredPeriodicEDFInfiniteBridge.v` compiles
