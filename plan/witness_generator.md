@@ -368,3 +368,9 @@ Update this section after each implementation batch.
   - generator parses legacy periodic EDF CSV input, computes the canonical task
     hash, simulates a deterministic EDF prefix, builds transport/window
     sidecar certificate data, and emits schema v1 JSON for the Haskell checker
+- PR 3 started:
+  - added Rayon-based generation paths to the Rust witness generator
+  - `--threads 1` keeps serial generation, `--threads N` uses a fixed Rayon
+    pool, and `--threads auto` uses Rayon default parallelism
+  - parallelized independent certificate construction phases while preserving
+    deterministic vector ordering and JSON serialization
