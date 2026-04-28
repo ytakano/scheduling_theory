@@ -521,3 +521,13 @@ checking code.
     offset-window DBF property
   - exposed the certificate constructor and checker entry point in the
     extracted Haskell jittered schedulability module
+- V2 PR 2 started:
+  - added `scripts/jittered_edf_witness_check.hs`
+  - the checker parses schema-v2 JSON with a DBF-only jittered EDF certificate
+  - jittered witness checking requires explicit five-column CSV input:
+    `cost,period,deadline,offset,jitter`
+  - task identity is checked with `crypton` SHA-256 over canonicalized jittered
+    CSV task metadata
+  - parsed JSON is converted into extracted `JitteredEDFDbfCertificate`
+    constructors and checked by `check_jittered_edf_dbf_certificate_extracted`
+  - added make targets to build and test the jittered witness checker frontend

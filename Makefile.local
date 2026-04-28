@@ -10,6 +10,10 @@ extract-periodic-edf-sched-hs::
 	mkdir -p extracted/haskell
 	$(MAKE) theories/TaskModels/Periodic/PeriodicEDFExtraction.vo
 
+extract-jittered-edf-sched-hs::
+	mkdir -p extracted/haskell
+	$(MAKE) theories/TaskModels/Jitter/JitteredPeriodicEDFExtraction.vo
+
 scripts/periodic_edf_schedulability_csv: scripts/periodic_edf_schedulability_csv.hs extracted/haskell/PeriodicEDFSchedulability.hs
 	ghc -O2 -iextracted/haskell -outputdir scripts/.build -o $@ $<
 
@@ -17,9 +21,15 @@ scripts/periodic_edf_witness_check: scripts/periodic_edf_witness_check.hs extrac
 	mkdir -p scripts/.build
 	stack exec -- ghc -O2 -package aeson -package crypton -iextracted/haskell -outputdir scripts/.build -o $@ $<
 
+scripts/jittered_edf_witness_check: scripts/jittered_edf_witness_check.hs extracted/haskell/JitteredPeriodicEDFSchedulability.hs
+	mkdir -p scripts/.build
+	stack exec -- ghc -O2 -package aeson -package crypton -iextracted/haskell -outputdir scripts/.build -o $@ $<
+
 build-periodic-edf-sched-csv:: extract-periodic-edf-sched-hs scripts/periodic_edf_schedulability_csv
 
 build-periodic-edf-witness-check:: extract-periodic-edf-sched-hs scripts/periodic_edf_witness_check
+
+build-jittered-edf-witness-check:: extract-jittered-edf-sched-hs scripts/jittered_edf_witness_check
 
 run-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	@test -n "$(CSV)" || (echo "usage: make run-periodic-edf-sched-csv CSV=tasks.csv" && exit 2)
@@ -91,6 +101,61 @@ test-periodic-edf-witness-pipeline:: sched-witness-gen build-periodic-edf-witnes
 		exit 1; \
 	fi
 
+test-jittered-edf-witness-check:: build-jittered-edf-witness-check
+	@set -e; \
+	tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	printf 'cost,period,deadline,offset,jitter\n1,1,1,0,0\n' > "$$tmp/accepted.csv"; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --emit-expected-witness "$$tmp/accepted.json"; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.json"; \
+	printf 'cost,period,deadline,offset\n1,4,4,0\n' > "$$tmp/four-column.csv"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/four-column.csv" --emit-expected-witness "$$tmp/four-column.json" > "$$tmp/four-column.out" 2>&1; then \
+		cat "$$tmp/four-column.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'expected 5 columns' "$$tmp/four-column.out"; \
+	printf 'cost,period,deadline,offset,jitter\n1,4,4,0,-1\n' > "$$tmp/malformed.csv"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/malformed.csv" --emit-expected-witness "$$tmp/malformed.json" > "$$tmp/malformed.out" 2>&1; then \
+		cat "$$tmp/malformed.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'jitter must be nonnegative' "$$tmp/malformed.out"; \
+	perl -0pe 's/"schema_version":2/"schema_version":1/' "$$tmp/accepted.json" > "$$tmp/schema-mut.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/schema-mut.json" > "$$tmp/schema-mut.out" 2>&1; then \
+		cat "$$tmp/schema-mut.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"policy":"jittered-periodic-edf"/"policy":"periodic-edf"/' "$$tmp/accepted.json" > "$$tmp/policy-mut.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/policy-mut.json" > "$$tmp/policy-mut.out" 2>&1; then \
+		cat "$$tmp/policy-mut.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"domain":"uniprocessor"/"domain":"multiprocessor"/' "$$tmp/accepted.json" > "$$tmp/domain-mut.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/domain-mut.json" > "$$tmp/domain-mut.out" 2>&1; then \
+		cat "$$tmp/domain-mut.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"task_hash":"sha256:[^"]+"/"task_hash":"sha256:0"/' "$$tmp/accepted.json" > "$$tmp/hash-mut.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/hash-mut.json" > "$$tmp/hash-mut.out" 2>&1; then \
+		cat "$$tmp/hash-mut.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"cutoff":[0-9]+/"cutoff":-1/' "$$tmp/accepted.json" > "$$tmp/cutoff-mut.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/cutoff-mut.json" > "$$tmp/cutoff-mut.out" 2>&1; then \
+		cat "$$tmp/cutoff-mut.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"checked_windows":\[/"checked_windows":[[999,999],/' "$$tmp/accepted.json" > "$$tmp/windows-mut.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/windows-mut.json" > "$$tmp/windows-mut.out" 2>&1; then \
+		cat "$$tmp/windows-mut.out"; \
+		exit 1; \
+	fi; \
+	perl -0pe 's/"all_windows_checked":true/"all_windows_checked":false/' "$$tmp/accepted.json" > "$$tmp/all-windows-mut.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/all-windows-mut.json" > "$$tmp/all-windows-mut.out" 2>&1; then \
+		cat "$$tmp/all-windows-mut.out"; \
+		exit 1; \
+	fi
+
 bench-periodic-edf-witness:: sched-witness-gen build-periodic-edf-sched-csv
 	@if [ -n "$(BENCH_OUT)" ]; then \
 		./scripts/bench_periodic_edf_witness_pipeline "$(BENCH_OUT)"; \
@@ -150,4 +215,4 @@ test-periodic-edf-sched-csv:: build-periodic-edf-sched-csv
 	fi; \
 	grep -q 'offset must be nonnegative' "$$tmp/negative-offset.out"
 
-.PHONY: extract-periodic-edf-sched-hs build-periodic-edf-sched-csv build-periodic-edf-witness-check run-periodic-edf-sched-csv sched-witness-gen test-sched-witness-gen-determinism test-periodic-edf-witness-pipeline bench-periodic-edf-witness test-periodic-edf-sched-csv
+.PHONY: extract-periodic-edf-sched-hs extract-jittered-edf-sched-hs build-periodic-edf-sched-csv build-periodic-edf-witness-check build-jittered-edf-witness-check run-periodic-edf-sched-csv sched-witness-gen test-sched-witness-gen-determinism test-periodic-edf-witness-pipeline test-jittered-edf-witness-check bench-periodic-edf-witness test-periodic-edf-sched-csv
