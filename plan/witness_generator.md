@@ -550,3 +550,11 @@ checking code.
     JSON output for the same jittered CSV
   - integration tests now generate a jittered witness and validate it with
     `scripts/jittered_edf_witness_check`
+- V2 PR 5 started:
+  - added fixture-backed jittered EDF witness pipeline coverage
+  - added `scripts/run_jittered_edf_witness_pipeline` as the schema-v2
+    generator/checker wrapper
+  - added accepted zero-jitter and nonzero-release-jitter CSV fixtures
+  - added malformed, four-column, and unschedulable rejected fixtures
+  - added pipeline mutation coverage for task hash, offset, jitter, cutoff,
+    checked DBF windows, and `all_windows_checked`

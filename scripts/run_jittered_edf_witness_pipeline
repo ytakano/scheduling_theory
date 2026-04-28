@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ne 2 ]; then
+  echo "usage: run_jittered_edf_witness_pipeline TASKS.csv WITNESS.json" >&2
+  exit 2
+fi
+
+tasks=$1
+witness=$2
+
+./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$tasks" --out "$witness" --threads auto
+./scripts/jittered_edf_witness_check --tasks "$tasks" --witness "$witness"
