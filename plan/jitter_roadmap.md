@@ -337,3 +337,14 @@ Update this document after implementing.
   - targeted jitter files compile
   - downstream jitter EDF / LLF bridge files compile
   - full `make -j2` passes
+- PR 2 started and implemented:
+  - added `JitteredPeriodicWindowDemandBound.v`
+  - added jittered window jobset and interval-intersection index predicate
+  - added per-task and taskset DBF window demand bounds
+  - added zero-jitter compatibility with periodic window DBF
+  - added endpoint monotonicity lemmas for jittered window DBF
+  - registered the new file in `_CoqProject`
+- Verification:
+  - `JitteredPeriodicWindowDemandBound.v` compiles
+  - downstream jitter EDF / LLF bridge files compile
+  - full `make -j2` passes

@@ -200,6 +200,7 @@ theories/TaskModels/Jitter/JitteredPeriodicInfiniteJobset.v
 theories/TaskModels/Jitter/JitteredPeriodicCodec.v
 theories/TaskModels/Jitter/JitteredPeriodicEnumeration.v
 theories/TaskModels/Jitter/JitteredPeriodicPrefixCoherence.v
+theories/TaskModels/Jitter/JitteredPeriodicWindowDemandBound.v
 theories/TaskModels/Jitter/JitteredPeriodicFiniteOptimalityLift.v
 theories/TaskModels/Jitter/JitteredPeriodicEDFBridge.v
 theories/TaskModels/Jitter/JitteredPeriodicLLFBridge.v
