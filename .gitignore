@@ -10,3 +10,4 @@ skills-lock.json
 scripts/.build/
 scripts/periodic_edf_schedulability_csv
 scripts/jittered_edf_schedulability_csv
+scripts/periodic_edf_witness_check
