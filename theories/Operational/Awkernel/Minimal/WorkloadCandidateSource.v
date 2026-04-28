@@ -14,7 +14,7 @@ From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadAcceptance.
 From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadCandidateTable.
 
 Definition empty_sched_trace_entry : AwkernelSchedTraceEntry :=
-  mkAwkernelSchedTraceEntry 0 EvStutter None [] false None [] [] [].
+  mkAwkernelSchedTraceEntry 0 0 EvStutter None [] false None [] [] [].
 
 Definition workload_execution_matches_sched_trace
     {P : OSLabeledProjection AwkernelState}

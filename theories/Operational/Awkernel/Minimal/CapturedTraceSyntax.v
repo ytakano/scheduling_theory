@@ -5,6 +5,7 @@ From RocqSched Require Import Operational.Awkernel.Minimal.MinimalProjection.
 Import ListNotations.
 
 Record AwkernelSchedTraceEntry : Type := mkAwkernelSchedTraceEntry {
+  aste_event_id : nat;
   aste_cpu : CPU;
   aste_event : OpEvent;
   aste_current : option JobId;

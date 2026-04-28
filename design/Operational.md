@@ -109,7 +109,9 @@ minimum common identifiers needed by proof-facing steps:
 At this layer, `EvBlock` only fixes an abstract effect: a released job may
 become temporarily ineligible for selection. The common layer does not define
 which concrete wait cause produced that effect or which concrete hook
-re-enables the job later.
+re-enables the job later. There is no separate common `EvUnblock` event in the
+current interface; an adapter proves that a concrete unblock, wake, or readiness
+observation is enough evidence for a later projected runnable/wakeup fact.
 
 `EvJoinTargetReady` is deliberately also common but weak: it names the job whose
 join dependency became ready without adding concrete join queues, wait lists, or
@@ -182,6 +184,9 @@ Their role is intentionally adapter-local:
   `OpTrace`,
 - `task_trace` is an emitted task-family summary artifact, not a common event
   interface,
+- a leading `event_id`, when present in emitted rows, is a runtime ordering key
+  used by the adapter checker to align task-side blocked intervals with
+  scheduler-side observations; it is not part of `OpState` or `OpEvent`,
 - and any reconstruction from `sched_trace` into a logical worker schedule
   belongs to the adapter layer, not to `Operational/Common`.
 
@@ -203,7 +208,9 @@ The intended layering is:
 This same split applies to blocking-aware eligibility. The common layer fixes
 that blocking may make released work ineligible. Adapters must explain which
 concrete states or events realize that abstract effect. The runtime only emits
-the evidence used by that adapter proof.
+the evidence used by that adapter proof. Concrete `Block` or `Unblock` records
+are therefore adapter evidence until an adapter grammar maps them into the
+common event vocabulary; they do not widen the common blocked boundary.
 
 ### Projection back into semantic schedules
 

@@ -208,6 +208,15 @@ data OpEvent =
  | EvStutter
  | EvTick
 
+remove_job :: JobId -> (List JobId) -> List JobId
+remove_job j xs =
+  case xs of {
+   Nil -> Nil;
+   Cons x xs' ->
+    case eqb0 x j of {
+     True -> remove_job j xs';
+     False -> Cons x (remove_job j xs')}}
+
 runs_on :: Schedule -> JobId -> Time -> CPU -> Bool
 runs_on sched j t c =
   case sched t c of {
@@ -247,39 +256,46 @@ choose_top_m g =
   g
 
 data AwkernelSchedTraceEntry =
-   MkAwkernelSchedTraceEntry CPU OpEvent (Option JobId) (List JobId) 
+   MkAwkernelSchedTraceEntry Nat CPU OpEvent (Option JobId) (List JobId) 
  Bool (Option JobId) (List (Option JobId)) (List Bool) (List (Option JobId))
+
+aste_event_id :: AwkernelSchedTraceEntry -> Nat
+aste_event_id a =
+  case a of {
+   MkAwkernelSchedTraceEntry aste_event_id0 _ _ _ _ _ _ _ _ _ ->
+    aste_event_id0}
 
 aste_cpu :: AwkernelSchedTraceEntry -> CPU
 aste_cpu a =
   case a of {
-   MkAwkernelSchedTraceEntry aste_cpu0 _ _ _ _ _ _ _ _ -> aste_cpu0}
+   MkAwkernelSchedTraceEntry _ aste_cpu0 _ _ _ _ _ _ _ _ -> aste_cpu0}
 
 aste_event :: AwkernelSchedTraceEntry -> OpEvent
 aste_event a =
   case a of {
-   MkAwkernelSchedTraceEntry _ aste_event0 _ _ _ _ _ _ _ -> aste_event0}
+   MkAwkernelSchedTraceEntry _ _ aste_event0 _ _ _ _ _ _ _ -> aste_event0}
 
 aste_current :: AwkernelSchedTraceEntry -> Option JobId
 aste_current a =
   case a of {
-   MkAwkernelSchedTraceEntry _ _ aste_current0 _ _ _ _ _ _ -> aste_current0}
+   MkAwkernelSchedTraceEntry _ _ _ aste_current0 _ _ _ _ _ _ -> aste_current0}
 
 aste_runnable :: AwkernelSchedTraceEntry -> List JobId
 aste_runnable a =
   case a of {
-   MkAwkernelSchedTraceEntry _ _ _ aste_runnable0 _ _ _ _ _ -> aste_runnable0}
+   MkAwkernelSchedTraceEntry _ _ _ _ aste_runnable0 _ _ _ _ _ ->
+    aste_runnable0}
 
 aste_need_resched :: AwkernelSchedTraceEntry -> Bool
 aste_need_resched a =
   case a of {
-   MkAwkernelSchedTraceEntry _ _ _ _ aste_need_resched0 _ _ _ _ ->
+   MkAwkernelSchedTraceEntry _ _ _ _ _ aste_need_resched0 _ _ _ _ ->
     aste_need_resched0}
 
 aste_dispatch_target :: AwkernelSchedTraceEntry -> Option JobId
 aste_dispatch_target a =
   case a of {
-   MkAwkernelSchedTraceEntry _ _ _ _ _ aste_dispatch_target0 _ _ _ ->
+   MkAwkernelSchedTraceEntry _ _ _ _ _ _ aste_dispatch_target0 _ _ _ ->
     aste_dispatch_target0}
 
 sched_trace_primary_current :: AwkernelSchedTraceEntry -> Option JobId
@@ -300,28 +316,54 @@ data AwkernelTaskTraceKind =
  | LkRunnable
  | LkChoose
  | LkDispatch
- | LkSleep
+ | LkBlock
+ | LkUnblock
  | LkJoinWait
  | LkJoinTargetReady
  | LkComplete
 
+data AwkernelWaitClass =
+   WcSleep
+ | WcIo
+
+data AwkernelUnblockKind =
+   UkReady
+ | UkTimeout
+
 data AwkernelTaskTraceEntry =
-   MkAwkernelTaskTraceEntry AwkernelTaskTraceKind JobId (Option JobId)
+   MkAwkernelTaskTraceEntry Nat AwkernelTaskTraceKind JobId (Option JobId) 
+ (Option AwkernelWaitClass) (Option AwkernelUnblockKind)
+
+atte_event_id :: AwkernelTaskTraceEntry -> Nat
+atte_event_id a =
+  case a of {
+   MkAwkernelTaskTraceEntry atte_event_id0 _ _ _ _ _ -> atte_event_id0}
 
 atte_kind :: AwkernelTaskTraceEntry -> AwkernelTaskTraceKind
 atte_kind a =
   case a of {
-   MkAwkernelTaskTraceEntry atte_kind0 _ _ -> atte_kind0}
+   MkAwkernelTaskTraceEntry _ atte_kind0 _ _ _ _ -> atte_kind0}
 
 atte_subject :: AwkernelTaskTraceEntry -> JobId
 atte_subject a =
   case a of {
-   MkAwkernelTaskTraceEntry _ atte_subject0 _ -> atte_subject0}
+   MkAwkernelTaskTraceEntry _ _ atte_subject0 _ _ _ -> atte_subject0}
 
 atte_related :: AwkernelTaskTraceEntry -> Option JobId
 atte_related a =
   case a of {
-   MkAwkernelTaskTraceEntry _ _ atte_related0 -> atte_related0}
+   MkAwkernelTaskTraceEntry _ _ _ atte_related0 _ _ -> atte_related0}
+
+atte_wait_class :: AwkernelTaskTraceEntry -> Option AwkernelWaitClass
+atte_wait_class a =
+  case a of {
+   MkAwkernelTaskTraceEntry _ _ _ _ atte_wait_class0 _ -> atte_wait_class0}
+
+atte_unblock_kind :: AwkernelTaskTraceEntry -> Option AwkernelUnblockKind
+atte_unblock_kind a =
+  case a of {
+   MkAwkernelTaskTraceEntry _ _ _ _ _ atte_unblock_kind0 ->
+    atte_unblock_kind0}
 
 option_job_eqb :: (Option JobId) -> (Option JobId) -> Bool
 option_job_eqb x y =
@@ -381,7 +423,7 @@ add_pair_once x xs =
    True -> xs;
    False -> Cons x xs}
 
-all_dependencies_ready :: JobId -> (List (Prod JobId JobId)) -> (List
+all_dependencies_ready :: JobId -> (List (Prod JobId JobId)) -> (List 
                           JobId) -> Bool
 all_dependencies_ready task_id deps ready_targets =
   case deps of {
@@ -395,16 +437,97 @@ all_dependencies_ready task_id deps ready_targets =
           (all_dependencies_ready task_id deps' ready_targets);
        False -> all_dependencies_ready task_id deps' ready_targets}}}
 
-bool_of_option_none :: (Option JobId) -> Bool
+bool_of_option_none :: (Option a1) -> Bool
 bool_of_option_none oj =
   case oj of {
    Some _ -> False;
    None -> True}
 
+bool_of_wait_class_some :: (Option AwkernelWaitClass) -> Bool
+bool_of_wait_class_some owc =
+  case owc of {
+   Some _ -> True;
+   None -> False}
+
+bool_of_unblock_kind_some :: (Option AwkernelUnblockKind) -> Bool
+bool_of_unblock_kind_some ouk =
+  case ouk of {
+   Some _ -> True;
+   None -> False}
+
+wait_class_eqb :: AwkernelWaitClass -> AwkernelWaitClass -> Bool
+wait_class_eqb lhs rhs =
+  case lhs of {
+   WcSleep -> case rhs of {
+               WcSleep -> True;
+               WcIo -> False};
+   WcIo -> case rhs of {
+            WcSleep -> False;
+            WcIo -> True}}
+
+task_trace_metadata_empty :: AwkernelTaskTraceEntry -> Bool
+task_trace_metadata_empty entry =
+  andb
+    (andb (bool_of_option_none (atte_related entry))
+      (bool_of_option_none (atte_wait_class entry)))
+    (bool_of_option_none (atte_unblock_kind entry))
+
+task_trace_has_wait_class_only :: AwkernelTaskTraceEntry -> Bool
+task_trace_has_wait_class_only entry =
+  andb
+    (andb (bool_of_option_none (atte_related entry))
+      (bool_of_wait_class_some (atte_wait_class entry)))
+    (bool_of_option_none (atte_unblock_kind entry))
+
+task_trace_has_wait_and_unblock_kind :: AwkernelTaskTraceEntry -> Bool
+task_trace_has_wait_and_unblock_kind entry =
+  andb
+    (andb (bool_of_option_none (atte_related entry))
+      (bool_of_wait_class_some (atte_wait_class entry)))
+    (bool_of_unblock_kind_some (atte_unblock_kind entry))
+
+blocked_task_class :: JobId -> (List (Prod JobId AwkernelWaitClass)) ->
+                      Option AwkernelWaitClass
+blocked_task_class task_id blocked =
+  case blocked of {
+   Nil -> None;
+   Cons p blocked' ->
+    case p of {
+     Pair blocked_task wait_class ->
+      case eqb0 blocked_task task_id of {
+       True -> Some wait_class;
+       False -> blocked_task_class task_id blocked'}}}
+
+blocked_task_contains :: JobId -> (List (Prod JobId AwkernelWaitClass)) ->
+                         Bool
+blocked_task_contains task_id blocked =
+  case blocked_task_class task_id blocked of {
+   Some _ -> True;
+   None -> False}
+
+remove_blocked_task :: JobId -> (List (Prod JobId AwkernelWaitClass)) -> List
+                       (Prod JobId AwkernelWaitClass)
+remove_blocked_task task_id blocked =
+  case blocked of {
+   Nil -> Nil;
+   Cons p blocked' ->
+    case p of {
+     Pair blocked_task wait_class ->
+      case eqb0 blocked_task task_id of {
+       True -> remove_blocked_task task_id blocked';
+       False -> Cons (Pair blocked_task wait_class)
+        (remove_blocked_task task_id blocked')}}}
+
 sched_trace_event_is_wakeup :: JobId -> AwkernelSchedTraceEntry -> Bool
 sched_trace_event_is_wakeup j entry =
   case aste_event entry of {
    EvWakeup j' -> eqb0 j' j;
+   _ -> False}
+
+sched_trace_event_is_block :: JobId -> AwkernelSchedTraceEntry -> Bool
+sched_trace_event_is_block j entry =
+  case aste_event entry of {
+   EvBlock j' -> eqb0 j' j;
    _ -> False}
 
 sched_trace_event_is_choose :: JobId -> JobId -> AwkernelSchedTraceEntry ->
@@ -451,6 +574,17 @@ sched_trace_is_wakeup j entry =
           (bool_of_option_none (sched_trace_primary_current entry)))
         (job_list_contains j (aste_runnable entry)))
       (eqb (sched_trace_primary_need_resched entry) False))
+    (bool_of_option_none (sched_trace_primary_dispatch_target entry))
+
+sched_trace_is_block :: JobId -> AwkernelSchedTraceEntry -> Bool
+sched_trace_is_block j entry =
+  andb
+    (andb
+      (andb
+        (andb (eqb0 (aste_cpu entry) (S O))
+          (sched_trace_event_is_block j entry))
+        (bool_of_option_none (sched_trace_primary_current entry)))
+      (eqb (sched_trace_primary_need_resched entry) True))
     (bool_of_option_none (sched_trace_primary_dispatch_target entry))
 
 sched_trace_is_choose :: JobId -> AwkernelSchedTraceEntry -> Bool
@@ -502,34 +636,82 @@ sched_trace_is_stutter entry =
 
 data AwkernelTaskTraceSummary =
    MkAwkernelTaskTraceSummary (Option JobId) (List JobId) (List
-                                                          (Prod JobId JobId))
- (List JobId)
+                                                          (Prod JobId JobId)) 
+ (List JobId) (List (Prod JobId AwkernelWaitClass)) (List
+                                                    (Prod Nat
+                                                    (Prod JobId Bool)))
 
 atts_root_task :: AwkernelTaskTraceSummary -> Option JobId
 atts_root_task a =
   case a of {
-   MkAwkernelTaskTraceSummary atts_root_task0 _ _ _ -> atts_root_task0}
+   MkAwkernelTaskTraceSummary atts_root_task0 _ _ _ _ _ -> atts_root_task0}
 
 atts_known_tasks :: AwkernelTaskTraceSummary -> List JobId
 atts_known_tasks a =
   case a of {
-   MkAwkernelTaskTraceSummary _ atts_known_tasks0 _ _ -> atts_known_tasks0}
+   MkAwkernelTaskTraceSummary _ atts_known_tasks0 _ _ _ _ ->
+    atts_known_tasks0}
 
 atts_completion_deps :: AwkernelTaskTraceSummary -> List (Prod JobId JobId)
 atts_completion_deps a =
   case a of {
-   MkAwkernelTaskTraceSummary _ _ atts_completion_deps0 _ ->
+   MkAwkernelTaskTraceSummary _ _ atts_completion_deps0 _ _ _ ->
     atts_completion_deps0}
 
 atts_ready_targets :: AwkernelTaskTraceSummary -> List JobId
 atts_ready_targets a =
   case a of {
-   MkAwkernelTaskTraceSummary _ _ _ atts_ready_targets0 ->
+   MkAwkernelTaskTraceSummary _ _ _ atts_ready_targets0 _ _ ->
     atts_ready_targets0}
+
+atts_blocked_tasks :: AwkernelTaskTraceSummary -> List
+                      (Prod JobId AwkernelWaitClass)
+atts_blocked_tasks a =
+  case a of {
+   MkAwkernelTaskTraceSummary _ _ _ _ atts_blocked_tasks0 _ ->
+    atts_blocked_tasks0}
+
+atts_block_transitions :: AwkernelTaskTraceSummary -> List
+                          (Prod Nat (Prod JobId Bool))
+atts_block_transitions a =
+  case a of {
+   MkAwkernelTaskTraceSummary _ _ _ _ _ atts_block_transitions0 ->
+    atts_block_transitions0}
 
 initial_task_trace_summary :: AwkernelTaskTraceSummary
 initial_task_trace_summary =
-  MkAwkernelTaskTraceSummary None Nil Nil Nil
+  MkAwkernelTaskTraceSummary None Nil Nil Nil Nil Nil
+
+add_block_transition :: Nat -> JobId -> Bool -> (List
+                        (Prod Nat (Prod JobId Bool))) -> List
+                        (Prod Nat (Prod JobId Bool))
+add_block_transition event_id task_id is_block transitions =
+  app transitions (Cons (Pair event_id (Pair task_id is_block)) Nil)
+
+task_trace_blocked_at_from :: Nat -> JobId -> (List
+                              (Prod Nat (Prod JobId Bool))) -> Bool -> Bool
+task_trace_blocked_at_from event_id task_id transitions blocked =
+  case transitions of {
+   Nil -> blocked;
+   Cons p transitions' ->
+    case p of {
+     Pair transition_event_id p0 ->
+      case p0 of {
+       Pair transition_task is_block ->
+        let {
+         blocked' = case ltb transition_event_id event_id of {
+                     True ->
+                      case eqb0 transition_task task_id of {
+                       True -> is_block;
+                       False -> blocked};
+                     False -> blocked}}
+        in
+        task_trace_blocked_at_from event_id task_id transitions' blocked'}}}
+
+task_trace_blocked_at :: AwkernelTaskTraceSummary -> Nat -> JobId -> Bool
+task_trace_blocked_at summary event_id task_id =
+  task_trace_blocked_at_from event_id task_id
+    (atts_block_transitions summary) False
 
 task_trace_entry_valid :: AwkernelTaskTraceSummary -> AwkernelTaskTraceEntry
                           -> Bool
@@ -540,25 +722,66 @@ task_trace_entry_valid summary entry =
       (negb
         (job_list_contains (atte_subject entry) (atts_known_tasks summary)))
       (case atte_related entry of {
-        Some parent -> job_list_contains parent (atts_known_tasks summary);
-        None -> option_job_eqb (atts_root_task summary) None});
+        Some parent ->
+         andb
+           (andb (job_list_contains parent (atts_known_tasks summary))
+             (bool_of_option_none (atte_wait_class entry)))
+           (bool_of_option_none (atte_unblock_kind entry));
+        None ->
+         andb
+           (andb (option_job_eqb (atts_root_task summary) None)
+             (bool_of_option_none (atte_wait_class entry)))
+           (bool_of_option_none (atte_unblock_kind entry))});
+   LkBlock ->
+    andb
+      (andb
+        (job_list_contains (atte_subject entry) (atts_known_tasks summary))
+        (negb
+          (blocked_task_contains (atte_subject entry)
+            (atts_blocked_tasks summary))))
+      (task_trace_has_wait_class_only entry);
+   LkUnblock ->
+    andb
+      (andb
+        (job_list_contains (atte_subject entry) (atts_known_tasks summary))
+        (task_trace_has_wait_and_unblock_kind entry))
+      (case atte_wait_class entry of {
+        Some wait_class ->
+         case blocked_task_class (atte_subject entry)
+                (atts_blocked_tasks summary) of {
+          Some blocked_wait_class ->
+           wait_class_eqb wait_class blocked_wait_class;
+          None -> False};
+        None -> False});
    LkJoinWait ->
     case atte_related entry of {
      Some target ->
       andb
-        (job_list_contains (atte_subject entry) (atts_known_tasks summary))
-        (job_list_contains target (atts_known_tasks summary));
+        (andb
+          (andb
+            (job_list_contains (atte_subject entry)
+              (atts_known_tasks summary))
+            (job_list_contains target (atts_known_tasks summary)))
+          (bool_of_option_none (atte_wait_class entry)))
+        (bool_of_option_none (atte_unblock_kind entry));
      None -> False};
    LkJoinTargetReady ->
     case atte_related entry of {
      Some _ -> False;
      None ->
       andb
-        (job_list_contains (atte_subject entry) (atts_known_tasks summary))
-        (negb
-          (job_list_contains (atte_subject entry)
-            (atts_ready_targets summary)))};
-   _ -> job_list_contains (atte_subject entry) (atts_known_tasks summary)}
+        (andb
+          (andb
+            (job_list_contains (atte_subject entry)
+              (atts_known_tasks summary))
+            (negb
+              (job_list_contains (atte_subject entry)
+                (atts_ready_targets summary))))
+          (bool_of_option_none (atte_wait_class entry)))
+        (bool_of_option_none (atte_unblock_kind entry))};
+   _ ->
+    andb (job_list_contains (atte_subject entry) (atts_known_tasks summary))
+      (task_trace_metadata_empty entry)}
 
 task_trace_entry_step :: AwkernelTaskTraceSummary -> AwkernelTaskTraceEntry
                          -> AwkernelTaskTraceSummary
@@ -569,18 +792,36 @@ task_trace_entry_step summary entry =
       Some _ -> atts_root_task summary;
       None -> Some (atte_subject entry)})
     (add_job_once (atte_subject entry) (atts_known_tasks summary))
-    (atts_completion_deps summary) (atts_ready_targets summary);
+    (atts_completion_deps summary) (atts_ready_targets summary)
+    (atts_blocked_tasks summary) (atts_block_transitions summary);
+   LkBlock -> MkAwkernelTaskTraceSummary (atts_root_task summary)
+    (atts_known_tasks summary) (atts_completion_deps summary)
+    (atts_ready_targets summary) (Cons (Pair (atte_subject entry)
+    (case atte_wait_class entry of {
+      Some wait_class -> wait_class;
+      None -> WcSleep}))
+    (atts_blocked_tasks summary))
+    (add_block_transition (atte_event_id entry) (atte_subject entry) True
+      (atts_block_transitions summary));
+   LkUnblock -> MkAwkernelTaskTraceSummary (atts_root_task summary)
+    (atts_known_tasks summary) (atts_completion_deps summary)
+    (atts_ready_targets summary)
+    (remove_blocked_task (atte_subject entry) (atts_blocked_tasks summary))
+    (add_block_transition (atte_event_id entry) (atte_subject entry) False
+      (atts_block_transitions summary));
    LkJoinWait ->
     case atte_related entry of {
      Some target -> MkAwkernelTaskTraceSummary (atts_root_task summary)
       (atts_known_tasks summary)
       (add_pair_once (Pair (atte_subject entry) target)
         (atts_completion_deps summary))
-      (atts_ready_targets summary);
+      (atts_ready_targets summary) (atts_blocked_tasks summary)
+      (atts_block_transitions summary);
      None -> summary};
    LkJoinTargetReady -> MkAwkernelTaskTraceSummary (atts_root_task summary)
     (atts_known_tasks summary) (atts_completion_deps summary)
-    (add_job_once (atte_subject entry) (atts_ready_targets summary));
+    (add_job_once (atte_subject entry) (atts_ready_targets summary))
+    (atts_blocked_tasks summary) (atts_block_transitions summary);
    _ -> summary}
 
 summarize_task_trace :: AwkernelTaskTraceSummary -> (List
@@ -597,41 +838,47 @@ summarize_task_trace summary task_trace =
 
 data AwkernelSchedTraceAcceptanceState =
    MkAwkernelSchedTraceAcceptanceState Bool (Option JobId) (List JobId) 
- (List JobId) (List JobId)
+ (List JobId) (List JobId) (List JobId)
 
 astas_started :: AwkernelSchedTraceAcceptanceState -> Bool
 astas_started a =
   case a of {
-   MkAwkernelSchedTraceAcceptanceState astas_started0 _ _ _ _ ->
+   MkAwkernelSchedTraceAcceptanceState astas_started0 _ _ _ _ _ ->
     astas_started0}
 
 astas_selected :: AwkernelSchedTraceAcceptanceState -> Option JobId
 astas_selected a =
   case a of {
-   MkAwkernelSchedTraceAcceptanceState _ astas_selected0 _ _ _ ->
+   MkAwkernelSchedTraceAcceptanceState _ astas_selected0 _ _ _ _ ->
     astas_selected0}
 
 astas_dispatched :: AwkernelSchedTraceAcceptanceState -> List JobId
 astas_dispatched a =
   case a of {
-   MkAwkernelSchedTraceAcceptanceState _ _ astas_dispatched0 _ _ ->
+   MkAwkernelSchedTraceAcceptanceState _ _ astas_dispatched0 _ _ _ ->
     astas_dispatched0}
 
 astas_completed :: AwkernelSchedTraceAcceptanceState -> List JobId
 astas_completed a =
   case a of {
-   MkAwkernelSchedTraceAcceptanceState _ _ _ astas_completed0 _ ->
+   MkAwkernelSchedTraceAcceptanceState _ _ _ astas_completed0 _ _ ->
     astas_completed0}
 
 astas_ready_targets :: AwkernelSchedTraceAcceptanceState -> List JobId
 astas_ready_targets a =
   case a of {
-   MkAwkernelSchedTraceAcceptanceState _ _ _ _ astas_ready_targets0 ->
+   MkAwkernelSchedTraceAcceptanceState _ _ _ _ astas_ready_targets0 _ ->
     astas_ready_targets0}
+
+astas_blocked :: AwkernelSchedTraceAcceptanceState -> List JobId
+astas_blocked a =
+  case a of {
+   MkAwkernelSchedTraceAcceptanceState _ _ _ _ _ astas_blocked0 ->
+    astas_blocked0}
 
 initial_sched_trace_acceptance_state :: AwkernelSchedTraceAcceptanceState
 initial_sched_trace_acceptance_state =
-  MkAwkernelSchedTraceAcceptanceState False None Nil Nil Nil
+  MkAwkernelSchedTraceAcceptanceState False None Nil Nil Nil Nil
 
 sched_trace_step_start :: AwkernelTaskTraceSummary -> AwkernelSchedTraceEntry
                           -> Option AwkernelSchedTraceAcceptanceState
@@ -639,7 +886,8 @@ sched_trace_step_start summary entry =
   case atts_root_task summary of {
    Some root ->
     case sched_trace_is_wakeup root entry of {
-     True -> Some (MkAwkernelSchedTraceAcceptanceState True None Nil Nil Nil);
+     True -> Some (MkAwkernelSchedTraceAcceptanceState True None Nil Nil Nil
+      Nil);
      False -> None};
    None -> None}
 
@@ -656,28 +904,52 @@ sched_trace_step_after_start summary st entry =
     case andb
            (andb (sched_trace_is_wakeup j entry) (job_list_contains j known))
            (negb (job_list_contains j (astas_completed st))) of {
-     True -> Some st;
+     True -> Some (MkAwkernelSchedTraceAcceptanceState True
+      (astas_selected st) (astas_dispatched st) (astas_completed st)
+      (astas_ready_targets st) (remove_job j (astas_blocked st)));
+     False -> None}}
+  in
+  let {
+   try_block_job = \j ->
+    case andb
+           (andb
+             (andb (sched_trace_is_block j entry)
+               (job_list_contains j known))
+             (negb (job_list_contains j (astas_completed st))))
+           (negb (job_list_contains j (astas_blocked st))) of {
+     True -> Some (MkAwkernelSchedTraceAcceptanceState True None
+      (astas_dispatched st) (astas_completed st) (astas_ready_targets st)
+      (add_job_once j (astas_blocked st)));
      False -> None}}
   in
   let {
    try_choose_job = \j ->
     case andb
            (andb
-             (andb (sched_trace_is_choose j entry)
-               (job_list_contains j known))
-             (negb (job_list_contains j (astas_completed st))))
+             (andb
+               (andb
+                 (andb (sched_trace_is_choose j entry)
+                   (job_list_contains j known))
+                 (negb (job_list_contains j (astas_completed st))))
+               (negb (job_list_contains j (astas_blocked st))))
+             (negb (task_trace_blocked_at summary (aste_event_id entry) j)))
            (option_job_eqb (astas_selected st) None) of {
      True -> Some (MkAwkernelSchedTraceAcceptanceState True (Some j)
-      (astas_dispatched st) (astas_completed st) (astas_ready_targets st));
+      (astas_dispatched st) (astas_completed st) (astas_ready_targets st)
+      (astas_blocked st));
      False -> None}}
   in
   let {
    try_dispatch_job = \j ->
-    case andb (sched_trace_is_dispatch j entry)
-           (option_job_eqb (astas_selected st) (Some j)) of {
+    case andb
+           (andb
+             (andb (sched_trace_is_dispatch j entry)
+               (option_job_eqb (astas_selected st) (Some j)))
+             (negb (job_list_contains j (astas_blocked st))))
+           (negb (task_trace_blocked_at summary (aste_event_id entry) j)) of {
      True -> Some (MkAwkernelSchedTraceAcceptanceState True None
       (add_job_once j (astas_dispatched st)) (astas_completed st)
-      (astas_ready_targets st));
+      (astas_ready_targets st) (astas_blocked st));
      False -> None}}
   in
   let {
@@ -690,20 +962,24 @@ sched_trace_step_after_start summary st entry =
            (negb (job_list_contains j (astas_ready_targets st))) of {
      True -> Some (MkAwkernelSchedTraceAcceptanceState True None
       (astas_dispatched st) (astas_completed st)
-      (add_job_once j (astas_ready_targets st)));
+      (add_job_once j (astas_ready_targets st)) (astas_blocked st));
      False -> None}}
   in
   let {
    try_complete_job = \j ->
     case andb
            (andb
-             (andb (sched_trace_is_complete j entry)
-               (job_list_contains j (astas_dispatched st)))
-             (negb (job_list_contains j (astas_completed st))))
+             (andb
+               (andb
+                 (andb (sched_trace_is_complete j entry)
+                   (job_list_contains j (astas_dispatched st)))
+                 (negb (job_list_contains j (astas_completed st))))
+               (negb (job_list_contains j (astas_blocked st))))
+             (negb (task_trace_blocked_at summary (aste_event_id entry) j)))
            (all_dependencies_ready j deps (astas_ready_targets st)) of {
      True -> Some (MkAwkernelSchedTraceAcceptanceState True None
       (astas_dispatched st) (add_job_once j (astas_completed st))
-      (astas_ready_targets st));
+      (astas_ready_targets st) (astas_blocked st));
      False -> None}}
   in
   case sched_trace_is_stutter entry of {
@@ -712,15 +988,18 @@ sched_trace_step_after_start summary st entry =
     case first_some try_wakeup_job known of {
      Some st' -> Some st';
      None ->
-      case first_some try_choose_job known of {
+      case first_some try_block_job known of {
        Some st' -> Some st';
        None ->
-        case first_some try_dispatch_job known of {
+        case first_some try_choose_job known of {
          Some st' -> Some st';
          None ->
-          case first_some try_join_target_ready known of {
+          case first_some try_dispatch_job known of {
            Some st' -> Some st';
-           None -> first_some try_complete_job known}}}}}
+           None ->
+            case first_some try_join_target_ready known of {
+             Some st' -> Some st';
+             None -> first_some try_complete_job known}}}}}}
 
 sched_trace_step :: AwkernelTaskTraceSummary ->
                     AwkernelSchedTraceAcceptanceState ->
@@ -779,7 +1058,7 @@ row_candidate_visibleb row j =
 
 empty_sched_trace_entry :: AwkernelSchedTraceEntry
 empty_sched_trace_entry =
-  MkAwkernelSchedTraceEntry O EvStutter None Nil False None Nil Nil Nil
+  MkAwkernelSchedTraceEntry O O EvStutter None Nil False None Nil Nil Nil
 
 fifo_eligible_candidates :: (JobId -> Job) -> Nat -> Schedule -> Time ->
                             (List JobId) -> List JobId
@@ -1074,3 +1353,4 @@ awk_workload_accepts_global_fifo_scheduler_relation_sched_trace task_trace sched
   andb (awk_workload_accepts_sched_trace task_trace sched_trace)
     (sched_trace_global_fifo_scheduler_relation_checkb task_trace
       sched_trace)
+

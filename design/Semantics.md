@@ -110,7 +110,10 @@ This distinction is deliberate:
 
 The common layer only fixes the abstract blocking effect. It does not define
 why a job is blocked. Concrete causes such as sleep, join wait, mutex wait,
-or I/O wait remain adapter-local.
+or I/O wait remain adapter-local. Likewise, the common semantics does not
+publish an unblock event. An adapter discharges the evidence that a concrete
+unblock point has ended the blocked interval and that a later projected
+wakeup/runnable observation is valid.
 
 Classic periodic/sporadic/jitter analysis is a specialization on top of this
 common semantics, not a different definition of `eligible`. Those task-model
