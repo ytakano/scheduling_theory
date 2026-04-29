@@ -177,6 +177,20 @@ source of truth. Refinement consumes adapter-packaged evidence that a projected
 schedule satisfies a declarative scheduler relation; it does not define raw
 trace policy fields or unsupported-policy diagnostics.
 
+The same ownership applies to the implemented minimal EDF/FIFO trace adapter
+boundary. Runtime `RunnableDeadline` rows for non-DAG `GlobalEDF` releases are
+adapter-local evidence used to reconstruct release/deadline facts before a
+scheduler-relation witness is packaged. They do not add `OpState` fields,
+`OpEvent` payloads, or common projection fields, and they are not refinement
+entry points by themselves. The adapter accepts only the supported
+`GlobalEDF`/`PrioritizedFIFO` set for this boundary, rejects `PrioritizedRR`,
+`Panicked`, and unknown policies, gives visible `GlobalEDF` candidates priority
+over FIFO candidates, and falls back to FIFO only when no EDF candidate is
+visible. DAG GEDF and multi-CPU EDF remain outside this minimal refinement
+composition. Diagnostics such as unsupported-policy, EDF deadline metadata,
+and EDF/FIFO scheduler-rule rejection are concrete checker outputs, not
+refinement-layer obligations.
+
 - Operational/Common: projection theorem ladder and adapter contract ladder.
 - Adapter layer: concrete witness construction from runtime observables.
 - Refinement: executable chooser-to-policy, bounded-delay/service-lag, and

@@ -435,6 +435,23 @@ Implemented in the current Awkernel minimal accepted-workload path:
 - and the downstream algorithm-facing `m = 1` scheduler-relation path for
   `GlobalFIFO`.
 
+The implemented minimal EDF/FIFO trace adapter boundary extends only this
+adapter lane. The runtime emits adapter-local `RunnableDeadline` metadata for
+non-DAG `GlobalEDF` releases, including the release time and computed absolute
+deadline needed to reconstruct EDF jobs. That metadata is concrete evidence for
+the adapter, not a common operational field: the common layer remains
+unchanged, with no new `OpState` fields, no new `OpEvent` constructors or
+payloads, and no new common projection fields. The adapter-supported policy
+set for this minimal path is exactly `GlobalEDF` plus `PrioritizedFIFO`.
+`PrioritizedRR`, `Panicked`, and unknown emitted policies remain rejected
+before a scheduler-facing witness is constructed. For mixed traces, visible
+`GlobalEDF` candidates take precedence over FIFO candidates; only rows with no
+visible EDF candidate use the FIFO fallback ordering. This scope intentionally
+excludes DAG GEDF and multi-CPU EDF. Diagnostics remain adapter-local and are
+reported at the concrete checker boundary, including unsupported-policy
+rejection, EDF deadline metadata failures, and EDF/FIFO scheduler-rule
+rejection.
+
 Still future for this path:
 
 - lifting the accepted-workload bridge to `CandidateSourceSpec`,
