@@ -172,6 +172,11 @@ When an operational adapter also proves that its projected schedule satisfies a
 scheduler relation, that operational theorem can be an input to refinement
 reasoning. The ownership boundary remains:
 
+Emitted policy metadata in a concrete trace is not the refinement layer's
+source of truth. Refinement consumes adapter-packaged evidence that a projected
+schedule satisfies a declarative scheduler relation; it does not define raw
+trace policy fields or unsupported-policy diagnostics.
+
 - Operational/Common: projection theorem ladder and adapter contract ladder.
 - Adapter layer: concrete witness construction from runtime observables.
 - Refinement: executable chooser-to-policy, bounded-delay/service-lag, and

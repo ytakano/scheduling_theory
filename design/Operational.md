@@ -37,6 +37,9 @@ as Awkernel's `sched_trace` or `task_trace`. Those artifacts live below the
 common interface. Downstream adapters may use them to reconstruct local replay
 states, worker-slot occupancy, or scheduler-facing witnesses, but that
 reconstruction is not itself part of `Operational/Common`.
+The same is true for emitted policy metadata: it is adapter-local evidence
+used to select or reject a concrete checker interpretation, not a field of
+`OpState`, `OpEvent`, or the common scheduler-relation interface.
 
 ## Core definitions
 
@@ -187,6 +190,9 @@ Their role is intentionally adapter-local:
 - a leading `event_id`, when present in emitted rows, is a runtime ordering key
   used by the adapter checker to align task-side blocked intervals with
   scheduler-side observations; it is not part of `OpState` or `OpEvent`,
+- emitted policy metadata, when present, names the adapter-local checker
+  interpretation requested for the emitted artifacts; it is not a common
+  scheduling-policy specification and is not part of `OpState` or `OpEvent`,
 - and any reconstruction from `sched_trace` into a logical worker schedule
   belongs to the adapter layer, not to `Operational/Common`.
 
@@ -221,6 +227,12 @@ concrete states or events realize that abstract effect. The runtime only emits
 the evidence used by that adapter proof. Concrete `Block` or `Unblock` records
 are therefore adapter evidence until an adapter grammar maps them into the
 common event vocabulary; they do not widen the common blocked boundary.
+
+Unsupported emitted policy metadata is rejected at the adapter acceptance
+boundary. Such a rejection means the adapter has declined to construct an
+accepted workload family or scheduler-facing witness for that emitted artifact;
+it is not a new common event, not a semantic schedule counterexample, and not a
+reason to widen `Operational/Common`.
 
 ### Projection back into semantic schedules
 
@@ -377,7 +389,9 @@ Important definitions and theorems are:
 The intended progression is:
 
 1. `accepted_workload_sched_trace_family` identifies the accepted
-   `task_trace + sched_trace` family,
+   `task_trace + sched_trace` family after adapter-local validation of emitted
+   policy metadata; unsupported policy metadata is rejected before a
+   scheduler-facing witness is constructed,
 2. `accepted_workload_global_fifo_sched_trace_family` adds the current
    trace-local `GlobalFIFO` choose-order diagnostic used by the extracted
    Haskell checker over raw adapter-local choose rows,
@@ -530,6 +544,7 @@ It does not define:
 
 - concrete kernel states,
 - concrete emitted traces such as Awkernel `sched_trace` or `task_trace`,
+- emitted policy metadata or unsupported-policy rejection diagnostics,
 - candidate tables,
 - concrete runtime hooks,
 - or scheduler-specific implementation logic.
@@ -545,6 +560,8 @@ Its responsibilities are:
 - discharge local projection and multicore obligations,
 - construct scheduler-view and candidate-source witnesses from concrete
   observables,
+- validate emitted policy metadata and reject unsupported adapter-local policy
+  interpretations before packaging common contracts,
 - and package those witnesses into the common adapter contract records.
 
 The current Awkernel minimal modules live here. Their emitted `sched_trace` and
@@ -568,6 +585,9 @@ The concrete runtime layer contains the actual implementation structure:
 
 This layer may emit runtime observables that adapters later consume, but it
 does not define common operational semantics by itself.
+If the runtime emits policy metadata, that metadata is evidence for adapter
+acceptance only. The adapter decides whether the metadata is supported and how
+it maps to a scheduler-facing witness.
 
 ## Extension points
 

@@ -23,6 +23,13 @@ Inductive AwkernelUnblockKind : Type :=
 | UkReady
 | UkTimeout.
 
+Inductive AwkernelTaskPolicy : Type :=
+| AtpGlobalEDF (relative_deadline : nat)
+| AtpPrioritizedFIFO (priority : nat)
+| AtpPrioritizedRR (priority : nat)
+| AtpPanicked
+| AtpUnsupported.
+
 Record AwkernelTaskTraceEntry : Type := mkAwkernelTaskTraceEntry {
   atte_event_id : nat;
   atte_kind : AwkernelTaskTraceKind;
@@ -30,6 +37,7 @@ Record AwkernelTaskTraceEntry : Type := mkAwkernelTaskTraceEntry {
   atte_related : option JobId;
   atte_wait_class : option AwkernelWaitClass;
   atte_unblock_kind : option AwkernelUnblockKind;
+  atte_policy : option AwkernelTaskPolicy;
 }.
 
 Definition option_job_eqb (x y : option JobId) : bool :=
@@ -117,6 +125,31 @@ Definition bool_of_unblock_kind_some (ouk : option AwkernelUnblockKind) : bool :
   | None => false
   end.
 
+Definition bool_of_task_policy_none (op : option AwkernelTaskPolicy) : bool :=
+  match op with
+  | Some _ => false
+  | None => true
+  end.
+
+Definition bool_of_task_policy_some (op : option AwkernelTaskPolicy) : bool :=
+  match op with
+  | Some _ => true
+  | None => false
+  end.
+
+Definition task_policy_global_fifo_supportedb (policy : AwkernelTaskPolicy) : bool :=
+  match policy with
+  | AtpPrioritizedFIFO _ => true
+  | _ => false
+  end.
+
+Definition option_task_policy_global_fifo_supportedb
+    (policy : option AwkernelTaskPolicy) : bool :=
+  match policy with
+  | Some policy' => task_policy_global_fifo_supportedb policy'
+  | None => false
+  end.
+
 Definition wait_class_eqb (lhs rhs : AwkernelWaitClass) : bool :=
   match lhs, rhs with
   | WcSleep, WcSleep => true
@@ -127,19 +160,22 @@ Definition wait_class_eqb (lhs rhs : AwkernelWaitClass) : bool :=
 Definition task_trace_metadata_empty (entry : AwkernelTaskTraceEntry) : bool :=
   bool_of_option_none (atte_related entry) &&
   bool_of_option_none (atte_wait_class entry) &&
-  bool_of_option_none (atte_unblock_kind entry).
+  bool_of_option_none (atte_unblock_kind entry) &&
+  bool_of_task_policy_none (atte_policy entry).
 
 Definition task_trace_has_wait_class_only
     (entry : AwkernelTaskTraceEntry) : bool :=
   bool_of_option_none (atte_related entry) &&
   bool_of_wait_class_some (atte_wait_class entry) &&
-  bool_of_option_none (atte_unblock_kind entry).
+  bool_of_option_none (atte_unblock_kind entry) &&
+  bool_of_task_policy_none (atte_policy entry).
 
 Definition task_trace_has_wait_and_unblock_kind
     (entry : AwkernelTaskTraceEntry) : bool :=
   bool_of_option_none (atte_related entry) &&
   bool_of_wait_class_some (atte_wait_class entry) &&
-  bool_of_unblock_kind_some (atte_unblock_kind entry).
+  bool_of_unblock_kind_some (atte_unblock_kind entry) &&
+  bool_of_task_policy_none (atte_policy entry).
 
 Fixpoint blocked_task_class
     (task_id : JobId)
@@ -278,6 +314,7 @@ Definition sched_trace_is_stutter
 Record AwkernelTaskTraceSummary : Type := mkAwkernelTaskTraceSummary {
   atts_root_task : option JobId;
   atts_known_tasks : list JobId;
+  atts_task_policies : list (JobId * AwkernelTaskPolicy);
   atts_completion_deps : list (JobId * JobId);
   atts_ready_targets : list JobId;
   atts_blocked_tasks : list (JobId * AwkernelWaitClass);
@@ -285,7 +322,22 @@ Record AwkernelTaskTraceSummary : Type := mkAwkernelTaskTraceSummary {
 }.
 
 Definition initial_task_trace_summary : AwkernelTaskTraceSummary :=
-  mkAwkernelTaskTraceSummary None [] [] [] [] [].
+  mkAwkernelTaskTraceSummary None [] [] [] [] [] [].
+
+Definition add_task_policy
+    (task_id : JobId) (policy : AwkernelTaskPolicy)
+    (policies : list (JobId * AwkernelTaskPolicy))
+    : list (JobId * AwkernelTaskPolicy) :=
+  (task_id, policy) :: policies.
+
+Fixpoint task_policy_table_all_global_fifo
+    (policies : list (JobId * AwkernelTaskPolicy)) : bool :=
+  match policies with
+  | [] => true
+  | (_, policy) :: policies' =>
+      task_policy_global_fifo_supportedb policy &&
+      task_policy_table_all_global_fifo policies'
+  end.
 
 Definition add_block_transition
     (event_id : nat) (task_id : JobId) (is_block : bool)
@@ -326,12 +378,14 @@ Definition task_trace_entry_valid
       negb (job_list_contains (atte_subject entry) (atts_known_tasks summary)) &&
       match atte_related entry with
       | None =>
-          option_job_eqb (atts_root_task summary) None &&
+         option_job_eqb (atts_root_task summary) None &&
           bool_of_option_none (atte_wait_class entry) &&
-          bool_of_option_none (atte_unblock_kind entry)
+          bool_of_option_none (atte_unblock_kind entry) &&
+          bool_of_task_policy_some (atte_policy entry)
       | Some parent => job_list_contains parent (atts_known_tasks summary)
                        && bool_of_option_none (atte_wait_class entry)
                        && bool_of_option_none (atte_unblock_kind entry)
+                       && bool_of_task_policy_some (atte_policy entry)
       end
   | LkBlock =>
       job_list_contains (atte_subject entry) (atts_known_tasks summary) &&
@@ -380,6 +434,10 @@ Definition task_trace_entry_step
          | Some _ => atts_root_task summary
          end)
         (add_job_once (atte_subject entry) (atts_known_tasks summary))
+        (match atte_policy entry with
+         | Some policy => add_task_policy (atte_subject entry) policy (atts_task_policies summary)
+         | None => atts_task_policies summary
+         end)
         (atts_completion_deps summary)
         (atts_ready_targets summary)
         (atts_blocked_tasks summary)
@@ -388,6 +446,7 @@ Definition task_trace_entry_step
       mkAwkernelTaskTraceSummary
         (atts_root_task summary)
         (atts_known_tasks summary)
+        (atts_task_policies summary)
         (atts_completion_deps summary)
         (atts_ready_targets summary)
         ((atte_subject entry,
@@ -404,6 +463,7 @@ Definition task_trace_entry_step
       mkAwkernelTaskTraceSummary
         (atts_root_task summary)
         (atts_known_tasks summary)
+        (atts_task_policies summary)
         (atts_completion_deps summary)
         (atts_ready_targets summary)
         (remove_blocked_task (atte_subject entry) (atts_blocked_tasks summary))
@@ -418,6 +478,7 @@ Definition task_trace_entry_step
           mkAwkernelTaskTraceSummary
             (atts_root_task summary)
             (atts_known_tasks summary)
+            (atts_task_policies summary)
             (add_pair_once (atte_subject entry, target) (atts_completion_deps summary))
             (atts_ready_targets summary)
             (atts_blocked_tasks summary)
@@ -428,6 +489,7 @@ Definition task_trace_entry_step
       mkAwkernelTaskTraceSummary
         (atts_root_task summary)
         (atts_known_tasks summary)
+        (atts_task_policies summary)
         (atts_completion_deps summary)
         (add_job_once (atte_subject entry) (atts_ready_targets summary))
         (atts_blocked_tasks summary)
@@ -453,6 +515,31 @@ Definition task_trace_well_formed
   | Some _ => true
   | None => false
   end.
+
+Definition task_trace_all_global_fifo_policyb
+    (task_trace : list AwkernelTaskTraceEntry) : bool :=
+  match summarize_task_trace initial_task_trace_summary task_trace with
+  | Some summary => task_policy_table_all_global_fifo (atts_task_policies summary)
+  | None => false
+  end.
+
+Fixpoint first_non_global_fifo_task_policy_index_from
+    (n : nat) (task_trace : list AwkernelTaskTraceEntry) : option nat :=
+  match task_trace with
+  | [] => None
+  | entry :: task_trace' =>
+      match atte_kind entry with
+      | LkSpawn =>
+          if option_task_policy_global_fifo_supportedb (atte_policy entry)
+          then first_non_global_fifo_task_policy_index_from (S n) task_trace'
+          else Some n
+      | _ => first_non_global_fifo_task_policy_index_from (S n) task_trace'
+      end
+  end.
+
+Definition first_non_global_fifo_task_policy_index
+    (task_trace : list AwkernelTaskTraceEntry) : option nat :=
+  first_non_global_fifo_task_policy_index_from 0 task_trace.
 
 Record AwkernelSchedTraceAcceptanceState : Type := mkAwkernelSchedTraceAcceptanceState {
   astas_started : bool;
