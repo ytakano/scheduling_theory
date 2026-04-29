@@ -28,6 +28,7 @@ From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadCandidateTabl
 From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadCandidateSource.
 From RocqSched Require Import Refinement.SchedulingAlgorithmRefinement.
 From RocqSched Require Import Refinement.OSSchedulerRelationTheorem.
+From RocqSched Require Import Multicore.Global.GlobalEDF.
 From RocqSched Require Import Multicore.Global.GlobalFIFO.
 From RocqSched Require Import Uniprocessor.Policies.FIFO.
 
@@ -424,6 +425,268 @@ Definition awk_workload_accepts_global_fifo_scheduler_relation_sched_trace
   task_trace_all_global_fifo_policyb task_trace &&
   sched_trace_global_fifo_scheduler_relation_checkb task_trace sched_trace.
 
+Fixpoint task_policy_table_lookup
+    (task_id : JobId)
+    (policies : list (JobId * AwkernelTaskPolicy))
+    : option AwkernelTaskPolicy :=
+  match policies with
+  | [] => None
+  | (policy_task, policy) :: policies' =>
+      if Nat.eqb policy_task task_id
+      then Some policy
+      else task_policy_table_lookup task_id policies'
+  end.
+
+Definition task_trace_summary_policy_at
+    (summary : AwkernelTaskTraceSummary)
+    (task_id : JobId) : option AwkernelTaskPolicy :=
+  task_policy_table_lookup task_id (atts_task_policies summary).
+
+Definition task_trace_policy_at
+    (task_trace : list AwkernelTaskTraceEntry)
+    (task_id : JobId) : option AwkernelTaskPolicy :=
+  match summarize_task_trace initial_task_trace_summary task_trace with
+  | Some summary => task_trace_summary_policy_at summary task_id
+  | None => None
+  end.
+
+Definition sched_trace_candidate_is_edfb
+    (summary : AwkernelTaskTraceSummary)
+    (task_id : JobId) : bool :=
+  match task_trace_summary_policy_at summary task_id with
+  | Some policy => task_policy_global_edf_supportedb policy
+  | None => false
+  end.
+
+Definition sched_trace_candidate_is_fifob
+    (summary : AwkernelTaskTraceSummary)
+    (task_id : JobId) : bool :=
+  match task_trace_summary_policy_at summary task_id with
+  | Some policy => task_policy_global_fifo_supportedb policy
+  | None => false
+  end.
+
+Fixpoint filter_sched_trace_edf_candidates
+    (summary : AwkernelTaskTraceSummary)
+    (candidates : list JobId) : list JobId :=
+  match candidates with
+  | [] => []
+  | j :: candidates' =>
+      if sched_trace_candidate_is_edfb summary j
+      then j :: filter_sched_trace_edf_candidates summary candidates'
+      else filter_sched_trace_edf_candidates summary candidates'
+  end.
+
+Fixpoint filter_sched_trace_fifo_candidates
+    (summary : AwkernelTaskTraceSummary)
+    (candidates : list JobId) : list JobId :=
+  match candidates with
+  | [] => []
+  | j :: candidates' =>
+      if sched_trace_candidate_is_fifob summary j
+      then j :: filter_sched_trace_fifo_candidates summary candidates'
+      else filter_sched_trace_fifo_candidates summary candidates'
+  end.
+
+Definition sched_trace_edf_deadline_presentb
+    (summary : AwkernelTaskTraceSummary)
+    (entry : AwkernelSchedTraceEntry)
+    (task_id : JobId) : bool :=
+  match task_trace_edf_deadline_at summary (aste_event_id entry) task_id with
+  | Some _ => true
+  | None => false
+  end.
+
+Definition sched_trace_edf_candidate_deadline_validb
+    (summary : AwkernelTaskTraceSummary)
+    (entry : AwkernelSchedTraceEntry)
+    (task_id : JobId) : bool :=
+  negb (sched_trace_candidate_is_edfb summary task_id) ||
+  sched_trace_edf_deadline_presentb summary entry task_id.
+
+Fixpoint sched_trace_edf_candidate_deadlines_validb
+    (summary : AwkernelTaskTraceSummary)
+    (entry : AwkernelSchedTraceEntry)
+    (candidates : list JobId) : bool :=
+  match candidates with
+  | [] => true
+  | j :: candidates' =>
+      sched_trace_edf_candidate_deadline_validb summary entry j &&
+      sched_trace_edf_candidate_deadlines_validb summary entry candidates'
+  end.
+
+Definition workload_edf_fifo_scheduler_relation_jobs
+    (summary : AwkernelTaskTraceSummary)
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry)
+    (entry : AwkernelSchedTraceEntry) : JobId -> Job :=
+  fun task_id =>
+    mkJob
+      task_id
+      0
+      (reconstructed_scheduler_relation_release task_trace task_id sched_trace)
+      (reconstructed_scheduler_relation_cost task_trace sched_trace task_id)
+      (match task_trace_edf_deadline_at summary (aste_event_id entry) task_id with
+       | Some deadline => deadline
+       | None => reconstructed_scheduler_relation_abs_deadline
+                   task_trace sched_trace task_id
+       end)
+      (fun _ => false).
+
+Definition workload_edf_fifo_scheduler_relation_row_choice
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry)
+    (summary : AwkernelTaskTraceSummary)
+    (t : Time)
+    (entry : AwkernelSchedTraceEntry) : list JobId :=
+  let candidates := workload_scheduler_relation_candidates task_trace entry in
+  if sched_trace_edf_candidate_deadlines_validb summary entry candidates then
+    match filter_sched_trace_edf_candidates summary candidates with
+    | [] =>
+        choose_top_m
+          global_fifo_top_m_spec
+          (workload_scheduler_relation_jobs task_trace sched_trace)
+          1
+          (workload_scheduler_relation_schedule task_trace sched_trace)
+          t
+          candidates
+    | edf_candidates =>
+        choose_top_m
+          global_edf_top_m_spec
+          (workload_edf_fifo_scheduler_relation_jobs
+             summary task_trace sched_trace entry)
+          1
+          (workload_scheduler_relation_schedule task_trace sched_trace)
+          t
+          edf_candidates
+    end
+  else [].
+
+Definition workload_edf_fifo_scheduler_relation_row
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry)
+    (t : Time)
+    (entry : AwkernelSchedTraceEntry) : Prop :=
+  match summarize_task_trace initial_task_trace_summary task_trace with
+  | Some summary =>
+      sched_trace_edf_candidate_deadlines_validb
+        summary
+        entry
+        (workload_scheduler_relation_candidates task_trace entry) = true /\
+      workload_edf_fifo_scheduler_relation_row_choice
+        task_trace sched_trace summary t entry =
+      workload_scheduler_relation_choice task_trace entry
+  | None => False
+  end.
+
+Definition workload_edf_fifo_scheduler_relation_rowb
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry)
+    (t : Time)
+    (entry : AwkernelSchedTraceEntry) : bool :=
+  match summarize_task_trace initial_task_trace_summary task_trace with
+  | Some summary =>
+      sched_trace_edf_candidate_deadlines_validb
+        summary
+        entry
+        (workload_scheduler_relation_candidates task_trace entry) &&
+      job_list_eqb
+        (workload_edf_fifo_scheduler_relation_row_choice
+           task_trace sched_trace summary t entry)
+        (workload_scheduler_relation_choice task_trace entry)
+  | None => false
+  end.
+
+Fixpoint sched_trace_edf_fifo_scheduler_relation_check_from
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry)
+    (t : nat)
+    (remaining : list AwkernelSchedTraceEntry) : bool :=
+  match remaining with
+  | [] => true
+  | entry :: remaining' =>
+      workload_edf_fifo_scheduler_relation_rowb task_trace sched_trace t entry &&
+      sched_trace_edf_fifo_scheduler_relation_check_from
+        task_trace
+        sched_trace
+        (S t)
+        remaining'
+  end.
+
+Definition sched_trace_edf_fifo_scheduler_relation_checkb
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  sched_trace_edf_fifo_scheduler_relation_check_from
+    task_trace
+    sched_trace
+    0
+    sched_trace.
+
+Fixpoint first_non_edf_fifo_scheduler_relation_sched_trace_index_from
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry)
+    (t : nat)
+    (remaining : list AwkernelSchedTraceEntry) : option nat :=
+  match remaining with
+  | [] => None
+  | entry :: remaining' =>
+      if workload_edf_fifo_scheduler_relation_rowb task_trace sched_trace t entry
+      then first_non_edf_fifo_scheduler_relation_sched_trace_index_from
+             task_trace
+             sched_trace
+             (S t)
+             remaining'
+      else Some t
+  end.
+
+Definition first_non_edf_fifo_scheduler_relation_sched_trace_index
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : option nat :=
+  first_non_edf_fifo_scheduler_relation_sched_trace_index_from
+    task_trace
+    sched_trace
+    0
+    sched_trace.
+
+Fixpoint sched_trace_edf_fifo_scheduler_relation_family_from
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry)
+    (t : nat)
+    (remaining : list AwkernelSchedTraceEntry) : Prop :=
+  match remaining with
+  | [] => True
+  | entry :: remaining' =>
+      workload_edf_fifo_scheduler_relation_row task_trace sched_trace t entry /\
+      sched_trace_edf_fifo_scheduler_relation_family_from
+        task_trace
+        sched_trace
+        (S t)
+        remaining'
+  end.
+
+Definition sched_trace_edf_fifo_scheduler_relation_family
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : Prop :=
+  sched_trace_edf_fifo_scheduler_relation_family_from
+    task_trace
+    sched_trace
+    0
+    sched_trace.
+
+Definition accepted_workload_edf_fifo_scheduler_relation_family
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : Prop :=
+  accepted_workload_sched_trace_family task_trace sched_trace /\
+  task_trace_all_edf_fifo_policyb task_trace = true /\
+  sched_trace_edf_fifo_scheduler_relation_family task_trace sched_trace.
+
+Definition awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  awk_workload_accepts_sched_trace task_trace sched_trace &&
+  task_trace_all_edf_fifo_policyb task_trace &&
+  sched_trace_edf_fifo_scheduler_relation_checkb task_trace sched_trace.
+
 Definition workload_scheduler_facing_execution_matches_sched_trace
     {P : OSLabeledProjection AwkernelState}
     (ex : labeled_concrete_execution P 2)
@@ -755,6 +1018,148 @@ Proof.
   rewrite Hpolicy.
   rewrite
     (sched_trace_global_fifo_scheduler_relation_check_from_complete
+       task_trace sched_trace 0 sched_trace Hrel).
+  reflexivity.
+Qed.
+
+Lemma workload_edf_fifo_scheduler_relation_rowb_sound :
+  forall task_trace sched_trace t entry,
+    workload_edf_fifo_scheduler_relation_rowb task_trace sched_trace t entry = true ->
+    workload_edf_fifo_scheduler_relation_row task_trace sched_trace t entry.
+Proof.
+  intros task_trace sched_trace t entry Hrow.
+  unfold workload_edf_fifo_scheduler_relation_rowb,
+    workload_edf_fifo_scheduler_relation_row in *.
+  destruct (summarize_task_trace initial_task_trace_summary task_trace)
+    as [summary|] eqn:Hsummary; try discriminate.
+  apply Bool.andb_true_iff in Hrow as [Hdeadlines Hchoice].
+  apply job_list_eqb_eq in Hchoice.
+  split; assumption.
+Qed.
+
+Lemma workload_edf_fifo_scheduler_relation_rowb_complete :
+  forall task_trace sched_trace t entry,
+    workload_edf_fifo_scheduler_relation_row task_trace sched_trace t entry ->
+    workload_edf_fifo_scheduler_relation_rowb task_trace sched_trace t entry = true.
+Proof.
+  intros task_trace sched_trace t entry Hrow.
+  unfold workload_edf_fifo_scheduler_relation_rowb,
+    workload_edf_fifo_scheduler_relation_row in *.
+  destruct (summarize_task_trace initial_task_trace_summary task_trace)
+    as [summary|] eqn:Hsummary; try contradiction.
+  destruct Hrow as [Hdeadlines Hchoice].
+  apply Bool.andb_true_iff.
+  split.
+  - exact Hdeadlines.
+  - apply job_list_eqb_eq.
+    exact Hchoice.
+Qed.
+
+Lemma sched_trace_edf_fifo_scheduler_relation_check_from_sound :
+  forall task_trace sched_trace t remaining,
+    sched_trace_edf_fifo_scheduler_relation_check_from
+      task_trace sched_trace t remaining = true ->
+    sched_trace_edf_fifo_scheduler_relation_family_from
+      task_trace sched_trace t remaining.
+Proof.
+  intros task_trace sched_trace t remaining.
+  revert t.
+  induction remaining as [|entry remaining IH]; simpl; intros t Hcheck.
+  - exact I.
+  - apply Bool.andb_true_iff in Hcheck as [Hrow Hrest].
+    split.
+    + apply workload_edf_fifo_scheduler_relation_rowb_sound.
+      exact Hrow.
+    + apply IH.
+      exact Hrest.
+Qed.
+
+Lemma sched_trace_edf_fifo_scheduler_relation_check_from_complete :
+  forall task_trace sched_trace t remaining,
+    sched_trace_edf_fifo_scheduler_relation_family_from
+      task_trace sched_trace t remaining ->
+    sched_trace_edf_fifo_scheduler_relation_check_from
+      task_trace sched_trace t remaining = true.
+Proof.
+  intros task_trace sched_trace t remaining.
+  revert t.
+  induction remaining as [|entry remaining IH]; simpl; intros t Hfamily.
+  - reflexivity.
+  - destruct Hfamily as [Hrow Hrest].
+    rewrite workload_edf_fifo_scheduler_relation_rowb_complete by exact Hrow.
+    rewrite IH by exact Hrest.
+    reflexivity.
+Qed.
+
+Lemma first_non_edf_fifo_scheduler_relation_sched_trace_index_from_none_sound :
+  forall task_trace sched_trace t remaining,
+    first_non_edf_fifo_scheduler_relation_sched_trace_index_from
+      task_trace sched_trace t remaining = None ->
+    sched_trace_edf_fifo_scheduler_relation_check_from
+      task_trace sched_trace t remaining = true.
+Proof.
+  intros task_trace sched_trace t remaining.
+  revert t.
+  induction remaining as [|entry remaining IH]; simpl; intros t Hnone.
+  - reflexivity.
+  - destruct (workload_edf_fifo_scheduler_relation_rowb task_trace sched_trace t entry)
+      eqn:Hrow; try discriminate.
+    simpl.
+    apply IH.
+    exact Hnone.
+Qed.
+
+Lemma first_non_edf_fifo_scheduler_relation_sched_trace_index_from_none_complete :
+  forall task_trace sched_trace t remaining,
+    sched_trace_edf_fifo_scheduler_relation_check_from
+      task_trace sched_trace t remaining = true ->
+    first_non_edf_fifo_scheduler_relation_sched_trace_index_from
+      task_trace sched_trace t remaining = None.
+Proof.
+  intros task_trace sched_trace t remaining.
+  revert t.
+  induction remaining as [|entry remaining IH]; simpl; intros t Hcheck.
+  - reflexivity.
+  - apply Bool.andb_true_iff in Hcheck as [Hrow Hrest].
+    rewrite Hrow.
+    apply IH.
+    exact Hrest.
+Qed.
+
+Lemma awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_sound :
+  forall task_trace sched_trace,
+    awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace
+      task_trace sched_trace = true ->
+    accepted_workload_edf_fifo_scheduler_relation_family
+      task_trace sched_trace.
+Proof.
+  intros task_trace sched_trace Haccept.
+  unfold awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace in Haccept.
+  apply Bool.andb_true_iff in Haccept as [Hfamily_policy Hrel].
+  apply Bool.andb_true_iff in Hfamily_policy as [Hfamily Hpolicy].
+  split.
+  - apply awk_workload_accepts_sched_trace_sound.
+    exact Hfamily.
+  - split.
+    + exact Hpolicy.
+    + apply sched_trace_edf_fifo_scheduler_relation_check_from_sound.
+      exact Hrel.
+Qed.
+
+Lemma awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_complete :
+  forall task_trace sched_trace,
+    accepted_workload_edf_fifo_scheduler_relation_family
+      task_trace sched_trace ->
+    awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace
+      task_trace sched_trace = true.
+Proof.
+  intros task_trace sched_trace [Hfamily [Hpolicy Hrel]].
+  unfold awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace.
+  unfold sched_trace_edf_fifo_scheduler_relation_checkb.
+  rewrite (awk_workload_accepts_sched_trace_complete task_trace sched_trace Hfamily).
+  rewrite Hpolicy.
+  rewrite
+    (sched_trace_edf_fifo_scheduler_relation_check_from_complete
        task_trace sched_trace 0 sched_trace Hrel).
   reflexivity.
 Qed.
