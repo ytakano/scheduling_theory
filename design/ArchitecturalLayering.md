@@ -396,6 +396,10 @@ Use these rules:
   projection invariants, or adapter-contract ladders from concrete logs to
   common observables, place it in `Operational`, with shared material under
   `Operational/Common`
+* if it is a generic worked example whose subject is a common operational
+  projection contract, place it next to that common contract under
+  `Operational/Common`; keep only concrete-runtime projection witnesses in the
+  matching adapter subtree
 * if it defines generated job sets from task parameters, place it in
   `TaskModels`
 * if it is only a proof client or regression-style usage of public theorems,

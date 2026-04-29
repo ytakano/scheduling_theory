@@ -108,6 +108,7 @@ theories/Operational/Common/DelayBudget.v
 theories/Operational/Common/ProjectionLemmas.v
 theories/Operational/Common/ProjectionInvariants.v
 theories/Operational/Common/ProjectionMulticoreValidity.v
+theories/Operational/Common/MulticoreProjectionExamples.v
 theories/Operational/Common/OSProjectionInterface.v
 theories/Operational/Common/ConcreteExecution.v
 theories/Operational/Common/OSLocalAdapterContract.v
@@ -129,7 +130,7 @@ theories/Operational/Awkernel/Minimal/WorkloadCandidateSource.v
 theories/Operational/Awkernel/Minimal/WorkloadSchedulerFacing.v
 theories/Operational/Awkernel/Minimal/WorkloadAcceptanceExtraction.v
 theories/Operational/Awkernel/Minimal/MulticoreProjection.v
-theories/Operational/Awkernel/Minimal/OperationalMulticoreProjectionExamples.v
+theories/Operational/Awkernel/Minimal/AwkernelMulticoreProjectionExamples.v
 theories/Refinement/BoundedDelayRefinement.v
 theories/Refinement/OSCausalityTheorem.v
 theories/Refinement/OSSchedulerViewTheorem.v

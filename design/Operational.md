@@ -485,6 +485,7 @@ Important supporting entry points are grouped by responsibility below.
 - `theories/Operational/Common/ProjectionLemmas.v`
 - `theories/Operational/Common/ProjectionInvariants.v`
 - `theories/Operational/Common/ProjectionMulticoreValidity.v`
+- `theories/Operational/Common/MulticoreProjectionExamples.v`
 
 ### Delay-aware surface
 
@@ -511,7 +512,7 @@ Important supporting entry points are grouped by responsibility below.
 - `theories/Operational/Awkernel/Minimal/WorkloadCandidateSource.v`
 - `theories/Operational/Awkernel/Minimal/WorkloadSchedulerFacing.v`
 - `theories/Operational/Awkernel/Minimal/MulticoreProjection.v`
-- `theories/Operational/Awkernel/Minimal/OperationalMulticoreProjectionExamples.v`
+- `theories/Operational/Awkernel/Minimal/AwkernelMulticoreProjectionExamples.v`
 
 ## Design boundaries
 
@@ -634,6 +635,10 @@ locally.
   Operational range and placement invariants used by the multicore bridge.
 - `theories/Operational/Common/ProjectionMulticoreValidity.v`
   Bridge lemmas from operational projection to `Multicore/Common`.
+- `theories/Operational/Common/MulticoreProjectionExamples.v`
+  OS-neutral worked examples for projecting `OpState` traces into multicore
+  schedules; these examples exercise common projection contracts without
+  importing any concrete adapter.
 - `theories/Operational/Common/OSLocalAdapterContract.v`
   Local projection and multicore adapter contracts over concrete executions.
 - `theories/Operational/Common/OSSchedulerViewContract.v`
@@ -671,8 +676,9 @@ locally.
   explicit common packaging constructors.
 - `theories/Operational/Awkernel/Minimal/MulticoreProjection.v`
   Thin 2-CPU Awkernel-facing entry point for the multicore projection bridge.
-- `theories/Operational/Awkernel/Minimal/OperationalMulticoreProjectionExamples.v`
-  Worked 2-CPU examples layered on top of the minimal Awkernel boundary.
+- `theories/Operational/Awkernel/Minimal/AwkernelMulticoreProjectionExamples.v`
+  Adapter-layer worked example showing how an Awkernel state trace is projected
+  into the common operational multicore bridge.
 
 ## Summary
 
