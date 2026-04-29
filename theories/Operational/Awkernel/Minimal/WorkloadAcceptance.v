@@ -14,6 +14,7 @@ Inductive AwkernelTaskTraceKind : Type :=
 | LkUnblock
 | LkJoinWait
 | LkJoinTargetReady
+| LkPeriodicJobComplete
 | LkComplete.
 
 Inductive AwkernelWaitClass : Type :=
@@ -35,6 +36,7 @@ Record AwkernelRunnableDeadlineMetadata : Type :=
   mkAwkernelRunnableDeadlineMetadata {
     ardm_wake_time : nat;
     ardm_absolute_deadline : nat;
+    ardm_periodic_loop_index : option nat;
   }.
 
 Record AwkernelTaskTraceEntry : Type := mkAwkernelTaskTraceEntry {
@@ -46,6 +48,7 @@ Record AwkernelTaskTraceEntry : Type := mkAwkernelTaskTraceEntry {
   atte_unblock_kind : option AwkernelUnblockKind;
   atte_policy : option AwkernelTaskPolicy;
   atte_deadline_metadata : option AwkernelRunnableDeadlineMetadata;
+  atte_periodic_loop_index : option nat;
 }.
 
 Definition option_job_eqb (x y : option JobId) : bool :=
@@ -194,7 +197,8 @@ Definition task_trace_metadata_empty (entry : AwkernelTaskTraceEntry) : bool :=
   bool_of_option_none (atte_wait_class entry) &&
   bool_of_option_none (atte_unblock_kind entry) &&
   bool_of_task_policy_none (atte_policy entry) &&
-  bool_of_option_none (atte_deadline_metadata entry).
+  bool_of_option_none (atte_deadline_metadata entry) &&
+  bool_of_option_none (atte_periodic_loop_index entry).
 
 Definition task_trace_has_wait_class_only
     (entry : AwkernelTaskTraceEntry) : bool :=
@@ -202,7 +206,8 @@ Definition task_trace_has_wait_class_only
   bool_of_wait_class_some (atte_wait_class entry) &&
   bool_of_option_none (atte_unblock_kind entry) &&
   bool_of_task_policy_none (atte_policy entry) &&
-  bool_of_option_none (atte_deadline_metadata entry).
+  bool_of_option_none (atte_deadline_metadata entry) &&
+  bool_of_option_none (atte_periodic_loop_index entry).
 
 Definition task_trace_has_wait_and_unblock_kind
     (entry : AwkernelTaskTraceEntry) : bool :=
@@ -210,7 +215,8 @@ Definition task_trace_has_wait_and_unblock_kind
   bool_of_wait_class_some (atte_wait_class entry) &&
   bool_of_unblock_kind_some (atte_unblock_kind entry) &&
   bool_of_task_policy_none (atte_policy entry) &&
-  bool_of_option_none (atte_deadline_metadata entry).
+  bool_of_option_none (atte_deadline_metadata entry) &&
+  bool_of_option_none (atte_periodic_loop_index entry).
 
 Fixpoint blocked_task_class
     (task_id : JobId)
@@ -243,6 +249,23 @@ Fixpoint remove_blocked_task
       then remove_blocked_task task_id blocked'
       else (blocked_task, wait_class) :: remove_blocked_task task_id blocked'
   end.
+
+Fixpoint periodic_job_complete_contains
+    (task_id : JobId) (loop_index : nat)
+    (completions : list (JobId * nat)) : bool :=
+  match completions with
+  | [] => false
+  | (completed_task, completed_loop) :: completions' =>
+      (Nat.eqb completed_task task_id && Nat.eqb completed_loop loop_index) ||
+      periodic_job_complete_contains task_id loop_index completions'
+  end.
+
+Definition add_periodic_job_complete_once
+    (task_id : JobId) (loop_index : nat)
+    (completions : list (JobId * nat)) : list (JobId * nat) :=
+  if periodic_job_complete_contains task_id loop_index completions
+  then completions
+  else (task_id, loop_index) :: completions.
 
 Definition sched_trace_event_is_wakeup
     (j : JobId) (entry : AwkernelSchedTraceEntry) : bool :=
@@ -355,10 +378,11 @@ Record AwkernelTaskTraceSummary : Type := mkAwkernelTaskTraceSummary {
   atts_ready_targets : list JobId;
   atts_blocked_tasks : list (JobId * AwkernelWaitClass);
   atts_block_transitions : list (nat * (JobId * bool));
+  atts_periodic_job_completions : list (JobId * nat);
 }.
 
 Definition initial_task_trace_summary : AwkernelTaskTraceSummary :=
-  mkAwkernelTaskTraceSummary None [] [] [] [] [] [] [].
+  mkAwkernelTaskTraceSummary None [] [] [] [] [] [] [] [].
 
 Definition add_task_policy
     (task_id : JobId) (policy : AwkernelTaskPolicy)
@@ -468,8 +492,33 @@ Definition task_trace_runnable_deadline_row_valid
   | Some (AtpGlobalEDF relative_deadline), Some deadline_metadata =>
       Nat.eqb
         (ardm_absolute_deadline deadline_metadata)
-        (ardm_wake_time deadline_metadata + relative_deadline)
+        (ardm_wake_time deadline_metadata + relative_deadline) &&
+      match ardm_periodic_loop_index deadline_metadata,
+            atte_periodic_loop_index entry with
+      | None, None => true
+      | Some metadata_loop_index, Some entry_loop_index =>
+          Nat.eqb metadata_loop_index entry_loop_index
+      | _, _ => false
+      end
   | _, _ => false
+  end.
+
+Definition task_trace_periodic_job_complete_row_valid
+    (summary : AwkernelTaskTraceSummary)
+    (entry : AwkernelTaskTraceEntry) : bool :=
+  job_list_contains (atte_subject entry) (atts_known_tasks summary) &&
+  bool_of_option_none (atte_related entry) &&
+  bool_of_option_none (atte_wait_class entry) &&
+  bool_of_option_none (atte_unblock_kind entry) &&
+  bool_of_task_policy_none (atte_policy entry) &&
+  bool_of_option_none (atte_deadline_metadata entry) &&
+  match atte_periodic_loop_index entry with
+  | Some loop_index =>
+      negb (periodic_job_complete_contains
+              (atte_subject entry)
+              loop_index
+              (atts_periodic_job_completions summary))
+  | None => false
   end.
 
 Definition task_trace_entry_valid
@@ -484,15 +533,19 @@ Definition task_trace_entry_valid
           bool_of_option_none (atte_wait_class entry) &&
           bool_of_option_none (atte_unblock_kind entry) &&
           bool_of_task_policy_some (atte_policy entry) &&
-          bool_of_option_none (atte_deadline_metadata entry)
+          bool_of_option_none (atte_deadline_metadata entry) &&
+          bool_of_option_none (atte_periodic_loop_index entry)
       | Some parent => job_list_contains parent (atts_known_tasks summary)
                        && bool_of_option_none (atte_wait_class entry)
                        && bool_of_option_none (atte_unblock_kind entry)
                        && bool_of_task_policy_some (atte_policy entry)
                        && bool_of_option_none (atte_deadline_metadata entry)
+                       && bool_of_option_none (atte_periodic_loop_index entry)
       end
   | LkRunnableDeadline =>
       task_trace_runnable_deadline_row_valid summary entry
+  | LkPeriodicJobComplete =>
+      task_trace_periodic_job_complete_row_valid summary entry
   | LkBlock =>
       job_list_contains (atte_subject entry) (atts_known_tasks summary) &&
       negb (blocked_task_contains (atte_subject entry) (atts_blocked_tasks summary)) &&
@@ -513,7 +566,8 @@ Definition task_trace_entry_valid
           job_list_contains target (atts_known_tasks summary) &&
           bool_of_option_none (atte_wait_class entry) &&
           bool_of_option_none (atte_unblock_kind entry) &&
-          bool_of_option_none (atte_deadline_metadata entry)
+          bool_of_option_none (atte_deadline_metadata entry) &&
+          bool_of_option_none (atte_periodic_loop_index entry)
       | None => false
       end
   | LkJoinTargetReady =>
@@ -523,7 +577,8 @@ Definition task_trace_entry_valid
           negb (job_list_contains (atte_subject entry) (atts_ready_targets summary)) &&
           bool_of_option_none (atte_wait_class entry) &&
           bool_of_option_none (atte_unblock_kind entry) &&
-          bool_of_option_none (atte_deadline_metadata entry)
+          bool_of_option_none (atte_deadline_metadata entry) &&
+          bool_of_option_none (atte_periodic_loop_index entry)
       | Some _ => false
       end
   | _ =>
@@ -551,6 +606,7 @@ Definition task_trace_entry_step
         (atts_ready_targets summary)
         (atts_blocked_tasks summary)
         (atts_block_transitions summary)
+        (atts_periodic_job_completions summary)
   | LkRunnableDeadline =>
       mkAwkernelTaskTraceSummary
         (atts_root_task summary)
@@ -569,6 +625,25 @@ Definition task_trace_entry_step
         (atts_ready_targets summary)
         (atts_blocked_tasks summary)
         (atts_block_transitions summary)
+        (atts_periodic_job_completions summary)
+  | LkPeriodicJobComplete =>
+      mkAwkernelTaskTraceSummary
+        (atts_root_task summary)
+        (atts_known_tasks summary)
+        (atts_task_policies summary)
+        (atts_edf_deadlines summary)
+        (atts_completion_deps summary)
+        (atts_ready_targets summary)
+        (atts_blocked_tasks summary)
+        (atts_block_transitions summary)
+        (match atte_periodic_loop_index entry with
+         | Some loop_index =>
+             add_periodic_job_complete_once
+               (atte_subject entry)
+               loop_index
+               (atts_periodic_job_completions summary)
+         | None => atts_periodic_job_completions summary
+         end)
   | LkBlock =>
       mkAwkernelTaskTraceSummary
         (atts_root_task summary)
@@ -587,6 +662,7 @@ Definition task_trace_entry_step
            (atte_subject entry)
            true
            (atts_block_transitions summary))
+        (atts_periodic_job_completions summary)
   | LkUnblock =>
       mkAwkernelTaskTraceSummary
         (atts_root_task summary)
@@ -601,6 +677,7 @@ Definition task_trace_entry_step
            (atte_subject entry)
            false
            (atts_block_transitions summary))
+        (atts_periodic_job_completions summary)
   | LkJoinWait =>
       match atte_related entry with
       | Some target =>
@@ -613,6 +690,7 @@ Definition task_trace_entry_step
             (atts_ready_targets summary)
             (atts_blocked_tasks summary)
             (atts_block_transitions summary)
+            (atts_periodic_job_completions summary)
       | None => summary
       end
   | LkJoinTargetReady =>
@@ -625,6 +703,7 @@ Definition task_trace_entry_step
         (add_job_once (atte_subject entry) (atts_ready_targets summary))
         (atts_blocked_tasks summary)
         (atts_block_transitions summary)
+        (atts_periodic_job_completions summary)
   | _ => summary
   end.
 

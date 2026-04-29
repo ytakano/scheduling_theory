@@ -443,6 +443,13 @@ the adapter, not a common operational field: the common layer remains
 unchanged, with no new `OpState` fields, no new `OpEvent` constructors or
 payloads, and no new common projection fields. The adapter-supported policy
 set for this minimal path is exactly `GlobalEDF` plus `PrioritizedFIFO`.
+Periodic task execution reuses a concrete Awkernel task, so the adapter treats
+the emitted task id together with a `loop_index` as an adapter-local logical job
+key. A periodic `RunnableDeadline` row may carry that loop index, and
+`PeriodicJobComplete(task, loop_index)` records completion of the corresponding
+logical job. The adapter records those completions and rejects duplicate
+completion rows for the same `(task, loop_index)`. This logical-job key is
+trace metadata only; it does not widen common `JobId`.
 `PrioritizedRR`, `Panicked`, and unknown emitted policies remain rejected
 before a scheduler-facing witness is constructed. For mixed traces, visible
 `GlobalEDF` candidates take precedence over FIFO candidates; only rows with no

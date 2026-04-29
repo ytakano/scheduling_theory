@@ -345,14 +345,14 @@ eligibleb jobs m sched j t =
 type GenericTopMSchedulingAlgorithm =
   (JobId -> Job) -> Nat -> Schedule -> Time -> (List JobId) -> List JobId
   -- singleton inductive, whose constructor was mkGenericTopMSchedulingAlgorithm
-
+  
 choose_top_m :: GenericTopMSchedulingAlgorithm -> (JobId -> Job) -> Nat ->
                 Schedule -> Time -> (List JobId) -> List JobId
 choose_top_m g =
   g
 
 data AwkernelSchedTraceEntry =
-   MkAwkernelSchedTraceEntry Nat CPU OpEvent (Option JobId) (List JobId)
+   MkAwkernelSchedTraceEntry Nat CPU OpEvent (Option JobId) (List JobId) 
  Bool (Option JobId) (List (Option JobId)) (List Bool) (List (Option JobId))
 
 aste_event_id :: AwkernelSchedTraceEntry -> Nat
@@ -417,6 +417,7 @@ data AwkernelTaskTraceKind =
  | LkUnblock
  | LkJoinWait
  | LkJoinTargetReady
+ | LkPeriodicJobComplete
  | LkComplete
 
 data AwkernelWaitClass =
@@ -435,68 +436,80 @@ data AwkernelTaskPolicy =
  | AtpUnsupported
 
 data AwkernelRunnableDeadlineMetadata =
-   MkAwkernelRunnableDeadlineMetadata Nat Nat
+   MkAwkernelRunnableDeadlineMetadata Nat Nat (Option Nat)
 
 ardm_wake_time :: AwkernelRunnableDeadlineMetadata -> Nat
 ardm_wake_time a =
   case a of {
-   MkAwkernelRunnableDeadlineMetadata ardm_wake_time0 _ -> ardm_wake_time0}
+   MkAwkernelRunnableDeadlineMetadata ardm_wake_time0 _ _ -> ardm_wake_time0}
 
 ardm_absolute_deadline :: AwkernelRunnableDeadlineMetadata -> Nat
 ardm_absolute_deadline a =
   case a of {
-   MkAwkernelRunnableDeadlineMetadata _ ardm_absolute_deadline0 ->
+   MkAwkernelRunnableDeadlineMetadata _ ardm_absolute_deadline0 _ ->
     ardm_absolute_deadline0}
 
+ardm_periodic_loop_index :: AwkernelRunnableDeadlineMetadata -> Option Nat
+ardm_periodic_loop_index a =
+  case a of {
+   MkAwkernelRunnableDeadlineMetadata _ _ ardm_periodic_loop_index0 ->
+    ardm_periodic_loop_index0}
+
 data AwkernelTaskTraceEntry =
-   MkAwkernelTaskTraceEntry Nat AwkernelTaskTraceKind JobId (Option JobId)
+   MkAwkernelTaskTraceEntry Nat AwkernelTaskTraceKind JobId (Option JobId) 
  (Option AwkernelWaitClass) (Option AwkernelUnblockKind) (Option
-                                                         AwkernelTaskPolicy)
- (Option AwkernelRunnableDeadlineMetadata)
+                                                         AwkernelTaskPolicy) 
+ (Option AwkernelRunnableDeadlineMetadata) (Option Nat)
 
 atte_event_id :: AwkernelTaskTraceEntry -> Nat
 atte_event_id a =
   case a of {
-   MkAwkernelTaskTraceEntry atte_event_id0 _ _ _ _ _ _ _ -> atte_event_id0}
+   MkAwkernelTaskTraceEntry atte_event_id0 _ _ _ _ _ _ _ _ -> atte_event_id0}
 
 atte_kind :: AwkernelTaskTraceEntry -> AwkernelTaskTraceKind
 atte_kind a =
   case a of {
-   MkAwkernelTaskTraceEntry _ atte_kind0 _ _ _ _ _ _ -> atte_kind0}
+   MkAwkernelTaskTraceEntry _ atte_kind0 _ _ _ _ _ _ _ -> atte_kind0}
 
 atte_subject :: AwkernelTaskTraceEntry -> JobId
 atte_subject a =
   case a of {
-   MkAwkernelTaskTraceEntry _ _ atte_subject0 _ _ _ _ _ -> atte_subject0}
+   MkAwkernelTaskTraceEntry _ _ atte_subject0 _ _ _ _ _ _ -> atte_subject0}
 
 atte_related :: AwkernelTaskTraceEntry -> Option JobId
 atte_related a =
   case a of {
-   MkAwkernelTaskTraceEntry _ _ _ atte_related0 _ _ _ _ -> atte_related0}
+   MkAwkernelTaskTraceEntry _ _ _ atte_related0 _ _ _ _ _ -> atte_related0}
 
 atte_wait_class :: AwkernelTaskTraceEntry -> Option AwkernelWaitClass
 atte_wait_class a =
   case a of {
-   MkAwkernelTaskTraceEntry _ _ _ _ atte_wait_class0 _ _ _ ->
+   MkAwkernelTaskTraceEntry _ _ _ _ atte_wait_class0 _ _ _ _ ->
     atte_wait_class0}
 
 atte_unblock_kind :: AwkernelTaskTraceEntry -> Option AwkernelUnblockKind
 atte_unblock_kind a =
   case a of {
-   MkAwkernelTaskTraceEntry _ _ _ _ _ atte_unblock_kind0 _ _ ->
+   MkAwkernelTaskTraceEntry _ _ _ _ _ atte_unblock_kind0 _ _ _ ->
     atte_unblock_kind0}
 
 atte_policy :: AwkernelTaskTraceEntry -> Option AwkernelTaskPolicy
 atte_policy a =
   case a of {
-   MkAwkernelTaskTraceEntry _ _ _ _ _ _ atte_policy0 _ -> atte_policy0}
+   MkAwkernelTaskTraceEntry _ _ _ _ _ _ atte_policy0 _ _ -> atte_policy0}
 
 atte_deadline_metadata :: AwkernelTaskTraceEntry -> Option
                           AwkernelRunnableDeadlineMetadata
 atte_deadline_metadata a =
   case a of {
-   MkAwkernelTaskTraceEntry _ _ _ _ _ _ _ atte_deadline_metadata0 ->
+   MkAwkernelTaskTraceEntry _ _ _ _ _ _ _ atte_deadline_metadata0 _ ->
     atte_deadline_metadata0}
+
+atte_periodic_loop_index :: AwkernelTaskTraceEntry -> Option Nat
+atte_periodic_loop_index a =
+  case a of {
+   MkAwkernelTaskTraceEntry _ _ _ _ _ _ _ _ atte_periodic_loop_index0 ->
+    atte_periodic_loop_index0}
 
 option_job_eqb :: (Option JobId) -> (Option JobId) -> Bool
 option_job_eqb x y =
@@ -556,7 +569,7 @@ add_pair_once x xs =
    True -> xs;
    False -> Cons x xs}
 
-all_dependencies_ready :: JobId -> (List (Prod JobId JobId)) -> (List
+all_dependencies_ready :: JobId -> (List (Prod JobId JobId)) -> (List 
                           JobId) -> Bool
 all_dependencies_ready task_id deps ready_targets =
   case deps of {
@@ -652,33 +665,39 @@ task_trace_metadata_empty entry =
   andb
     (andb
       (andb
-        (andb (bool_of_option_none (atte_related entry))
-          (bool_of_option_none (atte_wait_class entry)))
-        (bool_of_option_none (atte_unblock_kind entry)))
-      (bool_of_task_policy_none (atte_policy entry)))
-    (bool_of_option_none (atte_deadline_metadata entry))
+        (andb
+          (andb (bool_of_option_none (atte_related entry))
+            (bool_of_option_none (atte_wait_class entry)))
+          (bool_of_option_none (atte_unblock_kind entry)))
+        (bool_of_task_policy_none (atte_policy entry)))
+      (bool_of_option_none (atte_deadline_metadata entry)))
+    (bool_of_option_none (atte_periodic_loop_index entry))
 
 task_trace_has_wait_class_only :: AwkernelTaskTraceEntry -> Bool
 task_trace_has_wait_class_only entry =
   andb
     (andb
       (andb
-        (andb (bool_of_option_none (atte_related entry))
-          (bool_of_wait_class_some (atte_wait_class entry)))
-        (bool_of_option_none (atte_unblock_kind entry)))
-      (bool_of_task_policy_none (atte_policy entry)))
-    (bool_of_option_none (atte_deadline_metadata entry))
+        (andb
+          (andb (bool_of_option_none (atte_related entry))
+            (bool_of_wait_class_some (atte_wait_class entry)))
+          (bool_of_option_none (atte_unblock_kind entry)))
+        (bool_of_task_policy_none (atte_policy entry)))
+      (bool_of_option_none (atte_deadline_metadata entry)))
+    (bool_of_option_none (atte_periodic_loop_index entry))
 
 task_trace_has_wait_and_unblock_kind :: AwkernelTaskTraceEntry -> Bool
 task_trace_has_wait_and_unblock_kind entry =
   andb
     (andb
       (andb
-        (andb (bool_of_option_none (atte_related entry))
-          (bool_of_wait_class_some (atte_wait_class entry)))
-        (bool_of_unblock_kind_some (atte_unblock_kind entry)))
-      (bool_of_task_policy_none (atte_policy entry)))
-    (bool_of_option_none (atte_deadline_metadata entry))
+        (andb
+          (andb (bool_of_option_none (atte_related entry))
+            (bool_of_wait_class_some (atte_wait_class entry)))
+          (bool_of_unblock_kind_some (atte_unblock_kind entry)))
+        (bool_of_task_policy_none (atte_policy entry)))
+      (bool_of_option_none (atte_deadline_metadata entry)))
+    (bool_of_option_none (atte_periodic_loop_index entry))
 
 blocked_task_class :: JobId -> (List (Prod JobId AwkernelWaitClass)) ->
                       Option AwkernelWaitClass
@@ -711,6 +730,25 @@ remove_blocked_task task_id blocked =
        True -> remove_blocked_task task_id blocked';
        False -> Cons (Pair blocked_task wait_class)
         (remove_blocked_task task_id blocked')}}}
+
+periodic_job_complete_contains :: JobId -> Nat -> (List (Prod JobId Nat)) ->
+                                  Bool
+periodic_job_complete_contains task_id loop_index completions =
+  case completions of {
+   Nil -> False;
+   Cons p completions' ->
+    case p of {
+     Pair completed_task completed_loop ->
+      orb
+        (andb (eqb0 completed_task task_id) (eqb0 completed_loop loop_index))
+        (periodic_job_complete_contains task_id loop_index completions')}}
+
+add_periodic_job_complete_once :: JobId -> Nat -> (List (Prod JobId Nat)) ->
+                                  List (Prod JobId Nat)
+add_periodic_job_complete_once task_id loop_index completions =
+  case periodic_job_complete_contains task_id loop_index completions of {
+   True -> completions;
+   False -> Cons (Pair task_id loop_index) completions}
 
 sched_trace_event_is_wakeup :: JobId -> AwkernelSchedTraceEntry -> Bool
 sched_trace_event_is_wakeup j entry =
@@ -831,65 +869,73 @@ sched_trace_is_stutter entry =
 data AwkernelTaskTraceSummary =
    MkAwkernelTaskTraceSummary (Option JobId) (List JobId) (List
                                                           (Prod JobId
-                                                          AwkernelTaskPolicy))
- (List (Prod Nat (Prod JobId Nat))) (List (Prod JobId JobId)) (List JobId)
- (List (Prod JobId AwkernelWaitClass)) (List (Prod Nat (Prod JobId Bool)))
+                                                          AwkernelTaskPolicy)) 
+ (List (Prod Nat (Prod JobId Nat))) (List (Prod JobId JobId)) (List JobId) 
+ (List (Prod JobId AwkernelWaitClass)) (List (Prod Nat (Prod JobId Bool))) 
+ (List (Prod JobId Nat))
 
 atts_root_task :: AwkernelTaskTraceSummary -> Option JobId
 atts_root_task a =
   case a of {
-   MkAwkernelTaskTraceSummary atts_root_task0 _ _ _ _ _ _ _ ->
+   MkAwkernelTaskTraceSummary atts_root_task0 _ _ _ _ _ _ _ _ ->
     atts_root_task0}
 
 atts_known_tasks :: AwkernelTaskTraceSummary -> List JobId
 atts_known_tasks a =
   case a of {
-   MkAwkernelTaskTraceSummary _ atts_known_tasks0 _ _ _ _ _ _ ->
+   MkAwkernelTaskTraceSummary _ atts_known_tasks0 _ _ _ _ _ _ _ ->
     atts_known_tasks0}
 
 atts_task_policies :: AwkernelTaskTraceSummary -> List
                       (Prod JobId AwkernelTaskPolicy)
 atts_task_policies a =
   case a of {
-   MkAwkernelTaskTraceSummary _ _ atts_task_policies0 _ _ _ _ _ ->
+   MkAwkernelTaskTraceSummary _ _ atts_task_policies0 _ _ _ _ _ _ ->
     atts_task_policies0}
 
 atts_edf_deadlines :: AwkernelTaskTraceSummary -> List
                       (Prod Nat (Prod JobId Nat))
 atts_edf_deadlines a =
   case a of {
-   MkAwkernelTaskTraceSummary _ _ _ atts_edf_deadlines0 _ _ _ _ ->
+   MkAwkernelTaskTraceSummary _ _ _ atts_edf_deadlines0 _ _ _ _ _ ->
     atts_edf_deadlines0}
 
 atts_completion_deps :: AwkernelTaskTraceSummary -> List (Prod JobId JobId)
 atts_completion_deps a =
   case a of {
-   MkAwkernelTaskTraceSummary _ _ _ _ atts_completion_deps0 _ _ _ ->
+   MkAwkernelTaskTraceSummary _ _ _ _ atts_completion_deps0 _ _ _ _ ->
     atts_completion_deps0}
 
 atts_ready_targets :: AwkernelTaskTraceSummary -> List JobId
 atts_ready_targets a =
   case a of {
-   MkAwkernelTaskTraceSummary _ _ _ _ _ atts_ready_targets0 _ _ ->
+   MkAwkernelTaskTraceSummary _ _ _ _ _ atts_ready_targets0 _ _ _ ->
     atts_ready_targets0}
 
 atts_blocked_tasks :: AwkernelTaskTraceSummary -> List
                       (Prod JobId AwkernelWaitClass)
 atts_blocked_tasks a =
   case a of {
-   MkAwkernelTaskTraceSummary _ _ _ _ _ _ atts_blocked_tasks0 _ ->
+   MkAwkernelTaskTraceSummary _ _ _ _ _ _ atts_blocked_tasks0 _ _ ->
     atts_blocked_tasks0}
 
 atts_block_transitions :: AwkernelTaskTraceSummary -> List
                           (Prod Nat (Prod JobId Bool))
 atts_block_transitions a =
   case a of {
-   MkAwkernelTaskTraceSummary _ _ _ _ _ _ _ atts_block_transitions0 ->
+   MkAwkernelTaskTraceSummary _ _ _ _ _ _ _ atts_block_transitions0 _ ->
     atts_block_transitions0}
+
+atts_periodic_job_completions :: AwkernelTaskTraceSummary -> List
+                                 (Prod JobId Nat)
+atts_periodic_job_completions a =
+  case a of {
+   MkAwkernelTaskTraceSummary _ _ _ _ _ _ _ _
+    atts_periodic_job_completions0 -> atts_periodic_job_completions0}
 
 initial_task_trace_summary :: AwkernelTaskTraceSummary
 initial_task_trace_summary =
-  MkAwkernelTaskTraceSummary None Nil Nil Nil Nil Nil Nil Nil
+  MkAwkernelTaskTraceSummary None Nil Nil Nil Nil Nil Nil Nil Nil
 
 add_task_policy :: JobId -> AwkernelTaskPolicy -> (List
                    (Prod JobId AwkernelTaskPolicy)) -> List
@@ -1011,10 +1057,44 @@ task_trace_runnable_deadline_row_valid summary entry =
         AtpGlobalEDF relative_deadline ->
          case atte_deadline_metadata entry of {
           Some deadline_metadata ->
-           eqb0 (ardm_absolute_deadline deadline_metadata)
-             (add (ardm_wake_time deadline_metadata) relative_deadline);
+           andb
+             (eqb0 (ardm_absolute_deadline deadline_metadata)
+               (add (ardm_wake_time deadline_metadata) relative_deadline))
+             (case ardm_periodic_loop_index deadline_metadata of {
+               Some metadata_loop_index ->
+                case atte_periodic_loop_index entry of {
+                 Some entry_loop_index ->
+                  eqb0 metadata_loop_index entry_loop_index;
+                 None -> False};
+               None ->
+                case atte_periodic_loop_index entry of {
+                 Some _ -> False;
+                 None -> True}});
           None -> False};
         _ -> False};
+      None -> False})
+
+task_trace_periodic_job_complete_row_valid :: AwkernelTaskTraceSummary ->
+                                              AwkernelTaskTraceEntry -> Bool
+task_trace_periodic_job_complete_row_valid summary entry =
+  andb
+    (andb
+      (andb
+        (andb
+          (andb
+            (andb
+              (job_list_contains (atte_subject entry)
+                (atts_known_tasks summary))
+              (bool_of_option_none (atte_related entry)))
+            (bool_of_option_none (atte_wait_class entry)))
+          (bool_of_option_none (atte_unblock_kind entry)))
+        (bool_of_task_policy_none (atte_policy entry)))
+      (bool_of_option_none (atte_deadline_metadata entry)))
+    (case atte_periodic_loop_index entry of {
+      Some loop_index ->
+       negb
+         (periodic_job_complete_contains (atte_subject entry) loop_index
+           (atts_periodic_job_completions summary));
       None -> False})
 
 task_trace_entry_valid :: AwkernelTaskTraceSummary -> AwkernelTaskTraceEntry
@@ -1030,20 +1110,24 @@ task_trace_entry_valid summary entry =
          andb
            (andb
              (andb
-               (andb (job_list_contains parent (atts_known_tasks summary))
-                 (bool_of_option_none (atte_wait_class entry)))
-               (bool_of_option_none (atte_unblock_kind entry)))
-             (bool_of_task_policy_some (atte_policy entry)))
-           (bool_of_option_none (atte_deadline_metadata entry));
+               (andb
+                 (andb (job_list_contains parent (atts_known_tasks summary))
+                   (bool_of_option_none (atte_wait_class entry)))
+                 (bool_of_option_none (atte_unblock_kind entry)))
+               (bool_of_task_policy_some (atte_policy entry)))
+             (bool_of_option_none (atte_deadline_metadata entry)))
+           (bool_of_option_none (atte_periodic_loop_index entry));
         None ->
          andb
            (andb
              (andb
-               (andb (option_job_eqb (atts_root_task summary) None)
-                 (bool_of_option_none (atte_wait_class entry)))
-               (bool_of_option_none (atte_unblock_kind entry)))
-             (bool_of_task_policy_some (atte_policy entry)))
-           (bool_of_option_none (atte_deadline_metadata entry))});
+               (andb
+                 (andb (option_job_eqb (atts_root_task summary) None)
+                   (bool_of_option_none (atte_wait_class entry)))
+                 (bool_of_option_none (atte_unblock_kind entry)))
+               (bool_of_task_policy_some (atte_policy entry)))
+             (bool_of_option_none (atte_deadline_metadata entry)))
+           (bool_of_option_none (atte_periodic_loop_index entry))});
    LkRunnableDeadline -> task_trace_runnable_deadline_row_valid summary entry;
    LkBlock ->
     andb
@@ -1073,12 +1157,14 @@ task_trace_entry_valid summary entry =
         (andb
           (andb
             (andb
-              (job_list_contains (atte_subject entry)
-                (atts_known_tasks summary))
-              (job_list_contains target (atts_known_tasks summary)))
-            (bool_of_option_none (atte_wait_class entry)))
-          (bool_of_option_none (atte_unblock_kind entry)))
-        (bool_of_option_none (atte_deadline_metadata entry));
+              (andb
+                (job_list_contains (atte_subject entry)
+                  (atts_known_tasks summary))
+                (job_list_contains target (atts_known_tasks summary)))
+              (bool_of_option_none (atte_wait_class entry)))
+            (bool_of_option_none (atte_unblock_kind entry)))
+          (bool_of_option_none (atte_deadline_metadata entry)))
+        (bool_of_option_none (atte_periodic_loop_index entry));
      None -> False};
    LkJoinTargetReady ->
     case atte_related entry of {
@@ -1088,14 +1174,18 @@ task_trace_entry_valid summary entry =
         (andb
           (andb
             (andb
-              (job_list_contains (atte_subject entry)
-                (atts_known_tasks summary))
-              (negb
+              (andb
                 (job_list_contains (atte_subject entry)
-                  (atts_ready_targets summary))))
-            (bool_of_option_none (atte_wait_class entry)))
-          (bool_of_option_none (atte_unblock_kind entry)))
-        (bool_of_option_none (atte_deadline_metadata entry))};
+                  (atts_known_tasks summary))
+                (negb
+                  (job_list_contains (atte_subject entry)
+                    (atts_ready_targets summary))))
+              (bool_of_option_none (atte_wait_class entry)))
+            (bool_of_option_none (atte_unblock_kind entry)))
+          (bool_of_option_none (atte_deadline_metadata entry)))
+        (bool_of_option_none (atte_periodic_loop_index entry))};
+   LkPeriodicJobComplete ->
+    task_trace_periodic_job_complete_row_valid summary entry;
    _ ->
     andb (job_list_contains (atte_subject entry) (atts_known_tasks summary))
       (task_trace_metadata_empty entry)}
@@ -1116,7 +1206,7 @@ task_trace_entry_step summary entry =
       None -> atts_task_policies summary})
     (atts_edf_deadlines summary) (atts_completion_deps summary)
     (atts_ready_targets summary) (atts_blocked_tasks summary)
-    (atts_block_transitions summary);
+    (atts_block_transitions summary) (atts_periodic_job_completions summary);
    LkRunnableDeadline -> MkAwkernelTaskTraceSummary (atts_root_task summary)
     (atts_known_tasks summary) (atts_task_policies summary)
     (case atte_deadline_metadata entry of {
@@ -1126,7 +1216,8 @@ task_trace_entry_step summary entry =
          (atts_edf_deadlines summary);
       None -> atts_edf_deadlines summary})
     (atts_completion_deps summary) (atts_ready_targets summary)
-    (atts_blocked_tasks summary) (atts_block_transitions summary);
+    (atts_blocked_tasks summary) (atts_block_transitions summary)
+    (atts_periodic_job_completions summary);
    LkBlock -> MkAwkernelTaskTraceSummary (atts_root_task summary)
     (atts_known_tasks summary) (atts_task_policies summary)
     (atts_edf_deadlines summary) (atts_completion_deps summary)
@@ -1136,14 +1227,16 @@ task_trace_entry_step summary entry =
       None -> WcSleep}))
     (atts_blocked_tasks summary))
     (add_block_transition (atte_event_id entry) (atte_subject entry) True
-      (atts_block_transitions summary));
+      (atts_block_transitions summary))
+    (atts_periodic_job_completions summary);
    LkUnblock -> MkAwkernelTaskTraceSummary (atts_root_task summary)
     (atts_known_tasks summary) (atts_task_policies summary)
     (atts_edf_deadlines summary) (atts_completion_deps summary)
     (atts_ready_targets summary)
     (remove_blocked_task (atte_subject entry) (atts_blocked_tasks summary))
     (add_block_transition (atte_event_id entry) (atte_subject entry) False
-      (atts_block_transitions summary));
+      (atts_block_transitions summary))
+    (atts_periodic_job_completions summary);
    LkJoinWait ->
     case atte_related entry of {
      Some target -> MkAwkernelTaskTraceSummary (atts_root_task summary)
@@ -1152,13 +1245,25 @@ task_trace_entry_step summary entry =
       (add_pair_once (Pair (atte_subject entry) target)
         (atts_completion_deps summary))
       (atts_ready_targets summary) (atts_blocked_tasks summary)
-      (atts_block_transitions summary);
+      (atts_block_transitions summary)
+      (atts_periodic_job_completions summary);
      None -> summary};
    LkJoinTargetReady -> MkAwkernelTaskTraceSummary (atts_root_task summary)
     (atts_known_tasks summary) (atts_task_policies summary)
     (atts_edf_deadlines summary) (atts_completion_deps summary)
     (add_job_once (atte_subject entry) (atts_ready_targets summary))
-    (atts_blocked_tasks summary) (atts_block_transitions summary);
+    (atts_blocked_tasks summary) (atts_block_transitions summary)
+    (atts_periodic_job_completions summary);
+   LkPeriodicJobComplete -> MkAwkernelTaskTraceSummary
+    (atts_root_task summary) (atts_known_tasks summary)
+    (atts_task_policies summary) (atts_edf_deadlines summary)
+    (atts_completion_deps summary) (atts_ready_targets summary)
+    (atts_blocked_tasks summary) (atts_block_transitions summary)
+    (case atte_periodic_loop_index entry of {
+      Some loop_index ->
+       add_periodic_job_complete_once (atte_subject entry) loop_index
+         (atts_periodic_job_completions summary);
+      None -> atts_periodic_job_completions summary});
    _ -> summary}
 
 summarize_task_trace :: AwkernelTaskTraceSummary -> (List
@@ -1283,7 +1388,7 @@ first_invalid_runnable_deadline_task_trace_index task_trace =
     initial_task_trace_summary O task_trace
 
 data AwkernelSchedTraceAcceptanceState =
-   MkAwkernelSchedTraceAcceptanceState Bool (Option JobId) (List JobId)
+   MkAwkernelSchedTraceAcceptanceState Bool (Option JobId) (List JobId) 
  (List JobId) (List JobId) (List JobId)
 
 astas_started :: AwkernelSchedTraceAcceptanceState -> Bool
@@ -1672,7 +1777,7 @@ workload_scheduler_relation_candidates task_trace entry =
    _ -> Nil}
 
 workload_scheduler_relation_choice :: (List AwkernelTaskTraceEntry) ->
-                                      AwkernelSchedTraceEntry -> List
+                                      AwkernelSchedTraceEntry -> List 
                                       JobId
 workload_scheduler_relation_choice task_trace entry =
   case aste_event entry of {
@@ -1739,7 +1844,7 @@ first_scheduler_visible_index_from task_trace task_id n sched_trace =
         sched_trace'}}
 
 first_scheduler_visible_index :: (List AwkernelTaskTraceEntry) -> JobId ->
-                                 (List AwkernelSchedTraceEntry) -> Option
+                                 (List AwkernelSchedTraceEntry) -> Option 
                                  Nat
 first_scheduler_visible_index task_trace task_id sched_trace =
   first_scheduler_visible_index_from task_trace task_id O sched_trace
@@ -1890,7 +1995,7 @@ sched_trace_candidate_is_edfb summary task_id =
    Some policy -> task_policy_global_edf_supportedb policy;
    None -> False}
 
-filter_sched_trace_edf_candidates :: AwkernelTaskTraceSummary -> (List
+filter_sched_trace_edf_candidates :: AwkernelTaskTraceSummary -> (List 
                                      JobId) -> List JobId
 filter_sched_trace_edf_candidates summary candidates =
   case candidates of {
@@ -2017,7 +2122,7 @@ first_non_edf_fifo_scheduler_relation_sched_trace_index_from :: (List
                                                                 -> Nat ->
                                                                 (List
                                                                 AwkernelSchedTraceEntry)
-                                                                -> Option
+                                                                -> Option 
                                                                 Nat
 first_non_edf_fifo_scheduler_relation_sched_trace_index_from task_trace sched_trace t remaining =
   case remaining of {
@@ -2034,7 +2139,7 @@ first_non_edf_fifo_scheduler_relation_sched_trace_index :: (List
                                                            AwkernelTaskTraceEntry)
                                                            -> (List
                                                            AwkernelSchedTraceEntry)
-                                                           -> Option
+                                                           -> Option 
                                                            Nat
 first_non_edf_fifo_scheduler_relation_sched_trace_index task_trace sched_trace =
   first_non_edf_fifo_scheduler_relation_sched_trace_index_from task_trace
@@ -2050,3 +2155,4 @@ awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace task_trace sched_tr
     (andb (awk_workload_accepts_sched_trace task_trace sched_trace)
       (task_trace_all_edf_fifo_policyb task_trace))
     (sched_trace_edf_fifo_scheduler_relation_checkb task_trace sched_trace)
+
