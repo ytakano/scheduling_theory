@@ -7,6 +7,7 @@ Import ListNotations.
 Inductive AwkernelTaskTraceKind : Type :=
 | LkSpawn
 | LkRunnable
+| LkRunnableDeadline
 | LkChoose
 | LkDispatch
 | LkBlock
@@ -30,6 +31,12 @@ Inductive AwkernelTaskPolicy : Type :=
 | AtpPanicked
 | AtpUnsupported.
 
+Record AwkernelRunnableDeadlineMetadata : Type :=
+  mkAwkernelRunnableDeadlineMetadata {
+    ardm_wake_time : nat;
+    ardm_absolute_deadline : nat;
+  }.
+
 Record AwkernelTaskTraceEntry : Type := mkAwkernelTaskTraceEntry {
   atte_event_id : nat;
   atte_kind : AwkernelTaskTraceKind;
@@ -38,6 +45,7 @@ Record AwkernelTaskTraceEntry : Type := mkAwkernelTaskTraceEntry {
   atte_wait_class : option AwkernelWaitClass;
   atte_unblock_kind : option AwkernelUnblockKind;
   atte_policy : option AwkernelTaskPolicy;
+  atte_deadline_metadata : option AwkernelRunnableDeadlineMetadata;
 }.
 
 Definition option_job_eqb (x y : option JobId) : bool :=
@@ -143,10 +151,34 @@ Definition task_policy_global_fifo_supportedb (policy : AwkernelTaskPolicy) : bo
   | _ => false
   end.
 
+Definition task_policy_global_edf_supportedb (policy : AwkernelTaskPolicy) : bool :=
+  match policy with
+  | AtpGlobalEDF _ => true
+  | _ => false
+  end.
+
+Definition task_policy_edf_fifo_supportedb (policy : AwkernelTaskPolicy) : bool :=
+  task_policy_global_edf_supportedb policy ||
+  task_policy_global_fifo_supportedb policy.
+
 Definition option_task_policy_global_fifo_supportedb
     (policy : option AwkernelTaskPolicy) : bool :=
   match policy with
   | Some policy' => task_policy_global_fifo_supportedb policy'
+  | None => false
+  end.
+
+Definition option_task_policy_global_edf_supportedb
+    (policy : option AwkernelTaskPolicy) : bool :=
+  match policy with
+  | Some policy' => task_policy_global_edf_supportedb policy'
+  | None => false
+  end.
+
+Definition option_task_policy_edf_fifo_supportedb
+    (policy : option AwkernelTaskPolicy) : bool :=
+  match policy with
+  | Some policy' => task_policy_edf_fifo_supportedb policy'
   | None => false
   end.
 
@@ -161,21 +193,24 @@ Definition task_trace_metadata_empty (entry : AwkernelTaskTraceEntry) : bool :=
   bool_of_option_none (atte_related entry) &&
   bool_of_option_none (atte_wait_class entry) &&
   bool_of_option_none (atte_unblock_kind entry) &&
-  bool_of_task_policy_none (atte_policy entry).
+  bool_of_task_policy_none (atte_policy entry) &&
+  bool_of_option_none (atte_deadline_metadata entry).
 
 Definition task_trace_has_wait_class_only
     (entry : AwkernelTaskTraceEntry) : bool :=
   bool_of_option_none (atte_related entry) &&
   bool_of_wait_class_some (atte_wait_class entry) &&
   bool_of_option_none (atte_unblock_kind entry) &&
-  bool_of_task_policy_none (atte_policy entry).
+  bool_of_task_policy_none (atte_policy entry) &&
+  bool_of_option_none (atte_deadline_metadata entry).
 
 Definition task_trace_has_wait_and_unblock_kind
     (entry : AwkernelTaskTraceEntry) : bool :=
   bool_of_option_none (atte_related entry) &&
   bool_of_wait_class_some (atte_wait_class entry) &&
   bool_of_unblock_kind_some (atte_unblock_kind entry) &&
-  bool_of_task_policy_none (atte_policy entry).
+  bool_of_task_policy_none (atte_policy entry) &&
+  bool_of_option_none (atte_deadline_metadata entry).
 
 Fixpoint blocked_task_class
     (task_id : JobId)
@@ -315,6 +350,7 @@ Record AwkernelTaskTraceSummary : Type := mkAwkernelTaskTraceSummary {
   atts_root_task : option JobId;
   atts_known_tasks : list JobId;
   atts_task_policies : list (JobId * AwkernelTaskPolicy);
+  atts_edf_deadlines : list (nat * (JobId * nat));
   atts_completion_deps : list (JobId * JobId);
   atts_ready_targets : list JobId;
   atts_blocked_tasks : list (JobId * AwkernelWaitClass);
@@ -322,7 +358,7 @@ Record AwkernelTaskTraceSummary : Type := mkAwkernelTaskTraceSummary {
 }.
 
 Definition initial_task_trace_summary : AwkernelTaskTraceSummary :=
-  mkAwkernelTaskTraceSummary None [] [] [] [] [] [].
+  mkAwkernelTaskTraceSummary None [] [] [] [] [] [] [].
 
 Definition add_task_policy
     (task_id : JobId) (policy : AwkernelTaskPolicy)
@@ -338,6 +374,57 @@ Fixpoint task_policy_table_all_global_fifo
       task_policy_global_fifo_supportedb policy &&
       task_policy_table_all_global_fifo policies'
   end.
+
+Fixpoint task_policy_table_all_global_edf
+    (policies : list (JobId * AwkernelTaskPolicy)) : bool :=
+  match policies with
+  | [] => true
+  | (_, policy) :: policies' =>
+      task_policy_global_edf_supportedb policy &&
+      task_policy_table_all_global_edf policies'
+  end.
+
+Fixpoint task_policy_table_all_edf_fifo
+    (policies : list (JobId * AwkernelTaskPolicy)) : bool :=
+  match policies with
+  | [] => true
+  | (_, policy) :: policies' =>
+      task_policy_edf_fifo_supportedb policy &&
+      task_policy_table_all_edf_fifo policies'
+  end.
+
+Definition add_edf_deadline_evidence
+    (event_id : nat) (task_id : JobId) (absolute_deadline : nat)
+    (deadlines : list (nat * (JobId * nat)))
+    : list (nat * (JobId * nat)) :=
+  deadlines ++ [(event_id, (task_id, absolute_deadline))].
+
+Fixpoint task_trace_edf_deadline_at_from
+    (event_id : nat)
+    (task_id : JobId)
+    (deadlines : list (nat * (JobId * nat)))
+    (deadline : option nat) : option nat :=
+  match deadlines with
+  | [] => deadline
+  | (deadline_event_id, (deadline_task, absolute_deadline)) :: deadlines' =>
+      let deadline' :=
+        if deadline_event_id <? event_id
+        then if Nat.eqb deadline_task task_id
+             then Some absolute_deadline
+             else deadline
+        else deadline in
+      task_trace_edf_deadline_at_from event_id task_id deadlines' deadline'
+  end.
+
+Definition task_trace_edf_deadline_at
+    (summary : AwkernelTaskTraceSummary)
+    (event_id : nat)
+    (task_id : JobId) : option nat :=
+  task_trace_edf_deadline_at_from
+    event_id
+    task_id
+    (atts_edf_deadlines summary)
+    None.
 
 Definition add_block_transition
     (event_id : nat) (task_id : JobId) (is_block : bool)
@@ -370,6 +457,21 @@ Definition task_trace_blocked_at
     (atts_block_transitions summary)
     false.
 
+Definition task_trace_runnable_deadline_row_valid
+    (summary : AwkernelTaskTraceSummary)
+    (entry : AwkernelTaskTraceEntry) : bool :=
+  job_list_contains (atte_subject entry) (atts_known_tasks summary) &&
+  bool_of_option_none (atte_related entry) &&
+  bool_of_option_none (atte_wait_class entry) &&
+  bool_of_option_none (atte_unblock_kind entry) &&
+  match atte_policy entry, atte_deadline_metadata entry with
+  | Some (AtpGlobalEDF relative_deadline), Some deadline_metadata =>
+      Nat.eqb
+        (ardm_absolute_deadline deadline_metadata)
+        (ardm_wake_time deadline_metadata + relative_deadline)
+  | _, _ => false
+  end.
+
 Definition task_trace_entry_valid
     (summary : AwkernelTaskTraceSummary)
     (entry : AwkernelTaskTraceEntry) : bool :=
@@ -381,12 +483,16 @@ Definition task_trace_entry_valid
          option_job_eqb (atts_root_task summary) None &&
           bool_of_option_none (atte_wait_class entry) &&
           bool_of_option_none (atte_unblock_kind entry) &&
-          bool_of_task_policy_some (atte_policy entry)
+          bool_of_task_policy_some (atte_policy entry) &&
+          bool_of_option_none (atte_deadline_metadata entry)
       | Some parent => job_list_contains parent (atts_known_tasks summary)
                        && bool_of_option_none (atte_wait_class entry)
                        && bool_of_option_none (atte_unblock_kind entry)
                        && bool_of_task_policy_some (atte_policy entry)
+                       && bool_of_option_none (atte_deadline_metadata entry)
       end
+  | LkRunnableDeadline =>
+      task_trace_runnable_deadline_row_valid summary entry
   | LkBlock =>
       job_list_contains (atte_subject entry) (atts_known_tasks summary) &&
       negb (blocked_task_contains (atte_subject entry) (atts_blocked_tasks summary)) &&
@@ -406,7 +512,8 @@ Definition task_trace_entry_valid
           job_list_contains (atte_subject entry) (atts_known_tasks summary) &&
           job_list_contains target (atts_known_tasks summary) &&
           bool_of_option_none (atte_wait_class entry) &&
-          bool_of_option_none (atte_unblock_kind entry)
+          bool_of_option_none (atte_unblock_kind entry) &&
+          bool_of_option_none (atte_deadline_metadata entry)
       | None => false
       end
   | LkJoinTargetReady =>
@@ -415,7 +522,8 @@ Definition task_trace_entry_valid
           job_list_contains (atte_subject entry) (atts_known_tasks summary) &&
           negb (job_list_contains (atte_subject entry) (atts_ready_targets summary)) &&
           bool_of_option_none (atte_wait_class entry) &&
-          bool_of_option_none (atte_unblock_kind entry)
+          bool_of_option_none (atte_unblock_kind entry) &&
+          bool_of_option_none (atte_deadline_metadata entry)
       | Some _ => false
       end
   | _ =>
@@ -438,6 +546,25 @@ Definition task_trace_entry_step
          | Some policy => add_task_policy (atte_subject entry) policy (atts_task_policies summary)
          | None => atts_task_policies summary
          end)
+        (atts_edf_deadlines summary)
+        (atts_completion_deps summary)
+        (atts_ready_targets summary)
+        (atts_blocked_tasks summary)
+        (atts_block_transitions summary)
+  | LkRunnableDeadline =>
+      mkAwkernelTaskTraceSummary
+        (atts_root_task summary)
+        (atts_known_tasks summary)
+        (atts_task_policies summary)
+        (match atte_deadline_metadata entry with
+         | Some deadline_metadata =>
+             add_edf_deadline_evidence
+               (atte_event_id entry)
+               (atte_subject entry)
+               (ardm_absolute_deadline deadline_metadata)
+               (atts_edf_deadlines summary)
+         | None => atts_edf_deadlines summary
+         end)
         (atts_completion_deps summary)
         (atts_ready_targets summary)
         (atts_blocked_tasks summary)
@@ -447,6 +574,7 @@ Definition task_trace_entry_step
         (atts_root_task summary)
         (atts_known_tasks summary)
         (atts_task_policies summary)
+        (atts_edf_deadlines summary)
         (atts_completion_deps summary)
         (atts_ready_targets summary)
         ((atte_subject entry,
@@ -464,6 +592,7 @@ Definition task_trace_entry_step
         (atts_root_task summary)
         (atts_known_tasks summary)
         (atts_task_policies summary)
+        (atts_edf_deadlines summary)
         (atts_completion_deps summary)
         (atts_ready_targets summary)
         (remove_blocked_task (atte_subject entry) (atts_blocked_tasks summary))
@@ -479,6 +608,7 @@ Definition task_trace_entry_step
             (atts_root_task summary)
             (atts_known_tasks summary)
             (atts_task_policies summary)
+            (atts_edf_deadlines summary)
             (add_pair_once (atte_subject entry, target) (atts_completion_deps summary))
             (atts_ready_targets summary)
             (atts_blocked_tasks summary)
@@ -490,6 +620,7 @@ Definition task_trace_entry_step
         (atts_root_task summary)
         (atts_known_tasks summary)
         (atts_task_policies summary)
+        (atts_edf_deadlines summary)
         (atts_completion_deps summary)
         (add_job_once (atte_subject entry) (atts_ready_targets summary))
         (atts_blocked_tasks summary)
@@ -523,6 +654,20 @@ Definition task_trace_all_global_fifo_policyb
   | None => false
   end.
 
+Definition task_trace_all_global_edf_policyb
+    (task_trace : list AwkernelTaskTraceEntry) : bool :=
+  match summarize_task_trace initial_task_trace_summary task_trace with
+  | Some summary => task_policy_table_all_global_edf (atts_task_policies summary)
+  | None => false
+  end.
+
+Definition task_trace_all_edf_fifo_policyb
+    (task_trace : list AwkernelTaskTraceEntry) : bool :=
+  match summarize_task_trace initial_task_trace_summary task_trace with
+  | Some summary => task_policy_table_all_edf_fifo (atts_task_policies summary)
+  | None => false
+  end.
+
 Fixpoint first_non_global_fifo_task_policy_index_from
     (n : nat) (task_trace : list AwkernelTaskTraceEntry) : option nat :=
   match task_trace with
@@ -540,6 +685,75 @@ Fixpoint first_non_global_fifo_task_policy_index_from
 Definition first_non_global_fifo_task_policy_index
     (task_trace : list AwkernelTaskTraceEntry) : option nat :=
   first_non_global_fifo_task_policy_index_from 0 task_trace.
+
+Fixpoint first_non_global_edf_task_policy_index_from
+    (n : nat) (task_trace : list AwkernelTaskTraceEntry) : option nat :=
+  match task_trace with
+  | [] => None
+  | entry :: task_trace' =>
+      match atte_kind entry with
+      | LkSpawn =>
+          if option_task_policy_global_edf_supportedb (atte_policy entry)
+          then first_non_global_edf_task_policy_index_from (S n) task_trace'
+          else Some n
+      | _ => first_non_global_edf_task_policy_index_from (S n) task_trace'
+      end
+  end.
+
+Definition first_non_global_edf_task_policy_index
+    (task_trace : list AwkernelTaskTraceEntry) : option nat :=
+  first_non_global_edf_task_policy_index_from 0 task_trace.
+
+Fixpoint first_non_edf_fifo_task_policy_index_from
+    (n : nat) (task_trace : list AwkernelTaskTraceEntry) : option nat :=
+  match task_trace with
+  | [] => None
+  | entry :: task_trace' =>
+      match atte_kind entry with
+      | LkSpawn =>
+          if option_task_policy_edf_fifo_supportedb (atte_policy entry)
+          then first_non_edf_fifo_task_policy_index_from (S n) task_trace'
+          else Some n
+      | _ => first_non_edf_fifo_task_policy_index_from (S n) task_trace'
+      end
+  end.
+
+Definition first_non_edf_fifo_task_policy_index
+    (task_trace : list AwkernelTaskTraceEntry) : option nat :=
+  first_non_edf_fifo_task_policy_index_from 0 task_trace.
+
+Fixpoint first_invalid_runnable_deadline_task_trace_index_from
+    (summary : AwkernelTaskTraceSummary)
+    (n : nat) (task_trace : list AwkernelTaskTraceEntry) : option nat :=
+  match task_trace with
+  | [] => None
+  | entry :: task_trace' =>
+      match atte_kind entry with
+      | LkRunnableDeadline =>
+          if task_trace_runnable_deadline_row_valid summary entry
+          then first_invalid_runnable_deadline_task_trace_index_from
+                 (task_trace_entry_step summary entry)
+                 (S n)
+                 task_trace'
+          else Some n
+      | _ =>
+          let summary' :=
+            if task_trace_entry_valid summary entry
+            then task_trace_entry_step summary entry
+            else summary in
+          first_invalid_runnable_deadline_task_trace_index_from
+            summary'
+            (S n)
+            task_trace'
+      end
+  end.
+
+Definition first_invalid_runnable_deadline_task_trace_index
+    (task_trace : list AwkernelTaskTraceEntry) : option nat :=
+  first_invalid_runnable_deadline_task_trace_index_from
+    initial_task_trace_summary
+    0
+    task_trace.
 
 Record AwkernelSchedTraceAcceptanceState : Type := mkAwkernelSchedTraceAcceptanceState {
   astas_started : bool;
