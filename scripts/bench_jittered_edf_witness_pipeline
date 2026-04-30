@@ -10,7 +10,11 @@ fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-printf 'case,engine,thread_mode,task_count,schema_version,cutoff,basis_window_count,witness_bytes,wall_ms,peak_kb,status\n' > "$out"
+generator=${SCHED_WITNESS_GEN:-./target/release/sched-witness-gen}
+basis_window_cap=${JITTERED_BASIS_WINDOW_CAP:-10000000}
+time_cmd=${TIME_CMD:-/usr/bin/time}
+
+printf 'case,engine,thread_mode,basis_window_cap,task_count,schema_version,cutoff,basis_window_count,witness_bytes,real_s,user_s,sys_s,peak_kb,status\n' > "$out"
 
 cat > "$tmp/small.csv" <<'CSV'
 cost,period,deadline,offset,jitter
@@ -33,8 +37,14 @@ cost,period,deadline,offset,jitter
 1,16,16,0,1
 CSV
 
-now_ms() {
-  date +%s%3N
+cat > "$tmp/cap_stress.csv" <<'CSV'
+cost,period,deadline,offset,jitter
+1,169,169,0,1
+CSV
+
+read_time_stats() {
+  file=$1
+  IFS=, read -r real_s user_s sys_s peak_kb < "$file"
 }
 
 run_rust() {
@@ -43,61 +53,60 @@ run_rust() {
   witness="$tmp/$name.$threads.cbor"
   metrics="$tmp/$name.$threads.metrics.csv"
   err="$tmp/$name.$threads.err"
-  start=$(now_ms)
+  time_out="$tmp/$name.$threads.time"
   status=ok
-  if ! ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$tmp/$name.csv" --out "$witness" --threads "$threads" --metrics-out "$metrics" > /dev/null 2> "$err"; then
+  if ! "$time_cmd" -f '%e,%U,%S,%M' -o "$time_out" "$generator" jittered-periodic-edf --tasks "$tmp/$name.csv" --out "$witness" --threads "$threads" --basis-window-cap "$basis_window_cap" --metrics-out "$metrics" > /dev/null 2> "$err"; then
     status=failed
   fi
-  end=$(now_ms)
-  wall_ms=$((end - start))
+  read_time_stats "$time_out"
   if [ "$status" = ok ] && [ -f "$metrics" ]; then
     row=$(sed -n '2p' "$metrics")
-    IFS=, read -r task_count schema_ver cutoff basis_window_count requested_threads _status <<EOF
+    IFS=, read -r task_count schema_ver cutoff basis_window_count measured_cap requested_threads _status <<EOF
 $row
 EOF
     if [ "$schema_ver" != 3 ]; then
-      printf '%s,rust-generator,%s,%s,%s,%s,%s,unavailable,%s,unavailable,failed\n' \
-        "$name" "$requested_threads" "$task_count" "$schema_ver" "$cutoff" \
-        "$basis_window_count" "$wall_ms" >> "$out"
+      printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,unavailable,%s,%s,%s,%s,failed\n' \
+        "$name" "$requested_threads" "$measured_cap" "$task_count" "$schema_ver" "$cutoff" \
+        "$basis_window_count" "$real_s" "$user_s" "$sys_s" "$peak_kb" >> "$out"
       echo "expected jittered witness schema 3; got $schema_ver" >&2
       return 1
     fi
     witness_bytes=$(wc -c < "$witness" | tr -d ' ')
-    printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,%s,unavailable,%s\n' \
-      "$name" "$requested_threads" "$task_count" "$schema_ver" "$cutoff" \
-      "$basis_window_count" "$witness_bytes" "$wall_ms" "$status" >> "$out"
+    printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+      "$name" "$requested_threads" "$measured_cap" "$task_count" "$schema_ver" "$cutoff" \
+      "$basis_window_count" "$witness_bytes" "$real_s" "$user_s" "$sys_s" "$peak_kb" "$status" >> "$out"
     if [ "$threads" = auto ]; then
-      run_haskell_witness_check "$name" "$witness" "$task_count" "$schema_ver" "$cutoff" \
+      run_haskell_witness_check "$name" "$witness" "$measured_cap" "$task_count" "$schema_ver" "$cutoff" \
         "$basis_window_count" "$witness_bytes"
     fi
   else
-    printf '%s,rust-generator,%s,unavailable,%s,unavailable,unavailable,unavailable,%s,unavailable,%s\n' \
-      "$name" "$threads" 3 "$wall_ms" "$status" >> "$out"
+    printf '%s,rust-generator,%s,%s,unavailable,%s,unavailable,unavailable,unavailable,%s,%s,%s,%s,%s\n' \
+      "$name" "$threads" "$basis_window_cap" 3 "$real_s" "$user_s" "$sys_s" "$peak_kb" "$status" >> "$out"
   fi
 }
 
 run_haskell_witness_check() {
   name=$1
   witness=$2
-  task_count=$3
-  schema_ver=$4
-  cutoff=$5
-  basis_window_count=$6
-  witness_bytes=$7
+  measured_cap=$3
+  task_count=$4
+  schema_ver=$5
+  cutoff=$6
+  basis_window_count=$7
+  witness_bytes=$8
   err="$tmp/$name.schema$schema_ver.check.err"
-  start=$(now_ms)
+  time_out="$tmp/$name.schema$schema_ver.check.time"
   status=ok
-  if ! ./scripts/jittered_edf_witness_check --tasks "$tmp/$name.csv" --witness "$witness" > /dev/null 2> "$err"; then
+  if ! "$time_cmd" -f '%e,%U,%S,%M' -o "$time_out" ./scripts/jittered_edf_witness_check --tasks "$tmp/$name.csv" --witness "$witness" > /dev/null 2> "$err"; then
     status=failed
   fi
-  end=$(now_ms)
-  wall_ms=$((end - start))
-  printf '%s,haskell-witness-check,auto,%s,%s,%s,%s,%s,%s,unavailable,%s\n' \
-    "$name" "$task_count" "$schema_ver" "$cutoff" \
-    "$basis_window_count" "$witness_bytes" "$wall_ms" "$status" >> "$out"
+  read_time_stats "$time_out"
+  printf '%s,haskell-witness-check,auto,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+    "$name" "$measured_cap" "$task_count" "$schema_ver" "$cutoff" \
+    "$basis_window_count" "$witness_bytes" "$real_s" "$user_s" "$sys_s" "$peak_kb" "$status" >> "$out"
 }
 
-for name in small medium large limit_near; do
+for name in small medium large limit_near cap_stress; do
   run_rust "$name" 1
   run_rust "$name" 2
   run_rust "$name" auto
