@@ -12,9 +12,11 @@ import Crypto.Hash (Digest, SHA256, hash)
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (isSpace, toLower)
 import Data.List (isPrefixOf)
+import qualified GHC.Clock as Clock
 import qualified GHC.Conc as GHC
 import System.Environment (getArgs)
 import System.Exit (exitFailure, exitSuccess)
+import Text.Printf (printf)
 import Text.Read (readMaybe)
 
 data ParsedTask = ParsedTask
@@ -76,6 +78,29 @@ data CheckMetrics = CheckMetrics
   , metricExpectedWindows :: Integer
   , metricExpectedBlocks :: Int
   , metricResult :: Bool
+  , metricPhaseCsvReadSeconds :: Double
+  , metricPhaseCsvParseSeconds :: Double
+  , metricPhaseCborDecodeSeconds :: Double
+  , metricPhaseWitnessDecodeSeconds :: Double
+  , metricPhaseMetadataValidateSeconds :: Double
+  , metricPhaseBuildDbfSeconds :: Double
+  , metricPhaseResolveThreadsSeconds :: Double
+  , metricPhaseActualBasisCountSeconds :: Double
+  , metricPhaseExpectedBasisGenerateSeconds :: Double
+  , metricPhaseActualSplitSeconds :: Double
+  , metricPhaseExpectedSplitSeconds :: Double
+  , metricPhaseStructuralSeconds :: Double
+  , metricPhaseWorkersSeconds :: Double
+  , metricPhaseCheckTotalSeconds :: Double
+  }
+
+data InputPhaseMetrics = InputPhaseMetrics
+  { inputPhaseCsvReadSeconds :: Double
+  , inputPhaseCsvParseSeconds :: Double
+  , inputPhaseCborDecodeSeconds :: Double
+  , inputPhaseWitnessDecodeSeconds :: Double
+  , inputPhaseMetadataValidateSeconds :: Double
+  , inputPhaseBuildDbfSeconds :: Double
   }
 
 main :: IO ()
@@ -134,27 +159,44 @@ runCheck :: CheckOptions -> IO ()
 runCheck opts = do
   let taskPath = optTasksPath opts
       witnessPath = optWitnessPath opts
-  taskContent <- readFile taskPath
-  case parseCsv taskContent of
+  (taskContent, phaseCsvRead) <- timedIO (readFile taskPath)
+  (parsedTasks, phaseCsvParse) <- timedEval (parseCsv taskContent)
+  case parsedTasks of
     Left err -> reject ("invalid CSV: " ++ err)
     Right tasks -> do
-      decoded <- readCborTermFile witnessPath
+      (decoded, phaseCborDecode) <- timedIO (readCborTermFile witnessPath)
       case decoded of
         Left err -> reject ("malformed CBOR: " ++ err)
-        Right term ->
-          case witnessFromTerm term of
+        Right term -> do
+          (decodedWitness, phaseWitnessDecode) <- timedEval (witnessFromTerm term)
+          case decodedWitness of
             Left err -> reject ("malformed CBOR: " ++ err)
-            Right witness -> case validateWitnessMetadata tasks witness of
-              Left err -> reject err
-              Right () ->
-                case checkWitness opts tasks witness of
-                  Left err -> reject err
-                  Right action -> do
-                    (ok, metrics) <- action
-                    writeMetrics (optMetricsOut opts) metrics
-                    if ok
-                      then putStrLn "ACCEPT" >> exitSuccess
-                      else reject "extracted checker rejected witness"
+            Right witness -> do
+              (metadataResult, phaseMetadataValidate) <-
+                timedEval (validateWitnessMetadata tasks witness)
+              case metadataResult of
+                Left err -> reject err
+                Right () -> do
+                  (dbfResult, phaseBuildDbf) <-
+                    timedEval (buildDbf (certDbf (witnessCert witness)))
+                  case dbfResult of
+                    Left err -> reject err
+                    Right cert -> do
+                      let input = toEDFList (map toEDFTask tasks)
+                          inputPhases =
+                            InputPhaseMetrics
+                              { inputPhaseCsvReadSeconds = phaseCsvRead
+                              , inputPhaseCsvParseSeconds = phaseCsvParse
+                              , inputPhaseCborDecodeSeconds = phaseCborDecode
+                              , inputPhaseWitnessDecodeSeconds = phaseWitnessDecode
+                              , inputPhaseMetadataValidateSeconds = phaseMetadataValidate
+                              , inputPhaseBuildDbfSeconds = phaseBuildDbf
+                              }
+                      (ok, metrics) <- runParallelBlockCheck inputPhases opts input cert
+                      writeMetrics (optMetricsOut opts) metrics
+                      if ok
+                        then putStrLn "ACCEPT" >> exitSuccess
+                        else reject "extracted checker rejected witness"
 
 emitExpectedWitness :: FilePath -> FilePath -> IO ()
 emitExpectedWitness taskPath witnessPath = do
@@ -268,28 +310,29 @@ integerListField :: String -> String -> [(Term, Term)] -> Either String [Integer
 integerListField label key =
   termListField label key (expectInteger (label ++ "." ++ key ++ "[]"))
 
-checkWitness :: CheckOptions -> [ParsedTask] -> Witness -> Either String (IO (Bool, CheckMetrics))
-checkWitness opts tasks witness =
-  let input = toEDFList (map toEDFTask tasks)
-      dbf = certDbf (witnessCert witness)
-  in case witnessSchemaVersion witness of
-       3 ->
-         runParallelBlockCheck opts input <$> buildDbf dbf
-       _ -> Left "unsupported schema_version"
-
 runParallelBlockCheck ::
+  InputPhaseMetrics ->
   CheckOptions ->
   EDF.List EDF.ExtractedJitteredPeriodicTask ->
   EDF.JitteredEDFCompactDbfCertificate ->
   IO (Bool, CheckMetrics)
-runParallelBlockCheck opts input cert = do
-  threads <- resolveThreads (optThreads opts)
+runParallelBlockCheck inputPhases opts input cert = do
+  checkStart <- monotonicSeconds
+  (threads, phaseResolveThreads) <- timedIO (resolveThreads (optThreads opts))
   GHC.setNumCapabilities threads
   let blockWindows = optBlockWindows opts
       actualBasis = EDF.jedf_compact_basis cert
       expectedBasis = EDF.jittered_edf_compact_dbf_certificate_expected_basis input
-      actualBlocks = splitBasisByWindows blockWindows actualBasis
-      expectedBlocks = splitBasisByWindows blockWindows expectedBasis
+  ((actualRows, actualWindows), phaseActualBasisCount) <-
+    timedEval (basisCounts actualBasis)
+  ((expectedRows, expectedWindows), phaseExpectedBasisGenerate) <-
+    timedEval (basisCounts expectedBasis)
+  (actualBlocks, phaseActualSplit) <-
+    timedIO (forceBlockList (splitBasisByWindows blockWindows actualBasis))
+  (expectedBlocks, phaseExpectedSplit) <-
+    timedIO (forceBlockList (splitBasisByWindows blockWindows expectedBasis))
+  let actualBlockCount = length actualBlocks
+      expectedBlockCount = length expectedBlocks
       structural =
         EDF.check_jittered_edf_compact_dbf_certificate_header_extracted input cert
           && EDF.check_jittered_edf_compact_dbf_certificate_block_basis_for_expected
@@ -297,27 +340,61 @@ runParallelBlockCheck opts input cert = do
                (toEDFList actualBlocks)
                (toEDFList expectedBlocks)
                cert
-      metrics result =
+      metrics result phaseStructural phaseWorkers phaseCheckTotal =
         CheckMetrics
           { metricThreads = threads
           , metricBlockWindows = blockWindows
-          , metricActualRows = basisRowCount actualBasis
-          , metricActualWindows = basisWindowCount actualBasis
-          , metricActualBlocks = length actualBlocks
-          , metricExpectedRows = basisRowCount expectedBasis
-          , metricExpectedWindows = basisWindowCount expectedBasis
-          , metricExpectedBlocks = length expectedBlocks
+          , metricActualRows = actualRows
+          , metricActualWindows = actualWindows
+          , metricActualBlocks = actualBlockCount
+          , metricExpectedRows = expectedRows
+          , metricExpectedWindows = expectedWindows
+          , metricExpectedBlocks = expectedBlockCount
           , metricResult = result
+          , metricPhaseCsvReadSeconds = inputPhaseCsvReadSeconds inputPhases
+          , metricPhaseCsvParseSeconds = inputPhaseCsvParseSeconds inputPhases
+          , metricPhaseCborDecodeSeconds = inputPhaseCborDecodeSeconds inputPhases
+          , metricPhaseWitnessDecodeSeconds = inputPhaseWitnessDecodeSeconds inputPhases
+          , metricPhaseMetadataValidateSeconds = inputPhaseMetadataValidateSeconds inputPhases
+          , metricPhaseBuildDbfSeconds = inputPhaseBuildDbfSeconds inputPhases
+          , metricPhaseResolveThreadsSeconds = phaseResolveThreads
+          , metricPhaseActualBasisCountSeconds = phaseActualBasisCount
+          , metricPhaseExpectedBasisGenerateSeconds = phaseExpectedBasisGenerate
+          , metricPhaseActualSplitSeconds = phaseActualSplit
+          , metricPhaseExpectedSplitSeconds = phaseExpectedSplit
+          , metricPhaseStructuralSeconds = phaseStructural
+          , metricPhaseWorkersSeconds = phaseWorkers
+          , metricPhaseCheckTotalSeconds = phaseCheckTotal
           }
-  structuralOk <- evaluate structural
+  (structuralOk, phaseStructural) <- timedEval structural
   if not structuralOk
-    then pure (False, metrics False)
+    then do
+      checkEnd <- monotonicSeconds
+      pure (False, metrics False phaseStructural 0 (checkEnd - checkStart))
     else do
-      blockOk <-
-        parallelAll threads $
-          map (checkBasisBlock input) actualBlocks
+      (blockOk, phaseWorkers) <-
+        timedIO $
+          parallelAll threads $
+            map (checkBasisBlock input) actualBlocks
       let ok = structuralOk && blockOk
-      pure (ok, metrics ok)
+      checkEnd <- monotonicSeconds
+      pure (ok, metrics ok phaseStructural phaseWorkers (checkEnd - checkStart))
+
+timedEval :: a -> IO (a, Double)
+timedEval value =
+  timedIO (evaluate value)
+
+timedIO :: IO a -> IO (a, Double)
+timedIO action = do
+  start <- monotonicSeconds
+  value <- action
+  end <- monotonicSeconds
+  pure (value, end - start)
+
+monotonicSeconds :: IO Double
+monotonicSeconds = do
+  nanoseconds <- Clock.getMonotonicTimeNSec
+  pure (fromIntegral nanoseconds / 1000000000.0)
 
 resolveThreads :: ThreadSetting -> IO Int
 resolveThreads (ThreadCount n) = pure n
@@ -389,6 +466,18 @@ basisWindowCount :: EDF.JitteredCompactDbfBasis -> Integer
 basisWindowCount =
   sum . map rowWindowCount . fromEDFList
 
+basisCounts :: EDF.JitteredCompactDbfBasis -> (Int, Integer)
+basisCounts basis =
+  let rows = fromEDFList basis
+      rowCount = length rows
+      windowCount = sum (map rowWindowCount rows)
+  in rowCount `seq` windowCount `seq` (rowCount, windowCount)
+
+forceBlockList :: [EDF.JitteredCompactDbfBasis] -> IO [EDF.JitteredCompactDbfBasis]
+forceBlockList blocks = do
+  _ <- evaluate (length blocks)
+  pure blocks
+
 rowWindowCount :: EDF.Prod EDF.Time (EDF.List EDF.Time) -> Integer
 rowWindowCount (EDF.Pair _ leftEdges) =
   fromIntegral (length (fromEDFList leftEdges))
@@ -406,8 +495,26 @@ writeMetrics (Just path) metrics =
       , "expected_rows=" ++ show (metricExpectedRows metrics)
       , "expected_windows=" ++ show (metricExpectedWindows metrics)
       , "expected_blocks=" ++ show (metricExpectedBlocks metrics)
+      , "phase_csv_read_s=" ++ formatSeconds (metricPhaseCsvReadSeconds metrics)
+      , "phase_csv_parse_s=" ++ formatSeconds (metricPhaseCsvParseSeconds metrics)
+      , "phase_cbor_decode_s=" ++ formatSeconds (metricPhaseCborDecodeSeconds metrics)
+      , "phase_witness_decode_s=" ++ formatSeconds (metricPhaseWitnessDecodeSeconds metrics)
+      , "phase_metadata_validate_s=" ++ formatSeconds (metricPhaseMetadataValidateSeconds metrics)
+      , "phase_build_dbf_s=" ++ formatSeconds (metricPhaseBuildDbfSeconds metrics)
+      , "phase_resolve_threads_s=" ++ formatSeconds (metricPhaseResolveThreadsSeconds metrics)
+      , "phase_actual_basis_count_s=" ++ formatSeconds (metricPhaseActualBasisCountSeconds metrics)
+      , "phase_expected_basis_generate_s=" ++ formatSeconds (metricPhaseExpectedBasisGenerateSeconds metrics)
+      , "phase_actual_split_s=" ++ formatSeconds (metricPhaseActualSplitSeconds metrics)
+      , "phase_expected_split_s=" ++ formatSeconds (metricPhaseExpectedSplitSeconds metrics)
+      , "phase_structural_s=" ++ formatSeconds (metricPhaseStructuralSeconds metrics)
+      , "phase_workers_s=" ++ formatSeconds (metricPhaseWorkersSeconds metrics)
+      , "phase_check_total_s=" ++ formatSeconds (metricPhaseCheckTotalSeconds metrics)
       , "result=" ++ if metricResult metrics then "accept" else "reject"
       ]
+
+formatSeconds :: Double -> String
+formatSeconds =
+  printf "%.6f"
 
 buildDbf :: DbfJson -> Either String EDF.JitteredEDFCompactDbfCertificate
 buildDbf dbf =
