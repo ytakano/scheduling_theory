@@ -58,6 +58,24 @@ Fixpoint compact_dbf_basis_eqb
   | _, _ => false
   end.
 
+Definition compact_dbf_basis_blocks_eqb
+    (actual_blocks expected_blocks : list JitteredCompactDbfBasis) : bool :=
+  compact_dbf_basis_eqb (concat actual_blocks) (concat expected_blocks).
+
+Definition check_jittered_edf_compact_dbf_certificate_block_basis
+    (actual_blocks expected_blocks : list JitteredCompactDbfBasis)
+    (cert : JitteredEDFCompactDbfCertificate) : bool :=
+  compact_dbf_basis_eqb cert.(jedf_compact_basis) (concat actual_blocks)
+  && compact_dbf_basis_blocks_eqb actual_blocks expected_blocks.
+
+Definition check_jittered_edf_compact_dbf_certificate_block_basis_for_expected
+    (expected_basis : JitteredCompactDbfBasis)
+    (actual_blocks expected_blocks : list JitteredCompactDbfBasis)
+    (cert : JitteredEDFCompactDbfCertificate) : bool :=
+  compact_dbf_basis_eqb expected_basis (concat expected_blocks)
+  && check_jittered_edf_compact_dbf_certificate_block_basis
+       actual_blocks expected_blocks cert.
+
 Definition check_jittered_edf_dbf_certificate_fields
     (expected_cutoff : Time)
     (expected_windows : list (Time * Time))
@@ -151,6 +169,54 @@ Proof.
     apply IH in Htail.
     subst.
     reflexivity.
+Qed.
+
+Lemma compact_dbf_basis_blocks_eqb_true :
+  forall actual_blocks expected_blocks,
+    compact_dbf_basis_blocks_eqb actual_blocks expected_blocks = true ->
+    concat actual_blocks = concat expected_blocks.
+Proof.
+  intros actual_blocks expected_blocks Heq.
+  unfold compact_dbf_basis_blocks_eqb in Heq.
+  apply compact_dbf_basis_eqb_true in Heq.
+  exact Heq.
+Qed.
+
+Lemma check_jittered_edf_compact_dbf_certificate_block_basis_sound :
+  forall actual_blocks expected_blocks cert,
+    check_jittered_edf_compact_dbf_certificate_block_basis
+      actual_blocks expected_blocks cert = true ->
+    cert.(jedf_compact_basis) = concat actual_blocks
+    /\ concat actual_blocks = concat expected_blocks
+    /\ cert.(jedf_compact_basis) = concat expected_blocks.
+Proof.
+  intros actual_blocks expected_blocks cert Hcheck.
+  unfold check_jittered_edf_compact_dbf_certificate_block_basis in Hcheck.
+  apply andb_true_iff in Hcheck as [Hactual Hblocks].
+  apply compact_dbf_basis_eqb_true in Hactual.
+  apply compact_dbf_basis_blocks_eqb_true in Hblocks.
+  repeat split; congruence.
+Qed.
+
+Lemma check_jittered_edf_compact_dbf_certificate_block_basis_for_expected_sound :
+  forall expected_basis actual_blocks expected_blocks cert,
+    check_jittered_edf_compact_dbf_certificate_block_basis_for_expected
+      expected_basis actual_blocks expected_blocks cert = true ->
+    cert.(jedf_compact_basis) = expected_basis
+    /\ cert.(jedf_compact_basis) = concat actual_blocks
+    /\ concat actual_blocks = concat expected_blocks
+    /\ expected_basis = concat expected_blocks.
+Proof.
+  intros expected_basis actual_blocks expected_blocks cert Hcheck.
+  unfold check_jittered_edf_compact_dbf_certificate_block_basis_for_expected
+    in Hcheck.
+  apply andb_true_iff in Hcheck as [Hexpected Hblock].
+  apply compact_dbf_basis_eqb_true in Hexpected.
+  destruct
+    (check_jittered_edf_compact_dbf_certificate_block_basis_sound
+       actual_blocks expected_blocks cert Hblock)
+    as [Hactual [Hblocks Hcert_expected_blocks]].
+  repeat split; congruence.
 Qed.
 
 Lemma check_jittered_edf_dbf_certificate_fields_sound :

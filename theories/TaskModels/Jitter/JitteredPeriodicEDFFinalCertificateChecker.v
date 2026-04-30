@@ -131,6 +131,24 @@ Definition check_jittered_edf_compact_dbf_certificate_header_extracted
        (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
        cert.
 
+Definition check_jittered_edf_compact_dbf_certificate_blocks_extracted
+    (ts : list ExtractedJitteredPeriodicTask)
+    (actual_blocks expected_blocks : list JitteredCompactDbfBasis)
+    (cert : JitteredEDFCompactDbfCertificate) : bool :=
+  extracted_jittered_taskset_wf ts
+  && check_jittered_edf_compact_dbf_certificate_header
+       (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
+       cert
+  && check_jittered_edf_compact_dbf_certificate_block_basis_for_expected
+       (jittered_edf_compact_dbf_certificate_expected_basis ts)
+       actual_blocks expected_blocks cert
+  && jittered_fast_compact_basis_ndbf_blocks_test
+       (jittered_tasks_of_extracted_list ts)
+       (jittered_offset_of_extracted_list ts)
+       (jitter_of_extracted_list ts)
+       (jittered_enumT_of_extracted_list ts)
+       actual_blocks.
+
 Lemma check_jittered_edf_dbf_certificate_extracted_fields :
   forall ts cert,
     check_jittered_edf_dbf_certificate_extracted ts cert = true ->
@@ -167,6 +185,33 @@ Proof.
   unfold check_jittered_edf_compact_dbf_certificate_extracted in Hcheck.
   apply andb_true_iff in Hcheck as [Hrest Hdbf].
   apply andb_true_iff in Hrest as [Hwf Hfields].
+  repeat split; assumption.
+Qed.
+
+Lemma check_jittered_edf_compact_dbf_certificate_blocks_extracted_fields :
+  forall ts actual_blocks expected_blocks cert,
+    check_jittered_edf_compact_dbf_certificate_blocks_extracted
+      ts actual_blocks expected_blocks cert = true ->
+    extracted_jittered_taskset_wf ts = true
+    /\ check_jittered_edf_compact_dbf_certificate_header
+         (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
+         cert = true
+    /\ check_jittered_edf_compact_dbf_certificate_block_basis_for_expected
+         (jittered_edf_compact_dbf_certificate_expected_basis ts)
+         actual_blocks expected_blocks cert = true
+    /\ jittered_fast_compact_basis_ndbf_blocks_test
+         (jittered_tasks_of_extracted_list ts)
+         (jittered_offset_of_extracted_list ts)
+         (jitter_of_extracted_list ts)
+         (jittered_enumT_of_extracted_list ts)
+         actual_blocks = true.
+Proof.
+  intros ts actual_blocks expected_blocks cert Hcheck.
+  unfold check_jittered_edf_compact_dbf_certificate_blocks_extracted
+    in Hcheck.
+  apply andb_true_iff in Hcheck as [Hrest Hblocks].
+  apply andb_true_iff in Hrest as [Hrest Hbasis].
+  apply andb_true_iff in Hrest as [Hwf Hheader].
   repeat split; assumption.
 Qed.
 
@@ -309,6 +354,38 @@ Proof.
   exact Hfields.
 Qed.
 
+Lemma check_jittered_edf_compact_dbf_certificate_blocks_extracted_certificate_fields :
+  forall ts actual_blocks expected_blocks cert,
+    check_jittered_edf_compact_dbf_certificate_blocks_extracted
+      ts actual_blocks expected_blocks cert = true ->
+    cert.(jedf_compact_cutoff) =
+      jittered_edf_compact_dbf_certificate_expected_cutoff ts
+    /\ cert.(jedf_compact_basis) =
+      jittered_edf_compact_dbf_certificate_expected_basis ts
+    /\ cert.(jedf_all_basis_checked) = true
+    /\ cert.(jedf_compact_basis) = concat actual_blocks
+    /\ concat actual_blocks = concat expected_blocks
+    /\ jittered_edf_compact_dbf_certificate_expected_basis ts =
+      concat expected_blocks.
+Proof.
+  intros ts actual_blocks expected_blocks cert Hcheck.
+  destruct
+    (check_jittered_edf_compact_dbf_certificate_blocks_extracted_fields
+       ts actual_blocks expected_blocks cert Hcheck)
+    as [_ [Hheader [Hbasis _]]].
+  destruct
+    (check_jittered_edf_compact_dbf_certificate_header_sound
+       (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
+       cert Hheader)
+    as [Hcutoff Hall].
+  destruct
+    (check_jittered_edf_compact_dbf_certificate_block_basis_for_expected_sound
+       (jittered_edf_compact_dbf_certificate_expected_basis ts)
+       actual_blocks expected_blocks cert Hbasis)
+    as [Hcert_basis [Hactual [Hblocks Hexpected]]].
+  repeat split; assumption.
+Qed.
+
 Lemma jittered_fast_compact_basis_dbf_test_to_cutoff_test :
   forall tasks offset jitter enumT H basis,
     jittered_compact_basis_covers_upto tasks offset jitter enumT H basis ->
@@ -376,4 +453,46 @@ Proof.
              extracted_jittered_offset_window_dbf_cutoff_bound.
       apply jittered_reduced_compact_basis_covers_upto.
     + exact Hcompact.
+Qed.
+
+Theorem check_jittered_edf_compact_dbf_certificate_blocks_extracted_sound :
+  forall ts actual_blocks expected_blocks cert,
+    check_jittered_edf_compact_dbf_certificate_blocks_extracted
+      ts actual_blocks expected_blocks cert = true ->
+    extracted_jittered_offset_window_dbf_ok_global ts.
+Proof.
+  intros ts actual_blocks expected_blocks cert Hcheck.
+  destruct
+    (check_jittered_edf_compact_dbf_certificate_blocks_extracted_fields
+       ts actual_blocks expected_blocks cert Hcheck)
+    as [Hwf [_ [Hbasis Hblocks]]].
+  destruct
+    (check_jittered_edf_compact_dbf_certificate_block_basis_for_expected_sound
+       (jittered_edf_compact_dbf_certificate_expected_basis ts)
+       actual_blocks expected_blocks cert Hbasis)
+    as [Hcert_basis [Hactual [_ _]]].
+  unfold extracted_jittered_offset_window_dbf_ok_global.
+  eapply jittered_offset_window_dbf_check_by_cutoff.
+  - intros τ Hin.
+    eapply extracted_jittered_tasks_well_formed_on_enum.
+    + exact Hwf.
+    + apply jittered_enumT_of_extracted_list_sound.
+      exact Hin.
+  - unfold extracted_jittered_offset_window_dbf_test_by_cutoff.
+    apply
+      (jittered_fast_compact_basis_dbf_test_to_cutoff_test
+         (jittered_tasks_of_extracted_list ts)
+         (jittered_offset_of_extracted_list ts)
+         (jitter_of_extracted_list ts)
+         (jittered_enumT_of_extracted_list ts)
+         (extracted_jittered_offset_window_dbf_cutoff_bound ts)
+         cert.(jedf_compact_basis)).
+    + rewrite Hcert_basis.
+      unfold jittered_edf_compact_dbf_certificate_expected_basis,
+             jittered_edf_compact_dbf_certificate_expected_cutoff,
+             extracted_jittered_offset_window_dbf_cutoff_bound.
+      apply jittered_reduced_compact_basis_covers_upto.
+    + rewrite Hactual.
+      apply jittered_fast_compact_basis_ndbf_blocks_test_implies_concat.
+      exact Hblocks.
 Qed.
