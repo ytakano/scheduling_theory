@@ -101,8 +101,10 @@ The CBOR witness keeps the same `cert.dbf.basis` rows:
 
 The abstract interface is the decoded jittered task set and the compact DBF
 certificate obligation.  It contains task parameters, cutoff, basis rows, and
-the extracted boolean checker results.  The proof-facing semantics remain over
-the flattened `(t1, t2)` windows produced by `jittered_compact_basis_windows`.
+proof-backed boolean checker frontiers over those inputs.  The runner's
+evaluated `Bool` results are adapter/tool execution artifacts, not certificate
+fields or runtime events.  The proof-facing semantics remain over the flattened
+`(t1, t2)` windows produced by `jittered_compact_basis_windows`.
 
 The common layer is responsible for:
 

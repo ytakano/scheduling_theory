@@ -16,6 +16,15 @@ Import ListNotations.
 
 Definition JitteredCompactDbfBasis := list (Time * list Time).
 
+Definition jittered_compact_basis_row_windows
+    (row : Time * list Time) : list (Time * Time) :=
+  let '(t2, left_edges) := row in
+  map (fun t1 => (t1, t2)) left_edges.
+
+Definition jittered_compact_basis_block_windows
+    (block : JitteredCompactDbfBasis) : list (Time * Time) :=
+  concat (map jittered_compact_basis_row_windows block).
+
 Definition jittered_compact_basis_windows
     (basis : JitteredCompactDbfBasis) : list (Time * Time) :=
   flat_map
@@ -23,6 +32,78 @@ Definition jittered_compact_basis_windows
        let '(t2, left_edges) := row in
        map (fun t1 => (t1, t2)) left_edges)
     basis.
+
+Lemma forallb_concat :
+  forall (A : Type) (p : A -> bool) xss,
+    forallb p (concat xss) = forallb (forallb p) xss.
+Proof.
+  intros A p xss.
+  induction xss as [|xs xss IH]; simpl.
+  - reflexivity.
+  - rewrite forallb_app.
+    rewrite IH.
+    reflexivity.
+Qed.
+
+Lemma forallb_concat_map :
+  forall (A B : Type) (p : B -> bool) (f : A -> list B) xs,
+    forallb p (concat (map f xs)) =
+    forallb (fun x => forallb p (f x)) xs.
+Proof.
+  intros A B p f xs.
+  induction xs as [|x xs IH]; simpl.
+  - reflexivity.
+  - rewrite forallb_app.
+    rewrite IH.
+    reflexivity.
+Qed.
+
+Lemma jittered_compact_basis_windows_eq_concat_rows :
+  forall basis,
+    jittered_compact_basis_windows basis =
+    concat (map jittered_compact_basis_row_windows basis).
+Proof.
+  intros basis.
+  induction basis as [|[t2 left_edges] basis IH]; simpl.
+  - reflexivity.
+  - rewrite IH.
+    reflexivity.
+Qed.
+
+Lemma jittered_compact_basis_windows_eq_block_windows :
+  forall basis,
+    jittered_compact_basis_windows basis =
+    jittered_compact_basis_block_windows basis.
+Proof.
+  intros basis.
+  unfold jittered_compact_basis_block_windows.
+  apply jittered_compact_basis_windows_eq_concat_rows.
+Qed.
+
+Lemma jittered_compact_basis_block_windows_concat :
+  forall blocks,
+    jittered_compact_basis_block_windows (concat blocks) =
+    concat (map jittered_compact_basis_block_windows blocks).
+Proof.
+  intros blocks.
+  induction blocks as [|block blocks IH]; simpl.
+  - reflexivity.
+  - unfold jittered_compact_basis_block_windows in *.
+    rewrite map_app.
+    rewrite concat_app.
+    rewrite IH.
+    reflexivity.
+Qed.
+
+Lemma jittered_compact_basis_windows_concat_blocks :
+  forall blocks,
+    jittered_compact_basis_windows (concat blocks) =
+    concat (map jittered_compact_basis_block_windows blocks).
+Proof.
+  intros blocks.
+  rewrite jittered_compact_basis_windows_eq_block_windows.
+  apply jittered_compact_basis_block_windows_concat.
+Qed.
 
 Definition jittered_left_edge_covers
     (tasks : TaskId -> Task)
