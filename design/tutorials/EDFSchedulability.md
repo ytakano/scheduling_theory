@@ -10,6 +10,9 @@ using the supported runtime path:
 The Rust generator is not trusted.  A task set is accepted only when the
 extracted checker prints `ACCEPT`.
 
+The witness format is CBOR.  JSON witnesses are no longer accepted by the
+checkers.
+
 Run all commands from the repository root:
 
 ```sh
@@ -33,6 +36,10 @@ make build-jittered-edf-witness-check
 
 The commands below use `./target/release/sched-witness-gen`.  Do not replace it
 with the debug binary for large task sets.
+
+The helper scripts under `scripts/run_*_witness_pipeline` are useful for small
+development smoke tests, but they invoke the debug generator.  For measurement
+or large task sets, use the release commands shown below.
 
 ## Periodic EDF Without Offsets
 
@@ -105,7 +112,8 @@ ACCEPT
 
 ## Jittered Periodic EDF
 
-Use the five-column CSV form for release jitter:
+Use the five-column CSV form for release jitter.  The last header may be either
+`jitter` or `release_jitter`; the canonical task hash uses `jitter`.
 
 ```sh
 cat > /tmp/jittered.csv <<'CSV'
@@ -120,15 +128,22 @@ Generate a jittered EDF witness:
 ./target/release/sched-witness-gen jittered-periodic-edf \
   --tasks /tmp/jittered.csv \
   --out /tmp/jittered-witness.cbor \
-  --threads auto
+  --threads auto \
+  --basis-window-cap 10000000
 ```
+
+`--basis-window-cap` is a generator resource limit for the compact DBF witness.
+It defaults to `10000000`.  A cap failure means the untrusted generator refused
+to emit a witness under that local limit; it is not a checker proof result.
 
 Check the witness:
 
 ```sh
 ./scripts/jittered_edf_witness_check \
   --tasks /tmp/jittered.csv \
-  --witness /tmp/jittered-witness.cbor
+  --witness /tmp/jittered-witness.cbor \
+  --threads auto \
+  --block-windows 100000
 ```
 
 Expected result:
@@ -139,8 +154,9 @@ ACCEPT
 
 ## Thread Control
 
-`--threads auto` lets the generator choose a practical parallelism level.  For
-reproducible fixed parallelism, pass a positive integer:
+`--threads auto` lets the generator or jittered checker choose a practical
+parallelism level.  For reproducible fixed parallelism, pass a positive
+integer:
 
 ```sh
 ./target/release/sched-witness-gen jittered-periodic-edf \
@@ -149,7 +165,23 @@ reproducible fixed parallelism, pass a positive integer:
   --threads 2
 ```
 
-The checker command is unchanged.
+For the jittered Haskell checker, `--threads` controls parallel range-checker
+workers.  `--block-windows` controls the target maximum number of compact DBF
+windows per range work item.  The default checker mode is compatible with the
+old invocation, but explicitly passing these options makes benchmark runs
+reproducible:
+
+```sh
+./scripts/jittered_edf_witness_check \
+  --tasks /tmp/jittered.csv \
+  --witness /tmp/jittered-witness.threads2.cbor \
+  --threads 2 \
+  --block-windows 100000 \
+  --metrics-out /tmp/jittered-check.metrics
+```
+
+Periodic checker commands do not have checker-side thread or block-window
+options.
 
 ## Interpreting Failures
 
@@ -163,3 +195,8 @@ the witness task hash matches the input CSV.
 
 Only `ACCEPT` from the extracted Haskell checker should be treated as validated
 schedulability.
+
+The jittered checker validates the compact DBF certificate through proof-backed
+range work items.  Range planning, Haskell thread count, `--block-windows`, and
+metrics output are tool-layer execution choices; they are not certificate
+fields and are not Awkernel runtime behavior.
