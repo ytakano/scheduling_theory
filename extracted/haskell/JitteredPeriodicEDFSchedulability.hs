@@ -93,6 +93,12 @@ nth n l default0 =
             Cons _ l' -> nth m l' default0})
     n
 
+concat :: (List (List a1)) -> List a1
+concat l =
+  case l of {
+   Nil -> Nil;
+   Cons x l0 -> app x (concat l0)}
+
 flat_map :: (a1 -> List a2) -> (List a1) -> List a2
 flat_map f l =
   case l of {
@@ -454,6 +460,17 @@ taskset_jittered_periodic_fast_dbf_window tasks offset jitter enumT t1 t2 =
 
 type JitteredCompactDbfBasis = List (Prod Time (List Time))
 
+jittered_compact_basis_row_windows :: (Prod Time (List Time)) -> List
+                                      (Prod Time Time)
+jittered_compact_basis_row_windows row =
+  case row of {
+   Pair t2 left_edges -> map (\t1 -> Pair t1 t2) left_edges}
+
+jittered_compact_basis_block_windows :: JitteredCompactDbfBasis -> List
+                                        (Prod Time Time)
+jittered_compact_basis_block_windows block =
+  concat (map jittered_compact_basis_row_windows block)
+
 jittered_compact_basis_windows :: JitteredCompactDbfBasis -> List
                                   (Prod Time Time)
 jittered_compact_basis_windows basis =
@@ -546,6 +563,33 @@ compact_dbf_basis_eqb xs ys =
       (Prelude.&&) (compact_dbf_basis_row_eqb x y)
         (compact_dbf_basis_eqb xs' ys')}}
 
+compact_dbf_basis_blocks_eqb :: (List JitteredCompactDbfBasis) -> (List
+                                JitteredCompactDbfBasis) -> Prelude.Bool
+compact_dbf_basis_blocks_eqb actual_blocks expected_blocks =
+  compact_dbf_basis_eqb (concat actual_blocks) (concat expected_blocks)
+
+check_jittered_edf_compact_dbf_certificate_block_basis :: (List
+                                                          JitteredCompactDbfBasis)
+                                                          -> (List
+                                                          JitteredCompactDbfBasis)
+                                                          ->
+                                                          JitteredEDFCompactDbfCertificate
+                                                          -> Prelude.Bool
+check_jittered_edf_compact_dbf_certificate_block_basis actual_blocks expected_blocks cert =
+  (Prelude.&&)
+    (compact_dbf_basis_eqb (jedf_compact_basis cert) (concat actual_blocks))
+    (compact_dbf_basis_blocks_eqb actual_blocks expected_blocks)
+
+check_jittered_edf_compact_dbf_certificate_block_basis_for_expected :: 
+  JitteredCompactDbfBasis -> (List JitteredCompactDbfBasis) -> (List
+  JitteredCompactDbfBasis) -> JitteredEDFCompactDbfCertificate ->
+  Prelude.Bool
+check_jittered_edf_compact_dbf_certificate_block_basis_for_expected expected_basis actual_blocks expected_blocks cert =
+  (Prelude.&&)
+    (compact_dbf_basis_eqb expected_basis (concat expected_blocks))
+    (check_jittered_edf_compact_dbf_certificate_block_basis actual_blocks
+      expected_blocks cert)
+
 check_jittered_edf_compact_dbf_certificate_fields :: Time ->
                                                      JitteredCompactDbfBasis
                                                      ->
@@ -555,6 +599,13 @@ check_jittered_edf_compact_dbf_certificate_fields expected_cutoff expected_basis
   (Prelude.&&)
     ((Prelude.&&) ((Prelude.==) (jedf_compact_cutoff cert) expected_cutoff)
       (compact_dbf_basis_eqb (jedf_compact_basis cert) expected_basis))
+    (jedf_all_basis_checked cert)
+
+check_jittered_edf_compact_dbf_certificate_header :: Time ->
+                                                     JitteredEDFCompactDbfCertificate
+                                                     -> Prelude.Bool
+check_jittered_edf_compact_dbf_certificate_header expected_cutoff cert =
+  (Prelude.&&) ((Prelude.==) (jedf_compact_cutoff cert) expected_cutoff)
     (jedf_all_basis_checked cert)
 
 first_jittered_window_dbf_overload_upto :: (TaskId -> Task) -> (TaskId ->
@@ -864,6 +915,30 @@ jittered_fast_compact_basis_ndbf_test tasks offset jitter enumT basis =
           t1 t2)})
     (jittered_compact_basis_windows basis)
 
+jittered_fast_compact_basis_ndbf_block_test :: (TaskId -> Task) -> (TaskId ->
+                                               Time) -> (TaskId -> Time) ->
+                                               (List TaskId) ->
+                                               JitteredCompactDbfBasis ->
+                                               Prelude.Bool
+jittered_fast_compact_basis_ndbf_block_test tasks offset jitter enumT block =
+  forallb (\w ->
+    case w of {
+     Pair t1 t2 ->
+      (Prelude.&&) ((Prelude.<=) t1 t2)
+        (jittered_periodic_fast_dbf_window_ok_N_b tasks offset jitter enumT
+          t1 t2)})
+    (jittered_compact_basis_block_windows block)
+
+jittered_fast_compact_basis_ndbf_blocks_test :: (TaskId -> Task) -> (TaskId
+                                                -> Time) -> (TaskId -> Time)
+                                                -> (List TaskId) -> (List
+                                                JitteredCompactDbfBasis) ->
+                                                Prelude.Bool
+jittered_fast_compact_basis_ndbf_blocks_test tasks offset jitter enumT blocks =
+  forallb
+    (jittered_fast_compact_basis_ndbf_block_test tasks offset jitter enumT)
+    blocks
+
 check_jittered_edf_compact_dbf_certificate_extracted :: (List
                                                         ExtractedJitteredPeriodicTask)
                                                         ->
@@ -879,4 +954,39 @@ check_jittered_edf_compact_dbf_certificate_extracted ts cert =
       (jittered_tasks_of_extracted_list ts)
       (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
       (jittered_enumT_of_extracted_list ts) (jedf_compact_basis cert))
+
+check_jittered_edf_compact_dbf_certificate_header_extracted :: (List
+                                                               ExtractedJitteredPeriodicTask)
+                                                               ->
+                                                               JitteredEDFCompactDbfCertificate
+                                                               ->
+                                                               Prelude.Bool
+check_jittered_edf_compact_dbf_certificate_header_extracted ts cert =
+  (Prelude.&&) (extracted_jittered_taskset_wf ts)
+    (check_jittered_edf_compact_dbf_certificate_header
+      (jittered_edf_compact_dbf_certificate_expected_cutoff ts) cert)
+
+check_jittered_edf_compact_dbf_certificate_blocks_extracted :: (List
+                                                               ExtractedJitteredPeriodicTask)
+                                                               -> (List
+                                                               JitteredCompactDbfBasis)
+                                                               -> (List
+                                                               JitteredCompactDbfBasis)
+                                                               ->
+                                                               JitteredEDFCompactDbfCertificate
+                                                               ->
+                                                               Prelude.Bool
+check_jittered_edf_compact_dbf_certificate_blocks_extracted ts actual_blocks expected_blocks cert =
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&) (extracted_jittered_taskset_wf ts)
+        (check_jittered_edf_compact_dbf_certificate_header
+          (jittered_edf_compact_dbf_certificate_expected_cutoff ts) cert))
+      (check_jittered_edf_compact_dbf_certificate_block_basis_for_expected
+        (jittered_edf_compact_dbf_certificate_expected_basis ts)
+        actual_blocks expected_blocks cert))
+    (jittered_fast_compact_basis_ndbf_blocks_test
+      (jittered_tasks_of_extracted_list ts)
+      (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
+      (jittered_enumT_of_extracted_list ts) actual_blocks)
 
