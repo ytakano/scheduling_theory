@@ -13,11 +13,9 @@ implementation choices behind stable extracted checker entry points.
 
 ## Measurement Conditions
 
-Date: 2026-04-30T13:58:46Z.
+Date: 2026-04-30T18:15:35Z.
 
-Source snapshot: `scheduling_theory` at `cf87a42`, plus the local change that
-makes the jittered Rust generator cap configurable and defaults it to
-`10,000,000`.
+Source snapshot: `scheduling_theory` at `0588350`, plus this document refresh.
 
 Host and toolchain:
 
@@ -34,30 +32,32 @@ Host and toolchain:
 | Witness encoding | CBOR |
 | Schema version | `3` |
 | Rust generator | release build, `./target/release/sched-witness-gen` |
-| Haskell checker | original measurement: extracted checker built with `ghc -O2`; parallel follow-up: `ghc -O2 -threaded -rtsopts` |
-| Extraction rebuild | not rerun for this measurement |
-| Benchmark CSV | `/tmp/jittered_cap_10m_bench.csv` |
+| Haskell checker | extracted checker built with `ghc -O2 -threaded -rtsopts` |
+| Extraction rebuild | extraction target was up to date |
+| Benchmark CSV | `/tmp/jittered_range_latest.csv` |
 
 Build and measurement commands:
 
 ```sh
 cargo build --release -p sched-witness-gen
-stack exec --package cborg -- ghc -O2 -package cborg -package crypton \
-  -iscripts -iextracted/haskell -outputdir scripts/.build \
-  -o scripts/jittered_edf_witness_check scripts/jittered_edf_witness_check.hs
+make build-jittered-edf-witness-check
 JITTERED_BASIS_WINDOW_CAP=10000000 \
-  ./scripts/bench_jittered_edf_witness_pipeline /tmp/jittered_cap_10m_bench.csv
+JITTERED_CHECKER_THREADS=auto \
+JITTERED_CHECKER_BLOCK_WINDOWS=100000 \
+TIME_CMD=/usr/bin/time \
+  ./scripts/bench_jittered_edf_witness_pipeline /tmp/jittered_range_latest.csv
 ```
 
 The benchmark script uses `/usr/bin/time -f '%e,%U,%S,%M'` for elapsed seconds,
 user seconds, system seconds, and maximum resident set size in KiB. Rust
 generation was measured for `--threads 1`, `--threads 2`, and `--threads auto`.
-Original Haskell checking was measured for the witness generated with
-`--threads auto`; the old checker invocation did not pass a checker-side
-`--threads` flag and therefore ran as a single effective checker thread.
+Haskell checking was measured for the witness generated with `--threads auto`.
+The latest checker measurement uses the Phase 2 range-checker path.  The
+aggregate range checker remains proof/reference tooling; the normal runner
+validates the header, range cover, and certificate-basis concatenation once,
+then runs the extracted per-range checker over planned range work items.
 
-The later Haskell block-checker follow-up used source snapshot `9bfae36`
-(`Test jittered EDF block checker modes`) and rebuilt the checker with:
+The checker was built with:
 
 ```sh
 stack exec --package cborg -- ghc -O2 -threaded -rtsopts \
@@ -66,8 +66,8 @@ stack exec --package cborg -- ghc -O2 -threaded -rtsopts \
   -o scripts/jittered_edf_witness_check scripts/jittered_edf_witness_check.hs
 ```
 
-That follow-up reused the same `cap_stress` task shape and a freshly generated
-schema-v3 CBOR witness under the 10M cap.
+This measurement uses a single checker point, `--threads auto --block-windows
+100000`, after each `--threads auto` generator run.
 
 ## Benchmark Cases
 
@@ -76,7 +76,7 @@ schema-v3 CBOR witness under the 10M cap.
 | `small` | `(cost=1, period=2, deadline=2, offset=0, jitter=0)` | Smoke case |
 | `medium` | `small` plus `(1,3,3,0,1)` | Small mixed-task case |
 | `large` | `(1,8,8,0,1)` | Higher-cutoff release-jitter case |
-| `limit_near` | `(1,16,16,0,1)` | Historical stress-preserving case |
+| `limit_near` | `(1,16,16,0,1)` | Mid-size stress-preserving case |
 | `cap_stress` | `(1,169,169,0,1)` | Near-10M compact-basis stress case |
 
 For `cap_stress`, the generated compact basis has `9,855,243` windows. This is
@@ -91,162 +91,60 @@ with `period=170`, `deadline=170`, `jitter=1` would exceed the cap with
 | small | Rust generator | 1 | 10,000,000 | 14 | 64 | 681 | 0.00 | 0.00 | 0.00 | 2,688 | ok |
 | small | Rust generator | 2 | 10,000,000 | 14 | 64 | 681 | 0.00 | 0.00 | 0.00 | 3,072 | ok |
 | small | Rust generator | auto | 10,000,000 | 14 | 64 | 681 | 0.00 | 0.00 | 0.00 | 3,072 | ok |
-| small | Haskell checker | 1 effective | 10,000,000 | 14 | 64 | 681 | 0.00 | 0.00 | 0.00 | 6,144 | ok |
+| small | Haskell range checker | auto / 16 actual | 10,000,000 | 14 | 64 | 681 | 0.03 | 0.00 | 0.00 | 8,704 | ok |
 | medium | Rust generator | 1 | 10,000,000 | 70 | 1,715 | 4,131 | 0.00 | 0.00 | 0.00 | 2,816 | ok |
 | medium | Rust generator | 2 | 10,000,000 | 70 | 1,715 | 4,131 | 0.00 | 0.00 | 0.00 | 2,944 | ok |
-| medium | Rust generator | auto | 10,000,000 | 70 | 1,715 | 4,131 | 0.00 | 0.00 | 0.00 | 2,816 | ok |
-| medium | Haskell checker | 1 effective | 10,000,000 | 70 | 1,715 | 4,131 | 0.00 | 0.00 | 0.00 | 9,856 | ok |
+| medium | Rust generator | auto | 10,000,000 | 70 | 1,715 | 4,131 | 0.00 | 0.00 | 0.00 | 2,944 | ok |
+| medium | Haskell range checker | auto / 16 actual | 10,000,000 | 70 | 1,715 | 4,131 | 0.03 | 0.00 | 0.01 | 12,160 | ok |
 | large | Rust generator | 1 | 10,000,000 | 153 | 1,560 | 5,796 | 0.00 | 0.00 | 0.00 | 2,816 | ok |
 | large | Rust generator | 2 | 10,000,000 | 153 | 1,560 | 5,796 | 0.00 | 0.00 | 0.00 | 2,944 | ok |
-| large | Rust generator | auto | 10,000,000 | 153 | 1,560 | 5,796 | 0.00 | 0.00 | 0.00 | 2,944 | ok |
-| large | Haskell checker | 1 effective | 10,000,000 | 153 | 1,560 | 5,796 | 0.01 | 0.00 | 0.00 | 9,984 | ok |
-| limit_near | Rust generator | 1 | 10,000,000 | 561 | 10,152 | 33,245 | 0.00 | 0.00 | 0.00 | 2,944 | ok |
+| large | Rust generator | auto | 10,000,000 | 153 | 1,560 | 5,796 | 0.00 | 0.00 | 0.00 | 3,072 | ok |
+| large | Haskell range checker | auto / 16 actual | 10,000,000 | 153 | 1,560 | 5,796 | 0.03 | 0.01 | 0.00 | 12,160 | ok |
+| limit_near | Rust generator | 1 | 10,000,000 | 561 | 10,152 | 33,245 | 0.00 | 0.00 | 0.00 | 2,816 | ok |
 | limit_near | Rust generator | 2 | 10,000,000 | 561 | 10,152 | 33,245 | 0.00 | 0.00 | 0.00 | 3,072 | ok |
-| limit_near | Rust generator | auto | 10,000,000 | 561 | 10,152 | 33,245 | 0.00 | 0.00 | 0.00 | 2,944 | ok |
-| limit_near | Haskell checker | 1 effective | 10,000,000 | 561 | 10,152 | 33,245 | 0.09 | 0.09 | 0.00 | 11,776 | ok |
-| cap_stress | Rust generator | 1 | 10,000,000 | 57,630 | 9,855,243 | 30,556,592 | 12.72 | 12.61 | 0.11 | 120,576 | ok |
-| cap_stress | Rust generator | 2 | 10,000,000 | 57,630 | 9,855,243 | 30,556,592 | 6.49 | 12.59 | 0.19 | 121,472 | ok |
-| cap_stress | Rust generator | auto | 10,000,000 | 57,630 | 9,855,243 | 30,556,592 | 1.77 | 24.89 | 0.24 | 124,032 | ok |
-| cap_stress | Haskell checker | 1 effective | 10,000,000 | 57,630 | 9,855,243 | 30,556,592 | 875.53 | 873.26 | 3.68 | 1,297,152 | ok |
+| limit_near | Rust generator | auto | 10,000,000 | 561 | 10,152 | 33,245 | 0.00 | 0.00 | 0.00 | 3,200 | ok |
+| limit_near | Haskell range checker | auto / 16 actual | 10,000,000 | 561 | 10,152 | 33,245 | 0.12 | 0.10 | 0.01 | 14,464 | ok |
+| cap_stress | Rust generator | 1 | 10,000,000 | 57,630 | 9,855,243 | 30,556,592 | 12.71 | 12.61 | 0.09 | 120,832 | ok |
+| cap_stress | Rust generator | 2 | 10,000,000 | 57,630 | 9,855,243 | 30,556,592 | 6.50 | 12.65 | 0.15 | 121,344 | ok |
+| cap_stress | Rust generator | auto | 10,000,000 | 57,630 | 9,855,243 | 30,556,592 | 1.78 | 24.84 | 0.20 | 123,776 | ok |
+| cap_stress | Haskell range checker | auto / 16 actual | 10,000,000 | 57,630 | 9,855,243 | 30,556,592 | 117.43 | 1509.14 | 16.96 | 1,318,144 | ok |
 
-## Haskell Block-Checker Follow-Up
+## Haskell Range Metrics
 
-After introducing the extracted row/block checker frontier and the threaded
-Haskell runner, the same `cap_stress` shape was measured again on
-2026-04-30T15:36:13Z.
+The Haskell range checker used `--block-windows 100000`. The checker metrics
+reported these range partitions:
 
-The witness was generated once and reused for the checker run:
+| case | actual rows | actual windows | ranges | range rows min | range rows max | range windows min | range windows max | phase worker s | total checker s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| small | 15 | 64 | 1 | 15 | 15 | 64 | 64 | 0.000209 | 0.025839 |
+| medium | 71 | 1,715 | 1 | 71 | 71 | 1,715 | 1,715 | 0.004848 | 0.030315 |
+| large | 154 | 1,560 | 1 | 154 | 154 | 1,560 | 1,560 | 0.007462 | 0.031527 |
+| limit_near | 562 | 10,152 | 1 | 562 | 562 | 10,152 | 10,152 | 0.086138 | 0.109787 |
+| cap_stress | 57,631 | 9,855,243 | 99 | 195 | 5,729 | 66,473 | 99,997 | 111.762524 | 112.706423 |
 
-```sh
-printf 'cost,period,deadline,offset,jitter\n1,169,169,0,1\n' \
-  > /tmp/jittered_parallel_bench/cap_stress.csv
-
-/usr/bin/time -f '%e,%U,%S,%M' \
-  -o /tmp/jittered_parallel_bench/generate.time \
-  ./target/release/sched-witness-gen jittered-periodic-edf \
-    --tasks /tmp/jittered_parallel_bench/cap_stress.csv \
-    --out /tmp/jittered_parallel_bench/cap_stress.cbor \
-    --threads auto \
-    --basis-window-cap 10000000 \
-    --metrics-out /tmp/jittered_parallel_bench/generate.metrics
-
-/usr/bin/time -f '%e,%U,%S,%M' \
-  -o /tmp/jittered_parallel_bench/check_auto.time \
-  ./scripts/jittered_edf_witness_check \
-    --tasks /tmp/jittered_parallel_bench/cap_stress.csv \
-    --witness /tmp/jittered_parallel_bench/cap_stress.cbor \
-    --threads auto \
-    --block-windows 100000 \
-    --metrics-out /tmp/jittered_parallel_bench/check_auto.metrics
-```
-
-Follow-up generation context:
-
-| field | value |
-| --- | ---: |
-| cutoff | 57,630 |
-| basis windows | 9,855,243 |
-| basis window cap | 10,000,000 |
-| witness bytes | 30,556,592 |
-| Rust generator real s | 1.90 |
-| Rust generator user s | 24.65 |
-| Rust generator sys s | 0.23 |
-| Rust generator peak KiB | 123,904 |
-
-Follow-up checker result:
-
-| checker | threads | block windows | actual blocks | expected blocks | real s | user s | sys s | peak KiB | status |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| old monolithic/default checker | 1 effective | n/a | n/a | n/a | 875.53 | 873.26 | 3.68 | 1,297,152 | ok |
-| block checker | 16 | 100,000 | 99 | 99 | 882.85 | 941.72 | 157.94 | 1,525,376 | ok |
-
-The block checker accepted the witness and exercised 99 actual/expected block
-chunks. However, the 10M-window `cap_stress` result did not improve wall-clock
-time. The user/real ratio was only about `1.07`, which shows limited effective
-parallel execution despite running with 16 capabilities.
-
-The likely remaining bottleneck is the serial structural phase in the Haskell
-runner: it recomputes the expected compact basis, partitions both bases, and
-checks the extracted block-aggregation equality before worker evaluation. The
-per-block NDBF work is parallelizable, but this measurement shows that exposing
-that frontier alone is not enough for the 10M case.
-
-## Haskell Range-Checker Follow-Up
-
-Phase 2 moves the checker hot path from a serial full expected-basis
-construction to proof-backed range work items.  The aggregate
-`check_jittered_edf_compact_dbf_certificate_ranges_extracted` entry point is
-kept as proof/reference tooling.  The normal Haskell runner checks the compact
-certificate header, range cover, and certificate-basis concatenation once, then
-evaluates `check_jittered_edf_compact_dbf_certificate_range_extracted` per
-planned range.
-
-The benchmark driver defaults to one smoke checker configuration
-(`--threads auto --block-windows 100000`) after each `--threads auto` generator
-run.  It supports the full Phase 2 matrix when explicitly requested:
-
-```sh
-JITTERED_CHECKER_THREADS="1 2 4 auto" \
-JITTERED_CHECKER_BLOCK_WINDOWS="100000 50000 20000 10000" \
-JITTERED_BASIS_WINDOW_CAP=10000000 \
-  ./scripts/bench_jittered_edf_witness_pipeline /tmp/jittered_range_bench.csv
-```
-
-The full explicit `cap_stress` matrix is expensive: one observed checker run with
-`--threads auto --block-windows 100000` took 118.21 seconds and peaked at
-1,330,432 KiB.  A complete 4 by 4 matrix is therefore a long-running benchmark,
-not a default test.
-
-In the current runner metrics, `phase_expected_ranges_s` is a zero-valued
-placeholder.  Range-local expected-basis construction happens inside the
-extracted per-range checker work item, so its time is folded into
-`phase_range_ndbf_s` and `phase_workers_s`.
-
-Observed single-run `cap_stress` range-checker result:
-
-| checker | threads | block windows | ranges | real s | user s | sys s | peak KiB | user/real | phase range worker s | status |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| range checker | auto / 16 actual | 100,000 | 99 | 118.21 | 1516.37 | not recorded | 1,330,432 | 12.83 | 112.477199 | ok |
-
-The source for this single range-checker observation did not retain the system
-time field, so the table records it as `not recorded`.
-
-The range checker is materially faster than both previous Haskell results for
-the same 10M-window task shape:
-
-| checker | real s | peak KiB | note |
-| --- | ---: | ---: | --- |
-| old monolithic/default checker | 875.53 | 1,297,152 | serial full expected basis |
-| Phase 1 block checker | 882.85 | 1,525,376 | parallel NDBF after serial expected basis |
-| Phase 2 range checker | 118.21 | 1,330,432 | range-local expected equality and NDBF |
-
-The smoke benchmark for local iteration remains `limit_near`; the observed
-range-checker run with `--threads auto --block-windows 10000` completed in
-0.12 seconds, with 10,152 actual windows, 2 ranges, and
-`phase_range_ndbf_s=0.089947`.
+`phase_expected_ranges_s` is currently a zero-valued placeholder. Range-local
+expected-basis construction happens inside the extracted per-range checker work
+item, so its time is folded into `phase_range_ndbf_s` and `phase_workers_s`.
 
 ## Observations
 
 - The Rust generator can emit the `cap_stress` witness below the 10M cap. With
-  `--threads auto`, generation took 1.77 seconds and peaked at 124,032 KiB.
+  `--threads auto`, generation took 1.78 seconds and peaked at 123,776 KiB.
 - The `cap_stress` CBOR witness is 30,556,592 bytes, about 29.1 MiB.
-- The original extracted Haskell checker accepted the same `cap_stress` witness,
-  but it was the dominant cost: 875.53 seconds and 1,297,152 KiB peak RSS.
-- The later threaded block checker also accepted a fresh `cap_stress` witness,
-  but did not improve the 10M case: 882.85 seconds and 1,525,376 KiB peak RSS
-  with `--threads auto --block-windows 100000`.
-- The Phase 2 range checker accepted `cap_stress` in 118.21 seconds for one
-  `--threads auto --block-windows 100000` run.  This removes the old serial
-  full expected-basis bottleneck from the normal checker path, but the range
-  workers still have substantial proof-facing computation cost.
-- The block checker result should be interpreted as an implementation result,
-  not a proof-interface change. Haskell thread count, block-window size, GHC
-  capabilities, and metrics output remain concrete tooling choices.
+- The Haskell range checker accepted all benchmark cases. For `cap_stress`, it
+  completed in 117.43 seconds, with 1,318,144 KiB peak RSS and 99 range work
+  items.
+- The `cap_stress` checker run has a high user/real ratio, about 12.85, showing
+  that the range work item path is exercising parallel CPU work on this host.
+- The Haskell checker result should be interpreted as an implementation result,
+  not a proof-interface change. Haskell thread count, block-window size, range
+  planning, GHC capabilities, and metrics output remain concrete tooling
+  choices.
 - The cap is not an early memory guard in the Rust implementation. The compact
   basis is constructed and counted before the generator rejects a count above
   the configured cap.
-- The small cases round to `0.00` seconds under the recorded time format; they
-  are useful as smoke cases, not as precise microbenchmarks.
+- The small cases round to `0.00` seconds for Rust generation under the recorded
+  time format; they are useful as smoke cases, not as precise microbenchmarks.
 
 ## Refinement And Trust Boundary
 
@@ -258,8 +156,8 @@ are operational facts only; they do not weaken or extend the common proof
 obligation.
 
 Haskell checker parallelism is likewise an adapter/tool-layer optimization.
-The common layer exposes proof-backed checker frontiers and soundness lemmas;
-the runner's thread count, block partitioning policy, `--block-windows` value,
+The common layer proves the soundness of the checker entry points; the runner's
+range planning and partitioning policy, thread count, `--block-windows` value,
 GHC RTS capabilities, and metrics files are not certificate fields and are not
 part of the abstract schedulability claim.
 
