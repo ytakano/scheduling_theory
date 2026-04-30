@@ -187,10 +187,15 @@ Their role is intentionally adapter-local:
   `OpTrace`,
 - `task_trace` is an emitted task-family summary artifact, not a common event
   interface,
-- a leading `event_id`, when present in emitted rows, is a runtime ordering key
+- every accepted `task_trace` row uses the adapter's explicit TSV schema:
+  `event_id kind subject related wait_class unblock_kind policy policy_param`,
+  optionally followed by periodic loop or deadline metadata; historical rows
+  that omitted `event_id`, wait metadata, or policy metadata are rejected at the
+  adapter parser boundary,
+- a leading `event_id` in emitted rows is a runtime ordering key
   used by the adapter checker to align task-side blocked intervals with
   scheduler-side observations; it is not part of `OpState` or `OpEvent`,
-- emitted policy metadata, when present, names the adapter-local checker
+- emitted policy metadata names the adapter-local checker
   interpretation requested for the emitted artifacts; it is not a common
   scheduling-policy specification and is not part of `OpState` or `OpEvent`,
 - and any reconstruction from `sched_trace` into a logical worker schedule

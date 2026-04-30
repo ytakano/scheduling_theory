@@ -65,11 +65,17 @@ current procedure が checker input として使う emitted artifact は 2 つ�
     scheduler-facing schedule を読む
 - `task_trace`
   - block marker は `BEGIN_TASK_TRACE ... END_TASK_TRACE`
-  - 各行は現在の adapter encoding では `kind, subject, related`
-    の 3 列 TSV である
+  - 各行は現在の adapter encoding では
+    `event_id, kind, subject, related, wait_class, unblock_kind, policy, policy_param`
+    を必須列とする TSV である
+  - periodic task と EDF deadline の観測では、この 8 列に
+    `loop_index`、`wake_time`、`absolute_deadline` などの adapter-local metadata
+    を追加する
+  - 旧 `kind, subject, related` 3 列 TSV や、metadata を省略した 4 列 / 6 列 TSV
+    は adapter parser boundary で reject され、acceptance evidence にはならない
   - `kind` は現在
-    `Spawn`, `Runnable`, `Choose`, `Dispatch`, `Sleep`, `JoinWait`,
-    `JoinTargetReady`, `Complete`
+    `Spawn`, `Runnable`, `RunnableDeadline`, `Choose`, `Dispatch`, `Block`,
+    `Unblock`, `JoinWait`, `JoinTargetReady`, `PeriodicJobComplete`, `Complete`
     を取る
   - これは checker が root task、known-task set、join dependency、
     join-target readiness、completion を要約するための task-family fact stream であり、Rocq では
