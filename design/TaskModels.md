@@ -31,10 +31,10 @@ they do not model OS-level waiting or blocking causes. Blocking-aware jobs
 belong to adapter-local workload models, not to these classic generated-job
 interfaces.
 Likewise, runtime observations such as an actual release instant, measured
-execution time, or a concrete loop counter for one periodic task are evidence
-for an adapter that reconstructs logical generated jobs. They are not new
-common-layer `JobId` structure and they do not change the common release, cost,
-deadline, `OpState`, or `OpEvent` interfaces.
+execution time, or concrete loop counters for periodic runtime tasks are
+evidence for an adapter that reconstructs logical generated jobs. They are not
+new common-layer `JobId` structure and they do not change the common release,
+cost, deadline, `OpState`, or `OpEvent` interfaces.
 When these generated-job checks are extracted, Rocq `nat` values may appear as
 Haskell `Integer` in the checker binary. That representation is below the
 task-model interface. Future `N` kernels for finite generated-job enumeration
