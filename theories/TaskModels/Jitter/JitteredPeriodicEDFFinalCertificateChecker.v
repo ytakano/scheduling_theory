@@ -123,6 +123,14 @@ Definition check_jittered_edf_compact_dbf_certificate_extracted
        (jittered_enumT_of_extracted_list ts)
        cert.(jedf_compact_basis).
 
+Definition check_jittered_edf_compact_dbf_certificate_header_extracted
+    (ts : list ExtractedJitteredPeriodicTask)
+    (cert : JitteredEDFCompactDbfCertificate) : bool :=
+  extracted_jittered_taskset_wf ts
+  && check_jittered_edf_compact_dbf_certificate_header
+       (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
+       cert.
+
 Lemma check_jittered_edf_dbf_certificate_extracted_fields :
   forall ts cert,
     check_jittered_edf_dbf_certificate_extracted ts cert = true ->
@@ -159,6 +167,25 @@ Proof.
   unfold check_jittered_edf_compact_dbf_certificate_extracted in Hcheck.
   apply andb_true_iff in Hcheck as [Hrest Hdbf].
   apply andb_true_iff in Hrest as [Hwf Hfields].
+  repeat split; assumption.
+Qed.
+
+Lemma check_jittered_edf_compact_dbf_certificate_header_extracted_fields :
+  forall ts cert,
+    check_jittered_edf_compact_dbf_certificate_header_extracted ts cert = true ->
+    extracted_jittered_taskset_wf ts = true
+    /\ cert.(jedf_compact_cutoff) =
+      jittered_edf_compact_dbf_certificate_expected_cutoff ts
+    /\ cert.(jedf_all_basis_checked) = true.
+Proof.
+  intros ts cert Hcheck.
+  unfold check_jittered_edf_compact_dbf_certificate_header_extracted in Hcheck.
+  apply andb_true_iff in Hcheck as [Hwf Hheader].
+  destruct
+    (check_jittered_edf_compact_dbf_certificate_header_sound
+       (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
+       cert Hheader)
+    as [Hcutoff Hall].
   repeat split; assumption.
 Qed.
 

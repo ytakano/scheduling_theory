@@ -74,6 +74,12 @@ Definition check_jittered_edf_compact_dbf_certificate_fields
   && compact_dbf_basis_eqb cert.(jedf_compact_basis) expected_basis
   && cert.(jedf_all_basis_checked).
 
+Definition check_jittered_edf_compact_dbf_certificate_header
+    (expected_cutoff : Time)
+    (cert : JitteredEDFCompactDbfCertificate) : bool :=
+  Nat.eqb cert.(jedf_compact_cutoff) expected_cutoff
+  && cert.(jedf_all_basis_checked).
+
 Lemma time_pair_eqb_true :
   forall w1 w2,
     time_pair_eqb w1 w2 = true ->
@@ -179,4 +185,18 @@ Proof.
   apply Nat.eqb_eq in Hcutoff.
   apply compact_dbf_basis_eqb_true in Hbasis.
   repeat split; assumption.
+Qed.
+
+Lemma check_jittered_edf_compact_dbf_certificate_header_sound :
+  forall expected_cutoff cert,
+    check_jittered_edf_compact_dbf_certificate_header
+      expected_cutoff cert = true ->
+    cert.(jedf_compact_cutoff) = expected_cutoff
+    /\ cert.(jedf_all_basis_checked) = true.
+Proof.
+  intros expected_cutoff cert Hcheck.
+  unfold check_jittered_edf_compact_dbf_certificate_header in Hcheck.
+  apply andb_true_iff in Hcheck as [Hcutoff Hall].
+  apply Nat.eqb_eq in Hcutoff.
+  split; assumption.
 Qed.
