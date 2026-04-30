@@ -12,11 +12,11 @@ extract-jittered-edf-sched-hs::
 
 scripts/periodic_edf_witness_check: scripts/periodic_edf_witness_check.hs extracted/haskell/PeriodicEDFSchedulability.hs
 	mkdir -p scripts/.build
-	stack exec -- ghc -O2 -package aeson -package crypton -iextracted/haskell -outputdir scripts/.build -o $@ $<
+	stack exec --package cborg -- ghc -O2 -package cborg -package crypton -iscripts -iextracted/haskell -outputdir scripts/.build -o $@ $<
 
 scripts/jittered_edf_witness_check: scripts/jittered_edf_witness_check.hs extracted/haskell/JitteredPeriodicEDFSchedulability.hs
 	mkdir -p scripts/.build
-	stack exec -- ghc -O2 -package aeson -package crypton -iextracted/haskell -outputdir scripts/.build -o $@ $<
+	stack exec --package cborg -- ghc -O2 -package cborg -package crypton -iscripts -iextracted/haskell -outputdir scripts/.build -o $@ $<
 
 build-periodic-edf-witness-check:: extract-periodic-edf-sched-hs scripts/periodic_edf_witness_check
 
@@ -33,13 +33,13 @@ test-sched-witness-gen-determinism:: sched-witness-gen
 	printf 'cost,period,deadline\n1,4,4\n1,5,5\n' > "$$tmp/zero.csv"; \
 	printf 'cost,period,deadline,offset\n1,4,4,1\n1,5,5,2\n' > "$$tmp/offset.csv"; \
 	for csv in zero offset; do \
-		./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/$$csv.csv" --out "$$tmp/$$csv.threads1.json" --threads 1; \
-		./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/$$csv.csv" --out "$$tmp/$$csv.threads2.json" --threads 2; \
-		./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/$$csv.csv" --out "$$tmp/$$csv.auto.json" --threads auto; \
-		cmp "$$tmp/$$csv.threads1.json" "$$tmp/$$csv.threads2.json"; \
-		cmp "$$tmp/$$csv.threads1.json" "$$tmp/$$csv.auto.json"; \
+		./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/$$csv.csv" --out "$$tmp/$$csv.threads1.cbor" --threads 1; \
+		./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/$$csv.csv" --out "$$tmp/$$csv.threads2.cbor" --threads 2; \
+		./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/$$csv.csv" --out "$$tmp/$$csv.auto.cbor" --threads auto; \
+		cmp "$$tmp/$$csv.threads1.cbor" "$$tmp/$$csv.threads2.cbor"; \
+		cmp "$$tmp/$$csv.threads1.cbor" "$$tmp/$$csv.auto.cbor"; \
 	done; \
-	if ./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/zero.csv" --out "$$tmp/bad.json" --threads 0 > "$$tmp/bad.out" 2>&1; then \
+	if ./target/debug/sched-witness-gen periodic-edf --tasks "$$tmp/zero.csv" --out "$$tmp/bad.cbor" --threads 0 > "$$tmp/bad.out" 2>&1; then \
 		cat "$$tmp/bad.out"; \
 		exit 1; \
 	fi; \
@@ -49,77 +49,82 @@ test-sched-witness-gen-jittered-parse:: sched-witness-gen build-jittered-edf-wit
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	printf 'cost,period,deadline,offset,jitter\n1,1,1,0,0\n' > "$$tmp/jittered.csv"; \
-	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.threads1.json" --threads 1; \
-	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.threads2.json" --threads 2; \
-	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.auto.json" --threads auto; \
-	cmp "$$tmp/jittered.threads1.json" "$$tmp/jittered.threads2.json"; \
-	cmp "$$tmp/jittered.threads1.json" "$$tmp/jittered.auto.json"; \
-	./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/jittered.threads1.json"; \
-	grep -q '"schema_version": 3' "$$tmp/jittered.threads1.json"; \
-	perl -0pe 's/"task_hash": "sha256:[^"]+"/"task_hash": "sha256:0"/' "$$tmp/jittered.threads1.json" > "$$tmp/hash-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/hash-mut.json" > "$$tmp/hash-mut.out" 2>&1; then \
+	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.threads1.cbor" --threads 1; \
+	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.threads2.cbor" --threads 2; \
+	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/jittered.csv" --out "$$tmp/jittered.auto.cbor" --threads auto; \
+	cmp "$$tmp/jittered.threads1.cbor" "$$tmp/jittered.threads2.cbor"; \
+	cmp "$$tmp/jittered.threads1.cbor" "$$tmp/jittered.auto.cbor"; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/jittered.threads1.cbor"; \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs task-hash-zero "$$tmp/jittered.threads1.cbor" "$$tmp/hash-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/hash-mut.cbor" > "$$tmp/hash-mut.out" 2>&1; then \
 		cat "$$tmp/hash-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"all_basis_checked": true/"all_basis_checked": false/' "$$tmp/jittered.threads1.json" > "$$tmp/all-basis-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/all-basis-mut.json" > "$$tmp/all-basis-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs all-basis-unchecked "$$tmp/jittered.threads1.cbor" "$$tmp/all-basis-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/jittered.csv" --witness "$$tmp/all-basis-mut.cbor" > "$$tmp/all-basis-mut.out" 2>&1; then \
 		cat "$$tmp/all-basis-mut.out"; \
 		exit 1; \
 	fi; \
 	printf 'cost,period,deadline,offset\n1,1,1,0\n' > "$$tmp/four-column.csv"; \
-	if ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/four-column.csv" --out "$$tmp/four-column.json" --threads auto > "$$tmp/four-column.out" 2>&1; then \
+	if ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/four-column.csv" --out "$$tmp/four-column.cbor" --threads auto > "$$tmp/four-column.out" 2>&1; then \
 		cat "$$tmp/four-column.out"; \
 		exit 1; \
 	fi; \
 	grep -q 'expected 5 columns' "$$tmp/four-column.out"; \
-	test ! -e "$$tmp/four-column.json"; \
+	test ! -e "$$tmp/four-column.cbor"; \
 	printf 'cost,period,deadline,offset,jitter\n2,1,1,0,0\n' > "$$tmp/unsched.csv"; \
-	if ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/unsched.csv" --out "$$tmp/unsched.json" --threads auto > "$$tmp/unsched.out" 2>&1; then \
+	if ./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$tmp/unsched.csv" --out "$$tmp/unsched.cbor" --threads auto > "$$tmp/unsched.out" 2>&1; then \
 		cat "$$tmp/unsched.out"; \
 		exit 1; \
 	fi; \
 	grep -q 'rejected unschedulable taskset' "$$tmp/unsched.out"; \
-	test ! -e "$$tmp/unsched.json"
+	test ! -e "$$tmp/unsched.cbor"
 
 test-periodic-edf-witness-pipeline:: sched-witness-gen build-periodic-edf-witness-check
 	@set -e; \
 	tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	fixtures=scripts/fixtures/periodic_edf_witness; \
-	./scripts/run_periodic_edf_witness_pipeline "$$fixtures/zero_offset.csv" "$$tmp/zero.json"; \
-	./scripts/run_periodic_edf_witness_pipeline --offsets "$$fixtures/offset.csv" "$$tmp/offset.json"; \
-	if ./target/debug/sched-witness-gen periodic-edf --tasks "$$fixtures/unschedulable.csv" --out "$$tmp/unschedulable.json" > "$$tmp/unschedulable.out" 2>&1; then \
-		if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/unschedulable.csv" --witness "$$tmp/unschedulable.json" > "$$tmp/unschedulable-check.out" 2>&1; then \
+	./scripts/run_periodic_edf_witness_pipeline "$$fixtures/zero_offset.csv" "$$tmp/zero.cbor"; \
+	./scripts/run_periodic_edf_witness_pipeline --offsets "$$fixtures/offset.csv" "$$tmp/offset.cbor"; \
+	printf '{}' > "$$tmp/old-json.json"; \
+	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/old-json.json" > "$$tmp/old-json.out" 2>&1; then \
+		cat "$$tmp/old-json.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'malformed CBOR' "$$tmp/old-json.out"; \
+	if ./target/debug/sched-witness-gen periodic-edf --tasks "$$fixtures/unschedulable.csv" --out "$$tmp/unschedulable.cbor" > "$$tmp/unschedulable.out" 2>&1; then \
+		if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/unschedulable.csv" --witness "$$tmp/unschedulable.cbor" > "$$tmp/unschedulable-check.out" 2>&1; then \
 			cat "$$tmp/unschedulable-check.out"; \
 			exit 1; \
 		fi; \
 	fi; \
-	if ./scripts/run_periodic_edf_witness_pipeline --offsets "$$fixtures/malformed.csv" "$$tmp/malformed.json" > "$$tmp/malformed.out" 2>&1; then \
+	if ./scripts/run_periodic_edf_witness_pipeline --offsets "$$fixtures/malformed.csv" "$$tmp/malformed.cbor" > "$$tmp/malformed.out" 2>&1; then \
 		cat "$$tmp/malformed.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"slots": \[\n\s*\K[0-9]+/null/' "$$tmp/zero.json" > "$$tmp/slot-mut.json"; \
-	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/slot-mut.json" > "$$tmp/slot-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs periodic-first-slot-null "$$tmp/zero.cbor" "$$tmp/slot-mut.cbor"; \
+	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/slot-mut.cbor" > "$$tmp/slot-mut.out" 2>&1; then \
 		cat "$$tmp/slot-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"completed_by": \[\n\s*\K[0-9]+/0/' "$$tmp/zero.json" > "$$tmp/completed-mut.json"; \
-	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/completed-mut.json" > "$$tmp/completed-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs periodic-first-completed-zero "$$tmp/zero.cbor" "$$tmp/completed-mut.cbor"; \
+	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/completed-mut.cbor" > "$$tmp/completed-mut.out" 2>&1; then \
 		cat "$$tmp/completed-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"job_class": \[\n\s*\K[0-9]+/1/' "$$tmp/zero.json" > "$$tmp/class-mut.json"; \
-	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/class-mut.json" > "$$tmp/class-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs periodic-first-job-class-one "$$tmp/zero.cbor" "$$tmp/class-mut.cbor"; \
+	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/class-mut.cbor" > "$$tmp/class-mut.out" 2>&1; then \
 		cat "$$tmp/class-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/true/false/g' "$$tmp/zero.json" > "$$tmp/dbf-mut.json"; \
-	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/dbf-mut.json" > "$$tmp/dbf-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs all-bools-false "$$tmp/zero.cbor" "$$tmp/dbf-mut.cbor"; \
+	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/dbf-mut.cbor" > "$$tmp/dbf-mut.out" 2>&1; then \
 		cat "$$tmp/dbf-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"task_hash": "sha256:[^"]+"/"task_hash": "sha256:0"/' "$$tmp/zero.json" > "$$tmp/hash-mut.json"; \
-	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/hash-mut.json" > "$$tmp/hash-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs task-hash-zero "$$tmp/zero.cbor" "$$tmp/hash-mut.cbor"; \
+	if ./scripts/periodic_edf_witness_check --tasks "$$fixtures/zero_offset.csv" --witness "$$tmp/hash-mut.cbor" > "$$tmp/hash-mut.out" 2>&1; then \
 		cat "$$tmp/hash-mut.out"; \
 		exit 1; \
 	fi
@@ -129,60 +134,66 @@ test-jittered-edf-witness-pipeline:: sched-witness-gen build-jittered-edf-witnes
 	tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	fixtures=scripts/fixtures/jittered_edf_witness; \
-	./scripts/run_jittered_edf_witness_pipeline "$$fixtures/accepted_zero_jitter.csv" "$$tmp/zero.json"; \
-	./scripts/run_jittered_edf_witness_pipeline "$$fixtures/accepted_release_jitter.csv" "$$tmp/release-jitter.json"; \
-	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$fixtures/accepted_zero_jitter.csv" --out "$$tmp/zero.threads1.json" --threads 1; \
-	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$fixtures/accepted_zero_jitter.csv" --out "$$tmp/zero.threads2.json" --threads 2; \
-	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$fixtures/accepted_zero_jitter.csv" --out "$$tmp/zero.auto.json" --threads auto; \
-	cmp "$$tmp/zero.threads1.json" "$$tmp/zero.threads2.json"; \
-	cmp "$$tmp/zero.threads1.json" "$$tmp/zero.auto.json"; \
-	if ./scripts/run_jittered_edf_witness_pipeline "$$fixtures/four_column.csv" "$$tmp/four-column.json" > "$$tmp/four-column.out" 2>&1; then \
+	./scripts/run_jittered_edf_witness_pipeline "$$fixtures/accepted_zero_jitter.csv" "$$tmp/zero.cbor"; \
+	./scripts/run_jittered_edf_witness_pipeline "$$fixtures/accepted_release_jitter.csv" "$$tmp/release-jitter.cbor"; \
+	printf '{}' > "$$tmp/old-json.json"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$fixtures/accepted_zero_jitter.csv" --witness "$$tmp/old-json.json" > "$$tmp/old-json.out" 2>&1; then \
+		cat "$$tmp/old-json.out"; \
+		exit 1; \
+	fi; \
+	grep -q 'malformed CBOR' "$$tmp/old-json.out"; \
+	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$fixtures/accepted_zero_jitter.csv" --out "$$tmp/zero.threads1.cbor" --threads 1; \
+	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$fixtures/accepted_zero_jitter.csv" --out "$$tmp/zero.threads2.cbor" --threads 2; \
+	./target/debug/sched-witness-gen jittered-periodic-edf --tasks "$$fixtures/accepted_zero_jitter.csv" --out "$$tmp/zero.auto.cbor" --threads auto; \
+	cmp "$$tmp/zero.threads1.cbor" "$$tmp/zero.threads2.cbor"; \
+	cmp "$$tmp/zero.threads1.cbor" "$$tmp/zero.auto.cbor"; \
+	if ./scripts/run_jittered_edf_witness_pipeline "$$fixtures/four_column.csv" "$$tmp/four-column.cbor" > "$$tmp/four-column.out" 2>&1; then \
 		cat "$$tmp/four-column.out"; \
 		exit 1; \
 	fi; \
 	grep -q 'expected 5 columns' "$$tmp/four-column.out"; \
-	test ! -e "$$tmp/four-column.json"; \
-	if ./scripts/run_jittered_edf_witness_pipeline "$$fixtures/malformed.csv" "$$tmp/malformed.json" > "$$tmp/malformed.out" 2>&1; then \
+	test ! -e "$$tmp/four-column.cbor"; \
+	if ./scripts/run_jittered_edf_witness_pipeline "$$fixtures/malformed.csv" "$$tmp/malformed.cbor" > "$$tmp/malformed.out" 2>&1; then \
 		cat "$$tmp/malformed.out"; \
 		exit 1; \
 	fi; \
 	grep -q 'invalid jitter' "$$tmp/malformed.out"; \
-	test ! -e "$$tmp/malformed.json"; \
-	if ./scripts/run_jittered_edf_witness_pipeline "$$fixtures/unschedulable.csv" "$$tmp/unschedulable.json" > "$$tmp/unschedulable.out" 2>&1; then \
+	test ! -e "$$tmp/malformed.cbor"; \
+	if ./scripts/run_jittered_edf_witness_pipeline "$$fixtures/unschedulable.csv" "$$tmp/unschedulable.cbor" > "$$tmp/unschedulable.out" 2>&1; then \
 		cat "$$tmp/unschedulable.out"; \
 		exit 1; \
 	fi; \
 	grep -q 'rejected unschedulable taskset' "$$tmp/unschedulable.out"; \
-	test ! -e "$$tmp/unschedulable.json"; \
-	perl -0pe 's/"task_hash": "sha256:[^"]+"/"task_hash": "sha256:0"/' "$$tmp/zero.json" > "$$tmp/hash-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$fixtures/accepted_zero_jitter.csv" --witness "$$tmp/hash-mut.json" > "$$tmp/hash-mut.out" 2>&1; then \
+	test ! -e "$$tmp/unschedulable.cbor"; \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs task-hash-zero "$$tmp/zero.cbor" "$$tmp/hash-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$fixtures/accepted_zero_jitter.csv" --witness "$$tmp/hash-mut.cbor" > "$$tmp/hash-mut.out" 2>&1; then \
 		cat "$$tmp/hash-mut.out"; \
 		exit 1; \
 	fi; \
 	printf 'cost,period,deadline,offset,jitter\n1,1,1,1,0\n' > "$$tmp/offset-mut.csv"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/offset-mut.csv" --witness "$$tmp/zero.json" > "$$tmp/offset-mut.out" 2>&1; then \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/offset-mut.csv" --witness "$$tmp/zero.cbor" > "$$tmp/offset-mut.out" 2>&1; then \
 		cat "$$tmp/offset-mut.out"; \
 		exit 1; \
 	fi; \
 	grep -q 'task_hash mismatch' "$$tmp/offset-mut.out"; \
 	printf 'cost,period,deadline,offset,jitter\n1,2,2,0,0\n' > "$$tmp/jitter-mut.csv"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/jitter-mut.csv" --witness "$$tmp/release-jitter.json" > "$$tmp/jitter-mut.out" 2>&1; then \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/jitter-mut.csv" --witness "$$tmp/release-jitter.cbor" > "$$tmp/jitter-mut.out" 2>&1; then \
 		cat "$$tmp/jitter-mut.out"; \
 		exit 1; \
 	fi; \
 	grep -q 'task_hash mismatch' "$$tmp/jitter-mut.out"; \
-	perl -0pe 's/"cutoff": [0-9]+/"cutoff": 0/' "$$tmp/zero.json" > "$$tmp/cutoff-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$fixtures/accepted_zero_jitter.csv" --witness "$$tmp/cutoff-mut.json" > "$$tmp/cutoff-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs jittered-cutoff-zero "$$tmp/zero.cbor" "$$tmp/cutoff-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$fixtures/accepted_zero_jitter.csv" --witness "$$tmp/cutoff-mut.cbor" > "$$tmp/cutoff-mut.out" 2>&1; then \
 		cat "$$tmp/cutoff-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"basis": \[/"basis": [{ "t2": 999, "left_edges": [999] },/' "$$tmp/zero.json" > "$$tmp/basis-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$fixtures/accepted_zero_jitter.csv" --witness "$$tmp/basis-mut.json" > "$$tmp/basis-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs jittered-prepend-basis-extra "$$tmp/zero.cbor" "$$tmp/basis-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$fixtures/accepted_zero_jitter.csv" --witness "$$tmp/basis-mut.cbor" > "$$tmp/basis-mut.out" 2>&1; then \
 		cat "$$tmp/basis-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"all_basis_checked": true/"all_basis_checked": false/' "$$tmp/zero.json" > "$$tmp/all-basis-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$fixtures/accepted_zero_jitter.csv" --witness "$$tmp/all-basis-mut.json" > "$$tmp/all-basis-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs all-basis-unchecked "$$tmp/zero.cbor" "$$tmp/all-basis-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$fixtures/accepted_zero_jitter.csv" --witness "$$tmp/all-basis-mut.cbor" > "$$tmp/all-basis-mut.out" 2>&1; then \
 		cat "$$tmp/all-basis-mut.out"; \
 		exit 1; \
 	fi
@@ -192,57 +203,57 @@ test-jittered-edf-witness-check:: build-jittered-edf-witness-check
 	tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	printf 'cost,period,deadline,offset,jitter\n1,1,1,0,0\n' > "$$tmp/accepted.csv"; \
-	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --emit-expected-witness "$$tmp/accepted.json"; \
-	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.json"; \
-	perl -0pe 's/"basis":\[/"basis":[{"t2":999,"left_edges":[999]},/' "$$tmp/accepted.json" > "$$tmp/v3-basis-extra.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-basis-extra.json" > "$$tmp/v3-basis-extra.out" 2>&1; then \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --emit-expected-witness "$$tmp/accepted.cbor"; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.cbor"; \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs jittered-prepend-basis-extra "$$tmp/accepted.cbor" "$$tmp/v3-basis-extra.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-basis-extra.cbor" > "$$tmp/v3-basis-extra.out" 2>&1; then \
 		cat "$$tmp/v3-basis-extra.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"left_edges":\[\K[0-9]+/999/' "$$tmp/accepted.json" > "$$tmp/v3-left-edge-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-left-edge-mut.json" > "$$tmp/v3-left-edge-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs jittered-first-left-edge-999 "$$tmp/accepted.cbor" "$$tmp/v3-left-edge-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-left-edge-mut.cbor" > "$$tmp/v3-left-edge-mut.out" 2>&1; then \
 		cat "$$tmp/v3-left-edge-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"all_basis_checked":true/"all_basis_checked":false/' "$$tmp/accepted.json" > "$$tmp/v3-all-basis-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-all-basis-mut.json" > "$$tmp/v3-all-basis-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs all-basis-unchecked "$$tmp/accepted.cbor" "$$tmp/v3-all-basis-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-all-basis-mut.cbor" > "$$tmp/v3-all-basis-mut.out" 2>&1; then \
 		cat "$$tmp/v3-all-basis-mut.out"; \
 		exit 1; \
 	fi; \
 	printf 'cost,period,deadline,offset\n1,4,4,0\n' > "$$tmp/four-column.csv"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/four-column.csv" --emit-expected-witness "$$tmp/four-column.json" > "$$tmp/four-column.out" 2>&1; then \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/four-column.csv" --emit-expected-witness "$$tmp/four-column.cbor" > "$$tmp/four-column.out" 2>&1; then \
 		cat "$$tmp/four-column.out"; \
 		exit 1; \
 	fi; \
 	grep -q 'expected 5 columns' "$$tmp/four-column.out"; \
 	printf 'cost,period,deadline,offset,jitter\n1,4,4,0,-1\n' > "$$tmp/malformed.csv"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/malformed.csv" --emit-expected-witness "$$tmp/malformed.json" > "$$tmp/malformed.out" 2>&1; then \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/malformed.csv" --emit-expected-witness "$$tmp/malformed.cbor" > "$$tmp/malformed.out" 2>&1; then \
 		cat "$$tmp/malformed.out"; \
 		exit 1; \
 	fi; \
 	grep -q 'jitter must be nonnegative' "$$tmp/malformed.out"; \
-	perl -0pe 's/"schema_version":3/"schema_version":1/' "$$tmp/accepted.json" > "$$tmp/schema-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/schema-mut.json" > "$$tmp/schema-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs schema-version-one "$$tmp/accepted.cbor" "$$tmp/schema-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/schema-mut.cbor" > "$$tmp/schema-mut.out" 2>&1; then \
 		cat "$$tmp/schema-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"policy":"jittered-periodic-edf"/"policy":"periodic-edf"/' "$$tmp/accepted.json" > "$$tmp/policy-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/policy-mut.json" > "$$tmp/policy-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs policy-periodic "$$tmp/accepted.cbor" "$$tmp/policy-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/policy-mut.cbor" > "$$tmp/policy-mut.out" 2>&1; then \
 		cat "$$tmp/policy-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"domain":"uniprocessor"/"domain":"multiprocessor"/' "$$tmp/accepted.json" > "$$tmp/domain-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/domain-mut.json" > "$$tmp/domain-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs domain-multiprocessor "$$tmp/accepted.cbor" "$$tmp/domain-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/domain-mut.cbor" > "$$tmp/domain-mut.out" 2>&1; then \
 		cat "$$tmp/domain-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"task_hash":"sha256:[^"]+"/"task_hash":"sha256:0"/' "$$tmp/accepted.json" > "$$tmp/hash-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/hash-mut.json" > "$$tmp/hash-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs task-hash-zero "$$tmp/accepted.cbor" "$$tmp/hash-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/hash-mut.cbor" > "$$tmp/hash-mut.out" 2>&1; then \
 		cat "$$tmp/hash-mut.out"; \
 		exit 1; \
 	fi; \
-	perl -0pe 's/"cutoff":[0-9]+/"cutoff":-1/' "$$tmp/accepted.json" > "$$tmp/cutoff-mut.json"; \
-	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/cutoff-mut.json" > "$$tmp/cutoff-mut.out" 2>&1; then \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs jittered-cutoff-negative "$$tmp/accepted.cbor" "$$tmp/cutoff-mut.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/cutoff-mut.cbor" > "$$tmp/cutoff-mut.out" 2>&1; then \
 		cat "$$tmp/cutoff-mut.out"; \
 		exit 1; \
 	fi

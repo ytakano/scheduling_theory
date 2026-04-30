@@ -4,7 +4,7 @@ This tutorial shows how to verify schedulability for concrete CSV task sets
 using the supported runtime path:
 
 1. build the Rust witness generator in release mode;
-2. generate a JSON witness from the CSV task set;
+2. generate a CBOR witness from the CSV task set;
 3. check that witness with the extracted Haskell checker.
 
 The Rust generator is not trusted.  A task set is accepted only when the
@@ -50,7 +50,7 @@ Generate a witness:
 ```sh
 ./target/release/sched-witness-gen periodic-edf \
   --tasks /tmp/periodic.csv \
-  --out /tmp/periodic-witness.json \
+  --out /tmp/periodic-witness.cbor \
   --threads auto
 ```
 
@@ -59,7 +59,7 @@ Check the witness:
 ```sh
 ./scripts/periodic_edf_witness_check \
   --tasks /tmp/periodic.csv \
-  --witness /tmp/periodic-witness.json
+  --witness /tmp/periodic-witness.cbor
 ```
 
 Expected result:
@@ -84,7 +84,7 @@ Generate a witness:
 ```sh
 ./target/release/sched-witness-gen periodic-edf \
   --tasks /tmp/periodic-offset.csv \
-  --out /tmp/periodic-offset-witness.json \
+  --out /tmp/periodic-offset-witness.cbor \
   --threads auto
 ```
 
@@ -94,7 +94,7 @@ Check the witness with `--offsets`:
 ./scripts/periodic_edf_witness_check \
   --tasks /tmp/periodic-offset.csv \
   --offsets \
-  --witness /tmp/periodic-offset-witness.json
+  --witness /tmp/periodic-offset-witness.cbor
 ```
 
 Expected result:
@@ -119,7 +119,7 @@ Generate a jittered EDF witness:
 ```sh
 ./target/release/sched-witness-gen jittered-periodic-edf \
   --tasks /tmp/jittered.csv \
-  --out /tmp/jittered-witness.json \
+  --out /tmp/jittered-witness.cbor \
   --threads auto
 ```
 
@@ -128,7 +128,7 @@ Check the witness:
 ```sh
 ./scripts/jittered_edf_witness_check \
   --tasks /tmp/jittered.csv \
-  --witness /tmp/jittered-witness.json
+  --witness /tmp/jittered-witness.cbor
 ```
 
 Expected result:
@@ -145,7 +145,7 @@ reproducible fixed parallelism, pass a positive integer:
 ```sh
 ./target/release/sched-witness-gen jittered-periodic-edf \
   --tasks /tmp/jittered.csv \
-  --out /tmp/jittered-witness.threads2.json \
+  --out /tmp/jittered-witness.threads2.cbor \
   --threads 2
 ```
 

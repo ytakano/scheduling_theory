@@ -274,19 +274,7 @@ mul x y =
     x
 
 compare0 :: Prelude.Integer -> Prelude.Integer -> Comparison
-compare0 n m =
-  (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
-    (\_ ->
-    (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
-      (\_ -> Eq)
-      (\_ -> Lt)
-      m)
-    (\n' ->
-    (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
-      (\_ -> Gt)
-      (\m' -> compare n' m')
-      m)
-    n
+compare0 = (\n m -> if n Prelude.== m then Eq else if n Prelude.< m then Lt else Gt)
 
 type TaskId = Prelude.Integer
 
@@ -388,7 +376,7 @@ jittered_periodic_dbf_window tasks offset jitter _UU03c4_ t1 t2 =
     (task_cost (tasks _UU03c4_))
 
 taskset_jittered_periodic_dbf_window :: (TaskId -> Task) -> (TaskId -> Time)
-                                        -> (TaskId -> Time) -> (List
+                                        -> (TaskId -> Time) -> (List 
                                         TaskId) -> Time -> Time ->
                                         Prelude.Integer
 taskset_jittered_periodic_dbf_window tasks offset jitter enumT t1 t2 =
@@ -501,7 +489,7 @@ jittered_reduced_compact_basis_upto tasks offset jitter enumT h =
     (bounded_time_points h)
 
 data JitteredEDFCompactDbfCertificate =
-   Build_JitteredEDFCompactDbfCertificate Time JitteredCompactDbfBasis
+   Build_JitteredEDFCompactDbfCertificate Time JitteredCompactDbfBasis 
  Prelude.Bool
 
 jedf_compact_cutoff :: JitteredEDFCompactDbfCertificate -> Time
@@ -585,7 +573,7 @@ first_jittered_window_dbf_overload_upto tasks offset jitter enumT h =
     (critical_dbf_windows_upto tasks offset enumT h)
 
 data ExtractedPeriodicTask =
-   MkExtractedPeriodicTask Prelude.Integer Prelude.Integer Prelude.Integer
+   MkExtractedPeriodicTask Prelude.Integer Prelude.Integer Prelude.Integer 
  Prelude.Integer
 
 extracted_task_cost :: ExtractedPeriodicTask -> Prelude.Integer
@@ -612,7 +600,7 @@ extracted_task_offset e =
     extracted_task_offset0}
 
 data ExtractedJitteredPeriodicTask =
-   MkExtractedJitteredPeriodicTask Prelude.Integer Prelude.Integer Prelude.Integer
+   MkExtractedJitteredPeriodicTask Prelude.Integer Prelude.Integer Prelude.Integer 
  Prelude.Integer Prelude.Integer
 
 ejp_cost :: ExtractedJitteredPeriodicTask -> Prelude.Integer
@@ -809,8 +797,8 @@ extracted_jittered_offset_window_dbf_test_by_cutoff =
 extracted_jittered_offset_window_dbf_counterexample_by_cutoff :: (List
                                                                  ExtractedJitteredPeriodicTask)
                                                                  -> Option
-                                                                 (Prod
-                                                                 Time
+                                                                 (Prod 
+                                                                 Time 
                                                                  Time)
 extracted_jittered_offset_window_dbf_counterexample_by_cutoff ts =
   first_jittered_window_dbf_overload_upto
@@ -841,8 +829,8 @@ jittered_periodic_offset_window_schedulability_decide =
 jittered_periodic_offset_window_schedulability_counterexample :: (List
                                                                  ExtractedJitteredPeriodicTask)
                                                                  -> Option
-                                                                 (Prod
-                                                                 Time
+                                                                 (Prod 
+                                                                 Time 
                                                                  Time)
 jittered_periodic_offset_window_schedulability_counterexample =
   extracted_jittered_offset_window_dbf_counterexample_by_cutoff
@@ -864,7 +852,7 @@ jittered_edf_compact_dbf_certificate_expected_basis ts =
     (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
 
 jittered_fast_compact_basis_ndbf_test :: (TaskId -> Task) -> (TaskId -> Time)
-                                         -> (TaskId -> Time) -> (List
+                                         -> (TaskId -> Time) -> (List 
                                          TaskId) -> JitteredCompactDbfBasis
                                          -> Prelude.Bool
 jittered_fast_compact_basis_ndbf_test tasks offset jitter enumT basis =
@@ -891,3 +879,4 @@ check_jittered_edf_compact_dbf_certificate_extracted ts cert =
       (jittered_tasks_of_extracted_list ts)
       (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
       (jittered_enumT_of_extracted_list ts) (jedf_compact_basis cert))
+

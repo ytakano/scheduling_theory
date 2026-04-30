@@ -40,7 +40,7 @@ now_ms() {
 run_rust() {
   name=$1
   threads=$2
-  witness="$tmp/$name.$threads.json"
+  witness="$tmp/$name.$threads.cbor"
   metrics="$tmp/$name.$threads.metrics.csv"
   err="$tmp/$name.$threads.err"
   start=$(now_ms)

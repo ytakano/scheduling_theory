@@ -2,7 +2,7 @@
 set -eu
 
 if [ "$#" -ne 2 ]; then
-  echo "usage: run_jittered_edf_witness_pipeline TASKS.csv WITNESS.json" >&2
+  echo "usage: run_jittered_edf_witness_pipeline TASKS.csv WITNESS.cbor" >&2
   exit 2
 fi
 

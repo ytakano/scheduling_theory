@@ -4,20 +4,10 @@ module Main where
 
 import qualified JitteredPeriodicEDFSchedulability as EDF
 
+import CborWitness
 import Control.Monad (forM)
 import Crypto.Hash (Digest, SHA256, hash)
-import Data.Aeson
-  ( FromJSON (parseJSON)
-  , Value
-  , encode
-  , eitherDecodeFileStrict'
-  , object
-  , withObject
-  , (.=)
-  , (.:)
-  )
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Lazy.Char8 as LBS
 import Data.Char (isSpace, toLower)
 import Data.List (isPrefixOf)
 import System.Environment (getArgs)
@@ -56,37 +46,6 @@ data BasisRowJson = BasisRowJson
   , basisLeftEdgesJson :: [Integer]
   }
 
-instance FromJSON Witness where
-  parseJSON =
-    withObject "Witness" $ \o ->
-      Witness
-        <$> o .: "schema_version"
-        <*> o .: "policy"
-        <*> o .: "domain"
-        <*> o .: "task_hash"
-        <*> o .: "cert"
-
-instance FromJSON CertJson where
-  parseJSON =
-    withObject "cert" $ \o ->
-      CertJson
-        <$> o .: "dbf"
-
-instance FromJSON DbfJson where
-  parseJSON =
-    withObject "dbf" $ \o ->
-      DbfJson
-        <$> o .: "cutoff"
-        <*> o .: "basis"
-        <*> o .: "all_basis_checked"
-
-instance FromJSON BasisRowJson where
-  parseJSON =
-    withObject "basis row" $ \o ->
-      BasisRowJson
-        <$> o .: "t2"
-        <*> o .: "left_edges"
-
 main :: IO ()
 main = do
   args <- getArgs
@@ -99,8 +58,8 @@ main = do
 
 printUsage :: IO ()
 printUsage = do
-  putStrLn "usage: jittered_edf_witness_check --tasks TASKS.csv --witness WITNESS.json"
-  putStrLn "       jittered_edf_witness_check --tasks TASKS.csv --emit-expected-witness WITNESS.json"
+  putStrLn "usage: jittered_edf_witness_check --tasks TASKS.csv --witness WITNESS.cbor"
+  putStrLn "       jittered_edf_witness_check --tasks TASKS.csv --emit-expected-witness WITNESS.cbor"
 
 runCheck :: FilePath -> FilePath -> IO ()
 runCheck taskPath witnessPath = do
@@ -108,17 +67,19 @@ runCheck taskPath witnessPath = do
   case parseCsv taskContent of
     Left err -> reject ("invalid CSV: " ++ err)
     Right tasks -> do
-      decoded <- eitherDecodeFileStrict' witnessPath :: IO (Either String Witness)
+      decoded <- readCborTermFile witnessPath
       case decoded of
-        Left err -> reject ("malformed JSON: " ++ err)
-        Right witness ->
-          case validateWitnessMetadata tasks witness of
-            Left err -> reject err
-            Right () ->
-              case checkWitness tasks witness of
-                Left err -> reject err
-                Right True -> putStrLn "ACCEPT" >> exitSuccess
-                Right False -> reject "extracted checker rejected witness"
+        Left err -> reject ("malformed CBOR: " ++ err)
+        Right term ->
+          case witnessFromTerm term of
+            Left err -> reject ("malformed CBOR: " ++ err)
+            Right witness -> case validateWitnessMetadata tasks witness of
+              Left err -> reject err
+              Right () ->
+                case checkWitness tasks witness of
+                  Left err -> reject err
+                  Right True -> putStrLn "ACCEPT" >> exitSuccess
+                  Right False -> reject "extracted checker rejected witness"
 
 emitExpectedWitness :: FilePath -> FilePath -> IO ()
 emitExpectedWitness taskPath witnessPath = do
@@ -129,9 +90,9 @@ emitExpectedWitness taskPath witnessPath = do
       let input = toEDFList (map toEDFTask tasks)
       case buildExpectedWitness tasks input of
         Left err -> reject err
-        Right witness -> LBS.writeFile witnessPath (encode witness)
+        Right witness -> writeCborTermFile witnessPath witness
 
-buildExpectedWitness :: [ParsedTask] -> EDF.List EDF.ExtractedJitteredPeriodicTask -> Either String Value
+buildExpectedWitness :: [ParsedTask] -> EDF.List EDF.ExtractedJitteredPeriodicTask -> Either String Term
 buildExpectedWitness tasks input = do
   cutoff <-
     checkedNatInteger
@@ -141,19 +102,19 @@ buildExpectedWitness tasks input = do
     traverse fromEDFBasisRow
       (fromEDFList (EDF.jittered_edf_compact_dbf_certificate_expected_basis input))
   let dbfObject =
-        object
-          [ "cutoff" .= cutoff
-          , "basis" .= basis
-          , "all_basis_checked" .= True
+        objectTerm
+          [ ("cutoff", integerTerm cutoff)
+          , ("basis", TList basis)
+          , ("all_basis_checked", TBool True)
           ]
   pure $
-    object
-      [ "schema_version" .= (3 :: Int)
-      , "policy" .= ("jittered-periodic-edf" :: String)
-      , "domain" .= ("uniprocessor" :: String)
-      , "task_hash" .= taskHash tasks
-      , "cert" .= object
-          [ "dbf" .= dbfObject ]
+    objectTerm
+      [ ("schema_version", integerTerm 3)
+      , ("policy", textTerm "jittered-periodic-edf")
+      , ("domain", textTerm "uniprocessor")
+      , ("task_hash", textTerm (taskHash tasks))
+      , ("cert", objectTerm
+          [ ("dbf", dbfObject) ])
       ]
 
 reject :: String -> IO ()
@@ -172,6 +133,65 @@ validateWitnessMetadata tasks witness
   | witnessTaskHash witness /= taskHash tasks =
       Left "task_hash mismatch"
   | otherwise = Right ()
+
+witnessFromTerm :: Term -> Either String Witness
+witnessFromTerm term = do
+  fields <- expectMap "witness" term
+  Witness
+    <$> intField "witness" "schema_version" fields
+    <*> textField "witness" "policy" fields
+    <*> textField "witness" "domain" fields
+    <*> textField "witness" "task_hash" fields
+    <*> (lookupKey "witness" "cert" fields >>= certFromTerm)
+
+certFromTerm :: Term -> Either String CertJson
+certFromTerm term = do
+  fields <- expectMap "cert" term
+  CertJson <$> (lookupKey "cert" "dbf" fields >>= dbfFromTerm)
+
+dbfFromTerm :: Term -> Either String DbfJson
+dbfFromTerm term = do
+  fields <- expectMap "dbf" term
+  DbfJson
+    <$> integerField "dbf" "cutoff" fields
+    <*> termListField "dbf" "basis" basisRowFromTerm fields
+    <*> boolField "dbf" "all_basis_checked" fields
+
+basisRowFromTerm :: Term -> Either String BasisRowJson
+basisRowFromTerm term = do
+  fields <- expectMap "basis row" term
+  BasisRowJson
+    <$> integerField "basis row" "t2" fields
+    <*> integerListField "basis row" "left_edges" fields
+
+textField :: String -> String -> [(Term, Term)] -> Either String String
+textField label key fields =
+  lookupKey label key fields >>= expectText (label ++ "." ++ key)
+
+integerField :: String -> String -> [(Term, Term)] -> Either String Integer
+integerField label key fields =
+  lookupKey label key fields >>= expectInteger (label ++ "." ++ key)
+
+boolField :: String -> String -> [(Term, Term)] -> Either String Bool
+boolField label key fields =
+  lookupKey label key fields >>= expectBool (label ++ "." ++ key)
+
+intField :: String -> String -> [(Term, Term)] -> Either String Int
+intField label key fields = do
+  value <- integerField label key fields
+  if value >= fromIntegral (minBound :: Int) && value <= fromIntegral (maxBound :: Int)
+    then Right (fromInteger value)
+    else Left (label ++ "." ++ key ++ " is out of Int range")
+
+termListField :: String -> String -> (Term -> Either String a) -> [(Term, Term)] -> Either String [a]
+termListField label key parse fields = do
+  value <- lookupKey label key fields
+  terms <- expectList (label ++ "." ++ key) value
+  traverse parse terms
+
+integerListField :: String -> String -> [(Term, Term)] -> Either String [Integer]
+integerListField label key =
+  termListField label key (expectInteger (label ++ "." ++ key ++ "[]"))
 
 checkWitness :: [ParsedTask] -> Witness -> Either String Bool
 checkWitness tasks witness =
@@ -317,14 +337,14 @@ toNat n = n
 toEDFBool :: Bool -> Bool
 toEDFBool = id
 
-fromEDFBasisRow :: EDF.Prod EDF.Time (EDF.List EDF.Time) -> Either String Value
+fromEDFBasisRow :: EDF.Prod EDF.Time (EDF.List EDF.Time) -> Either String Term
 fromEDFBasisRow (EDF.Pair t2 leftEdges) = do
   t2Json <- checkedNatInteger "expected basis[].t2" t2
   leftEdgesJson <- traverse (checkedNatInteger "expected basis[].left_edges[]") (fromEDFList leftEdges)
   pure $
-    object
-      [ "t2" .= t2Json
-      , "left_edges" .= leftEdgesJson
+    objectTerm
+      [ ("t2", integerTerm t2Json)
+      , ("left_edges", TList (map integerTerm leftEdgesJson))
       ]
 
 trim :: String -> String

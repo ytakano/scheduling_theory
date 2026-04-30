@@ -4,15 +4,9 @@ module Main where
 
 import qualified PeriodicEDFSchedulability as EDF
 
+import CborWitness
 import Control.Monad (forM)
 import Crypto.Hash (Digest, SHA256, hash)
-import Data.Aeson
-  ( FromJSON (parseJSON)
-  , Value
-  , eitherDecodeFileStrict'
-  , withObject
-  , (.:)
-  )
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (isSpace, toLower)
 import Data.List (isPrefixOf)
@@ -90,86 +84,6 @@ data WindowTargetCertJson = WindowTargetCertJson
   , windowTransportPairsJson :: [WindowPairCertJson]
   }
 
-instance FromJSON Witness where
-  parseJSON =
-    withObject "Witness" $ \o ->
-      Witness
-        <$> o .: "schema_version"
-        <*> o .: "policy"
-        <*> o .: "domain"
-        <*> o .: "task_hash"
-        <*> o .: "cert"
-        <*> o .: "sidecar"
-
-instance FromJSON CertJson where
-  parseJSON =
-    withObject "cert" $ \o ->
-      CertJson
-        <$> o .: "prefix"
-        <*> o .: "transport"
-        <*> o .: "dbf"
-
-instance FromJSON PrefixJson where
-  parseJSON =
-    withObject "prefix" $ \o ->
-      PrefixJson
-        <$> o .: "horizon"
-        <*> o .: "basis_jobs"
-        <*> o .: "slots"
-        <*> o .: "completed_by"
-        <*> o .: "backlog_free_matrix"
-
-instance FromJSON TransportJson where
-  parseJSON =
-    withObject "transport" $ \o ->
-      TransportJson
-        <$> o .: "period"
-        <*> o .: "basis_jobs"
-        <*> o .: "classes"
-        <*> o .: "job_class"
-        <*> o .: "job_shift"
-
-instance FromJSON TransportClassJson where
-  parseJSON =
-    withObject "transport_class" $ \o ->
-      TransportClassJson
-        <$> o .: "rep_job"
-        <*> o .: "completion_offset"
-        <*> o .: "backlog_offset"
-
-instance FromJSON DbfJson where
-  parseJSON =
-    withObject "dbf" $ \o ->
-      DbfJson
-        <$> o .: "cutoff"
-        <*> o .: "ok_table"
-
-instance FromJSON SidecarJson where
-  parseJSON =
-    withObject "sidecar" $ \o ->
-      SidecarJson
-        <$> o .: "candidate_jobs"
-        <*> o .: "class_relevant_jobs"
-        <*> o .: "window_target_certs"
-        <*> o .: "post_reset_window_target_certs"
-
-instance FromJSON WindowPairCertJson where
-  parseJSON =
-    withObject "window_pair_cert" $ \o ->
-      WindowPairCertJson
-        <$> o .: "target_earlier_job"
-        <*> o .: "rep_earlier_job"
-        <*> o .: "delta"
-
-instance FromJSON WindowTargetCertJson where
-  parseJSON =
-    withObject "window_target_cert" $ \o ->
-      WindowTargetCertJson
-        <$> o .: "target_job"
-        <*> o .: "class_id"
-        <*> o .: "shift"
-        <*> o .: "pairs"
-
 main :: IO ()
 main = do
   args <- getArgs
@@ -184,8 +98,8 @@ main = do
 
 printUsage :: IO ()
 printUsage = do
-  putStrLn "usage: periodic_edf_witness_check --tasks TASKS.csv --witness WITNESS.json"
-  putStrLn "       periodic_edf_witness_check --tasks TASKS.csv --offsets --witness WITNESS.json"
+  putStrLn "usage: periodic_edf_witness_check --tasks TASKS.csv --witness WITNESS.cbor"
+  putStrLn "       periodic_edf_witness_check --tasks TASKS.csv --offsets --witness WITNESS.cbor"
 
 runCheck :: Bool -> FilePath -> FilePath -> IO ()
 runCheck useOffsets taskPath witnessPath = do
@@ -193,24 +107,26 @@ runCheck useOffsets taskPath witnessPath = do
   case parseCsv taskContent of
     Left err -> reject ("invalid CSV: " ++ err)
     Right tasks -> do
-      decoded <- eitherDecodeFileStrict' witnessPath :: IO (Either String Witness)
+      decoded <- readCborTermFile witnessPath
       case decoded of
-        Left err -> reject ("malformed JSON: " ++ err)
-        Right witness ->
-          case validateWitnessMetadata tasks witness of
-            Left err -> reject err
-            Right () -> do
-              case buildCheckerInput witness of
-                Left err -> reject err
-                Right (cert, sidecar) -> do
-                  let input = toEDFList (map toEDFTask tasks)
-                      accepted =
-                        if useOffsets
-                          then EDF.check_periodic_edf_checked_sidecar_extracted_with_offsets input cert sidecar
-                          else EDF.check_periodic_edf_checked_sidecar_extracted input cert sidecar
-                  case accepted of
-                    True -> putStrLn "ACCEPT" >> exitSuccess
-                    False -> reject "extracted checker rejected witness"
+        Left err -> reject ("malformed CBOR: " ++ err)
+        Right term ->
+          case witnessFromTerm term of
+            Left err -> reject ("malformed CBOR: " ++ err)
+            Right witness -> case validateWitnessMetadata tasks witness of
+              Left err -> reject err
+              Right () -> do
+                case buildCheckerInput witness of
+                  Left err -> reject err
+                  Right (cert, sidecar) -> do
+                    let input = toEDFList (map toEDFTask tasks)
+                        accepted =
+                          if useOffsets
+                            then EDF.check_periodic_edf_checked_sidecar_extracted_with_offsets input cert sidecar
+                            else EDF.check_periodic_edf_checked_sidecar_extracted input cert sidecar
+                    case accepted of
+                      True -> putStrLn "ACCEPT" >> exitSuccess
+                      False -> reject "extracted checker rejected witness"
 
 reject :: String -> IO ()
 reject err = do
@@ -228,6 +144,131 @@ validateWitnessMetadata tasks witness
   | witnessTaskHash witness /= taskHash tasks =
       Left "task_hash mismatch"
   | otherwise = Right ()
+
+witnessFromTerm :: Term -> Either String Witness
+witnessFromTerm term = do
+  fields <- expectMap "witness" term
+  Witness
+    <$> intField "witness" "schema_version" fields
+    <*> textField "witness" "policy" fields
+    <*> textField "witness" "domain" fields
+    <*> textField "witness" "task_hash" fields
+    <*> (lookupKey "witness" "cert" fields >>= certFromTerm)
+    <*> (lookupKey "witness" "sidecar" fields >>= sidecarFromTerm)
+
+certFromTerm :: Term -> Either String CertJson
+certFromTerm term = do
+  fields <- expectMap "cert" term
+  CertJson
+    <$> (lookupKey "cert" "prefix" fields >>= prefixFromTerm)
+    <*> (lookupKey "cert" "transport" fields >>= transportFromTerm)
+    <*> (lookupKey "cert" "dbf" fields >>= dbfFromTerm)
+
+prefixFromTerm :: Term -> Either String PrefixJson
+prefixFromTerm term = do
+  fields <- expectMap "prefix" term
+  PrefixJson
+    <$> integerField "prefix" "horizon" fields
+    <*> integerListField "prefix" "basis_jobs" fields
+    <*> optionalIntegerListField "prefix" "slots" fields
+    <*> integerListField "prefix" "completed_by" fields
+    <*> boolRowsField "prefix" "backlog_free_matrix" fields
+
+transportFromTerm :: Term -> Either String TransportJson
+transportFromTerm term = do
+  fields <- expectMap "transport" term
+  TransportJson
+    <$> integerField "transport" "period" fields
+    <*> integerListField "transport" "basis_jobs" fields
+    <*> termListField "transport" "classes" transportClassFromTerm fields
+    <*> integerListField "transport" "job_class" fields
+    <*> integerListField "transport" "job_shift" fields
+
+transportClassFromTerm :: Term -> Either String TransportClassJson
+transportClassFromTerm term = do
+  fields <- expectMap "transport.classes[]" term
+  TransportClassJson
+    <$> integerField "transport.classes[]" "rep_job" fields
+    <*> integerField "transport.classes[]" "completion_offset" fields
+    <*> integerField "transport.classes[]" "backlog_offset" fields
+
+dbfFromTerm :: Term -> Either String DbfJson
+dbfFromTerm term = do
+  fields <- expectMap "dbf" term
+  DbfJson
+    <$> integerField "dbf" "cutoff" fields
+    <*> boolListField "dbf" "ok_table" fields
+
+sidecarFromTerm :: Term -> Either String SidecarJson
+sidecarFromTerm term = do
+  fields <- expectMap "sidecar" term
+  SidecarJson
+    <$> integerListField "sidecar" "candidate_jobs" fields
+    <*> integerRowsField "sidecar" "class_relevant_jobs" fields
+    <*> termListField "sidecar" "window_target_certs" windowTargetFromTerm fields
+    <*> termListField "sidecar" "post_reset_window_target_certs" windowTargetFromTerm fields
+
+windowTargetFromTerm :: Term -> Either String WindowTargetCertJson
+windowTargetFromTerm term = do
+  fields <- expectMap "window_target" term
+  WindowTargetCertJson
+    <$> integerField "window_target" "target_job" fields
+    <*> integerField "window_target" "class_id" fields
+    <*> integerField "window_target" "shift" fields
+    <*> termListField "window_target" "pairs" windowPairFromTerm fields
+
+windowPairFromTerm :: Term -> Either String WindowPairCertJson
+windowPairFromTerm term = do
+  fields <- expectMap "window_pair" term
+  WindowPairCertJson
+    <$> integerField "window_pair" "target_earlier_job" fields
+    <*> integerField "window_pair" "rep_earlier_job" fields
+    <*> integerField "window_pair" "delta" fields
+
+textField :: String -> String -> [(Term, Term)] -> Either String String
+textField label key fields =
+  lookupKey label key fields >>= expectText (label ++ "." ++ key)
+
+integerField :: String -> String -> [(Term, Term)] -> Either String Integer
+integerField label key fields =
+  lookupKey label key fields >>= expectInteger (label ++ "." ++ key)
+
+intField :: String -> String -> [(Term, Term)] -> Either String Int
+intField label key fields = do
+  value <- integerField label key fields
+  if value >= fromIntegral (minBound :: Int) && value <= fromIntegral (maxBound :: Int)
+    then Right (fromInteger value)
+    else Left (label ++ "." ++ key ++ " is out of Int range")
+
+termListField :: String -> String -> (Term -> Either String a) -> [(Term, Term)] -> Either String [a]
+termListField label key parse fields = do
+  value <- lookupKey label key fields
+  terms <- expectList (label ++ "." ++ key) value
+  traverse parse terms
+
+integerListField :: String -> String -> [(Term, Term)] -> Either String [Integer]
+integerListField label key =
+  termListField label key (expectInteger (label ++ "." ++ key ++ "[]"))
+
+optionalIntegerListField :: String -> String -> [(Term, Term)] -> Either String [Maybe Integer]
+optionalIntegerListField label key =
+  termListField label key (expectOptionalInteger (label ++ "." ++ key ++ "[]"))
+
+boolListField :: String -> String -> [(Term, Term)] -> Either String [Bool]
+boolListField label key =
+  termListField label key (expectBool (label ++ "." ++ key ++ "[]"))
+
+integerRowsField :: String -> String -> [(Term, Term)] -> Either String [[Integer]]
+integerRowsField label key =
+  termListField label key $ \term -> do
+    row <- expectList (label ++ "." ++ key ++ "[]") term
+    traverse (expectInteger (label ++ "." ++ key ++ "[][]")) row
+
+boolRowsField :: String -> String -> [(Term, Term)] -> Either String [[Bool]]
+boolRowsField label key =
+  termListField label key $ \term -> do
+    row <- expectList (label ++ "." ++ key ++ "[]") term
+    traverse (expectBool (label ++ "." ++ key ++ "[][]")) row
 
 buildCheckerInput ::
   Witness ->

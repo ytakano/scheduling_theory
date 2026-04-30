@@ -8,7 +8,7 @@ if [ "${1:-}" = "--offsets" ]; then
 fi
 
 if [ "$#" -ne 2 ]; then
-  echo "usage: run_periodic_edf_witness_pipeline [--offsets] TASKS.csv WITNESS.json" >&2
+  echo "usage: run_periodic_edf_witness_pipeline [--offsets] TASKS.csv WITNESS.cbor" >&2
   exit 2
 fi
 

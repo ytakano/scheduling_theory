@@ -5,7 +5,7 @@ Runtime witness generation and checking now support only schema version 3.  The
 older schema version 2 numbers below are a historical baseline from the
 transition to compact bases; they are not a currently supported runtime mode.
 
-Benchmark measurements are outside canonical witness JSON and are not part of
+Benchmark measurements are outside canonical witness CBOR and are not part of
 the trusted certificate interface.
 
 Command:
@@ -14,7 +14,9 @@ Command:
 make bench-jittered-edf-witness BENCH_OUT=/tmp/jittered_v3_only_bench.csv
 ```
 
-Date: 2026-04-28.
+Date: 2026-04-28.  Witnesses were migrated from JSON to CBOR on
+2026-04-30; the semantic `schema_version` values were not changed by that
+encoding migration.
 
 ## Benchmark Cases
 
@@ -29,7 +31,7 @@ Date: 2026-04-28.
   historical stress point while the current benchmark exercises only the
   schema-v3 path.
 
-## Current V3-Only Output
+## Benchmark Output Columns
 
 The current benchmark script emits:
 
@@ -47,7 +49,8 @@ The current benchmark script emits:
 | `peak_kb` | currently unavailable |
 | `status` | `ok`, `failed`, or `skipped` |
 
-Representative v3-only rows from the optimized compact-basis benchmark:
+Historical v3-only rows from the optimized compact-basis benchmark before the
+Stage 2 `N` kernel and CBOR encoding changes:
 
 | case | schema | cutoff | basis windows | witness bytes | Rust auto gen ms | Haskell witness check ms | status |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -103,10 +106,10 @@ Command sequence:
 
 ```sh
 cargo build -p sched-witness-gen
-stack exec -- ghc -O2 -package aeson -package crypton \
+stack exec --package cborg -- ghc -O2 -package cborg -package crypton \
   -iextracted/haskell -outputdir scripts/.build \
   -o scripts/jittered_edf_witness_check scripts/jittered_edf_witness_check.hs
-./scripts/bench_jittered_edf_witness_pipeline /tmp/jittered_n_kernel_bench.csv
+./scripts/bench_jittered_edf_witness_pipeline /tmp/jittered_cbor_bench.csv
 ```
 
 This direct sequence avoids re-running extraction while measuring the current
@@ -116,20 +119,21 @@ but that target may rebuild extraction artifacts when they are stale.
 
 | case | schema | cutoff | basis windows | witness bytes | Rust auto gen ms | Stage 2 Haskell witness check ms | status |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| small | 3 | 14 | 64 | 2,656 | 4 | 4 | ok |
-| medium | 3 | 70 | 1,715 | 33,032 | 5 | 11 | ok |
-| large | 3 | 153 | 1,560 | 37,439 | 5 | 14 | ok |
-| limit_near | 3 | 561 | 10,152 | 213,262 | 9 | 93 | ok |
+| small | 3 | 14 | 64 | 659 | 4 | 4 | ok |
+| medium | 3 | 70 | 1,715 | 4,109 | 4 | 10 | ok |
+| large | 3 | 153 | 1,560 | 5,774 | 4 | 13 | ok |
+| limit_near | 3 | 561 | 10,152 | 33,223 | 8 | 95 | ok |
 
 There is no concrete Awkernel runtime impact.  Stage 2 adds no scheduler hooks,
 interrupt hooks, queue state, trace rows, or adapter-visible scheduler
 policies.  The Rust witness generator and Haskell witness wrapper keep the same
-schema-v3 artifact boundary; only the extracted checker implementation behind
-the stable entry points changes.
+schema-v3 certificate fields while changing the executable artifact encoding to
+CBOR; only the extracted checker implementation behind the stable entry points
+changes.
 
 ## Operational Generator Guard
 
-The Rust schema-v3 generator caps compact basis windows with
+The Rust schema-v3 CBOR generator caps compact basis windows with
 `MAX_JITTERED_DBF_BASIS_WINDOWS = 2,000,000`. This is an operational generator
 guard for local resource use, not a proof or theory limit. The value is chosen
 under the user's stated tolerance for witnesses in the hundreds of MB and for
@@ -153,13 +157,15 @@ basis certificates.  They are kept only as historical comparison data.
 - Against the historical full-window baseline, schema v3 reduces certificate
   windows by 75.4% on `small`, 79.7% on
   `medium`, 89.6% on `large`, and 94.3% on `limit_near`.
-- Witness JSON size falls by 78.9% on `small`, 91.8% on `medium`, 94.9% on
-  `large`, and 97.6% on `limit_near`.
+- Witness CBOR size falls by 94.8% on `small`, 99.0% on `medium`, 99.2% on
+  `large`, and 99.6% on `limit_near` compared with the historical schema-v2
+  JSON baseline.
 - Extracted-Haskell witness checking improves from 1,434 ms to 22 ms on
   `medium`, and from 6,207 ms to 45 ms on `large`.
-- With the Stage 2 `N` checker kernel, the same schema-v3 Haskell witness
-  check improves further from 22 ms to 11 ms on `medium`, from 45 ms to 14 ms
-  on `large`, and from 1,628 ms to 93 ms on `limit_near`.
+- With the Stage 2 `N` checker kernel and CBOR witness encoding, the same
+  schema-v3 Haskell witness check improves further from 22 ms to 10 ms on
+  `medium`, from 45 ms to 13 ms on `large`, and from 1,628 ms to 95 ms on
+  `limit_near`.
 - Optimized schema-v3 Rust generation uses the same closed-form release count
   as the checker-facing fast DBF path and reuses adjacent demand values while
   scanning each right endpoint row.

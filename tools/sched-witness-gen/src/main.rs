@@ -4,7 +4,8 @@ use rayon::prelude::*;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
-use std::fs;
+use std::fs::{self, File};
+use std::io::BufWriter;
 use std::path::PathBuf;
 
 const MAX_HORIZON: u64 = 200_000;
@@ -234,10 +235,7 @@ fn run_periodic_edf(args: PeriodicEdfArgs) -> Result<(), String> {
             .map_err(|err| format!("failed to build rayon thread pool: {err}"))?
             .install(|| generate_witness(&tasks, &thread_mode))?,
     };
-    let json = serde_json::to_string_pretty(&witness)
-        .map_err(|err| format!("failed to serialize witness: {err}"))?;
-    fs::write(&args.out, format!("{json}\n"))
-        .map_err(|err| format!("failed to write {}: {err}", args.out.display()))?;
+    write_cbor_witness(&args.out, &witness)?;
     if let Some(path) = args.metrics_out {
         write_metrics(&path, &witness, &args.threads)?;
     }
@@ -258,14 +256,19 @@ fn run_jittered_periodic_edf(args: JitteredPeriodicEdfArgs) -> Result<(), String
             .map_err(|err| format!("failed to build rayon thread pool: {err}"))?
             .install(|| generate_jittered_witness(&tasks, &thread_mode))?,
     };
-    let json = serde_json::to_string_pretty(&witness)
-        .map_err(|err| format!("failed to serialize witness: {err}"))?;
-    fs::write(&args.out, format!("{json}\n"))
-        .map_err(|err| format!("failed to write {}: {err}", args.out.display()))?;
+    write_cbor_witness(&args.out, &witness)?;
     if let Some(path) = args.metrics_out {
         write_jittered_metrics(&path, &witness, &args.threads)?;
     }
     Ok(())
+}
+
+fn write_cbor_witness<T: Serialize>(path: &PathBuf, witness: &T) -> Result<(), String> {
+    let file = File::create(path)
+        .map_err(|err| format!("failed to write {}: {err}", path.display()))?;
+    let writer = BufWriter::new(file);
+    ciborium::ser::into_writer(witness, writer)
+        .map_err(|err| format!("failed to serialize CBOR witness: {err}"))
 }
 
 fn write_metrics(path: &PathBuf, witness: &Witness, requested_threads: &str) -> Result<(), String> {

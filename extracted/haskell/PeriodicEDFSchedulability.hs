@@ -432,19 +432,7 @@ sub1 :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
 sub1 = (\n m -> Prelude.max 0 (n Prelude.- m))
 
 compare0 :: Prelude.Integer -> Prelude.Integer -> Comparison
-compare0 n m =
-  (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
-    (\_ ->
-    (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
-      (\_ -> Eq)
-      (\_ -> Lt)
-      m)
-    (\n' ->
-    (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
-      (\_ -> Gt)
-      (\m' -> compare n' m')
-      m)
-    n
+compare0 = (\n m -> if n Prelude.== m then Eq else if n Prelude.< m then Lt else Gt)
 
 pos_div_eucl :: Prelude.Integer -> Prelude.Integer -> Prod Prelude.Integer
                 Prelude.Integer
@@ -594,7 +582,7 @@ job_blocked j =
 type Schedule = Time -> CPU -> Option JobId
 
 data EDFPrefixCert job =
-   Build_EDFPrefixCert Time (List job) (List (Option job)) (List Time)
+   Build_EDFPrefixCert Time (List job) (List (Option job)) (List Time) 
  (List (List Prelude.Bool))
 
 prefix_horizon :: (EDFPrefixCert a1) -> Time
@@ -632,7 +620,7 @@ transport_rep_job e =
    Build_EDFTransportClass transport_rep_job0 _ _ -> transport_rep_job0}
 
 data EDFTransportCert job =
-   Build_EDFTransportCert Time (List job) (List (EDFTransportClass job))
+   Build_EDFTransportCert Time (List job) (List (EDFTransportClass job)) 
  (List Prelude.Integer) (List Prelude.Integer)
 
 transport_period :: (EDFTransportCert a1) -> Time
@@ -772,7 +760,7 @@ type GenericSchedulingAlgorithm =
   (JobId -> Job) -> Prelude.Integer -> Schedule -> Time -> (List JobId) ->
   Option JobId
   -- singleton inductive, whose constructor was mkGenericSchedulingAlgorithm
-
+  
 choose :: GenericSchedulingAlgorithm -> (JobId -> Job) -> Prelude.Integer ->
           Schedule -> Time -> (List JobId) -> Option JobId
 choose g =
@@ -807,7 +795,7 @@ generated_periodic_job tasks offset _UU03c4_ k =
 type PeriodicCodec =
   TaskId -> Prelude.Integer -> JobId
   -- singleton inductive, whose constructor was mkPeriodicCodec
-
+  
 global_periodic_job_id_of :: (TaskId -> Task) -> (TaskId -> Time) -> (JobId
                              -> Job) -> PeriodicCodec -> TaskId ->
                              Prelude.Integer -> JobId
@@ -861,7 +849,7 @@ zero_offset_periodic_codec_of_tasks tasks enumT =
 type PeriodicFiniteHorizonCodec =
   TaskId -> Prelude.Integer -> JobId
   -- singleton inductive, whose constructor was mkPeriodicFiniteHorizonCodec
-
+  
 periodic_job_id_of :: (TaskId -> Task) -> (TaskId -> Time) -> (JobId -> Job)
                       -> Time -> PeriodicFiniteHorizonCodec -> TaskId ->
                       Prelude.Integer -> JobId
@@ -1062,7 +1050,7 @@ scalar_dbf_cutoff_bound tasks enumT =
       (periodic_hyperperiod tasks enumT))
 
 data ExtractedPeriodicTask =
-   MkExtractedPeriodicTask Prelude.Integer Prelude.Integer Prelude.Integer
+   MkExtractedPeriodicTask Prelude.Integer Prelude.Integer Prelude.Integer 
  Prelude.Integer
 
 extracted_task_cost :: ExtractedPeriodicTask -> Prelude.Integer
@@ -1543,7 +1531,7 @@ window_transport_delta e =
     window_transport_delta0}
 
 data EDFWindowTransportTargetCert =
-   Build_EDFWindowTransportTargetCert JobId Prelude.Integer Prelude.Integer
+   Build_EDFWindowTransportTargetCert JobId Prelude.Integer Prelude.Integer 
  (List EDFWindowTransportPairCert)
 
 window_transport_target_job :: EDFWindowTransportTargetCert -> JobId
@@ -1588,7 +1576,7 @@ check_shifted_job_relation jobs rep target p =
       ((Prelude.+) (job_abs_deadline (jobs (window_rep_earlier_job p)))
         delta))
 
-check_window_transport_target :: (JobId -> Job) -> (EDFTransportCert
+check_window_transport_target :: (JobId -> Job) -> (EDFTransportCert 
                                  JobId) -> EDFWindowTransportTargetCert ->
                                  Prelude.Bool
 check_window_transport_target jobs transport_cert target_cert =
@@ -1615,7 +1603,7 @@ check_window_transport_target jobs transport_cert target_cert =
      None -> Prelude.False};
    None -> Prelude.False}
 
-check_window_transport_targets :: (JobId -> Job) -> (EDFTransportCert
+check_window_transport_targets :: (JobId -> Job) -> (EDFTransportCert 
                                   JobId) -> (List
                                   EDFWindowTransportTargetCert) ->
                                   Prelude.Bool
@@ -1692,7 +1680,7 @@ window_target_candidate_jobs tasks offset jobs enumT codec target =
 
 window_target_relevant_earlier_jobs :: (TaskId -> Task) -> (TaskId -> Time)
                                        -> (JobId -> Job) -> (List TaskId) ->
-                                       PeriodicCodec -> JobId -> List
+                                       PeriodicCodec -> JobId -> List 
                                        JobId
 window_target_relevant_earlier_jobs tasks offset jobs enumT codec target =
   filter (\x ->
@@ -2085,7 +2073,7 @@ check_hyperperiod_block_source_pair_in_certs tasks enumT jobs target x target0 x
     target_certs
 
 data PeriodicEDFCheckedSidecarCert =
-   Build_PeriodicEDFCheckedSidecarCert (List JobId) (List (List JobId))
+   Build_PeriodicEDFCheckedSidecarCert (List JobId) (List (List JobId)) 
  (List EDFWindowTransportTargetCert) (List EDFWindowTransportTargetCert)
 
 checked_class_relevant_jobs :: PeriodicEDFCheckedSidecarCert -> List
@@ -2151,8 +2139,8 @@ check_transport_period_is_hyperperiod tasks enumT transport_cert =
   (Prelude.==) (transport_period transport_cert)
     (periodic_hyperperiod tasks enumT)
 
-check_prefix_horizon_covers_hyperperiod :: (TaskId -> Task) -> (List
-                                           TaskId) -> (EDFPrefixCert
+check_prefix_horizon_covers_hyperperiod :: (TaskId -> Task) -> (List 
+                                           TaskId) -> (EDFPrefixCert 
                                            JobId) -> Prelude.Bool
 check_prefix_horizon_covers_hyperperiod tasks enumT prefix_cert =
   (Prelude.<=) (periodic_hyperperiod tasks enumT)
@@ -2321,3 +2309,4 @@ check_periodic_policy_feasibility :: PeriodicPolicy -> (List
                                      Prelude.Bool
 check_periodic_policy_feasibility _ =
   check_periodic_feasibility_checked_sidecar_extracted
+
