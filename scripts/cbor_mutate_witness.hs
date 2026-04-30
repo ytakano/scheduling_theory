@@ -41,6 +41,12 @@ mutate "jittered-prepend-basis-extra" =
   updateDbf prependBasis
 mutate "jittered-first-left-edge-999" =
   updateDbf mutateFirstLeftEdge
+mutate "jittered-drop-first-basis-row" =
+  updateDbf dropFirstBasisRow
+mutate "jittered-duplicate-first-basis-row" =
+  updateDbf duplicateFirstBasisRow
+mutate "jittered-swap-first-basis-rows" =
+  updateDbf swapFirstBasisRows
 mutate "periodic-first-slot-null" =
   updatePrefix (mutateFirstInList "slots" TNull)
 mutate "periodic-first-completed-zero" =
@@ -111,6 +117,33 @@ mutateFirstLeftEdge dbf = do
         _ : edgeRest -> do
           row' <- replaceKey "left_edges" (TList (integerTerm 999 : edgeRest)) row
           replaceKey "basis" (TList (row' : rest)) dbf
+
+dropFirstBasisRow :: Term -> Either String Term
+dropFirstBasisRow dbf = do
+  fields <- expectMap "dbf" dbf
+  basis <- lookupKey "dbf" "basis" fields
+  rows <- expectList "dbf.basis" basis
+  case rows of
+    [] -> Left "dbf.basis is empty"
+    _ : rest -> replaceKey "basis" (TList rest) dbf
+
+duplicateFirstBasisRow :: Term -> Either String Term
+duplicateFirstBasisRow dbf = do
+  fields <- expectMap "dbf" dbf
+  basis <- lookupKey "dbf" "basis" fields
+  rows <- expectList "dbf.basis" basis
+  case rows of
+    [] -> Left "dbf.basis is empty"
+    row : rest -> replaceKey "basis" (TList (row : row : rest)) dbf
+
+swapFirstBasisRows :: Term -> Either String Term
+swapFirstBasisRows dbf = do
+  fields <- expectMap "dbf" dbf
+  basis <- lookupKey "dbf" "basis" fields
+  rows <- expectList "dbf.basis" basis
+  case rows of
+    first : second : rest -> replaceKey "basis" (TList (second : first : rest)) dbf
+    _ -> Left "dbf.basis has fewer than two rows"
 
 mutateFirstInList :: String -> Term -> Term -> Either String Term
 mutateFirstInList key replacement term = do

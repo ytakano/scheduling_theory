@@ -213,7 +213,15 @@ test-jittered-edf-witness-check:: build-jittered-edf-witness-check
 	grep -q '^threads=2$$' "$$tmp/metrics.out"; \
 	grep -q '^block_windows=1$$' "$$tmp/metrics.out"; \
 	grep -q '^actual_blocks=6$$' "$$tmp/metrics.out"; \
-	grep -q '^expected_blocks=6$$' "$$tmp/metrics.out"; \
+	grep -q '^range_count=6$$' "$$tmp/metrics.out"; \
+	grep -q '^range_rows_min=1$$' "$$tmp/metrics.out"; \
+	grep -q '^range_rows_max=1$$' "$$tmp/metrics.out"; \
+	grep -q '^failed_range_index=none$$' "$$tmp/metrics.out"; \
+	grep -q '^expected_blocks=0$$' "$$tmp/metrics.out"; \
+	grep -q '^phase_range_plan_s=' "$$tmp/metrics.out"; \
+	grep -q '^phase_range_cover_s=' "$$tmp/metrics.out"; \
+	grep -q '^phase_range_equality_s=' "$$tmp/metrics.out"; \
+	grep -q '^phase_range_ndbf_s=' "$$tmp/metrics.out"; \
 	grep -q '^result=accept$$' "$$tmp/metrics.out"; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.cbor" --threads 0 > "$$tmp/threads-zero.out" 2>&1; then \
 		cat "$$tmp/threads-zero.out"; \
@@ -246,6 +254,21 @@ test-jittered-edf-witness-check:: build-jittered-edf-witness-check
 	fi; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-left-edge-mut.cbor" --threads 2 --block-windows 1 > "$$tmp/v3-left-edge-mut-block.out" 2>&1; then \
 		cat "$$tmp/v3-left-edge-mut-block.out"; \
+		exit 1; \
+	fi; \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs jittered-drop-first-basis-row "$$tmp/accepted.cbor" "$$tmp/v3-drop-row.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-drop-row.cbor" --threads 2 --block-windows 1 > "$$tmp/v3-drop-row.out" 2>&1; then \
+		cat "$$tmp/v3-drop-row.out"; \
+		exit 1; \
+	fi; \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs jittered-duplicate-first-basis-row "$$tmp/accepted.cbor" "$$tmp/v3-duplicate-row.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-duplicate-row.cbor" --threads 2 --block-windows 1 > "$$tmp/v3-duplicate-row.out" 2>&1; then \
+		cat "$$tmp/v3-duplicate-row.out"; \
+		exit 1; \
+	fi; \
+	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs jittered-swap-first-basis-rows "$$tmp/accepted.cbor" "$$tmp/v3-swap-row.cbor"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-swap-row.cbor" --threads 2 --block-windows 1 > "$$tmp/v3-swap-row.out" 2>&1; then \
+		cat "$$tmp/v3-swap-row.out"; \
 		exit 1; \
 	fi; \
 	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs all-basis-unchecked "$$tmp/accepted.cbor" "$$tmp/v3-all-basis-mut.cbor"; \
@@ -290,8 +313,12 @@ test-jittered-edf-witness-check:: build-jittered-edf-witness-check
 		cat "$$tmp/cutoff-mut.out"; \
 		exit 1; \
 	fi; \
-	grep -q 'check_jittered_edf_compact_dbf_certificate_block_basis_for_expected' scripts/jittered_edf_witness_check.hs; \
-	grep -q 'jittered_fast_compact_basis_ndbf_block_test' scripts/jittered_edf_witness_check.hs
+	grep -q 'check_jittered_edf_compact_dbf_certificate_range_extracted' scripts/jittered_edf_witness_check.hs; \
+	grep -q 'time_ranges_cover_horizon_b' scripts/jittered_edf_witness_check.hs; \
+	if grep -q 'expectedBasis = EDF.jittered_edf_compact_dbf_certificate_expected_basis' scripts/jittered_edf_witness_check.hs; then \
+		echo 'normal checker path must not generate the full expected compact basis'; \
+		exit 1; \
+	fi
 
 bench-periodic-edf-witness:: sched-witness-gen build-periodic-edf-witness-check
 	@if [ -n "$(BENCH_OUT)" ]; then \

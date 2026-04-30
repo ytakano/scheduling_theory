@@ -460,6 +460,37 @@ taskset_jittered_periodic_fast_dbf_window tasks offset jitter enumT t1 t2 =
 
 type JitteredCompactDbfBasis = List (Prod Time (List Time))
 
+data TimeRange =
+   MkTimeRange Time Time
+
+time_range_start :: TimeRange -> Time
+time_range_start t =
+  case t of {
+   MkTimeRange time_range_start0 _ -> time_range_start0}
+
+time_range_end :: TimeRange -> Time
+time_range_end t =
+  case t of {
+   MkTimeRange _ time_range_end0 -> time_range_end0}
+
+time_range_wf_b :: TimeRange -> Prelude.Bool
+time_range_wf_b r =
+  ltb (time_range_start r) (time_range_end r)
+
+time_ranges_cover_from_b :: Time -> (List TimeRange) -> Time -> Prelude.Bool
+time_ranges_cover_from_b expected_start ranges limit =
+  case ranges of {
+   Nil -> (Prelude.==) expected_start limit;
+   Cons r ranges' ->
+    (Prelude.&&)
+      ((Prelude.&&) ((Prelude.==) expected_start (time_range_start r))
+        (time_range_wf_b r))
+      (time_ranges_cover_from_b (time_range_end r) ranges' limit)}
+
+time_ranges_cover_horizon_b :: Time -> (List TimeRange) -> Prelude.Bool
+time_ranges_cover_horizon_b h ranges =
+  time_ranges_cover_from_b 0 ranges (Prelude.succ h)
+
 jittered_compact_basis_row_windows :: (Prod Time (List Time)) -> List
                                       (Prod Time Time)
 jittered_compact_basis_row_windows row =
@@ -497,13 +528,26 @@ jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2 =
   filter (jittered_reduced_left_edge_b tasks offset jitter enumT t2)
     (bounded_time_points t2)
 
+jittered_reduced_compact_basis_row :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                      (TaskId -> Time) -> (List TaskId) ->
+                                      Time -> Prod Time (List Time)
+jittered_reduced_compact_basis_row tasks offset jitter enumT t2 =
+  Pair t2 (jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2)
+
+jittered_reduced_compact_basis_range :: (TaskId -> Task) -> (TaskId -> Time)
+                                        -> (TaskId -> Time) -> (List
+                                        TaskId) -> Time -> Time ->
+                                        JitteredCompactDbfBasis
+jittered_reduced_compact_basis_range tasks offset jitter enumT lo hi =
+  map (jittered_reduced_compact_basis_row tasks offset jitter enumT)
+    (seq lo (sub hi lo))
+
 jittered_reduced_compact_basis_upto :: (TaskId -> Task) -> (TaskId -> Time)
                                        -> (TaskId -> Time) -> (List TaskId)
                                        -> Time -> JitteredCompactDbfBasis
 jittered_reduced_compact_basis_upto tasks offset jitter enumT h =
-  map (\t2 -> Pair t2
-    (jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2))
-    (bounded_time_points h)
+  jittered_reduced_compact_basis_range tasks offset jitter enumT 0
+    (Prelude.succ h)
 
 data JitteredEDFCompactDbfCertificate =
    Build_JitteredEDFCompactDbfCertificate Time JitteredCompactDbfBasis 
@@ -562,6 +606,21 @@ compact_dbf_basis_eqb xs ys =
      Cons y ys' ->
       (Prelude.&&) (compact_dbf_basis_row_eqb x y)
         (compact_dbf_basis_eqb xs' ys')}}
+
+compact_dbf_basis_ranges_eqb :: (List JitteredCompactDbfBasis) -> (List
+                                JitteredCompactDbfBasis) -> Prelude.Bool
+compact_dbf_basis_ranges_eqb actual_ranges expected_ranges =
+  case actual_ranges of {
+   Nil ->
+    case expected_ranges of {
+     Nil -> Prelude.True;
+     Cons _ _ -> Prelude.False};
+   Cons actual_range actual_ranges' ->
+    case expected_ranges of {
+     Nil -> Prelude.False;
+     Cons expected_range expected_ranges' ->
+      (Prelude.&&) (compact_dbf_basis_eqb actual_range expected_range)
+        (compact_dbf_basis_ranges_eqb actual_ranges' expected_ranges')}}
 
 compact_dbf_basis_blocks_eqb :: (List JitteredCompactDbfBasis) -> (List
                                 JitteredCompactDbfBasis) -> Prelude.Bool
@@ -902,6 +961,28 @@ jittered_edf_compact_dbf_certificate_expected_basis ts =
     (jittered_enumT_of_extracted_list ts)
     (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
 
+jittered_edf_compact_dbf_certificate_expected_basis_range :: (List
+                                                             ExtractedJitteredPeriodicTask)
+                                                             -> Time -> Time
+                                                             ->
+                                                             JitteredCompactDbfBasis
+jittered_edf_compact_dbf_certificate_expected_basis_range ts lo hi =
+  jittered_reduced_compact_basis_range (jittered_tasks_of_extracted_list ts)
+    (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
+    (jittered_enumT_of_extracted_list ts) lo hi
+
+jittered_edf_compact_dbf_certificate_expected_basis_ranges :: (List
+                                                              ExtractedJitteredPeriodicTask)
+                                                              -> (List
+                                                              TimeRange) ->
+                                                              List
+                                                              JitteredCompactDbfBasis
+jittered_edf_compact_dbf_certificate_expected_basis_ranges ts ranges =
+  map (\r ->
+    jittered_edf_compact_dbf_certificate_expected_basis_range ts
+      (time_range_start r) (time_range_end r))
+    ranges
+
 jittered_fast_compact_basis_ndbf_test :: (TaskId -> Task) -> (TaskId -> Time)
                                          -> (TaskId -> Time) -> (List 
                                          TaskId) -> JitteredCompactDbfBasis
@@ -990,3 +1071,50 @@ check_jittered_edf_compact_dbf_certificate_blocks_extracted ts actual_blocks exp
       (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
       (jittered_enumT_of_extracted_list ts) actual_blocks)
 
+check_jittered_edf_compact_dbf_certificate_range_extracted :: (List
+                                                              ExtractedJitteredPeriodicTask)
+                                                              -> Time -> Time
+                                                              ->
+                                                              JitteredCompactDbfBasis
+                                                              -> Prelude.Bool
+check_jittered_edf_compact_dbf_certificate_range_extracted ts lo hi actual_range =
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&) (extracted_jittered_taskset_wf ts)
+        (time_range_wf_b (MkTimeRange lo hi)))
+      (compact_dbf_basis_eqb actual_range
+        (jittered_edf_compact_dbf_certificate_expected_basis_range ts lo hi)))
+    (jittered_fast_compact_basis_ndbf_block_test
+      (jittered_tasks_of_extracted_list ts)
+      (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
+      (jittered_enumT_of_extracted_list ts) actual_range)
+
+check_jittered_edf_compact_dbf_certificate_ranges_extracted :: (List
+                                                               ExtractedJitteredPeriodicTask)
+                                                               -> (List
+                                                               TimeRange) ->
+                                                               (List
+                                                               JitteredCompactDbfBasis)
+                                                               ->
+                                                               JitteredEDFCompactDbfCertificate
+                                                               ->
+                                                               Prelude.Bool
+check_jittered_edf_compact_dbf_certificate_ranges_extracted ts ranges actual_ranges cert =
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&)
+          ((Prelude.&&) (extracted_jittered_taskset_wf ts)
+            (check_jittered_edf_compact_dbf_certificate_header
+              (jittered_edf_compact_dbf_certificate_expected_cutoff ts) cert))
+          (time_ranges_cover_horizon_b
+            (jittered_edf_compact_dbf_certificate_expected_cutoff ts) ranges))
+        (compact_dbf_basis_eqb (jedf_compact_basis cert)
+          (concat actual_ranges)))
+      (compact_dbf_basis_ranges_eqb actual_ranges
+        (jittered_edf_compact_dbf_certificate_expected_basis_ranges ts
+          ranges)))
+    (jittered_fast_compact_basis_ndbf_blocks_test
+      (jittered_tasks_of_extracted_list ts)
+      (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
+      (jittered_enumT_of_extracted_list ts) actual_ranges)

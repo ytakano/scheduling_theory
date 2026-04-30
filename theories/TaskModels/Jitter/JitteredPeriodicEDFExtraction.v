@@ -1,5 +1,6 @@
 From Stdlib Require Extraction.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFCertificate.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicCompactDBF.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFFinalCertificateChecker.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionDecision.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionSoundness.
@@ -10,13 +11,18 @@ Extraction Language Haskell.
 
 Extraction "extracted/haskell/JitteredPeriodicEDFSchedulability.hs"
   ExtractedJitteredPeriodicTask
+  TimeRange
   JitteredEDFCompactDbfCertificate
   extracted_periodic_as_jittered_zero_jitter
   jittered_edf_compact_dbf_certificate_expected_cutoff
   jittered_edf_compact_dbf_certificate_expected_basis
+  jittered_edf_compact_dbf_certificate_expected_basis_range
+  jittered_edf_compact_dbf_certificate_expected_basis_ranges
   check_jittered_edf_compact_dbf_certificate_extracted
   check_jittered_edf_compact_dbf_certificate_header_extracted
   check_jittered_edf_compact_dbf_certificate_blocks_extracted
+  check_jittered_edf_compact_dbf_certificate_range_extracted
+  check_jittered_edf_compact_dbf_certificate_ranges_extracted
   extracted_jittered_offset_window_dbf_cutoff_bound
   extracted_jittered_offset_window_ndbf_test_by_cutoff
   extracted_jittered_offset_window_dbf_test_by_cutoff

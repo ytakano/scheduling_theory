@@ -74,6 +74,12 @@ data CheckMetrics = CheckMetrics
   , metricActualRows :: Int
   , metricActualWindows :: Integer
   , metricActualBlocks :: Int
+  , metricRangeCount :: Int
+  , metricRangeRowsMin :: Int
+  , metricRangeRowsMax :: Int
+  , metricRangeWindowsMin :: Integer
+  , metricRangeWindowsMax :: Integer
+  , metricFailedRangeIndex :: Maybe Int
   , metricExpectedRows :: Int
   , metricExpectedWindows :: Integer
   , metricExpectedBlocks :: Int
@@ -87,6 +93,10 @@ data CheckMetrics = CheckMetrics
   , metricPhaseResolveThreadsSeconds :: Double
   , metricPhaseActualBasisCountSeconds :: Double
   , metricPhaseExpectedBasisGenerateSeconds :: Double
+  , metricPhaseRangePlanSeconds :: Double
+  , metricPhaseRangeCoverSeconds :: Double
+  , metricPhaseRangeEqualitySeconds :: Double
+  , metricPhaseRangeNdbfSeconds :: Double
   , metricPhaseActualSplitSeconds :: Double
   , metricPhaseExpectedSplitSeconds :: Double
   , metricPhaseStructuralSeconds :: Double
@@ -101,6 +111,13 @@ data InputPhaseMetrics = InputPhaseMetrics
   , inputPhaseWitnessDecodeSeconds :: Double
   , inputPhaseMetadataValidateSeconds :: Double
   , inputPhaseBuildDbfSeconds :: Double
+  }
+
+data RangeWorkItem = RangeWorkItem
+  { rangeIndex :: Int
+  , rangeLo :: EDF.Time
+  , rangeHi :: EDF.Time
+  , rangeActualBasis :: EDF.JitteredCompactDbfBasis
   }
 
 main :: IO ()
@@ -322,34 +339,40 @@ runParallelBlockCheck inputPhases opts input cert = do
   GHC.setNumCapabilities threads
   let blockWindows = optBlockWindows opts
       actualBasis = EDF.jedf_compact_basis cert
-      expectedBasis = EDF.jittered_edf_compact_dbf_certificate_expected_basis input
+      expectedCutoff = EDF.jittered_edf_compact_dbf_certificate_expected_cutoff input
   ((actualRows, actualWindows), phaseActualBasisCount) <-
     timedEval (basisCounts actualBasis)
-  ((expectedRows, expectedWindows), phaseExpectedBasisGenerate) <-
-    timedEval (basisCounts expectedBasis)
-  (actualBlocks, phaseActualSplit) <-
-    timedIO (forceBlockList (splitBasisByWindows blockWindows actualBasis))
-  (expectedBlocks, phaseExpectedSplit) <-
-    timedIO (forceBlockList (splitBasisByWindows blockWindows expectedBasis))
-  let actualBlockCount = length actualBlocks
-      expectedBlockCount = length expectedBlocks
-      structural =
+  (workItems, phaseRangePlan) <-
+    timedIO (forceRangeWorkItems (planRangeWorkItems blockWindows actualBasis))
+  let actualRanges = map rangeActualBasis workItems
+      rangeList = map rangeTimeRange workItems
+      actualRangesList = toEDFList actualRanges
+      rangeListEDF = toEDFList rangeList
+      rangeStats = rangeMetrics workItems
+      headerOk =
         EDF.check_jittered_edf_compact_dbf_certificate_header_extracted input cert
-          && EDF.check_jittered_edf_compact_dbf_certificate_block_basis_for_expected
-               expectedBasis
-               (toEDFList actualBlocks)
-               (toEDFList expectedBlocks)
-               cert
-      metrics result phaseStructural phaseWorkers phaseCheckTotal =
+      rangeCoverOk =
+        EDF.time_ranges_cover_horizon_b expectedCutoff rangeListEDF
+      rangeEqualityOk =
+        EDF.compact_dbf_basis_eqb actualBasis (EDF.concat actualRangesList)
+      structural = headerOk && rangeCoverOk && rangeEqualityOk
+      rangeCount = length workItems
+      metrics result failedRange phaseRangeCover phaseRangeEquality phaseStructural phaseWorkers phaseCheckTotal =
         CheckMetrics
           { metricThreads = threads
           , metricBlockWindows = blockWindows
           , metricActualRows = actualRows
           , metricActualWindows = actualWindows
-          , metricActualBlocks = actualBlockCount
-          , metricExpectedRows = expectedRows
-          , metricExpectedWindows = expectedWindows
-          , metricExpectedBlocks = expectedBlockCount
+          , metricActualBlocks = rangeCount
+          , metricRangeCount = rangeCount
+          , metricRangeRowsMin = rangeRowsMin rangeStats
+          , metricRangeRowsMax = rangeRowsMax rangeStats
+          , metricRangeWindowsMin = rangeWindowsMin rangeStats
+          , metricRangeWindowsMax = rangeWindowsMax rangeStats
+          , metricFailedRangeIndex = failedRange
+          , metricExpectedRows = 0
+          , metricExpectedWindows = 0
+          , metricExpectedBlocks = 0
           , metricResult = result
           , metricPhaseCsvReadSeconds = inputPhaseCsvReadSeconds inputPhases
           , metricPhaseCsvParseSeconds = inputPhaseCsvParseSeconds inputPhases
@@ -359,26 +382,32 @@ runParallelBlockCheck inputPhases opts input cert = do
           , metricPhaseBuildDbfSeconds = inputPhaseBuildDbfSeconds inputPhases
           , metricPhaseResolveThreadsSeconds = phaseResolveThreads
           , metricPhaseActualBasisCountSeconds = phaseActualBasisCount
-          , metricPhaseExpectedBasisGenerateSeconds = phaseExpectedBasisGenerate
-          , metricPhaseActualSplitSeconds = phaseActualSplit
-          , metricPhaseExpectedSplitSeconds = phaseExpectedSplit
+          , metricPhaseExpectedBasisGenerateSeconds = 0
+          , metricPhaseRangePlanSeconds = phaseRangePlan
+          , metricPhaseRangeCoverSeconds = phaseRangeCover
+          , metricPhaseRangeEqualitySeconds = phaseRangeEquality
+          , metricPhaseRangeNdbfSeconds = phaseWorkers
+          , metricPhaseActualSplitSeconds = phaseRangePlan
+          , metricPhaseExpectedSplitSeconds = 0
           , metricPhaseStructuralSeconds = phaseStructural
           , metricPhaseWorkersSeconds = phaseWorkers
           , metricPhaseCheckTotalSeconds = phaseCheckTotal
           }
-  (structuralOk, phaseStructural) <- timedEval structural
+  (rangeCoverResult, phaseRangeCover) <- timedEval rangeCoverOk
+  (rangeEqualityResult, phaseRangeEquality) <- timedEval rangeEqualityOk
+  (structuralOk, phaseStructural) <- timedEval (headerOk && rangeCoverResult && rangeEqualityResult)
   if not structuralOk
     then do
       checkEnd <- monotonicSeconds
-      pure (False, metrics False phaseStructural 0 (checkEnd - checkStart))
+      pure (False, metrics False Nothing phaseRangeCover phaseRangeEquality phaseStructural 0 (checkEnd - checkStart))
     else do
-      (blockOk, phaseWorkers) <-
+      (failedRange, phaseWorkers) <-
         timedIO $
-          parallelAll threads $
-            map (checkBasisBlock input) actualBlocks
-      let ok = structuralOk && blockOk
+          parallelRangeChecks threads $
+            map (checkRange input) workItems
+      let ok = structuralOk && failedRange == Nothing
       checkEnd <- monotonicSeconds
-      pure (ok, metrics ok phaseStructural phaseWorkers (checkEnd - checkStart))
+      pure (ok, metrics ok failedRange phaseRangeCover phaseRangeEquality phaseStructural phaseWorkers (checkEnd - checkStart))
 
 timedEval :: a -> IO (a, Double)
 timedEval value =
@@ -400,13 +429,15 @@ resolveThreads :: ThreadSetting -> IO Int
 resolveThreads (ThreadCount n) = pure n
 resolveThreads ThreadAuto = max 1 <$> GHC.getNumProcessors
 
-checkBasisBlock :: EDF.List EDF.ExtractedJitteredPeriodicTask -> EDF.JitteredCompactDbfBasis -> Bool
-checkBasisBlock input =
-  EDF.jittered_fast_compact_basis_ndbf_block_test
-    (EDF.jittered_tasks_of_extracted_list input)
-    (EDF.jittered_offset_of_extracted_list input)
-    (EDF.jitter_of_extracted_list input)
-    (EDF.jittered_enumT_of_extracted_list input)
+checkRange :: EDF.List EDF.ExtractedJitteredPeriodicTask -> RangeWorkItem -> (Int, Bool)
+checkRange input item =
+  ( rangeIndex item
+  , EDF.check_jittered_edf_compact_dbf_certificate_range_extracted
+      input
+      (rangeLo item)
+      (rangeHi item)
+      (rangeActualBasis item)
+  )
 
 parallelAll :: Int -> [Bool] -> IO Bool
 parallelAll _ [] = pure True
@@ -442,6 +473,40 @@ splitIntoAtMost n xs =
               (chunk, remaining) = splitAt takeCount rest
           in chunk : go (parts - 1) remaining
 
+parallelRangeChecks :: Int -> [(Int, Bool)] -> IO (Maybe Int)
+parallelRangeChecks _ [] = pure Nothing
+parallelRangeChecks threads checks
+  | threads <= 1 = go checks
+  | otherwise = do
+      let chunks = splitIntoAtMost threads checks
+      vars <- forM chunks $ \chunk -> do
+        var <- newEmptyMVar
+        _ <- forkIO $ do
+          result <- try (evaluate (firstFailedRange chunk)) :: IO (Either SomeException (Maybe Int))
+          putMVar var result
+        pure var
+      results <- mapM takeMVar vars
+      case sequence results of
+        Left _ -> pure (Just 0)
+        Right failures -> pure (minimumMaybe failures)
+  where
+    go [] = pure Nothing
+    go ((idx, ok) : xs) = do
+      result <- evaluate ok
+      if result then go xs else pure (Just idx)
+
+firstFailedRange :: [(Int, Bool)] -> Maybe Int
+firstFailedRange [] = Nothing
+firstFailedRange ((idx, ok) : xs)
+  | ok = firstFailedRange xs
+  | otherwise = Just idx
+
+minimumMaybe :: [Maybe Int] -> Maybe Int
+minimumMaybe values =
+  case [idx | Just idx <- values] of
+    [] -> Nothing
+    idxs -> Just (minimum idxs)
+
 splitBasisByWindows :: Int -> EDF.JitteredCompactDbfBasis -> [EDF.JitteredCompactDbfBasis]
 splitBasisByWindows limit basis =
   map toEDFList (splitRows [] 0 (fromEDFList basis))
@@ -457,6 +522,46 @@ splitBasisByWindows limit basis =
           reverse current : splitRows [row] (rowWindowCount row) rows
       | otherwise =
           splitRows (row : current) (currentWeight + rowWindowCount row) rows
+
+planRangeWorkItems :: Int -> EDF.JitteredCompactDbfBasis -> [RangeWorkItem]
+planRangeWorkItems limit basis =
+  zipWith mkRangeWorkItem [0 :: Int ..] (splitRows [] 0 (fromEDFList basis))
+  where
+    splitRows [] _ [] = []
+    splitRows current _ [] = [reverse current]
+    splitRows [] _ (row : rows) =
+      splitRows [row] (rowWindowCount row) rows
+    splitRows current currentWeight (row : rows)
+      | currentWeight >= fromIntegral limit =
+          reverse current : splitRows [row] (rowWindowCount row) rows
+      | currentWeight + rowWindowCount row > fromIntegral limit =
+          reverse current : splitRows [row] (rowWindowCount row) rows
+      | otherwise =
+          splitRows (row : current) (currentWeight + rowWindowCount row) rows
+
+mkRangeWorkItem :: Int -> [EDF.Prod EDF.Time (EDF.List EDF.Time)] -> RangeWorkItem
+mkRangeWorkItem idx [] =
+  error ("empty range work item: " ++ show idx)
+mkRangeWorkItem idx rows@(firstRow : _) =
+  RangeWorkItem
+    { rangeIndex = idx
+    , rangeLo = rowT2 firstRow
+    , rangeHi = lastRowT2 rows + 1
+    , rangeActualBasis = toEDFList rows
+    }
+
+rangeTimeRange :: RangeWorkItem -> EDF.TimeRange
+rangeTimeRange item =
+  EDF.MkTimeRange (rangeLo item) (rangeHi item)
+
+rowT2 :: EDF.Prod EDF.Time (EDF.List EDF.Time) -> EDF.Time
+rowT2 (EDF.Pair t2 _) = t2
+
+lastRowT2 :: [EDF.Prod EDF.Time (EDF.List EDF.Time)] -> EDF.Time
+lastRowT2 [] =
+  error "empty range work item"
+lastRowT2 [row] = rowT2 row
+lastRowT2 (_ : rows) = lastRowT2 rows
 
 basisRowCount :: EDF.JitteredCompactDbfBasis -> Int
 basisRowCount =
@@ -478,9 +583,39 @@ forceBlockList blocks = do
   _ <- evaluate (length blocks)
   pure blocks
 
+forceRangeWorkItems :: [RangeWorkItem] -> IO [RangeWorkItem]
+forceRangeWorkItems items = do
+  _ <- evaluate (length items)
+  pure items
+
 rowWindowCount :: EDF.Prod EDF.Time (EDF.List EDF.Time) -> Integer
 rowWindowCount (EDF.Pair _ leftEdges) =
   fromIntegral (length (fromEDFList leftEdges))
+
+data RangeMetrics = RangeMetrics
+  { rangeRowsMin :: Int
+  , rangeRowsMax :: Int
+  , rangeWindowsMin :: Integer
+  , rangeWindowsMax :: Integer
+  }
+
+rangeMetrics :: [RangeWorkItem] -> RangeMetrics
+rangeMetrics [] =
+  RangeMetrics
+    { rangeRowsMin = 0
+    , rangeRowsMax = 0
+    , rangeWindowsMin = 0
+    , rangeWindowsMax = 0
+    }
+rangeMetrics items =
+  let rowCounts = map (basisRowCount . rangeActualBasis) items
+      windowCounts = map (basisWindowCount . rangeActualBasis) items
+  in RangeMetrics
+       { rangeRowsMin = minimum rowCounts
+       , rangeRowsMax = maximum rowCounts
+       , rangeWindowsMin = minimum windowCounts
+       , rangeWindowsMax = maximum windowCounts
+       }
 
 writeMetrics :: Maybe FilePath -> CheckMetrics -> IO ()
 writeMetrics Nothing _ = pure ()
@@ -492,6 +627,12 @@ writeMetrics (Just path) metrics =
       , "actual_rows=" ++ show (metricActualRows metrics)
       , "actual_windows=" ++ show (metricActualWindows metrics)
       , "actual_blocks=" ++ show (metricActualBlocks metrics)
+      , "range_count=" ++ show (metricRangeCount metrics)
+      , "range_rows_min=" ++ show (metricRangeRowsMin metrics)
+      , "range_rows_max=" ++ show (metricRangeRowsMax metrics)
+      , "range_windows_min=" ++ show (metricRangeWindowsMin metrics)
+      , "range_windows_max=" ++ show (metricRangeWindowsMax metrics)
+      , "failed_range_index=" ++ maybe "none" show (metricFailedRangeIndex metrics)
       , "expected_rows=" ++ show (metricExpectedRows metrics)
       , "expected_windows=" ++ show (metricExpectedWindows metrics)
       , "expected_blocks=" ++ show (metricExpectedBlocks metrics)
@@ -504,6 +645,10 @@ writeMetrics (Just path) metrics =
       , "phase_resolve_threads_s=" ++ formatSeconds (metricPhaseResolveThreadsSeconds metrics)
       , "phase_actual_basis_count_s=" ++ formatSeconds (metricPhaseActualBasisCountSeconds metrics)
       , "phase_expected_basis_generate_s=" ++ formatSeconds (metricPhaseExpectedBasisGenerateSeconds metrics)
+      , "phase_range_plan_s=" ++ formatSeconds (metricPhaseRangePlanSeconds metrics)
+      , "phase_range_cover_s=" ++ formatSeconds (metricPhaseRangeCoverSeconds metrics)
+      , "phase_range_equality_s=" ++ formatSeconds (metricPhaseRangeEqualitySeconds metrics)
+      , "phase_range_ndbf_s=" ++ formatSeconds (metricPhaseRangeNdbfSeconds metrics)
       , "phase_actual_split_s=" ++ formatSeconds (metricPhaseActualSplitSeconds metrics)
       , "phase_expected_split_s=" ++ formatSeconds (metricPhaseExpectedSplitSeconds metrics)
       , "phase_structural_s=" ++ formatSeconds (metricPhaseStructuralSeconds metrics)

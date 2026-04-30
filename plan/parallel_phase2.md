@@ -308,6 +308,19 @@ only if basis-window planning cannot express a stable range plan.  Keep
 `--threads 1` as the compatibility default and use `--threads auto` explicitly
 in benchmarks.
 
+Implementation note:
+
+- `check_jittered_edf_compact_dbf_certificate_ranges_extracted` is exported as
+  proof/reference tooling for the aggregate range obligation.
+- The normal Haskell checker path does not call the aggregate checker, because
+  that would recompute every expected range serially.  Instead it validates the
+  header, range cover, and certificate-basis concatenation once, then evaluates
+  `check_jittered_edf_compact_dbf_certificate_range_extracted` for each planned
+  range work item.
+- Range planning, worker scheduling, metrics, and `--block-windows` are
+  adapter/tool-layer execution choices.  They are not schema-v3 certificate
+  fields, common-layer proof data, or Awkernel runtime semantics.
+
 ### P2-E: Metrics And Benchmarks
 
 Preserve existing phase metrics and add range-specific metrics:
