@@ -16,6 +16,103 @@ Import ListNotations.
 
 Definition JitteredCompactDbfBasis := list (Time * list Time).
 
+(** A [TimeRange] denotes the half-open interval
+    [[time_range_start r, time_range_end r)). *)
+Record TimeRange := mkTimeRange
+  { time_range_start : Time;
+    time_range_end : Time }.
+
+Definition time_range_wf_b (r : TimeRange) : bool :=
+  time_range_start r <? time_range_end r.
+
+Definition time_range_contains (r : TimeRange) (t : Time) : Prop :=
+  time_range_start r <= t < time_range_end r.
+
+Fixpoint time_ranges_cover_from_b
+    (expected_start : Time)
+    (ranges : list TimeRange)
+    (limit : Time) : bool :=
+  match ranges with
+  | [] => expected_start =? limit
+  | r :: ranges' =>
+      (expected_start =? time_range_start r)
+      &&
+      time_range_wf_b r
+      &&
+      time_ranges_cover_from_b (time_range_end r) ranges' limit
+  end.
+
+Definition time_ranges_cover_horizon_b
+    (H : Time)
+    (ranges : list TimeRange) : bool :=
+  time_ranges_cover_from_b 0 ranges (S H).
+
+Lemma time_ranges_cover_from_b_nil_true :
+  forall expected_start limit,
+    time_ranges_cover_from_b expected_start [] limit = true ->
+    expected_start = limit.
+Proof.
+  intros expected_start limit Hcover.
+  simpl in Hcover.
+  now apply Nat.eqb_eq in Hcover.
+Qed.
+
+Lemma time_ranges_cover_from_b_cons_true :
+  forall expected_start r ranges limit,
+    time_ranges_cover_from_b expected_start (r :: ranges) limit = true ->
+    expected_start = time_range_start r /\
+    time_range_start r < time_range_end r /\
+    time_ranges_cover_from_b (time_range_end r) ranges limit = true.
+Proof.
+  intros expected_start r ranges limit Hcover.
+  simpl in Hcover.
+  rewrite !andb_true_iff in Hcover.
+  destruct Hcover as [[Hstart Hwf] Htail].
+  apply Nat.eqb_eq in Hstart.
+  apply Nat.ltb_lt in Hwf.
+  repeat split; assumption.
+Qed.
+
+Lemma time_ranges_cover_from_b_contains :
+  forall ranges expected_start limit t,
+    time_ranges_cover_from_b expected_start ranges limit = true ->
+    expected_start <= t < limit ->
+    exists r,
+      In r ranges /\ time_range_contains r t.
+Proof.
+  induction ranges as [|r ranges IH]; intros expected_start limit t Hcover Ht.
+  - apply time_ranges_cover_from_b_nil_true in Hcover.
+    lia.
+  - destruct
+      (time_ranges_cover_from_b_cons_true
+         expected_start r ranges limit Hcover)
+      as [Hstart [Hwf Htail]].
+    destruct (t <? time_range_end r) eqn:Ht_end.
+    + exists r.
+      split; [left; reflexivity|].
+      unfold time_range_contains.
+      apply Nat.ltb_lt in Ht_end.
+      lia.
+    + apply Nat.ltb_ge in Ht_end.
+      destruct (IH (time_range_end r) limit t Htail) as [r' [Hin Hcontains]].
+      * lia.
+      * exists r'.
+        split; [right; exact Hin|exact Hcontains].
+Qed.
+
+Lemma time_ranges_cover_horizon_b_contains :
+  forall H ranges t,
+    time_ranges_cover_horizon_b H ranges = true ->
+    t <= H ->
+    exists r,
+      In r ranges /\ time_range_contains r t.
+Proof.
+  intros H ranges t Hcover Ht.
+  unfold time_ranges_cover_horizon_b in Hcover.
+  eapply time_ranges_cover_from_b_contains; eauto.
+  lia.
+Qed.
+
 Definition jittered_compact_basis_row_windows
     (row : Time * list Time) : list (Time * Time) :=
   let '(t2, left_edges) := row in
