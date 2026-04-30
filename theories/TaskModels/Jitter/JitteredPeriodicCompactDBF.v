@@ -536,6 +536,74 @@ Definition jittered_reduced_compact_basis_upto
     (H : Time) : JitteredCompactDbfBasis :=
   jittered_reduced_compact_basis_range tasks offset jitter enumT 0 (S H).
 
+Lemma jittered_reduced_compact_basis_range_app :
+  forall tasks offset jitter enumT lo mid hi,
+    lo <= mid ->
+    mid <= hi ->
+    jittered_reduced_compact_basis_range tasks offset jitter enumT lo mid ++
+    jittered_reduced_compact_basis_range tasks offset jitter enumT mid hi =
+    jittered_reduced_compact_basis_range tasks offset jitter enumT lo hi.
+Proof.
+  intros tasks offset jitter enumT lo mid hi Hlo_mid Hmid_hi.
+  unfold jittered_reduced_compact_basis_range.
+  rewrite <- map_app.
+  replace (seq mid (hi - mid)) with
+    (seq (lo + (mid - lo)) (hi - mid))
+    by (replace (lo + (mid - lo)) with mid by lia; reflexivity).
+  rewrite <- seq_app.
+  replace (mid - lo + (hi - mid)) with (hi - lo) by lia.
+  reflexivity.
+Qed.
+
+Lemma jittered_reduced_compact_basis_range_concat_ranges :
+  forall tasks offset jitter enumT ranges lo hi,
+    time_ranges_cover_from_b lo ranges hi = true ->
+    concat
+      (map
+         (fun r =>
+            jittered_reduced_compact_basis_range
+              tasks offset jitter enumT
+              (time_range_start r) (time_range_end r))
+         ranges) =
+    jittered_reduced_compact_basis_range tasks offset jitter enumT lo hi.
+Proof.
+  intros tasks offset jitter enumT ranges.
+  induction ranges as [|r ranges IH]; intros lo hi Hcover.
+  - apply time_ranges_cover_from_b_nil_true in Hcover.
+    subst hi.
+    unfold jittered_reduced_compact_basis_range.
+    replace (lo - lo) with 0 by lia.
+    reflexivity.
+  - destruct
+      (time_ranges_cover_from_b_cons_true lo r ranges hi Hcover)
+      as [Hstart [Hwf Htail]].
+    simpl.
+    rewrite (IH (time_range_end r) hi Htail).
+    subst lo.
+    apply jittered_reduced_compact_basis_range_app.
+    + lia.
+    + apply time_ranges_cover_from_b_ordered_gap_free in Htail.
+      now apply time_ranges_ordered_gap_free_from_end_ge_start in Htail.
+Qed.
+
+Lemma jittered_reduced_compact_basis_upto_concat_ranges :
+  forall tasks offset jitter enumT ranges H,
+    time_ranges_cover_horizon_b H ranges = true ->
+    concat
+      (map
+         (fun r =>
+            jittered_reduced_compact_basis_range
+              tasks offset jitter enumT
+              (time_range_start r) (time_range_end r))
+         ranges) =
+    jittered_reduced_compact_basis_upto tasks offset jitter enumT H.
+Proof.
+  intros tasks offset jitter enumT ranges H Hcover.
+  unfold time_ranges_cover_horizon_b in Hcover.
+  unfold jittered_reduced_compact_basis_upto.
+  now apply jittered_reduced_compact_basis_range_concat_ranges.
+Qed.
+
 Lemma jittered_reduced_compact_basis_row_eq :
   forall tasks offset jitter enumT t2,
     jittered_reduced_compact_basis_row tasks offset jitter enumT t2 =
