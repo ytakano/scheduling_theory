@@ -30,6 +30,11 @@ semantics. They define release/cost/deadline structure for generated jobs, but
 they do not model OS-level waiting or blocking causes. Blocking-aware jobs
 belong to adapter-local workload models, not to these classic generated-job
 interfaces.
+Likewise, runtime observations such as an actual release instant, measured
+execution time, or a concrete loop counter for one periodic task are evidence
+for an adapter that reconstructs logical generated jobs. They are not new
+common-layer `JobId` structure and they do not change the common release, cost,
+deadline, `OpState`, or `OpEvent` interfaces.
 
 ## Core concepts and guarantees
 
