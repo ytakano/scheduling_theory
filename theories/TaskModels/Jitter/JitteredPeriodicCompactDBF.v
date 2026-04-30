@@ -47,6 +47,36 @@ Definition time_ranges_cover_horizon_b
     (ranges : list TimeRange) : bool :=
   time_ranges_cover_from_b 0 ranges (S H).
 
+Fixpoint time_ranges_ordered_gap_free_from
+    (expected_start : Time)
+    (ranges : list TimeRange)
+    (limit : Time) : Prop :=
+  match ranges with
+  | [] => expected_start = limit
+  | r :: ranges' =>
+      expected_start = time_range_start r /\
+      time_range_start r < time_range_end r /\
+      time_ranges_ordered_gap_free_from
+        (time_range_end r) ranges' limit
+  end.
+
+Definition time_ranges_bounded_by
+    (expected_start limit : Time)
+    (ranges : list TimeRange) : Prop :=
+  forall r,
+    In r ranges ->
+    expected_start <= time_range_start r /\
+    time_range_end r <= limit.
+
+Definition time_ranges_non_overlapping
+    (ranges : list TimeRange) : Prop :=
+  forall r1 r2 t,
+    In r1 ranges ->
+    In r2 ranges ->
+    time_range_contains r1 t ->
+    time_range_contains r2 t ->
+    r1 = r2.
+
 Lemma time_ranges_cover_from_b_nil_true :
   forall expected_start limit,
     time_ranges_cover_from_b expected_start [] limit = true ->
@@ -71,6 +101,160 @@ Proof.
   apply Nat.eqb_eq in Hstart.
   apply Nat.ltb_lt in Hwf.
   repeat split; assumption.
+Qed.
+
+Lemma time_ranges_cover_from_b_ordered_gap_free :
+  forall ranges expected_start limit,
+    time_ranges_cover_from_b expected_start ranges limit = true ->
+    time_ranges_ordered_gap_free_from expected_start ranges limit.
+Proof.
+  induction ranges as [|r ranges IH]; intros expected_start limit Hcover.
+  - now apply time_ranges_cover_from_b_nil_true in Hcover.
+  - destruct
+      (time_ranges_cover_from_b_cons_true
+         expected_start r ranges limit Hcover)
+      as [Hstart [Hwf Htail]].
+    repeat split; [exact Hstart|exact Hwf|].
+    now apply IH.
+Qed.
+
+Lemma time_ranges_ordered_gap_free_from_end_ge_start :
+  forall ranges expected_start limit,
+    time_ranges_ordered_gap_free_from expected_start ranges limit ->
+    expected_start <= limit.
+Proof.
+  induction ranges as [|r ranges IH]; intros expected_start limit Hordered.
+  - simpl in Hordered.
+    lia.
+  - simpl in Hordered.
+    destruct Hordered as [Hstart [Hwf Htail]].
+    specialize (IH (time_range_end r) limit Htail).
+    lia.
+Qed.
+
+Lemma time_ranges_ordered_gap_free_from_bounded :
+  forall ranges expected_start limit,
+    time_ranges_ordered_gap_free_from expected_start ranges limit ->
+    time_ranges_bounded_by expected_start limit ranges.
+Proof.
+  induction ranges as [|r ranges IH]; intros expected_start limit Hordered x Hin.
+  - contradiction.
+  - simpl in Hordered.
+    destruct Hordered as [Hstart [Hwf Htail]].
+    destruct Hin as [Hx | Hin].
+    + subst x.
+      split.
+      * lia.
+      * apply time_ranges_ordered_gap_free_from_end_ge_start in Htail.
+        lia.
+    + specialize (IH (time_range_end r) limit Htail x Hin)
+        as [Hstart_bound Hend_bound].
+      split; lia.
+Qed.
+
+Lemma time_ranges_cover_from_b_bounded :
+  forall ranges expected_start limit,
+    time_ranges_cover_from_b expected_start ranges limit = true ->
+    time_ranges_bounded_by expected_start limit ranges.
+Proof.
+  intros ranges expected_start limit Hcover.
+  apply time_ranges_ordered_gap_free_from_bounded.
+  now apply time_ranges_cover_from_b_ordered_gap_free.
+Qed.
+
+Lemma time_ranges_cover_from_b_adjacent_gap_free :
+  forall expected_start r1 r2 ranges limit,
+    time_ranges_cover_from_b expected_start (r1 :: r2 :: ranges) limit = true ->
+    time_range_end r1 = time_range_start r2.
+Proof.
+  intros expected_start r1 r2 ranges limit Hcover.
+  destruct
+    (time_ranges_cover_from_b_cons_true
+       expected_start r1 (r2 :: ranges) limit Hcover)
+    as [_ [_ Htail]].
+  destruct
+    (time_ranges_cover_from_b_cons_true
+       (time_range_end r1) r2 ranges limit Htail)
+    as [Hstart _].
+  exact Hstart.
+Qed.
+
+Lemma time_ranges_ordered_gap_free_from_left_of_later :
+  forall ranges expected_start limit r1 r2,
+    time_ranges_ordered_gap_free_from expected_start ranges limit ->
+    In r1 ranges ->
+    In r2 ranges ->
+    time_range_end r1 <= time_range_start r2 \/
+    time_range_end r2 <= time_range_start r1 \/
+    r1 = r2.
+Proof.
+  induction ranges as [|r ranges IH]; intros expected_start limit r1 r2 Hordered Hin1 Hin2.
+  - contradiction.
+  - simpl in Hordered.
+    destruct Hordered as [Hstart [Hwf Htail]].
+    destruct Hin1 as [Hr1 | Hin1], Hin2 as [Hr2 | Hin2].
+    + subst r1 r2.
+      right; right; reflexivity.
+    + subst r1.
+      left.
+      destruct
+        (time_ranges_ordered_gap_free_from_bounded
+           ranges (time_range_end r) limit Htail r2 Hin2)
+        as [Hbounded _].
+      exact Hbounded.
+    + subst r2.
+      right; left.
+      destruct
+        (time_ranges_ordered_gap_free_from_bounded
+           ranges (time_range_end r) limit Htail r1 Hin1)
+        as [Hbounded _].
+      exact Hbounded.
+    + eapply IH; eauto.
+Qed.
+
+Lemma time_ranges_cover_from_b_left_of_later :
+  forall ranges expected_start limit r1 r2,
+    time_ranges_cover_from_b expected_start ranges limit = true ->
+    In r1 ranges ->
+    In r2 ranges ->
+    time_range_end r1 <= time_range_start r2 \/
+    time_range_end r2 <= time_range_start r1 \/
+    r1 = r2.
+Proof.
+  intros ranges expected_start limit r1 r2 Hcover Hin1 Hin2.
+  eapply time_ranges_ordered_gap_free_from_left_of_later.
+  - apply time_ranges_cover_from_b_ordered_gap_free.
+    exact Hcover.
+  - exact Hin1.
+  - exact Hin2.
+Qed.
+
+Lemma time_ranges_ordered_gap_free_from_non_overlapping :
+  forall ranges expected_start limit,
+    time_ranges_ordered_gap_free_from expected_start ranges limit ->
+    time_ranges_non_overlapping ranges.
+Proof.
+  intros ranges expected_start limit Hordered r1 r2 t Hin1 Hin2 Hcontains1 Hcontains2.
+  destruct
+    (time_ranges_ordered_gap_free_from_left_of_later
+       ranges expected_start limit r1 r2 Hordered Hin1 Hin2)
+    as [Hleft | [Hright | Heq]].
+  - unfold time_range_contains in *.
+    lia.
+  - unfold time_range_contains in *.
+    lia.
+  - exact Heq.
+Qed.
+
+Lemma time_ranges_cover_from_b_non_overlapping :
+  forall ranges expected_start limit,
+    time_ranges_cover_from_b expected_start ranges limit = true ->
+    time_ranges_non_overlapping ranges.
+Proof.
+  intros ranges expected_start limit Hcover.
+  apply time_ranges_ordered_gap_free_from_non_overlapping with
+      (expected_start := expected_start) (limit := limit).
+  now apply time_ranges_cover_from_b_ordered_gap_free.
 Qed.
 
 Lemma time_ranges_cover_from_b_contains :
