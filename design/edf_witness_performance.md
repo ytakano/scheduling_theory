@@ -56,6 +56,77 @@ Representative v3-only rows from the optimized compact-basis benchmark:
 | large | 3 | 153 | 1,560 | 37,470 | 5 | 45 | ok |
 | limit_near | 3 | 561 | 10,152 | 213,293 | 11 | 1,628 | ok |
 
+## Stage 2 N Kernel Result
+
+After the schema-v3 compact-basis optimization, the checker gained
+checker-local `N` kernels for the DBF arithmetic that dominates periodic and
+jittered-periodic EDF witness checking.  These kernels are an implementation
+result, not a new witness schema and not a new common time domain.
+
+Implemented kernels:
+
+- `TaskModels/Periodic/PeriodicNDBF.v` adds `N`-valued scalar DBF, window DBF,
+  taskset DBF, and bounded cutoff tests.
+- `TaskModels/Jitter/JitteredPeriodicNDBF.v` adds `N`-valued jittered fast
+  window DBF, taskset demand, capacity, and bounded window tests.
+- The periodic and jittered extraction decisions route the checker-facing DBF
+  tests through these `N` kernels while preserving the existing public
+  extracted entry points.
+- The compact jittered final-certificate checker uses the `N` fast compact
+  basis predicate for its DBF check.
+
+Proof status:
+
+- Periodic lemmas show that every `N` DBF result projects back to the existing
+  `nat` DBF/window DBF definitions by `N.to_nat`.
+- `n_dbf_test_by_cutoff_eq` and `n_window_dbf_test_by_cutoff_eq` connect the
+  periodic checker booleans back to the previous `nat` cutoff tests.
+- `jittered_window_fast_ndbf_test_upto_eq_nat` connects the jittered `N`
+  window checker back to the existing `nat` jittered window DBF test.
+- These lemmas keep the proof-facing semantics over `nat`; `N` is only the
+  executable arithmetic representation used inside the checker kernel.
+
+Verification performed for the implementation included compiling the new
+periodic and jittered `N` modules, their extraction-decision modules, and the
+corresponding extraction soundness wrappers.
+
+### Measured Stage 2 N Kernel Output
+
+Measured with the same schema-v3 benchmark cases and CSV columns described
+above. These rows exercise the extracted Haskell checker after the
+checker-local `N` DBF kernels; they do not change the witness schema, the
+common `nat` interface, or the runtime trace surface.
+
+Date: 2026-04-30.
+
+Command sequence:
+
+```sh
+cargo build -p sched-witness-gen
+stack exec -- ghc -O2 -package aeson -package crypton \
+  -iextracted/haskell -outputdir scripts/.build \
+  -o scripts/jittered_edf_witness_check scripts/jittered_edf_witness_check.hs
+./scripts/bench_jittered_edf_witness_pipeline /tmp/jittered_n_kernel_bench.csv
+```
+
+This direct sequence avoids re-running extraction while measuring the current
+generated Haskell checker. The equivalent make target is
+`make bench-jittered-edf-witness BENCH_OUT=/tmp/jittered_n_kernel_bench.csv`,
+but that target may rebuild extraction artifacts when they are stale.
+
+| case | schema | cutoff | basis windows | witness bytes | Rust auto gen ms | Stage 2 Haskell witness check ms | status |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| small | 3 | 14 | 64 | 2,656 | 4 | 4 | ok |
+| medium | 3 | 70 | 1,715 | 33,032 | 5 | 11 | ok |
+| large | 3 | 153 | 1,560 | 37,439 | 5 | 14 | ok |
+| limit_near | 3 | 561 | 10,152 | 213,262 | 9 | 93 | ok |
+
+There is no concrete Awkernel runtime impact.  Stage 2 adds no scheduler hooks,
+interrupt hooks, queue state, trace rows, or adapter-visible scheduler
+policies.  The Rust witness generator and Haskell witness wrapper keep the same
+schema-v3 artifact boundary; only the extracted checker implementation behind
+the stable entry points changes.
+
 ## Operational Generator Guard
 
 The Rust schema-v3 generator caps compact basis windows with
@@ -86,6 +157,9 @@ basis certificates.  They are kept only as historical comparison data.
   `large`, and 97.6% on `limit_near`.
 - Extracted-Haskell witness checking improves from 1,434 ms to 22 ms on
   `medium`, and from 6,207 ms to 45 ms on `large`.
+- With the Stage 2 `N` checker kernel, the same schema-v3 Haskell witness
+  check improves further from 22 ms to 11 ms on `medium`, from 45 ms to 14 ms
+  on `large`, and from 1,628 ms to 93 ms on `limit_near`.
 - Optimized schema-v3 Rust generation uses the same closed-form release count
   as the checker-facing fast DBF path and reuses adjacent demand values while
   scanning each right endpoint row.
@@ -101,3 +175,10 @@ basis certificates.  They are kept only as historical comparison data.
 Rust remains untrusted. The checker recomputes the expected reduced compact
 basis and compares it against the witness before running the fast compact DBF
 test. Rust-provided demand values are still not serialized or trusted.
+
+The Stage 2 `N` kernels do not change that boundary.  The common layer remains
+`nat`-based, adapters remain responsible for rejecting negative external
+numeric inputs before extraction maps checker naturals to Haskell `Integer`,
+and runtime trace emission is unchanged.  The only trusted change is the Rocq
+proof bridge showing that the checker-local `N` booleans coincide with the
+existing `nat` DBF obligations.
