@@ -42,6 +42,16 @@ Definition jittered_edf_compact_dbf_certificate_expected_basis
     (jittered_enumT_of_extracted_list ts)
     (jittered_edf_compact_dbf_certificate_expected_cutoff ts).
 
+Definition jittered_edf_compact_dbf_certificate_expected_basis_range
+    (ts : list ExtractedJitteredPeriodicTask)
+    (lo hi : Time) : JitteredCompactDbfBasis :=
+  jittered_reduced_compact_basis_range
+    (jittered_tasks_of_extracted_list ts)
+    (jittered_offset_of_extracted_list ts)
+    (jitter_of_extracted_list ts)
+    (jittered_enumT_of_extracted_list ts)
+    lo hi.
+
 Definition jittered_fast_compact_basis_ndbf_test
     (tasks : TaskId -> Task)
     (offset : TaskId -> Time)
@@ -149,6 +159,22 @@ Definition check_jittered_edf_compact_dbf_certificate_blocks_extracted
        (jittered_enumT_of_extracted_list ts)
        actual_blocks.
 
+Definition check_jittered_edf_compact_dbf_certificate_range_extracted
+    (ts : list ExtractedJitteredPeriodicTask)
+    (lo hi : Time)
+    (actual_range : JitteredCompactDbfBasis) : bool :=
+  extracted_jittered_taskset_wf ts
+  && time_range_wf_b (mkTimeRange lo hi)
+  && compact_dbf_basis_eqb
+       actual_range
+       (jittered_edf_compact_dbf_certificate_expected_basis_range ts lo hi)
+  && jittered_fast_compact_basis_ndbf_block_test
+       (jittered_tasks_of_extracted_list ts)
+       (jittered_offset_of_extracted_list ts)
+       (jitter_of_extracted_list ts)
+       (jittered_enumT_of_extracted_list ts)
+       actual_range.
+
 Lemma check_jittered_edf_dbf_certificate_extracted_fields :
   forall ts cert,
     check_jittered_edf_dbf_certificate_extracted ts cert = true ->
@@ -212,6 +238,31 @@ Proof.
   apply andb_true_iff in Hcheck as [Hrest Hblocks].
   apply andb_true_iff in Hrest as [Hrest Hbasis].
   apply andb_true_iff in Hrest as [Hwf Hheader].
+  repeat split; assumption.
+Qed.
+
+Lemma check_jittered_edf_compact_dbf_certificate_range_extracted_fields :
+  forall ts lo hi actual_range,
+    check_jittered_edf_compact_dbf_certificate_range_extracted
+      ts lo hi actual_range = true ->
+    extracted_jittered_taskset_wf ts = true
+    /\ time_range_wf_b (mkTimeRange lo hi) = true
+    /\ compact_dbf_basis_eqb
+         actual_range
+         (jittered_edf_compact_dbf_certificate_expected_basis_range
+            ts lo hi) = true
+    /\ jittered_fast_compact_basis_ndbf_block_test
+         (jittered_tasks_of_extracted_list ts)
+         (jittered_offset_of_extracted_list ts)
+         (jitter_of_extracted_list ts)
+         (jittered_enumT_of_extracted_list ts)
+         actual_range = true.
+Proof.
+  intros ts lo hi actual_range Hcheck.
+  unfold check_jittered_edf_compact_dbf_certificate_range_extracted in Hcheck.
+  apply andb_true_iff in Hcheck as [Hrest Hdbf].
+  apply andb_true_iff in Hrest as [Hrest Hbasis].
+  apply andb_true_iff in Hrest as [Hwf Hrange].
   repeat split; assumption.
 Qed.
 
@@ -352,6 +403,21 @@ Proof.
     as [_ [Hfields _]].
   apply check_jittered_edf_compact_dbf_certificate_fields_sound.
   exact Hfields.
+Qed.
+
+Lemma check_jittered_edf_compact_dbf_certificate_range_extracted_basis :
+  forall ts lo hi actual_range,
+    check_jittered_edf_compact_dbf_certificate_range_extracted
+      ts lo hi actual_range = true ->
+    actual_range =
+      jittered_edf_compact_dbf_certificate_expected_basis_range ts lo hi.
+Proof.
+  intros ts lo hi actual_range Hcheck.
+  destruct
+    (check_jittered_edf_compact_dbf_certificate_range_extracted_fields
+       ts lo hi actual_range Hcheck)
+    as [_ [_ [Hbasis _]]].
+  now apply compact_dbf_basis_eqb_true in Hbasis.
 Qed.
 
 Lemma check_jittered_edf_compact_dbf_certificate_blocks_extracted_certificate_fields :
