@@ -13,8 +13,10 @@ trap 'rm -rf "$tmp"' EXIT
 generator=${SCHED_WITNESS_GEN:-./target/release/sched-witness-gen}
 basis_window_cap=${JITTERED_BASIS_WINDOW_CAP:-10000000}
 time_cmd=${TIME_CMD:-/usr/bin/time}
+checker_threads=${JITTERED_CHECKER_THREADS:-auto}
+checker_block_windows=${JITTERED_CHECKER_BLOCK_WINDOWS:-100000}
 
-printf 'case,engine,thread_mode,basis_window_cap,task_count,schema_version,cutoff,basis_window_count,witness_bytes,real_s,user_s,sys_s,peak_kb,status\n' > "$out"
+printf 'case,engine,thread_mode,basis_window_cap,task_count,schema_version,cutoff,basis_window_count,witness_bytes,real_s,user_s,sys_s,peak_kb,status,user_real_ratio,checker_block_windows,checker_actual_threads,checker_actual_rows,checker_actual_windows,checker_actual_blocks,checker_range_count,checker_range_rows_min,checker_range_rows_max,checker_range_windows_min,checker_range_windows_max,checker_failed_range_index,phase_range_plan_s,phase_range_cover_s,phase_expected_ranges_s,phase_range_equality_s,phase_range_ndbf_s,phase_workers_s,phase_check_total_s,checker_result\n' > "$out"
 
 cat > "$tmp/small.csv" <<'CSV'
 cost,period,deadline,offset,jitter
@@ -47,6 +49,22 @@ read_time_stats() {
   IFS=, read -r real_s user_s sys_s peak_kb < "$file"
 }
 
+user_real_ratio() {
+  awk -v user="$1" -v real="$2" 'BEGIN { if (real == 0) print "unavailable"; else printf "%.2f", user / real }'
+}
+
+metric_value() {
+  key=$1
+  file=$2
+  if [ -f "$file" ]; then
+    sed -n "s/^$key=//p" "$file" | sed -n '1p'
+  fi
+}
+
+csv_unavailable_checker_fields() {
+  printf ',unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable'
+}
+
 run_rust() {
   name=$1
   threads=$2
@@ -65,24 +83,50 @@ run_rust() {
 $row
 EOF
     if [ "$schema_ver" != 3 ]; then
-      printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,unavailable,%s,%s,%s,%s,failed\n' \
+      ratio=$(user_real_ratio "$user_s" "$real_s")
+      printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,unavailable,%s,%s,%s,%s,failed,%s' \
         "$name" "$requested_threads" "$measured_cap" "$task_count" "$schema_ver" "$cutoff" \
-        "$basis_window_count" "$real_s" "$user_s" "$sys_s" "$peak_kb" >> "$out"
+        "$basis_window_count" "$real_s" "$user_s" "$sys_s" "$peak_kb" "$ratio" >> "$out"
+      csv_unavailable_checker_fields >> "$out"
+      printf '\n' >> "$out"
       echo "expected jittered witness schema 3; got $schema_ver" >&2
       return 1
     fi
     witness_bytes=$(wc -c < "$witness" | tr -d ' ')
-    printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+    ratio=$(user_real_ratio "$user_s" "$real_s")
+    printf '%s,rust-generator,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' \
       "$name" "$requested_threads" "$measured_cap" "$task_count" "$schema_ver" "$cutoff" \
-      "$basis_window_count" "$witness_bytes" "$real_s" "$user_s" "$sys_s" "$peak_kb" "$status" >> "$out"
+      "$basis_window_count" "$witness_bytes" "$real_s" "$user_s" "$sys_s" "$peak_kb" "$status" "$ratio" >> "$out"
+    csv_unavailable_checker_fields >> "$out"
+    printf '\n' >> "$out"
     if [ "$threads" = auto ]; then
-      run_haskell_witness_check "$name" "$witness" "$measured_cap" "$task_count" "$schema_ver" "$cutoff" \
+      run_haskell_witness_check_matrix "$name" "$witness" "$measured_cap" "$task_count" "$schema_ver" "$cutoff" \
         "$basis_window_count" "$witness_bytes"
     fi
   else
-    printf '%s,rust-generator,%s,%s,unavailable,%s,unavailable,unavailable,unavailable,%s,%s,%s,%s,%s\n' \
-      "$name" "$threads" "$basis_window_cap" 3 "$real_s" "$user_s" "$sys_s" "$peak_kb" "$status" >> "$out"
+    ratio=$(user_real_ratio "$user_s" "$real_s")
+    printf '%s,rust-generator,%s,%s,unavailable,%s,unavailable,unavailable,unavailable,%s,%s,%s,%s,%s,%s' \
+      "$name" "$threads" "$basis_window_cap" 3 "$real_s" "$user_s" "$sys_s" "$peak_kb" "$status" "$ratio" >> "$out"
+    csv_unavailable_checker_fields >> "$out"
+    printf '\n' >> "$out"
   fi
+}
+
+run_haskell_witness_check_matrix() {
+  name=$1
+  witness=$2
+  measured_cap=$3
+  task_count=$4
+  schema_ver=$5
+  cutoff=$6
+  basis_window_count=$7
+  witness_bytes=$8
+  for threads in $checker_threads; do
+    for block_windows in $checker_block_windows; do
+      run_haskell_witness_check "$name" "$witness" "$measured_cap" "$task_count" "$schema_ver" "$cutoff" \
+        "$basis_window_count" "$witness_bytes" "$threads" "$block_windows"
+    done
+  done
 }
 
 run_haskell_witness_check() {
@@ -94,16 +138,71 @@ run_haskell_witness_check() {
   cutoff=$6
   basis_window_count=$7
   witness_bytes=$8
-  err="$tmp/$name.schema$schema_ver.check.err"
-  time_out="$tmp/$name.schema$schema_ver.check.time"
+  threads=$9
+  block_windows=${10}
+  metrics="$tmp/$name.schema$schema_ver.check.$threads.$block_windows.metrics"
+  err="$tmp/$name.schema$schema_ver.check.$threads.$block_windows.err"
+  time_out="$tmp/$name.schema$schema_ver.check.$threads.$block_windows.time"
   status=ok
-  if ! "$time_cmd" -f '%e,%U,%S,%M' -o "$time_out" ./scripts/jittered_edf_witness_check --tasks "$tmp/$name.csv" --witness "$witness" > /dev/null 2> "$err"; then
+  if ! "$time_cmd" -f '%e,%U,%S,%M' -o "$time_out" ./scripts/jittered_edf_witness_check --tasks "$tmp/$name.csv" --witness "$witness" --threads "$threads" --block-windows "$block_windows" --metrics-out "$metrics" > /dev/null 2> "$err"; then
     status=failed
   fi
   read_time_stats "$time_out"
-  printf '%s,haskell-witness-check,auto,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
-    "$name" "$measured_cap" "$task_count" "$schema_ver" "$cutoff" \
-    "$basis_window_count" "$witness_bytes" "$real_s" "$user_s" "$sys_s" "$peak_kb" "$status" >> "$out"
+  ratio=$(user_real_ratio "$user_s" "$real_s")
+  actual_threads=$(metric_value threads "$metrics")
+  actual_rows=$(metric_value actual_rows "$metrics")
+  actual_windows=$(metric_value actual_windows "$metrics")
+  actual_blocks=$(metric_value actual_blocks "$metrics")
+  range_count=$(metric_value range_count "$metrics")
+  range_rows_min=$(metric_value range_rows_min "$metrics")
+  range_rows_max=$(metric_value range_rows_max "$metrics")
+  range_windows_min=$(metric_value range_windows_min "$metrics")
+  range_windows_max=$(metric_value range_windows_max "$metrics")
+  failed_range_index=$(metric_value failed_range_index "$metrics")
+  phase_range_plan_s=$(metric_value phase_range_plan_s "$metrics")
+  phase_range_cover_s=$(metric_value phase_range_cover_s "$metrics")
+  phase_expected_ranges_s=$(metric_value phase_expected_ranges_s "$metrics")
+  phase_range_equality_s=$(metric_value phase_range_equality_s "$metrics")
+  phase_range_ndbf_s=$(metric_value phase_range_ndbf_s "$metrics")
+  phase_workers_s=$(metric_value phase_workers_s "$metrics")
+  phase_check_total_s=$(metric_value phase_check_total_s "$metrics")
+  checker_result=$(metric_value result "$metrics")
+  if [ -z "$actual_threads" ]; then
+    actual_threads=unavailable
+  fi
+  if [ -z "$actual_rows" ]; then
+    actual_rows=unavailable
+  fi
+  if [ -z "$actual_windows" ]; then
+    actual_windows=unavailable
+  fi
+  if [ -z "$actual_blocks" ]; then
+    actual_blocks=unavailable
+  fi
+  if [ -z "$range_count" ]; then
+    range_count=unavailable
+  fi
+  if [ -z "$range_rows_min" ]; then range_rows_min=unavailable; fi
+  if [ -z "$range_rows_max" ]; then range_rows_max=unavailable; fi
+  if [ -z "$range_windows_min" ]; then range_windows_min=unavailable; fi
+  if [ -z "$range_windows_max" ]; then range_windows_max=unavailable; fi
+  if [ -z "$failed_range_index" ]; then failed_range_index=unavailable; fi
+  if [ -z "$phase_range_plan_s" ]; then phase_range_plan_s=unavailable; fi
+  if [ -z "$phase_range_cover_s" ]; then phase_range_cover_s=unavailable; fi
+  if [ -z "$phase_expected_ranges_s" ]; then phase_expected_ranges_s=unavailable; fi
+  if [ -z "$phase_range_equality_s" ]; then phase_range_equality_s=unavailable; fi
+  if [ -z "$phase_range_ndbf_s" ]; then phase_range_ndbf_s=unavailable; fi
+  if [ -z "$phase_workers_s" ]; then phase_workers_s=unavailable; fi
+  if [ -z "$phase_check_total_s" ]; then phase_check_total_s=unavailable; fi
+  if [ -z "$checker_result" ]; then checker_result=unavailable; fi
+  printf '%s,haskell-witness-check,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+    "$name" "$threads" "$measured_cap" "$task_count" "$schema_ver" "$cutoff" \
+    "$basis_window_count" "$witness_bytes" "$real_s" "$user_s" "$sys_s" "$peak_kb" "$status" "$ratio" \
+    "$block_windows" "$actual_threads" "$actual_rows" "$actual_windows" "$actual_blocks" \
+    "$range_count" "$range_rows_min" "$range_rows_max" "$range_windows_min" "$range_windows_max" \
+    "$failed_range_index" "$phase_range_plan_s" "$phase_range_cover_s" "$phase_expected_ranges_s" \
+    "$phase_range_equality_s" "$phase_range_ndbf_s" "$phase_workers_s" "$phase_check_total_s" \
+    "$checker_result" >> "$out"
 }
 
 for name in small medium large limit_near cap_stress; do

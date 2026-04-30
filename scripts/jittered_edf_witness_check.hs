@@ -95,6 +95,7 @@ data CheckMetrics = CheckMetrics
   , metricPhaseExpectedBasisGenerateSeconds :: Double
   , metricPhaseRangePlanSeconds :: Double
   , metricPhaseRangeCoverSeconds :: Double
+  , metricPhaseExpectedRangesSeconds :: Double
   , metricPhaseRangeEqualitySeconds :: Double
   , metricPhaseRangeNdbfSeconds :: Double
   , metricPhaseActualSplitSeconds :: Double
@@ -385,6 +386,7 @@ runParallelBlockCheck inputPhases opts input cert = do
           , metricPhaseExpectedBasisGenerateSeconds = 0
           , metricPhaseRangePlanSeconds = phaseRangePlan
           , metricPhaseRangeCoverSeconds = phaseRangeCover
+          , metricPhaseExpectedRangesSeconds = 0
           , metricPhaseRangeEqualitySeconds = phaseRangeEquality
           , metricPhaseRangeNdbfSeconds = phaseWorkers
           , metricPhaseActualSplitSeconds = phaseRangePlan
@@ -647,6 +649,7 @@ writeMetrics (Just path) metrics =
       , "phase_expected_basis_generate_s=" ++ formatSeconds (metricPhaseExpectedBasisGenerateSeconds metrics)
       , "phase_range_plan_s=" ++ formatSeconds (metricPhaseRangePlanSeconds metrics)
       , "phase_range_cover_s=" ++ formatSeconds (metricPhaseRangeCoverSeconds metrics)
+      , "phase_expected_ranges_s=" ++ formatSeconds (metricPhaseExpectedRangesSeconds metrics)
       , "phase_range_equality_s=" ++ formatSeconds (metricPhaseRangeEqualitySeconds metrics)
       , "phase_range_ndbf_s=" ++ formatSeconds (metricPhaseRangeNdbfSeconds metrics)
       , "phase_actual_split_s=" ++ formatSeconds (metricPhaseActualSplitSeconds metrics)

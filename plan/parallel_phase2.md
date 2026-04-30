@@ -342,6 +342,20 @@ failed_range_index
 For accepted runs, `failed_range_index` should be omitted or set to `none`.
 For rejected runs, report the lowest failing range index.
 
+`actual_blocks`, `expected_rows`, `expected_windows`, `expected_blocks`,
+`phase_expected_basis_generate_s`, `phase_actual_split_s`, and
+`phase_expected_split_s` are compatibility fields from the Phase 1 block
+checker metrics.  In the Phase 2 range checker, `actual_blocks` aliases
+`range_count`, while the expected-basis compatibility fields are reported as
+zero because the normal checker path intentionally does not build the full
+expected compact basis before scheduling range workers.
+
+`phase_expected_ranges_s` is emitted as a Phase 2 placeholder and currently
+reports zero.  Expected range construction is performed inside the extracted
+per-range checker work item, so the first implementation folds that cost into
+`phase_range_ndbf_s` / `phase_workers_s`.  A later checker frontier may split
+range-local expected-basis generation and NDBF into separate timed calls.
+
 Benchmark after P2-D:
 
 ```text

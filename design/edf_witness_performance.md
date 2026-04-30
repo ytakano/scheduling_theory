@@ -171,6 +171,60 @@ checks the extracted block-aggregation equality before worker evaluation. The
 per-block NDBF work is parallelizable, but this measurement shows that exposing
 that frontier alone is not enough for the 10M case.
 
+## Haskell Range-Checker Follow-Up
+
+Phase 2 moves the checker hot path from a serial full expected-basis
+construction to proof-backed range work items.  The aggregate
+`check_jittered_edf_compact_dbf_certificate_ranges_extracted` entry point is
+kept as proof/reference tooling.  The normal Haskell runner checks the compact
+certificate header, range cover, and certificate-basis concatenation once, then
+evaluates `check_jittered_edf_compact_dbf_certificate_range_extracted` per
+planned range.
+
+The benchmark driver defaults to one smoke checker configuration
+(`--threads auto --block-windows 100000`) after each `--threads auto` generator
+run.  It supports the full Phase 2 matrix when explicitly requested:
+
+```sh
+JITTERED_CHECKER_THREADS="1 2 4 auto" \
+JITTERED_CHECKER_BLOCK_WINDOWS="100000 50000 20000 10000" \
+JITTERED_BASIS_WINDOW_CAP=10000000 \
+  ./scripts/bench_jittered_edf_witness_pipeline /tmp/jittered_range_bench.csv
+```
+
+The full explicit `cap_stress` matrix is expensive: one observed checker run with
+`--threads auto --block-windows 100000` took 118.21 seconds and peaked at
+1,330,432 KiB.  A complete 4 by 4 matrix is therefore a long-running benchmark,
+not a default test.
+
+In the current runner metrics, `phase_expected_ranges_s` is a zero-valued
+placeholder.  Range-local expected-basis construction happens inside the
+extracted per-range checker work item, so its time is folded into
+`phase_range_ndbf_s` and `phase_workers_s`.
+
+Observed single-run `cap_stress` range-checker result:
+
+| checker | threads | block windows | ranges | real s | user s | sys s | peak KiB | user/real | phase range worker s | status |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| range checker | auto / 16 actual | 100,000 | 99 | 118.21 | 1516.37 | not recorded | 1,330,432 | 12.83 | 112.477199 | ok |
+
+The source for this single range-checker observation did not retain the system
+time field, so the table records it as `not recorded`.
+
+The range checker is materially faster than both previous Haskell results for
+the same 10M-window task shape:
+
+| checker | real s | peak KiB | note |
+| --- | ---: | ---: | --- |
+| old monolithic/default checker | 875.53 | 1,297,152 | serial full expected basis |
+| Phase 1 block checker | 882.85 | 1,525,376 | parallel NDBF after serial expected basis |
+| Phase 2 range checker | 118.21 | 1,330,432 | range-local expected equality and NDBF |
+
+The smoke benchmark for local iteration remains `limit_near`; the observed
+range-checker run with `--threads auto --block-windows 10000` completed in
+0.12 seconds, with 10,152 actual windows, 2 ranges, and
+`phase_range_ndbf_s=0.089947`.
+
 ## Observations
 
 - The Rust generator can emit the `cap_stress` witness below the 10M cap. With
@@ -181,6 +235,10 @@ that frontier alone is not enough for the 10M case.
 - The later threaded block checker also accepted a fresh `cap_stress` witness,
   but did not improve the 10M case: 882.85 seconds and 1,525,376 KiB peak RSS
   with `--threads auto --block-windows 100000`.
+- The Phase 2 range checker accepted `cap_stress` in 118.21 seconds for one
+  `--threads auto --block-windows 100000` run.  This removes the old serial
+  full expected-basis bottleneck from the normal checker path, but the range
+  workers still have substantial proof-facing computation cost.
 - The block checker result should be interpreted as an implementation result,
   not a proof-interface change. Haskell thread count, block-window size, GHC
   capabilities, and metrics output remain concrete tooling choices.

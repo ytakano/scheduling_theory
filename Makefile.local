@@ -216,10 +216,13 @@ test-jittered-edf-witness-check:: build-jittered-edf-witness-check
 	grep -q '^range_count=6$$' "$$tmp/metrics.out"; \
 	grep -q '^range_rows_min=1$$' "$$tmp/metrics.out"; \
 	grep -q '^range_rows_max=1$$' "$$tmp/metrics.out"; \
+	grep -q '^range_windows_min=' "$$tmp/metrics.out"; \
+	grep -q '^range_windows_max=' "$$tmp/metrics.out"; \
 	grep -q '^failed_range_index=none$$' "$$tmp/metrics.out"; \
 	grep -q '^expected_blocks=0$$' "$$tmp/metrics.out"; \
 	grep -q '^phase_range_plan_s=' "$$tmp/metrics.out"; \
 	grep -q '^phase_range_cover_s=' "$$tmp/metrics.out"; \
+	grep -q '^phase_expected_ranges_s=' "$$tmp/metrics.out"; \
 	grep -q '^phase_range_equality_s=' "$$tmp/metrics.out"; \
 	grep -q '^phase_range_ndbf_s=' "$$tmp/metrics.out"; \
 	grep -q '^result=accept$$' "$$tmp/metrics.out"; \
