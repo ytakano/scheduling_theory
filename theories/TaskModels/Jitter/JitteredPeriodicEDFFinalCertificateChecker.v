@@ -57,6 +57,47 @@ Definition jittered_fast_compact_basis_ndbf_test
          tasks offset jitter enumT t1 t2)
     (jittered_compact_basis_windows basis).
 
+Definition jittered_fast_compact_basis_ndbf_row_test
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (row : Time * list Time) : bool :=
+  forallb
+    (fun w =>
+       let '(t1, t2) := w in
+       (t1 <=? t2)
+       &&
+       jittered_periodic_fast_dbf_window_ok_N_b
+         tasks offset jitter enumT t1 t2)
+    (jittered_compact_basis_row_windows row).
+
+Definition jittered_fast_compact_basis_ndbf_block_test
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (block : JitteredCompactDbfBasis) : bool :=
+  forallb
+    (fun w =>
+       let '(t1, t2) := w in
+       (t1 <=? t2)
+       &&
+       jittered_periodic_fast_dbf_window_ok_N_b
+         tasks offset jitter enumT t1 t2)
+    (jittered_compact_basis_block_windows block).
+
+Definition jittered_fast_compact_basis_ndbf_blocks_test
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (blocks : list JitteredCompactDbfBasis) : bool :=
+  forallb
+    (jittered_fast_compact_basis_ndbf_block_test
+       tasks offset jitter enumT)
+    blocks.
+
 Definition check_jittered_edf_dbf_certificate_extracted
     (ts : list ExtractedJitteredPeriodicTask)
     (cert : JitteredEDFDbfCertificate) : bool :=
@@ -136,6 +177,75 @@ Proof.
   - rewrite jittered_periodic_fast_dbf_window_ok_N_b_eq_nat.
     rewrite IH.
     reflexivity.
+Qed.
+
+Lemma jittered_fast_compact_basis_ndbf_row_test_eq :
+  forall tasks offset jitter enumT row,
+    jittered_fast_compact_basis_ndbf_row_test
+      tasks offset jitter enumT row =
+    jittered_fast_compact_basis_dbf_row_test
+      tasks offset jitter enumT row.
+Proof.
+  intros tasks offset jitter enumT row.
+  unfold jittered_fast_compact_basis_ndbf_row_test,
+         jittered_fast_compact_basis_dbf_row_test,
+         jittered_fast_compact_basis_dbf_window_ok.
+  generalize (jittered_compact_basis_row_windows row).
+  intros windows.
+  induction windows as [|[t1 t2] windows IH]; simpl.
+  - reflexivity.
+  - rewrite jittered_periodic_fast_dbf_window_ok_N_b_eq_nat.
+    rewrite IH.
+    reflexivity.
+Qed.
+
+Lemma jittered_fast_compact_basis_ndbf_block_test_eq :
+  forall tasks offset jitter enumT block,
+    jittered_fast_compact_basis_ndbf_block_test
+      tasks offset jitter enumT block =
+    jittered_fast_compact_basis_dbf_block_test
+      tasks offset jitter enumT block.
+Proof.
+  intros tasks offset jitter enumT block.
+  unfold jittered_fast_compact_basis_ndbf_block_test,
+         jittered_fast_compact_basis_dbf_block_test,
+         jittered_fast_compact_basis_dbf_window_ok.
+  generalize (jittered_compact_basis_block_windows block).
+  intros windows.
+  induction windows as [|[t1 t2] windows IH]; simpl.
+  - reflexivity.
+  - rewrite jittered_periodic_fast_dbf_window_ok_N_b_eq_nat.
+    rewrite IH.
+    reflexivity.
+Qed.
+
+Lemma jittered_fast_compact_basis_ndbf_blocks_test_eq :
+  forall tasks offset jitter enumT blocks,
+    jittered_fast_compact_basis_ndbf_blocks_test
+      tasks offset jitter enumT blocks =
+    jittered_fast_compact_basis_dbf_blocks_test
+      tasks offset jitter enumT blocks.
+Proof.
+  intros tasks offset jitter enumT blocks.
+  induction blocks as [|block blocks IH]; simpl.
+  - reflexivity.
+  - rewrite jittered_fast_compact_basis_ndbf_block_test_eq.
+    rewrite IH.
+    reflexivity.
+Qed.
+
+Theorem jittered_fast_compact_basis_ndbf_blocks_test_implies_concat :
+  forall tasks offset jitter enumT blocks,
+    jittered_fast_compact_basis_ndbf_blocks_test
+      tasks offset jitter enumT blocks = true ->
+    jittered_fast_compact_basis_ndbf_test
+      tasks offset jitter enumT (concat blocks) = true.
+Proof.
+  intros tasks offset jitter enumT blocks Hblocks.
+  rewrite jittered_fast_compact_basis_ndbf_test_eq.
+  apply jittered_fast_compact_basis_dbf_blocks_test_implies_concat.
+  rewrite <- jittered_fast_compact_basis_ndbf_blocks_test_eq.
+  exact Hblocks.
 Qed.
 
 Lemma check_jittered_edf_dbf_certificate_extracted_certificate_fields :
