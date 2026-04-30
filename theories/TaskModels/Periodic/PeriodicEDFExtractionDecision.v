@@ -3,6 +3,7 @@ From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import Analysis.Uniprocessor.ProcessorDemand.
 From RocqSched Require Import TaskModels.Periodic.PeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFExtractionTypes.
+From RocqSched Require Import TaskModels.Periodic.PeriodicNDBF.
 From RocqSched Require Import TaskModels.Periodic.PeriodicOffsetWindowCutoff.
 From RocqSched Require Import TaskModels.Periodic.PeriodicWindowDemandBound.
 
@@ -13,7 +14,7 @@ Import ListNotations.
     an extraction-facing well-formedness check. *)
 
 Definition extracted_taskset_dbf_test (ts : list ExtractedPeriodicTask) : bool :=
-  dbf_test_by_cutoff
+  n_dbf_test_by_cutoff
     (tasks_of_extracted_list ts)
     (enumT_of_extracted_list ts).
 
@@ -33,7 +34,7 @@ Definition edf_schedulability_counterexample
 Definition extracted_offset_window_dbf_test_upto
     (ts : list ExtractedPeriodicTask)
     (H : Time) : bool :=
-  window_dbf_test_upto
+  n_window_dbf_test_upto
     (tasks_of_extracted_list ts)
     (offset_of_extracted_list ts)
     (enumT_of_extracted_list ts)
@@ -62,10 +63,11 @@ Definition extracted_offset_window_dbf_cutoff_bound
 
 Definition extracted_offset_window_dbf_test_by_cutoff
     (ts : list ExtractedPeriodicTask) : bool :=
-  offset_window_dbf_test_by_cutoff
+  n_window_dbf_test_upto
     (tasks_of_extracted_list ts)
     (offset_of_extracted_list ts)
-    (enumT_of_extracted_list ts).
+    (enumT_of_extracted_list ts)
+    (extracted_offset_window_dbf_cutoff_bound ts).
 
 Definition extracted_offset_window_dbf_counterexample_by_cutoff
     (ts : list ExtractedPeriodicTask) : option (Time * Time) :=
@@ -155,6 +157,7 @@ Proof.
   unfold extracted_taskset_global_dbf_ok.
   intros t.
   unfold extracted_taskset_dbf_test in Htest.
+  rewrite n_dbf_test_by_cutoff_eq in Htest.
   eapply dbf_check_by_cutoff.
   - apply enumT_of_extracted_list_nodup.
   - intros τ Hin.
@@ -185,6 +188,7 @@ Proof.
   intros ts Htest.
   unfold extracted_taskset_has_bounded_dbf_overload.
   unfold extracted_taskset_dbf_test in Htest.
+  rewrite n_dbf_test_by_cutoff_eq in Htest.
   apply dbf_test_upto_false_overload.
   exact Htest.
 Qed.
@@ -228,6 +232,7 @@ Proof.
   unfold extracted_offset_window_dbf_ok_upto.
   intros t1 t2 Hle12 Hle2H.
   unfold extracted_offset_window_dbf_test_upto in Htest.
+  rewrite n_window_dbf_test_upto_eq in Htest.
   eapply window_dbf_test_upto_true_implies_bounded_window_dbf; eauto.
 Qed.
 
@@ -269,6 +274,7 @@ Proof.
   unfold extracted_offset_window_dbf_ok_global.
   intros t1 t2 Hle12.
   unfold extracted_offset_window_dbf_test_by_cutoff in Htest.
+  rewrite n_window_dbf_test_upto_eq in Htest.
   eapply offset_window_dbf_check_by_cutoff.
   - intros τ Hin.
     eapply extracted_tasks_well_formed_on_enum.
@@ -374,6 +380,7 @@ Proof.
     rewrite Hwf.
     simpl.
     unfold extracted_taskset_dbf_test.
+    rewrite n_dbf_test_by_cutoff_eq.
     unfold dbf_test_by_cutoff, dbf_test_upto.
     apply forallb_forall.
     intros t _.

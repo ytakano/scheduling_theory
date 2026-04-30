@@ -2,6 +2,7 @@ From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicConcreteAnalysis.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionTypes.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicNDBF.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicOffsetWindowCutoff.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicWindowDemandBound.
 
@@ -19,13 +20,18 @@ Definition extracted_jittered_offset_window_dbf_cutoff_bound
     (jitter_of_extracted_list ts)
     (jittered_enumT_of_extracted_list ts).
 
-Definition extracted_jittered_offset_window_dbf_test_by_cutoff
+Definition extracted_jittered_offset_window_ndbf_test_by_cutoff
     (ts : list ExtractedJitteredPeriodicTask) : bool :=
-  jittered_offset_window_dbf_test_by_cutoff
+  jittered_window_fast_ndbf_test_upto
     (jittered_tasks_of_extracted_list ts)
     (jittered_offset_of_extracted_list ts)
     (jitter_of_extracted_list ts)
-    (jittered_enumT_of_extracted_list ts).
+    (jittered_enumT_of_extracted_list ts)
+    (extracted_jittered_offset_window_dbf_cutoff_bound ts).
+
+Definition extracted_jittered_offset_window_dbf_test_by_cutoff
+    (ts : list ExtractedJitteredPeriodicTask) : bool :=
+  extracted_jittered_offset_window_ndbf_test_by_cutoff ts.
 
 Definition extracted_jittered_offset_window_dbf_counterexample_by_cutoff
     (ts : list ExtractedJitteredPeriodicTask) : option (Time * Time) :=
@@ -73,7 +79,9 @@ Proof.
   intros ts Hwf Htest.
   unfold extracted_jittered_offset_window_dbf_ok_global.
   intros t1 t2 Hle12.
-  unfold extracted_jittered_offset_window_dbf_test_by_cutoff in Htest.
+  unfold extracted_jittered_offset_window_dbf_test_by_cutoff,
+         extracted_jittered_offset_window_ndbf_test_by_cutoff in Htest.
+  rewrite jittered_window_fast_ndbf_test_upto_eq_nat in Htest.
   eapply jittered_offset_window_dbf_check_by_cutoff.
   - intros τ Hin.
     eapply extracted_jittered_tasks_well_formed_on_enum.

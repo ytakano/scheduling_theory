@@ -163,6 +163,7 @@ theories/TaskModels/Periodic/PeriodicFiniteOptimalityLift.v
 theories/TaskModels/Periodic/PeriodicConcreteAnalysis.v
 theories/TaskModels/Periodic/PeriodicOffsetWindowCutoff.v
 theories/TaskModels/Periodic/PeriodicEDFExtractionTypes.v
+theories/TaskModels/Periodic/PeriodicNDBF.v
 theories/TaskModels/Periodic/PeriodicEDFExtractionDecision.v
 theories/TaskModels/Periodic/PeriodicEDFAnalysisEntryPoints.v
 theories/TaskModels/Periodic/PeriodicEDFBridge.v
@@ -209,6 +210,7 @@ theories/TaskModels/Jitter/JitteredPeriodicPrefixCoherence.v
 theories/TaskModels/Jitter/JitteredPeriodicWindowDemandBound.v
 theories/TaskModels/Jitter/JitteredPeriodicFastDBF.v
 theories/TaskModels/Jitter/JitteredPeriodicConcreteAnalysis.v
+theories/TaskModels/Jitter/JitteredPeriodicNDBF.v
 theories/TaskModels/Jitter/JitteredPeriodicCompactDBF.v
 theories/TaskModels/Jitter/JitteredPeriodicOffsetWindowCutoff.v
 theories/TaskModels/Jitter/JitteredPeriodicEDFCertificate.v

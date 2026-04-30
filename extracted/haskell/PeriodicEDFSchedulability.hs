@@ -162,76 +162,383 @@ combine l l' =
      Nil -> Nil;
      Cons y tl' -> Cons (Pair x y) (combine tl tl')}}
 
-data Positive =
-   XI Positive
- | XO Positive
- | XH
-
-data Z =
-   Z0
- | Zpos Positive
- | Zneg Positive
-
-succ :: Positive -> Positive
+succ :: Prelude.Integer -> Prelude.Integer
 succ x =
-  case x of {
-   XI p -> XO (succ p);
-   XO p -> XI p;
-   XH -> XO XH}
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p -> (\x -> 2 Prelude.* x) (succ p))
+    (\p -> (\x -> 2 Prelude.* x Prelude.+ 1) p)
+    (\_ -> (\x -> 2 Prelude.* x) 1)
+    x
 
-compare_cont :: Comparison -> Positive -> Positive -> Comparison
+pred_double :: Prelude.Integer -> Prelude.Integer
+pred_double x =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p -> (\x -> 2 Prelude.* x Prelude.+ 1) ((\x -> 2 Prelude.* x) p))
+    (\p -> (\x -> 2 Prelude.* x Prelude.+ 1) (pred_double p))
+    (\_ -> 1)
+    x
+
+data Mask =
+   IsNul
+ | IsPos Prelude.Integer
+ | IsNeg
+
+succ_double_mask :: Mask -> Mask
+succ_double_mask x =
+  case x of {
+   IsNul -> IsPos 1;
+   IsPos p -> IsPos ((\x -> 2 Prelude.* x Prelude.+ 1) p);
+   IsNeg -> IsNeg}
+
+double_mask :: Mask -> Mask
+double_mask x =
+  case x of {
+   IsPos p -> IsPos ((\x -> 2 Prelude.* x) p);
+   x0 -> x0}
+
+double_pred_mask :: Prelude.Integer -> Mask
+double_pred_mask x =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p -> IsPos ((\x -> 2 Prelude.* x) ((\x -> 2 Prelude.* x) p)))
+    (\p -> IsPos ((\x -> 2 Prelude.* x) (pred_double p)))
+    (\_ -> IsNul)
+    x
+
+sub_mask :: Prelude.Integer -> Prelude.Integer -> Mask
+sub_mask x y =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> double_mask (sub_mask p q))
+      (\q -> succ_double_mask (sub_mask p q))
+      (\_ -> IsPos ((\x -> 2 Prelude.* x) p))
+      y)
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> succ_double_mask (sub_mask_carry p q))
+      (\q -> double_mask (sub_mask p q))
+      (\_ -> IsPos (pred_double p))
+      y)
+    (\_ ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\_ -> IsNeg)
+      (\_ -> IsNeg)
+      (\_ -> IsNul)
+      y)
+    x
+
+sub_mask_carry :: Prelude.Integer -> Prelude.Integer -> Mask
+sub_mask_carry x y =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> succ_double_mask (sub_mask_carry p q))
+      (\q -> double_mask (sub_mask p q))
+      (\_ -> IsPos (pred_double p))
+      y)
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> double_mask (sub_mask_carry p q))
+      (\q -> succ_double_mask (sub_mask_carry p q))
+      (\_ -> double_pred_mask p)
+      y)
+    (\_ -> IsNeg)
+    x
+
+compare_cont :: Comparison -> Prelude.Integer -> Prelude.Integer ->
+                Comparison
 compare_cont r x y =
-  case x of {
-   XI p ->
-    case y of {
-     XI q -> compare_cont r p q;
-     XO q -> compare_cont Gt p q;
-     XH -> Gt};
-   XO p ->
-    case y of {
-     XI q -> compare_cont Lt p q;
-     XO q -> compare_cont r p q;
-     XH -> Gt};
-   XH -> case y of {
-          XH -> r;
-          _ -> Lt}}
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> compare_cont r p q)
+      (\q -> compare_cont Gt p q)
+      (\_ -> Gt)
+      y)
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> compare_cont Lt p q)
+      (\q -> compare_cont r p q)
+      (\_ -> Gt)
+      y)
+    (\_ ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\_ -> Lt)
+      (\_ -> Lt)
+      (\_ -> r)
+      y)
+    x
 
-compare :: Positive -> Positive -> Comparison
+compare :: Prelude.Integer -> Prelude.Integer -> Comparison
 compare =
   compare_cont Eq
 
-of_succ_nat :: Prelude.Integer -> Positive
+of_succ_nat :: Prelude.Integer -> Prelude.Integer
 of_succ_nat n =
   (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
-    (\_ -> XH)
+    (\_ -> 1)
     (\x -> succ (of_succ_nat x))
     n
 
-compare0 :: Z -> Z -> Comparison
-compare0 x y =
-  case x of {
-   Z0 -> case y of {
-          Z0 -> Eq;
-          Zpos _ -> Lt;
-          Zneg _ -> Gt};
-   Zpos x' -> case y of {
-               Zpos y' -> compare x' y';
-               _ -> Gt};
-   Zneg x' -> case y of {
-               Zneg y' -> compOpp (compare x' y');
-               _ -> Lt}}
+succ0 :: Prelude.Integer -> Prelude.Integer
+succ0 x =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p -> (\x -> 2 Prelude.* x) (succ0 p))
+    (\p -> (\x -> 2 Prelude.* x Prelude.+ 1) p)
+    (\_ -> (\x -> 2 Prelude.* x) 1)
+    x
 
-leb :: Z -> Z -> Prelude.Bool
+add :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+add x y =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x) (add_carry p q))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) (add p q))
+      (\_ -> (\x -> 2 Prelude.* x) (succ0 p))
+      y)
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) (add p q))
+      (\q -> (\x -> 2 Prelude.* x) (add p q))
+      (\_ -> (\x -> 2 Prelude.* x Prelude.+ 1) p)
+      y)
+    (\_ ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x) (succ0 q))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) q)
+      (\_ -> (\x -> 2 Prelude.* x) 1)
+      y)
+    x
+
+add_carry :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+add_carry x y =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) (add_carry p q))
+      (\q -> (\x -> 2 Prelude.* x) (add_carry p q))
+      (\_ -> (\x -> 2 Prelude.* x Prelude.+ 1) (succ0 p))
+      y)
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x) (add_carry p q))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) (add p q))
+      (\_ -> (\x -> 2 Prelude.* x) (succ0 p))
+      y)
+    (\_ ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) (succ0 q))
+      (\q -> (\x -> 2 Prelude.* x) (succ0 q))
+      (\_ -> (\x -> 2 Prelude.* x Prelude.+ 1) 1)
+      y)
+    x
+
+mul :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+mul x y =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p -> add y ((\x -> 2 Prelude.* x) (mul p y)))
+    (\p -> (\x -> 2 Prelude.* x) (mul p y))
+    (\_ -> y)
+    x
+
+succ_double :: Prelude.Integer -> Prelude.Integer
+succ_double x =
+  (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
+    (\_ -> (\x -> x) 1)
+    (\p -> (\x -> x) ((\x -> 2 Prelude.* x Prelude.+ 1) p))
+    x
+
+double :: Prelude.Integer -> Prelude.Integer
+double n =
+  (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
+    (\_ -> 0)
+    (\p -> (\x -> x) ((\x -> 2 Prelude.* x) p))
+    n
+
+sub1 :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+sub1 = (\n m -> Prelude.max 0 (n Prelude.- m))
+
+compare0 :: Prelude.Integer -> Prelude.Integer -> Comparison
+compare0 n m =
+  (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
+    (\_ ->
+    (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
+      (\_ -> Eq)
+      (\_ -> Lt)
+      m)
+    (\n' ->
+    (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
+      (\_ -> Gt)
+      (\m' -> compare n' m')
+      m)
+    n
+
+pos_div_eucl :: Prelude.Integer -> Prelude.Integer -> Prod Prelude.Integer
+                Prelude.Integer
+pos_div_eucl a b =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\a' ->
+    case pos_div_eucl a' b of {
+     Pair q r ->
+      let {r' = succ_double r} in
+      case (Prelude.<=) b r' of {
+       Prelude.True -> Pair (succ_double q) (sub1 r' b);
+       Prelude.False -> Pair (double q) r'}})
+    (\a' ->
+    case pos_div_eucl a' b of {
+     Pair q r ->
+      let {r' = double r} in
+      case (Prelude.<=) b r' of {
+       Prelude.True -> Pair (succ_double q) (sub1 r' b);
+       Prelude.False -> Pair (double q) r'}})
+    (\_ ->
+    (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
+      (\_ -> Pair 0 ((\x -> x) 1))
+      (\p ->
+      (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+        (\_ -> Pair 0 ((\x -> x) 1))
+        (\_ -> Pair 0 ((\x -> x) 1))
+        (\_ -> Pair ((\x -> x) 1) 0)
+        p)
+      b)
+    a
+
+div_eucl :: Prelude.Integer -> Prelude.Integer -> Prod Prelude.Integer
+            Prelude.Integer
+div_eucl a b =
+  (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
+    (\_ -> Pair 0 0)
+    (\na ->
+    (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
+      (\_ -> Pair 0 a)
+      (\_ -> pos_div_eucl na b)
+      b)
+    a
+
+div0 :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+div0 = (\n m -> if m Prelude.== 0 then 0 else Prelude.div n m)
+
+compare1 :: Prelude.Integer -> Prelude.Integer -> Comparison
+compare1 x y =
+  (\fO fP fN n -> if n Prelude.== 0 then fO () else
+                   if n Prelude.> 0 then fP n else
+                   fN (Prelude.negate n))
+    (\_ ->
+    (\fO fP fN n -> if n Prelude.== 0 then fO () else
+                   if n Prelude.> 0 then fP n else
+                   fN (Prelude.negate n))
+      (\_ -> Eq)
+      (\_ -> Lt)
+      (\_ -> Gt)
+      y)
+    (\x' ->
+    (\fO fP fN n -> if n Prelude.== 0 then fO () else
+                   if n Prelude.> 0 then fP n else
+                   fN (Prelude.negate n))
+      (\_ -> Gt)
+      (\y' -> compare x' y')
+      (\_ -> Gt)
+      y)
+    (\x' ->
+    (\fO fP fN n -> if n Prelude.== 0 then fO () else
+                   if n Prelude.> 0 then fP n else
+                   fN (Prelude.negate n))
+      (\_ -> Lt)
+      (\_ -> Lt)
+      (\y' -> compOpp (compare x' y'))
+      y)
+    x
+
+leb :: Prelude.Integer -> Prelude.Integer -> Prelude.Bool
 leb x y =
-  case compare0 x y of {
+  case compare1 x y of {
    Gt -> Prelude.False;
    _ -> Prelude.True}
 
-of_nat :: Prelude.Integer -> Z
+of_nat :: Prelude.Integer -> Prelude.Integer
 of_nat n =
   (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
-    (\_ -> Z0)
-    (\n0 -> Zpos (of_succ_nat n0))
+    (\_ -> 0)
+    (\n0 -> (\x -> x) (of_succ_nat n0))
     n
 
 type JobId = Prelude.Integer
@@ -638,7 +945,7 @@ generated_schedule :: GenericSchedulingAlgorithm -> CandidateSource -> (JobId
 generated_schedule alg candidates_of jobs t c =
   generated_schedule_prefix alg candidates_of jobs (Prelude.succ t) t c
 
-min_metric_job :: (JobId -> Z) -> (List JobId) -> Option JobId
+min_metric_job :: (JobId -> Prelude.Integer) -> (List JobId) -> Option JobId
 min_metric_job metric l =
   case l of {
    Nil -> None;
@@ -650,13 +957,14 @@ min_metric_job metric l =
        Prelude.False -> Some j'};
      None -> Some j}}
 
-choose_min_metric :: (JobId -> Z) -> (JobId -> Job) -> Prelude.Integer ->
-                     Schedule -> Time -> (List JobId) -> Option JobId
+choose_min_metric :: (JobId -> Prelude.Integer) -> (JobId -> Job) ->
+                     Prelude.Integer -> Schedule -> Time -> (List JobId) ->
+                     Option JobId
 choose_min_metric metric jobs m sched t candidates =
   min_metric_job metric
     (filter (\j -> eligibleb jobs m sched j t) candidates)
 
-edf_metric :: (JobId -> Job) -> JobId -> Z
+edf_metric :: (JobId -> Job) -> JobId -> Prelude.Integer
 edf_metric jobs j =
   of_nat (job_abs_deadline (jobs j))
 
@@ -713,21 +1021,6 @@ critical_dbf_windows_upto tasks offset enumT h =
         points))
     points
 
-dbf_test_upto :: (TaskId -> Task) -> (List TaskId) -> Time -> Prelude.Bool
-dbf_test_upto tasks enumT h =
-  forallb (\t -> (Prelude.<=) (taskset_periodic_dbf tasks enumT t) t)
-    (critical_dbf_points_upto tasks (\_ -> 0) enumT h)
-
-window_dbf_test_upto :: (TaskId -> Task) -> (TaskId -> Time) -> (List
-                        TaskId) -> Time -> Prelude.Bool
-window_dbf_test_upto tasks offset enumT h =
-  forallb (\w ->
-    case w of {
-     Pair t1 t2 ->
-      (Prelude.<=) (taskset_periodic_dbf_window tasks offset enumT t1 t2)
-        (sub t2 t1)})
-    (critical_dbf_windows_upto tasks offset enumT h)
-
 first_dbf_overload_upto :: (TaskId -> Task) -> (List TaskId) -> Time ->
                            Option Time
 first_dbf_overload_upto tasks enumT h =
@@ -767,10 +1060,6 @@ scalar_dbf_cutoff_bound tasks enumT =
   (Prelude.+) (periodic_max_relative_deadline tasks enumT)
     ((Prelude.*) (Prelude.succ (periodic_max_relative_deadline tasks enumT))
       (periodic_hyperperiod tasks enumT))
-
-dbf_test_by_cutoff :: (TaskId -> Task) -> (List TaskId) -> Prelude.Bool
-dbf_test_by_cutoff tasks enumT =
-  dbf_test_upto tasks enumT (scalar_dbf_cutoff_bound tasks enumT)
 
 data ExtractedPeriodicTask =
    MkExtractedPeriodicTask Prelude.Integer Prelude.Integer Prelude.Integer
@@ -832,6 +1121,92 @@ extracted_taskset_wf :: (List ExtractedPeriodicTask) -> Prelude.Bool
 extracted_taskset_wf ts =
   forallb extracted_task_wf ts
 
+n_expected_release :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId ->
+                      Prelude.Integer -> Prelude.Integer
+n_expected_release tasks offset tau k =
+  (Prelude.+) ((\x -> x) (offset tau))
+    ((Prelude.*) ((\x -> x) k) ((\x -> x) (task_period (tasks tau))))
+
+n_expected_abs_deadline :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId ->
+                           Prelude.Integer -> Prelude.Integer
+n_expected_abs_deadline tasks offset tau k =
+  (Prelude.+) (n_expected_release tasks offset tau k)
+    ((\x -> x) (task_relative_deadline (tasks tau)))
+
+n_periodic_dbf_count :: (TaskId -> Task) -> TaskId -> Time -> Prelude.Integer
+n_periodic_dbf_count tasks tau h =
+  case (Prelude.<) ((\x -> x) h)
+         ((\x -> x) (task_relative_deadline (tasks tau))) of {
+   Prelude.True -> 0;
+   Prelude.False ->
+    Prelude.succ
+      (div0
+        (sub1 ((\x -> x) h) ((\x -> x) (task_relative_deadline (tasks tau))))
+        ((\x -> x) (task_period (tasks tau))))}
+
+n_periodic_dbf :: (TaskId -> Task) -> TaskId -> Time -> Prelude.Integer
+n_periodic_dbf tasks tau h =
+  (Prelude.*) (n_periodic_dbf_count tasks tau h)
+    ((\x -> x) (task_cost (tasks tau)))
+
+n_taskset_periodic_dbf :: (TaskId -> Task) -> (List TaskId) -> Time ->
+                          Prelude.Integer
+n_taskset_periodic_dbf tasks enumT h =
+  case enumT of {
+   Nil -> 0;
+   Cons tau enumT' ->
+    (Prelude.+) (n_periodic_dbf tasks tau h)
+      (n_taskset_periodic_dbf tasks enumT' h)}
+
+n_periodic_index_in_window :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId
+                              -> Time -> Time -> Prelude.Integer ->
+                              Prelude.Bool
+n_periodic_index_in_window tasks offset tau t1 t2 k =
+  (Prelude.&&)
+    ((Prelude.<=) ((\x -> x) t1) (n_expected_release tasks offset tau k))
+    ((Prelude.<=) (n_expected_abs_deadline tasks offset tau k)
+      ((\x -> x) t2))
+
+n_periodic_dbf_window :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId ->
+                         Time -> Time -> Prelude.Integer
+n_periodic_dbf_window tasks offset tau t1 t2 =
+  (Prelude.*)
+    ((\x -> x)
+      (length
+        (filter (n_periodic_index_in_window tasks offset tau t1 t2)
+          (seq 0 (Prelude.succ t2)))))
+    ((\x -> x) (task_cost (tasks tau)))
+
+n_taskset_periodic_dbf_window :: (TaskId -> Task) -> (TaskId -> Time) ->
+                                 (List TaskId) -> Time -> Time ->
+                                 Prelude.Integer
+n_taskset_periodic_dbf_window tasks offset enumT t1 t2 =
+  case enumT of {
+   Nil -> 0;
+   Cons tau enumT' ->
+    (Prelude.+) (n_periodic_dbf_window tasks offset tau t1 t2)
+      (n_taskset_periodic_dbf_window tasks offset enumT' t1 t2)}
+
+n_dbf_test_upto :: (TaskId -> Task) -> (List TaskId) -> Time -> Prelude.Bool
+n_dbf_test_upto tasks enumT h =
+  forallb (\t ->
+    (Prelude.<=) (n_taskset_periodic_dbf tasks enumT t) ((\x -> x) t))
+    (critical_dbf_points_upto tasks (\_ -> 0) enumT h)
+
+n_window_dbf_test_upto :: (TaskId -> Task) -> (TaskId -> Time) -> (List
+                          TaskId) -> Time -> Prelude.Bool
+n_window_dbf_test_upto tasks offset enumT h =
+  forallb (\w ->
+    case w of {
+     Pair t1 t2 ->
+      (Prelude.<=) (n_taskset_periodic_dbf_window tasks offset enumT t1 t2)
+        ((\x -> x) (sub t2 t1))})
+    (critical_dbf_windows_upto tasks offset enumT h)
+
+n_dbf_test_by_cutoff :: (TaskId -> Task) -> (List TaskId) -> Prelude.Bool
+n_dbf_test_by_cutoff tasks enumT =
+  n_dbf_test_upto tasks enumT (scalar_dbf_cutoff_bound tasks enumT)
+
 periodic_max_offset :: (TaskId -> Time) -> (List TaskId) -> Time
 periodic_max_offset offset enumT =
   case enumT of {
@@ -852,15 +1227,9 @@ offset_window_dbf_cutoff_bound tasks offset enumT =
     ((Prelude.*) (Prelude.succ horizon_base)
       (periodic_hyperperiod tasks enumT))
 
-offset_window_dbf_test_by_cutoff :: (TaskId -> Task) -> (TaskId -> Time) ->
-                                    (List TaskId) -> Prelude.Bool
-offset_window_dbf_test_by_cutoff tasks offset enumT =
-  window_dbf_test_upto tasks offset enumT
-    (offset_window_dbf_cutoff_bound tasks offset enumT)
-
 extracted_taskset_dbf_test :: (List ExtractedPeriodicTask) -> Prelude.Bool
 extracted_taskset_dbf_test ts =
-  dbf_test_by_cutoff (tasks_of_extracted_list ts)
+  n_dbf_test_by_cutoff (tasks_of_extracted_list ts)
     (enumT_of_extracted_list ts)
 
 edf_schedulability_decide :: (List ExtractedPeriodicTask) -> Prelude.Bool
@@ -878,7 +1247,7 @@ edf_schedulability_counterexample ts =
 extracted_offset_window_dbf_test_upto :: (List ExtractedPeriodicTask) -> Time
                                          -> Prelude.Bool
 extracted_offset_window_dbf_test_upto ts h =
-  window_dbf_test_upto (tasks_of_extracted_list ts)
+  n_window_dbf_test_upto (tasks_of_extracted_list ts)
     (offset_of_extracted_list ts) (enumT_of_extracted_list ts) h
 
 extracted_offset_window_dbf_counterexample :: (List ExtractedPeriodicTask) ->
@@ -902,8 +1271,9 @@ extracted_offset_window_dbf_cutoff_bound ts =
 extracted_offset_window_dbf_test_by_cutoff :: (List ExtractedPeriodicTask) ->
                                               Prelude.Bool
 extracted_offset_window_dbf_test_by_cutoff ts =
-  offset_window_dbf_test_by_cutoff (tasks_of_extracted_list ts)
+  n_window_dbf_test_upto (tasks_of_extracted_list ts)
     (offset_of_extracted_list ts) (enumT_of_extracted_list ts)
+    (extracted_offset_window_dbf_cutoff_bound ts)
 
 extracted_offset_window_dbf_counterexample_by_cutoff :: (List
                                                         ExtractedPeriodicTask)
@@ -1951,4 +2321,3 @@ check_periodic_policy_feasibility :: PeriodicPolicy -> (List
                                      Prelude.Bool
 check_periodic_policy_feasibility _ =
   check_periodic_feasibility_checked_sidecar_extracted
-

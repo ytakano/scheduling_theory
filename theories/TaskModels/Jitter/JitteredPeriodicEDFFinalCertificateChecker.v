@@ -6,6 +6,7 @@ From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicCompactDBF.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFCertificate.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionDecision.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionTypes.
+From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicNDBF.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicOffsetWindowCutoff.
 
 Import ListNotations.
@@ -41,6 +42,21 @@ Definition jittered_edf_compact_dbf_certificate_expected_basis
     (jittered_enumT_of_extracted_list ts)
     (jittered_edf_compact_dbf_certificate_expected_cutoff ts).
 
+Definition jittered_fast_compact_basis_ndbf_test
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (basis : JitteredCompactDbfBasis) : bool :=
+  forallb
+    (fun w =>
+       let '(t1, t2) := w in
+       (t1 <=? t2)
+       &&
+       jittered_periodic_fast_dbf_window_ok_N_b
+         tasks offset jitter enumT t1 t2)
+    (jittered_compact_basis_windows basis).
+
 Definition check_jittered_edf_dbf_certificate_extracted
     (ts : list ExtractedJitteredPeriodicTask)
     (cert : JitteredEDFDbfCertificate) : bool :=
@@ -59,7 +75,7 @@ Definition check_jittered_edf_compact_dbf_certificate_extracted
        (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
        (jittered_edf_compact_dbf_certificate_expected_basis ts)
        cert
-  && jittered_fast_compact_basis_dbf_test
+  && jittered_fast_compact_basis_ndbf_test
        (jittered_tasks_of_extracted_list ts)
        (jittered_offset_of_extracted_list ts)
        (jitter_of_extracted_list ts)
@@ -91,7 +107,7 @@ Lemma check_jittered_edf_compact_dbf_certificate_extracted_fields :
          (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
          (jittered_edf_compact_dbf_certificate_expected_basis ts)
          cert = true
-    /\ jittered_fast_compact_basis_dbf_test
+    /\ jittered_fast_compact_basis_ndbf_test
          (jittered_tasks_of_extracted_list ts)
          (jittered_offset_of_extracted_list ts)
          (jitter_of_extracted_list ts)
@@ -103,6 +119,23 @@ Proof.
   apply andb_true_iff in Hcheck as [Hrest Hdbf].
   apply andb_true_iff in Hrest as [Hwf Hfields].
   repeat split; assumption.
+Qed.
+
+Lemma jittered_fast_compact_basis_ndbf_test_eq :
+  forall tasks offset jitter enumT basis,
+    jittered_fast_compact_basis_ndbf_test tasks offset jitter enumT basis =
+    jittered_fast_compact_basis_dbf_test tasks offset jitter enumT basis.
+Proof.
+  intros tasks offset jitter enumT basis.
+  unfold jittered_fast_compact_basis_ndbf_test,
+         jittered_fast_compact_basis_dbf_test.
+  generalize (jittered_compact_basis_windows basis).
+  intros windows.
+  induction windows as [|[t1 t2] windows IH]; simpl.
+  - reflexivity.
+  - rewrite jittered_periodic_fast_dbf_window_ok_N_b_eq_nat.
+    rewrite IH.
+    reflexivity.
 Qed.
 
 Lemma check_jittered_edf_dbf_certificate_extracted_certificate_fields :
@@ -142,10 +175,11 @@ Qed.
 Lemma jittered_fast_compact_basis_dbf_test_to_cutoff_test :
   forall tasks offset jitter enumT H basis,
     jittered_compact_basis_covers_upto tasks offset jitter enumT H basis ->
-    jittered_fast_compact_basis_dbf_test tasks offset jitter enumT basis = true ->
+    jittered_fast_compact_basis_ndbf_test tasks offset jitter enumT basis = true ->
     jittered_window_dbf_test_upto tasks offset jitter enumT H = true.
 Proof.
   intros tasks offset jitter enumT H basis Hcovers Hcompact.
+  rewrite jittered_fast_compact_basis_ndbf_test_eq in Hcompact.
   unfold jittered_window_dbf_test_upto.
   apply forallb_forall.
   intros [t1 t2] Hin.

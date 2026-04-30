@@ -25,6 +25,11 @@ app l m =
    Nil -> m;
    Cons a l1 -> Cons a (app l1 m)}
 
+data Comparison =
+   Eq
+ | Lt
+ | Gt
+
 sub :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
 sub = (\n m -> Prelude.max 0 (n Prelude.- m))
 
@@ -117,6 +122,171 @@ find f l =
     case f x of {
      Prelude.True -> Some x;
      Prelude.False -> find f tl}}
+
+succ :: Prelude.Integer -> Prelude.Integer
+succ x =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p -> (\x -> 2 Prelude.* x) (succ p))
+    (\p -> (\x -> 2 Prelude.* x Prelude.+ 1) p)
+    (\_ -> (\x -> 2 Prelude.* x) 1)
+    x
+
+compare_cont :: Comparison -> Prelude.Integer -> Prelude.Integer ->
+                Comparison
+compare_cont r x y =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> compare_cont r p q)
+      (\q -> compare_cont Gt p q)
+      (\_ -> Gt)
+      y)
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> compare_cont Lt p q)
+      (\q -> compare_cont r p q)
+      (\_ -> Gt)
+      y)
+    (\_ ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\_ -> Lt)
+      (\_ -> Lt)
+      (\_ -> r)
+      y)
+    x
+
+compare :: Prelude.Integer -> Prelude.Integer -> Comparison
+compare =
+  compare_cont Eq
+
+of_succ_nat :: Prelude.Integer -> Prelude.Integer
+of_succ_nat n =
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> 1)
+    (\x -> succ (of_succ_nat x))
+    n
+
+succ0 :: Prelude.Integer -> Prelude.Integer
+succ0 x =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p -> (\x -> 2 Prelude.* x) (succ0 p))
+    (\p -> (\x -> 2 Prelude.* x Prelude.+ 1) p)
+    (\_ -> (\x -> 2 Prelude.* x) 1)
+    x
+
+add :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+add x y =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x) (add_carry p q))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) (add p q))
+      (\_ -> (\x -> 2 Prelude.* x) (succ0 p))
+      y)
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) (add p q))
+      (\q -> (\x -> 2 Prelude.* x) (add p q))
+      (\_ -> (\x -> 2 Prelude.* x Prelude.+ 1) p)
+      y)
+    (\_ ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x) (succ0 q))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) q)
+      (\_ -> (\x -> 2 Prelude.* x) 1)
+      y)
+    x
+
+add_carry :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+add_carry x y =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) (add_carry p q))
+      (\q -> (\x -> 2 Prelude.* x) (add_carry p q))
+      (\_ -> (\x -> 2 Prelude.* x Prelude.+ 1) (succ0 p))
+      y)
+    (\p ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x) (add_carry p q))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) (add p q))
+      (\_ -> (\x -> 2 Prelude.* x) (succ0 p))
+      y)
+    (\_ ->
+    (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+      (\q -> (\x -> 2 Prelude.* x Prelude.+ 1) (succ0 q))
+      (\q -> (\x -> 2 Prelude.* x) (succ0 q))
+      (\_ -> (\x -> 2 Prelude.* x Prelude.+ 1) 1)
+      y)
+    x
+
+mul :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+mul x y =
+  (\fI fO fH n -> if n Prelude.== 1 then fH () else
+                   if Prelude.odd n
+                   then fI (n `Prelude.div` 2)
+                   else fO (n `Prelude.div` 2))
+    (\p -> add y ((\x -> 2 Prelude.* x) (mul p y)))
+    (\p -> (\x -> 2 Prelude.* x) (mul p y))
+    (\_ -> y)
+    x
+
+compare0 :: Prelude.Integer -> Prelude.Integer -> Comparison
+compare0 n m =
+  (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
+    (\_ ->
+    (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
+      (\_ -> Eq)
+      (\_ -> Lt)
+      m)
+    (\n' ->
+    (\fO fP n -> if n Prelude.== 0 then fO () else fP n)
+      (\_ -> Gt)
+      (\m' -> compare n' m')
+      m)
+    n
 
 type TaskId = Prelude.Integer
 
@@ -303,21 +473,6 @@ jittered_compact_basis_windows basis =
     case row of {
      Pair t2 left_edges -> map (\t1 -> Pair t1 t2) left_edges}) basis
 
-jittered_fast_compact_basis_dbf_test :: (TaskId -> Task) -> (TaskId -> Time)
-                                        -> (TaskId -> Time) -> (List
-                                        TaskId) -> JitteredCompactDbfBasis ->
-                                        Prelude.Bool
-jittered_fast_compact_basis_dbf_test tasks offset jitter enumT basis =
-  forallb (\w ->
-    case w of {
-     Pair t1 t2 ->
-      (Prelude.&&) ((Prelude.<=) t1 t2)
-        ((Prelude.<=)
-          (taskset_jittered_periodic_fast_dbf_window tasks offset jitter
-            enumT t1 t2)
-          (sub t2 t1))})
-    (jittered_compact_basis_windows basis)
-
 jittered_reduced_left_edge_b :: (TaskId -> Task) -> (TaskId -> Time) ->
                                 (TaskId -> Time) -> (List TaskId) -> Time ->
                                 Time -> Prelude.Bool
@@ -413,19 +568,6 @@ check_jittered_edf_compact_dbf_certificate_fields expected_cutoff expected_basis
     ((Prelude.&&) ((Prelude.==) (jedf_compact_cutoff cert) expected_cutoff)
       (compact_dbf_basis_eqb (jedf_compact_basis cert) expected_basis))
     (jedf_all_basis_checked cert)
-
-jittered_window_dbf_test_upto :: (TaskId -> Task) -> (TaskId -> Time) ->
-                                 (TaskId -> Time) -> (List TaskId) -> Time ->
-                                 Prelude.Bool
-jittered_window_dbf_test_upto tasks offset jitter enumT h =
-  forallb (\w ->
-    case w of {
-     Pair t1 t2 ->
-      (Prelude.<=)
-        (taskset_jittered_periodic_dbf_window tasks offset jitter enumT t1
-          t2)
-        (sub t2 t1)})
-    (critical_dbf_windows_upto tasks offset enumT h)
 
 first_jittered_window_dbf_overload_upto :: (TaskId -> Task) -> (TaskId ->
                                            Time) -> (TaskId -> Time) -> (List
@@ -551,6 +693,61 @@ extracted_jittered_taskset_wf :: (List ExtractedJitteredPeriodicTask) ->
 extracted_jittered_taskset_wf ts =
   forallb extracted_jittered_task_wf ts
 
+jittered_window_capacity_N :: Time -> Time -> Prelude.Integer
+jittered_window_capacity_N t1 t2 =
+  (\x -> x) (sub t2 t1)
+
+jittered_periodic_fast_release_count_N :: (TaskId -> Task) -> (TaskId ->
+                                          Time) -> (TaskId -> Time) -> TaskId
+                                          -> Time -> Time -> Prelude.Integer
+jittered_periodic_fast_release_count_N tasks offset jitter _UU03c4_ t1 t2 =
+  (\x -> x)
+    (jittered_periodic_fast_release_count tasks offset jitter _UU03c4_ t1 t2)
+
+jittered_periodic_fast_dbf_window_N :: (TaskId -> Task) -> (TaskId -> Time)
+                                       -> (TaskId -> Time) -> TaskId -> Time
+                                       -> Time -> Prelude.Integer
+jittered_periodic_fast_dbf_window_N tasks offset jitter _UU03c4_ t1 t2 =
+  (Prelude.*)
+    (jittered_periodic_fast_release_count_N tasks offset jitter _UU03c4_ t1
+      t2)
+    ((\x -> x) (task_cost (tasks _UU03c4_)))
+
+taskset_jittered_periodic_fast_dbf_window_N :: (TaskId -> Task) -> (TaskId ->
+                                               Time) -> (TaskId -> Time) ->
+                                               (List TaskId) -> Time -> Time
+                                               -> Prelude.Integer
+taskset_jittered_periodic_fast_dbf_window_N tasks offset jitter enumT t1 t2 =
+  case enumT of {
+   Nil -> 0;
+   Cons _UU03c4_ enumT' ->
+    (Prelude.+)
+      (jittered_periodic_fast_dbf_window_N tasks offset jitter _UU03c4_ t1
+        t2)
+      (taskset_jittered_periodic_fast_dbf_window_N tasks offset jitter enumT'
+        t1 t2)}
+
+jittered_periodic_fast_dbf_window_ok_N_b :: (TaskId -> Task) -> (TaskId ->
+                                            Time) -> (TaskId -> Time) ->
+                                            (List TaskId) -> Time -> Time ->
+                                            Prelude.Bool
+jittered_periodic_fast_dbf_window_ok_N_b tasks offset jitter enumT t1 t2 =
+  (Prelude.<=)
+    (taskset_jittered_periodic_fast_dbf_window_N tasks offset jitter enumT t1
+      t2)
+    (jittered_window_capacity_N t1 t2)
+
+jittered_window_fast_ndbf_test_upto :: (TaskId -> Task) -> (TaskId -> Time)
+                                       -> (TaskId -> Time) -> (List TaskId)
+                                       -> Time -> Prelude.Bool
+jittered_window_fast_ndbf_test_upto tasks offset jitter enumT h =
+  forallb (\w ->
+    case w of {
+     Pair t1 t2 ->
+      jittered_periodic_fast_dbf_window_ok_N_b tasks offset jitter enumT t1
+        t2})
+    (critical_dbf_windows_upto tasks offset enumT h)
+
 periodic_max_offset :: (TaskId -> Time) -> (List TaskId) -> Time
 periodic_max_offset offset enumT =
   case enumT of {
@@ -585,13 +782,6 @@ jittered_offset_window_dbf_cutoff_bound tasks offset jitter enumT =
   (Prelude.+) (offset_window_dbf_cutoff_bound tasks offset enumT)
     (jittered_max_release_jitter jitter enumT)
 
-jittered_offset_window_dbf_test_by_cutoff :: (TaskId -> Task) -> (TaskId ->
-                                             Time) -> (TaskId -> Time) ->
-                                             (List TaskId) -> Prelude.Bool
-jittered_offset_window_dbf_test_by_cutoff tasks offset jitter enumT =
-  jittered_window_dbf_test_upto tasks offset jitter enumT
-    (jittered_offset_window_dbf_cutoff_bound tasks offset jitter enumT)
-
 extracted_jittered_offset_window_dbf_cutoff_bound :: (List
                                                      ExtractedJitteredPeriodicTask)
                                                      -> Time
@@ -601,14 +791,20 @@ extracted_jittered_offset_window_dbf_cutoff_bound ts =
     (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
     (jittered_enumT_of_extracted_list ts)
 
+extracted_jittered_offset_window_ndbf_test_by_cutoff :: (List
+                                                        ExtractedJitteredPeriodicTask)
+                                                        -> Prelude.Bool
+extracted_jittered_offset_window_ndbf_test_by_cutoff ts =
+  jittered_window_fast_ndbf_test_upto (jittered_tasks_of_extracted_list ts)
+    (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
+    (jittered_enumT_of_extracted_list ts)
+    (extracted_jittered_offset_window_dbf_cutoff_bound ts)
+
 extracted_jittered_offset_window_dbf_test_by_cutoff :: (List
                                                        ExtractedJitteredPeriodicTask)
                                                        -> Prelude.Bool
-extracted_jittered_offset_window_dbf_test_by_cutoff ts =
-  jittered_offset_window_dbf_test_by_cutoff
-    (jittered_tasks_of_extracted_list ts)
-    (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
-    (jittered_enumT_of_extracted_list ts)
+extracted_jittered_offset_window_dbf_test_by_cutoff =
+  extracted_jittered_offset_window_ndbf_test_by_cutoff
 
 extracted_jittered_offset_window_dbf_counterexample_by_cutoff :: (List
                                                                  ExtractedJitteredPeriodicTask)
@@ -667,6 +863,19 @@ jittered_edf_compact_dbf_certificate_expected_basis ts =
     (jittered_enumT_of_extracted_list ts)
     (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
 
+jittered_fast_compact_basis_ndbf_test :: (TaskId -> Task) -> (TaskId -> Time)
+                                         -> (TaskId -> Time) -> (List
+                                         TaskId) -> JitteredCompactDbfBasis
+                                         -> Prelude.Bool
+jittered_fast_compact_basis_ndbf_test tasks offset jitter enumT basis =
+  forallb (\w ->
+    case w of {
+     Pair t1 t2 ->
+      (Prelude.&&) ((Prelude.<=) t1 t2)
+        (jittered_periodic_fast_dbf_window_ok_N_b tasks offset jitter enumT
+          t1 t2)})
+    (jittered_compact_basis_windows basis)
+
 check_jittered_edf_compact_dbf_certificate_extracted :: (List
                                                         ExtractedJitteredPeriodicTask)
                                                         ->
@@ -678,7 +887,7 @@ check_jittered_edf_compact_dbf_certificate_extracted ts cert =
       (check_jittered_edf_compact_dbf_certificate_fields
         (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
         (jittered_edf_compact_dbf_certificate_expected_basis ts) cert))
-    (jittered_fast_compact_basis_dbf_test
+    (jittered_fast_compact_basis_ndbf_test
       (jittered_tasks_of_extracted_list ts)
       (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
       (jittered_enumT_of_extracted_list ts) (jedf_compact_basis cert))
