@@ -145,6 +145,18 @@ Definition jittered_compact_basis_dbf_test
           tasks offset jitter enumT t1 t2 <=? t2 - t1))
     (jittered_compact_basis_windows basis).
 
+Definition jittered_fast_compact_basis_dbf_window_ok
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (w : Time * Time) : bool :=
+  let '(t1, t2) := w in
+  (t1 <=? t2)
+  &&
+  (taskset_jittered_periodic_fast_dbf_window
+     tasks offset jitter enumT t1 t2 <=? t2 - t1).
+
 Definition jittered_fast_compact_basis_dbf_test
     (tasks : TaskId -> Task)
     (offset : TaskId -> Time)
@@ -152,13 +164,42 @@ Definition jittered_fast_compact_basis_dbf_test
     (enumT : list TaskId)
     (basis : JitteredCompactDbfBasis) : bool :=
   forallb
-    (fun w =>
-       let '(t1, t2) := w in
-       (t1 <=? t2)
-       &&
-       (taskset_jittered_periodic_fast_dbf_window
-          tasks offset jitter enumT t1 t2 <=? t2 - t1))
+    (jittered_fast_compact_basis_dbf_window_ok
+       tasks offset jitter enumT)
     (jittered_compact_basis_windows basis).
+
+Definition jittered_fast_compact_basis_dbf_row_test
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (row : Time * list Time) : bool :=
+  forallb
+    (jittered_fast_compact_basis_dbf_window_ok
+       tasks offset jitter enumT)
+    (jittered_compact_basis_row_windows row).
+
+Definition jittered_fast_compact_basis_dbf_block_test
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (block : JitteredCompactDbfBasis) : bool :=
+  forallb
+    (jittered_fast_compact_basis_dbf_window_ok
+       tasks offset jitter enumT)
+    (jittered_compact_basis_block_windows block).
+
+Definition jittered_fast_compact_basis_dbf_blocks_test
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (blocks : list JitteredCompactDbfBasis) : bool :=
+  forallb
+    (jittered_fast_compact_basis_dbf_block_test
+       tasks offset jitter enumT)
+    blocks.
 
 Definition jittered_identity_compact_basis_upto
     (H : Time) : JitteredCompactDbfBasis :=
@@ -306,6 +347,63 @@ Proof.
   - unfold jittered_left_edge_covers.
     subst t2.
     repeat split; try lia.
+Qed.
+
+Lemma jittered_fast_compact_basis_dbf_row_test_eq :
+  forall tasks offset jitter enumT row,
+    jittered_fast_compact_basis_dbf_row_test
+      tasks offset jitter enumT row =
+    jittered_fast_compact_basis_dbf_test
+      tasks offset jitter enumT [row].
+Proof.
+  intros tasks offset jitter enumT [t2 left_edges].
+  unfold jittered_fast_compact_basis_dbf_row_test,
+         jittered_fast_compact_basis_dbf_test,
+         jittered_compact_basis_row_windows,
+         jittered_compact_basis_windows.
+  simpl.
+  rewrite app_nil_r.
+  reflexivity.
+Qed.
+
+Lemma jittered_fast_compact_basis_dbf_block_test_eq :
+  forall tasks offset jitter enumT block,
+    jittered_fast_compact_basis_dbf_block_test
+      tasks offset jitter enumT block =
+    jittered_fast_compact_basis_dbf_test
+      tasks offset jitter enumT block.
+Proof.
+  intros tasks offset jitter enumT block.
+  unfold jittered_fast_compact_basis_dbf_block_test,
+         jittered_fast_compact_basis_dbf_test.
+  now rewrite jittered_compact_basis_windows_eq_block_windows.
+Qed.
+
+Lemma jittered_fast_compact_basis_dbf_blocks_test_eq :
+  forall tasks offset jitter enumT blocks,
+    jittered_fast_compact_basis_dbf_blocks_test
+      tasks offset jitter enumT blocks =
+    jittered_fast_compact_basis_dbf_test
+      tasks offset jitter enumT (concat blocks).
+Proof.
+  intros tasks offset jitter enumT blocks.
+  unfold jittered_fast_compact_basis_dbf_blocks_test,
+         jittered_fast_compact_basis_dbf_block_test,
+         jittered_fast_compact_basis_dbf_test.
+  rewrite jittered_compact_basis_windows_concat_blocks.
+  symmetry.
+  apply forallb_concat_map.
+Qed.
+
+Theorem jittered_fast_compact_basis_dbf_blocks_test_implies_concat :
+  forall tasks offset jitter enumT blocks,
+    jittered_fast_compact_basis_dbf_blocks_test
+      tasks offset jitter enumT blocks = true ->
+    jittered_fast_compact_basis_dbf_test
+      tasks offset jitter enumT (concat blocks) = true.
+Proof.
+  intros tasks offset jitter enumT blocks Hblocks.
+  now rewrite <- jittered_fast_compact_basis_dbf_blocks_test_eq.
 Qed.
 
 Lemma jittered_fast_compact_basis_dbf_test_eq :
