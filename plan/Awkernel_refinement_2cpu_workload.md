@@ -54,10 +54,14 @@ current procedure が checker input として使う emitted artifact は 2 つ�
 - `sched_trace`
   - block marker は `BEGIN_SCHED_TRACE ... END_SCHED_TRACE`
   - 各行は現在の adapter encoding では
-    `cpu_id, event_tag, event_arg0, event_arg1, current, runnable_csv, need_resched, dispatch_target, worker_current_csv, worker_need_resched_csv, worker_dispatch_target_csv`
-    の 11 列 TSV である
+    `event_id, cpu_id, event_tag, event_arg0, event_arg1, current, runnable_csv, need_resched, dispatch_target, worker_current_csv, worker_need_resched_csv, worker_dispatch_target_csv, timestamp_us`
+    の 13 列 TSV である
   - これは acceptance が読む scheduler-visible row stream であり、Rocq では
     `AwkernelSchedTraceEntry` に対応する
+  - `timestamp_us` は adapter/runtime tooling が dispatch interval を描画するための
+    emitted metadata であり、common layer の `OpState`、`OpEvent`、または
+    semantic time ではない。acceptance checker は自然数として parse するが、
+    extracted `AwkernelSchedTraceEntry` には渡さない
   - `runnable` column は adapter が projection した runnable view であり、
     concrete scheduler queue の dump ではない
   - adapter は同じ emitted `sched_trace` から worker-slot occupancy と
