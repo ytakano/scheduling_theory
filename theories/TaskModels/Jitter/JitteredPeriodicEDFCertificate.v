@@ -58,6 +58,17 @@ Fixpoint compact_dbf_basis_eqb
   | _, _ => false
   end.
 
+Fixpoint compact_dbf_basis_ranges_eqb
+    (actual_ranges expected_ranges : list JitteredCompactDbfBasis) : bool :=
+  match actual_ranges, expected_ranges with
+  | [], [] => true
+  | actual_range :: actual_ranges',
+    expected_range :: expected_ranges' =>
+      compact_dbf_basis_eqb actual_range expected_range
+      && compact_dbf_basis_ranges_eqb actual_ranges' expected_ranges'
+  | _, _ => false
+  end.
+
 Definition compact_dbf_basis_blocks_eqb
     (actual_blocks expected_blocks : list JitteredCompactDbfBasis) : bool :=
   compact_dbf_basis_eqb (concat actual_blocks) (concat expected_blocks).
@@ -169,6 +180,47 @@ Proof.
     apply IH in Htail.
     subst.
     reflexivity.
+Qed.
+
+Lemma compact_dbf_basis_ranges_eqb_true :
+  forall actual_ranges expected_ranges,
+    compact_dbf_basis_ranges_eqb actual_ranges expected_ranges = true ->
+    actual_ranges = expected_ranges.
+Proof.
+  induction actual_ranges as [|actual_range actual_ranges IH];
+    intros expected_ranges Heq.
+  - destruct expected_ranges; cbn in Heq; congruence.
+  - destruct expected_ranges as [|expected_range expected_ranges];
+      cbn in Heq; try discriminate.
+    apply andb_true_iff in Heq as [Hrange Hranges].
+    apply compact_dbf_basis_eqb_true in Hrange.
+    apply IH in Hranges.
+    subst.
+    reflexivity.
+Qed.
+
+Lemma compact_dbf_basis_ranges_eqb_concat_true :
+  forall actual_ranges expected_ranges,
+    compact_dbf_basis_ranges_eqb actual_ranges expected_ranges = true ->
+    concat actual_ranges = concat expected_ranges.
+Proof.
+  intros actual_ranges expected_ranges Heq.
+  apply compact_dbf_basis_ranges_eqb_true in Heq.
+  subst.
+  reflexivity.
+Qed.
+
+Lemma compact_dbf_basis_ranges_eqb_sound :
+  forall actual_ranges expected_ranges,
+    compact_dbf_basis_ranges_eqb actual_ranges expected_ranges = true ->
+    actual_ranges = expected_ranges
+    /\ concat actual_ranges = concat expected_ranges.
+Proof.
+  intros actual_ranges expected_ranges Heq.
+  pose proof Heq as Hconcat.
+  apply compact_dbf_basis_ranges_eqb_true in Heq.
+  apply compact_dbf_basis_ranges_eqb_concat_true in Hconcat.
+  split; assumption.
 Qed.
 
 Lemma compact_dbf_basis_blocks_eqb_true :
