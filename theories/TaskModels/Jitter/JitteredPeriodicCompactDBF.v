@@ -510,16 +510,68 @@ Definition jittered_reduced_left_edges_for_t2
     (jittered_reduced_left_edge_b tasks offset jitter enumT t2)
     (bounded_time_points t2).
 
+Definition jittered_reduced_compact_basis_row
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (t2 : Time) : Time * list Time :=
+  (t2, jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2).
+
+Definition jittered_reduced_compact_basis_range
+    (tasks : TaskId -> Task)
+    (offset : TaskId -> Time)
+    (jitter : TaskId -> Time)
+    (enumT : list TaskId)
+    (lo hi : Time) : JitteredCompactDbfBasis :=
+  map
+    (jittered_reduced_compact_basis_row tasks offset jitter enumT)
+    (seq lo (hi - lo)).
+
 Definition jittered_reduced_compact_basis_upto
     (tasks : TaskId -> Task)
     (offset : TaskId -> Time)
     (jitter : TaskId -> Time)
     (enumT : list TaskId)
     (H : Time) : JitteredCompactDbfBasis :=
-  map
-    (fun t2 =>
-       (t2, jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2))
-    (bounded_time_points H).
+  jittered_reduced_compact_basis_range tasks offset jitter enumT 0 (S H).
+
+Lemma jittered_reduced_compact_basis_row_eq :
+  forall tasks offset jitter enumT t2,
+    jittered_reduced_compact_basis_row tasks offset jitter enumT t2 =
+    (t2, jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2).
+Proof.
+  reflexivity.
+Qed.
+
+Lemma jittered_reduced_compact_basis_range_0_succ_eq_full :
+  forall tasks offset jitter enumT H,
+    jittered_reduced_compact_basis_range tasks offset jitter enumT 0 (S H) =
+    map
+      (fun t2 =>
+         (t2, jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2))
+      (bounded_time_points H).
+Proof.
+  intros tasks offset jitter enumT H.
+  unfold jittered_reduced_compact_basis_range,
+         jittered_reduced_compact_basis_row,
+         bounded_time_points.
+  replace (S H - 0) with (S H) by lia.
+  reflexivity.
+Qed.
+
+Lemma jittered_reduced_compact_basis_upto_eq_full :
+  forall tasks offset jitter enumT H,
+    jittered_reduced_compact_basis_upto tasks offset jitter enumT H =
+    map
+      (fun t2 =>
+         (t2, jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2))
+      (bounded_time_points H).
+Proof.
+  intros tasks offset jitter enumT H.
+  unfold jittered_reduced_compact_basis_upto.
+  apply jittered_reduced_compact_basis_range_0_succ_eq_full.
+Qed.
 
 Lemma jittered_reduced_left_edge_b_false_eq :
   forall tasks offset jitter enumT t1 t2,
@@ -609,6 +661,8 @@ Proof.
   exists l.
   split.
   - unfold jittered_reduced_compact_basis_upto,
+           jittered_reduced_compact_basis_range,
+           jittered_reduced_compact_basis_row,
            jittered_compact_basis_windows.
     apply in_flat_map.
     exists
