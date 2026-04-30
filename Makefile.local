@@ -16,7 +16,7 @@ scripts/periodic_edf_witness_check: scripts/periodic_edf_witness_check.hs extrac
 
 scripts/jittered_edf_witness_check: scripts/jittered_edf_witness_check.hs extracted/haskell/JitteredPeriodicEDFSchedulability.hs
 	mkdir -p scripts/.build
-	stack exec --package cborg -- ghc -O2 -package cborg -package crypton -iscripts -iextracted/haskell -outputdir scripts/.build -o $@ $<
+	stack exec --package cborg -- ghc -O2 -threaded -rtsopts -package cborg -package crypton -iscripts -iextracted/haskell -outputdir scripts/.build -o $@ $<
 
 build-periodic-edf-witness-check:: extract-periodic-edf-sched-hs scripts/periodic_edf_witness_check
 

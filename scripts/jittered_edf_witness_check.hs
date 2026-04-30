@@ -5,11 +5,14 @@ module Main where
 import qualified JitteredPeriodicEDFSchedulability as EDF
 
 import CborWitness
+import Control.Concurrent (forkIO, newEmptyMVar, putMVar, takeMVar)
+import Control.Exception (SomeException, evaluate, try)
 import Control.Monad (forM)
 import Crypto.Hash (Digest, SHA256, hash)
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (isSpace, toLower)
 import Data.List (isPrefixOf)
+import qualified GHC.Conc as GHC
 import System.Environment (getArgs)
 import System.Exit (exitFailure, exitSuccess)
 import Text.Read (readMaybe)
@@ -46,23 +49,91 @@ data BasisRowJson = BasisRowJson
   , basisLeftEdgesJson :: [Integer]
   }
 
+data ThreadSetting
+  = ThreadCount Int
+  | ThreadAuto
+  deriving (Eq, Show)
+
+data CheckOptions = CheckOptions
+  { optTasksPath :: FilePath
+  , optWitnessPath :: FilePath
+  , optThreads :: ThreadSetting
+  , optBlockWindows :: Int
+  , optMetricsOut :: Maybe FilePath
+  }
+
+data Mode
+  = WitnessMode CheckOptions
+  | EmitExpectedWitnessMode FilePath FilePath
+
+data CheckMetrics = CheckMetrics
+  { metricThreads :: Int
+  , metricBlockWindows :: Int
+  , metricActualRows :: Int
+  , metricActualWindows :: Integer
+  , metricActualBlocks :: Int
+  , metricExpectedRows :: Int
+  , metricExpectedWindows :: Integer
+  , metricExpectedBlocks :: Int
+  , metricResult :: Bool
+  }
+
 main :: IO ()
 main = do
   args <- getArgs
-  case args of
-    ["--tasks", taskPath, "--witness", witnessPath] ->
-      runCheck taskPath witnessPath
-    ["--tasks", taskPath, "--emit-expected-witness", witnessPath] ->
+  case parseArgs args of
+    Left err -> putStrLn err >> printUsage >> exitFailure
+    Right (WitnessMode opts) ->
+      runCheck opts
+    Right (EmitExpectedWitnessMode taskPath witnessPath) ->
       emitExpectedWitness taskPath witnessPath
-    _ -> printUsage >> exitFailure
 
 printUsage :: IO ()
 printUsage = do
-  putStrLn "usage: jittered_edf_witness_check --tasks TASKS.csv --witness WITNESS.cbor"
+  putStrLn "usage: jittered_edf_witness_check --tasks TASKS.csv --witness WITNESS.cbor [--threads 1|N|auto] [--block-windows N] [--metrics-out PATH]"
   putStrLn "       jittered_edf_witness_check --tasks TASKS.csv --emit-expected-witness WITNESS.cbor"
 
-runCheck :: FilePath -> FilePath -> IO ()
-runCheck taskPath witnessPath = do
+parseArgs :: [String] -> Either String Mode
+parseArgs args =
+  go args Nothing Nothing (ThreadCount 1) 100000 Nothing
+  where
+    go [] (Just taskPath) (Just (Left witnessPath)) threads blockWindows metricsOut =
+      Right (WitnessMode (CheckOptions taskPath witnessPath threads blockWindows metricsOut))
+    go [] (Just taskPath) (Just (Right witnessPath)) (ThreadCount 1) 100000 Nothing =
+      Right (EmitExpectedWitnessMode taskPath witnessPath)
+    go [] _ _ _ _ _ =
+      Left "invalid arguments"
+    go ("--tasks" : path : rest) Nothing mode threads blockWindows metricsOut =
+      go rest (Just path) mode threads blockWindows metricsOut
+    go ("--witness" : path : rest) taskPath Nothing threads blockWindows metricsOut =
+      go rest taskPath (Just (Left path)) threads blockWindows metricsOut
+    go ("--emit-expected-witness" : path : rest) taskPath Nothing threads blockWindows metricsOut =
+      go rest taskPath (Just (Right path)) threads blockWindows metricsOut
+    go ("--threads" : value : rest) taskPath mode _ blockWindows metricsOut =
+      case parseThreads value of
+        Left err -> Left err
+        Right threads -> go rest taskPath mode threads blockWindows metricsOut
+    go ("--block-windows" : value : rest) taskPath mode threads _ metricsOut =
+      case readMaybe value of
+        Just n | n > 0 -> go rest taskPath mode threads n metricsOut
+        _ -> Left "--block-windows must be positive"
+    go ("--metrics-out" : path : rest) taskPath mode threads blockWindows Nothing =
+      go rest taskPath mode threads blockWindows (Just path)
+    go _ _ _ _ _ _ =
+      Left "invalid arguments"
+
+parseThreads :: String -> Either String ThreadSetting
+parseThreads value
+  | map toLower value == "auto" = Right ThreadAuto
+  | otherwise =
+      case readMaybe value of
+        Just n | n > 0 -> Right (ThreadCount n)
+        _ -> Left "--threads must be positive or auto"
+
+runCheck :: CheckOptions -> IO ()
+runCheck opts = do
+  let taskPath = optTasksPath opts
+      witnessPath = optWitnessPath opts
   taskContent <- readFile taskPath
   case parseCsv taskContent of
     Left err -> reject ("invalid CSV: " ++ err)
@@ -76,10 +147,14 @@ runCheck taskPath witnessPath = do
             Right witness -> case validateWitnessMetadata tasks witness of
               Left err -> reject err
               Right () ->
-                case checkWitness tasks witness of
+                case checkWitness opts tasks witness of
                   Left err -> reject err
-                  Right True -> putStrLn "ACCEPT" >> exitSuccess
-                  Right False -> reject "extracted checker rejected witness"
+                  Right action -> do
+                    (ok, metrics) <- action
+                    writeMetrics (optMetricsOut opts) metrics
+                    if ok
+                      then putStrLn "ACCEPT" >> exitSuccess
+                      else reject "extracted checker rejected witness"
 
 emitExpectedWitness :: FilePath -> FilePath -> IO ()
 emitExpectedWitness taskPath witnessPath = do
@@ -193,14 +268,146 @@ integerListField :: String -> String -> [(Term, Term)] -> Either String [Integer
 integerListField label key =
   termListField label key (expectInteger (label ++ "." ++ key ++ "[]"))
 
-checkWitness :: [ParsedTask] -> Witness -> Either String Bool
-checkWitness tasks witness =
+checkWitness :: CheckOptions -> [ParsedTask] -> Witness -> Either String (IO (Bool, CheckMetrics))
+checkWitness opts tasks witness =
   let input = toEDFList (map toEDFTask tasks)
       dbf = certDbf (witnessCert witness)
   in case witnessSchemaVersion witness of
        3 ->
-         EDF.check_jittered_edf_compact_dbf_certificate_extracted input <$> buildDbf dbf
+         runParallelBlockCheck opts input <$> buildDbf dbf
        _ -> Left "unsupported schema_version"
+
+runParallelBlockCheck ::
+  CheckOptions ->
+  EDF.List EDF.ExtractedJitteredPeriodicTask ->
+  EDF.JitteredEDFCompactDbfCertificate ->
+  IO (Bool, CheckMetrics)
+runParallelBlockCheck opts input cert = do
+  threads <- resolveThreads (optThreads opts)
+  GHC.setNumCapabilities threads
+  let blockWindows = optBlockWindows opts
+      actualBasis = EDF.jedf_compact_basis cert
+      expectedBasis = EDF.jittered_edf_compact_dbf_certificate_expected_basis input
+      actualBlocks = splitBasisByWindows blockWindows actualBasis
+      expectedBlocks = splitBasisByWindows blockWindows expectedBasis
+      structural =
+        EDF.check_jittered_edf_compact_dbf_certificate_header_extracted input cert
+          && EDF.check_jittered_edf_compact_dbf_certificate_block_basis_for_expected
+               expectedBasis
+               (toEDFList actualBlocks)
+               (toEDFList expectedBlocks)
+               cert
+      metrics result =
+        CheckMetrics
+          { metricThreads = threads
+          , metricBlockWindows = blockWindows
+          , metricActualRows = basisRowCount actualBasis
+          , metricActualWindows = basisWindowCount actualBasis
+          , metricActualBlocks = length actualBlocks
+          , metricExpectedRows = basisRowCount expectedBasis
+          , metricExpectedWindows = basisWindowCount expectedBasis
+          , metricExpectedBlocks = length expectedBlocks
+          , metricResult = result
+          }
+  structuralOk <- evaluate structural
+  if not structuralOk
+    then pure (False, metrics False)
+    else do
+      blockOk <-
+        parallelAll threads $
+          map (checkBasisBlock input) actualBlocks
+      let ok = structuralOk && blockOk
+      pure (ok, metrics ok)
+
+resolveThreads :: ThreadSetting -> IO Int
+resolveThreads (ThreadCount n) = pure n
+resolveThreads ThreadAuto = max 1 <$> GHC.getNumProcessors
+
+checkBasisBlock :: EDF.List EDF.ExtractedJitteredPeriodicTask -> EDF.JitteredCompactDbfBasis -> Bool
+checkBasisBlock input =
+  EDF.jittered_fast_compact_basis_ndbf_block_test
+    (EDF.jittered_tasks_of_extracted_list input)
+    (EDF.jittered_offset_of_extracted_list input)
+    (EDF.jitter_of_extracted_list input)
+    (EDF.jittered_enumT_of_extracted_list input)
+
+parallelAll :: Int -> [Bool] -> IO Bool
+parallelAll _ [] = pure True
+parallelAll threads checks
+  | threads <= 1 = go checks
+  | otherwise = do
+      let chunks = splitIntoAtMost threads checks
+      vars <- forM chunks $ \chunk -> do
+        var <- newEmptyMVar
+        _ <- forkIO $ do
+          result <- try (evaluate (and chunk)) :: IO (Either SomeException Bool)
+          putMVar var result
+        pure var
+      results <- mapM takeMVar vars
+      case sequence results of
+        Left _ -> pure False
+        Right oks -> pure (and oks)
+  where
+    go [] = pure True
+    go (x : xs) = do
+      ok <- evaluate x
+      if ok then go xs else pure False
+
+splitIntoAtMost :: Int -> [a] -> [[a]]
+splitIntoAtMost n xs =
+  filter (not . null) (go n xs)
+  where
+    go parts rest
+      | parts <= 1 = [rest]
+      | null rest = []
+      | otherwise =
+          let takeCount = (length rest + parts - 1) `div` parts
+              (chunk, remaining) = splitAt takeCount rest
+          in chunk : go (parts - 1) remaining
+
+splitBasisByWindows :: Int -> EDF.JitteredCompactDbfBasis -> [EDF.JitteredCompactDbfBasis]
+splitBasisByWindows limit basis =
+  map toEDFList (splitRows [] 0 (fromEDFList basis))
+  where
+    splitRows [] _ [] = []
+    splitRows current _ [] = [reverse current]
+    splitRows [] _ (row : rows) =
+      splitRows [row] (rowWindowCount row) rows
+    splitRows current currentWeight (row : rows)
+      | currentWeight >= fromIntegral limit =
+          reverse current : splitRows [row] (rowWindowCount row) rows
+      | currentWeight + rowWindowCount row > fromIntegral limit =
+          reverse current : splitRows [row] (rowWindowCount row) rows
+      | otherwise =
+          splitRows (row : current) (currentWeight + rowWindowCount row) rows
+
+basisRowCount :: EDF.JitteredCompactDbfBasis -> Int
+basisRowCount =
+  length . fromEDFList
+
+basisWindowCount :: EDF.JitteredCompactDbfBasis -> Integer
+basisWindowCount =
+  sum . map rowWindowCount . fromEDFList
+
+rowWindowCount :: EDF.Prod EDF.Time (EDF.List EDF.Time) -> Integer
+rowWindowCount (EDF.Pair _ leftEdges) =
+  fromIntegral (length (fromEDFList leftEdges))
+
+writeMetrics :: Maybe FilePath -> CheckMetrics -> IO ()
+writeMetrics Nothing _ = pure ()
+writeMetrics (Just path) metrics =
+  writeFile path $
+    unlines
+      [ "threads=" ++ show (metricThreads metrics)
+      , "block_windows=" ++ show (metricBlockWindows metrics)
+      , "actual_rows=" ++ show (metricActualRows metrics)
+      , "actual_windows=" ++ show (metricActualWindows metrics)
+      , "actual_blocks=" ++ show (metricActualBlocks metrics)
+      , "expected_rows=" ++ show (metricExpectedRows metrics)
+      , "expected_windows=" ++ show (metricExpectedWindows metrics)
+      , "expected_blocks=" ++ show (metricExpectedBlocks metrics)
+      , "result=" ++ if metricResult metrics then "accept" else "reject"
+      ]
 
 buildDbf :: DbfJson -> Either String EDF.JitteredEDFCompactDbfCertificate
 buildDbf dbf =
