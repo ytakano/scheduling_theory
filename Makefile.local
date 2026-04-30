@@ -205,14 +205,47 @@ test-jittered-edf-witness-check:: build-jittered-edf-witness-check
 	printf 'cost,period,deadline,offset,jitter\n1,1,1,0,0\n' > "$$tmp/accepted.csv"; \
 	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --emit-expected-witness "$$tmp/accepted.cbor"; \
 	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.cbor"; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.cbor" --threads 1; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.cbor" --threads 2; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.cbor" --threads auto; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.cbor" --block-windows 1; \
+	./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.cbor" --threads 2 --block-windows 1 --metrics-out "$$tmp/metrics.out"; \
+	grep -q '^threads=2$$' "$$tmp/metrics.out"; \
+	grep -q '^block_windows=1$$' "$$tmp/metrics.out"; \
+	grep -q '^actual_blocks=6$$' "$$tmp/metrics.out"; \
+	grep -q '^expected_blocks=6$$' "$$tmp/metrics.out"; \
+	grep -q '^result=accept$$' "$$tmp/metrics.out"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.cbor" --threads 0 > "$$tmp/threads-zero.out" 2>&1; then \
+		cat "$$tmp/threads-zero.out"; \
+		exit 1; \
+	fi; \
+	grep -q -- '--threads must be positive or auto' "$$tmp/threads-zero.out"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.cbor" --threads nope > "$$tmp/threads-nope.out" 2>&1; then \
+		cat "$$tmp/threads-nope.out"; \
+		exit 1; \
+	fi; \
+	grep -q -- '--threads must be positive or auto' "$$tmp/threads-nope.out"; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/accepted.cbor" --block-windows 0 > "$$tmp/block-windows-zero.out" 2>&1; then \
+		cat "$$tmp/block-windows-zero.out"; \
+		exit 1; \
+	fi; \
+	grep -q -- '--block-windows must be positive' "$$tmp/block-windows-zero.out"; \
 	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs jittered-prepend-basis-extra "$$tmp/accepted.cbor" "$$tmp/v3-basis-extra.cbor"; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-basis-extra.cbor" > "$$tmp/v3-basis-extra.out" 2>&1; then \
 		cat "$$tmp/v3-basis-extra.out"; \
 		exit 1; \
 	fi; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-basis-extra.cbor" --threads 2 --block-windows 1 > "$$tmp/v3-basis-extra-block.out" 2>&1; then \
+		cat "$$tmp/v3-basis-extra-block.out"; \
+		exit 1; \
+	fi; \
 	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs jittered-first-left-edge-999 "$$tmp/accepted.cbor" "$$tmp/v3-left-edge-mut.cbor"; \
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-left-edge-mut.cbor" > "$$tmp/v3-left-edge-mut.out" 2>&1; then \
 		cat "$$tmp/v3-left-edge-mut.out"; \
+		exit 1; \
+	fi; \
+	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/v3-left-edge-mut.cbor" --threads 2 --block-windows 1 > "$$tmp/v3-left-edge-mut-block.out" 2>&1; then \
+		cat "$$tmp/v3-left-edge-mut-block.out"; \
 		exit 1; \
 	fi; \
 	stack exec --package cborg -- runhaskell -iscripts scripts/cbor_mutate_witness.hs all-basis-unchecked "$$tmp/accepted.cbor" "$$tmp/v3-all-basis-mut.cbor"; \
@@ -256,7 +289,9 @@ test-jittered-edf-witness-check:: build-jittered-edf-witness-check
 	if ./scripts/jittered_edf_witness_check --tasks "$$tmp/accepted.csv" --witness "$$tmp/cutoff-mut.cbor" > "$$tmp/cutoff-mut.out" 2>&1; then \
 		cat "$$tmp/cutoff-mut.out"; \
 		exit 1; \
-	fi
+	fi; \
+	grep -q 'check_jittered_edf_compact_dbf_certificate_block_basis_for_expected' scripts/jittered_edf_witness_check.hs; \
+	grep -q 'jittered_fast_compact_basis_ndbf_block_test' scripts/jittered_edf_witness_check.hs
 
 bench-periodic-edf-witness:: sched-witness-gen build-periodic-edf-witness-check
 	@if [ -n "$(BENCH_OUT)" ]; then \
