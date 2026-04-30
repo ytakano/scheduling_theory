@@ -38,6 +38,11 @@ The current implementation defines four scalar aliases:
 - `Time : Type := nat`
 
 All are currently `nat`. This keeps the base layer constructive and lightweight.
+Extraction may map these `nat`-based quantities to Haskell `Integer` in
+checker code, but that is an extraction representation choice, not a change to
+the common Foundation interface. If later finite checkers use `N`-based kernels
+for performance, those kernels should remain checker-local and be related back
+to these `nat` definitions by explicit conversion lemmas.
 
 ### Task
 

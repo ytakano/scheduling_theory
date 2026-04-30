@@ -2,6 +2,7 @@ From Stdlib Require Extraction.
 From RocqSched Require Import Operational.Awkernel.Minimal.CapturedTraceSyntax.
 From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadAcceptance.
 From RocqSched Require Import Operational.Awkernel.Minimal.WorkloadSchedulerFacing.
+From RocqSched Require Import Extraction.HaskellNatInteger.
 
 Extraction Language Haskell.
 

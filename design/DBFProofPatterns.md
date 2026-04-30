@@ -201,6 +201,13 @@ associated automation. This DBF proof shape is different:
 Accordingly, `stdpp` does not make this proof materially shorter or clearer.
 The right abstraction is a small arithmetic lemma in the DBF layer.
 
+For extracted DBF checkers, Rocq `nat` arithmetic may be represented as
+Haskell `Integer`. This does not change the DBF proof pattern: the theorem
+statements remain over the common `nat` semantics. If a later checker uses an
+`N`-based kernel for faster bounded DBF or window-DBF computation, that kernel
+should stay local to the checker and expose a proof that its boolean result is
+sound for the existing `nat` DBF obligations.
+
 ---
 
 ## 7. Worked examples

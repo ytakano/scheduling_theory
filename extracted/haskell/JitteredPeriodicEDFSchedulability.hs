@@ -2,32 +2,6 @@ module JitteredPeriodicEDFSchedulability where
 
 import qualified Prelude
 
-data Bool =
-   True
- | False
-
-andb :: Bool -> Bool -> Bool
-andb b1 b2 =
-  case b1 of {
-   True -> b2;
-   False -> False}
-
-orb :: Bool -> Bool -> Bool
-orb b1 b2 =
-  case b1 of {
-   True -> True;
-   False -> b2}
-
-negb :: Bool -> Bool
-negb b =
-  case b of {
-   True -> False;
-   False -> True}
-
-data Nat =
-   O
- | S Nat
-
 data Option a =
    Some a
  | None
@@ -35,25 +9,15 @@ data Option a =
 data Prod a b =
    Pair a b
 
-fst :: (Prod a1 a2) -> a1
-fst p =
-  case p of {
-   Pair x _ -> x}
-
-snd :: (Prod a1 a2) -> a2
-snd p =
-  case p of {
-   Pair _ y -> y}
-
 data List a =
    Nil
  | Cons a (List a)
 
-length :: (List a1) -> Nat
+length :: (List a1) -> Prelude.Integer
 length l =
   case l of {
-   Nil -> O;
-   Cons _ l' -> S (length l')}
+   Nil -> 0;
+   Cons _ l' -> Prelude.succ (length l')}
 
 app :: (List a1) -> (List a1) -> List a1
 app l m =
@@ -61,113 +25,44 @@ app l m =
    Nil -> m;
    Cons a l1 -> Cons a (app l1 m)}
 
-add :: Nat -> Nat -> Nat
-add n m =
-  case n of {
-   O -> m;
-   S p -> S (add p m)}
+sub :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+sub = (\n m -> Prelude.max 0 (n Prelude.- m))
 
-mul :: Nat -> Nat -> Nat
-mul n m =
-  case n of {
-   O -> O;
-   S p -> add m (mul p m)}
+sub0 :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+sub0 = (\n m -> Prelude.max 0 (n Prelude.- m))
 
-sub :: Nat -> Nat -> Nat
-sub n m =
-  case n of {
-   O -> n;
-   S k -> case m of {
-           O -> n;
-           S l -> sub k l}}
-
-add0 :: Nat -> Nat -> Nat
-add0 n m =
-  case n of {
-   O -> m;
-   S p -> S (add0 p m)}
-
-mul0 :: Nat -> Nat -> Nat
-mul0 n m =
-  case n of {
-   O -> O;
-   S p -> add0 m (mul0 p m)}
-
-sub0 :: Nat -> Nat -> Nat
-sub0 n m =
-  case n of {
-   O -> n;
-   S k -> case m of {
-           O -> n;
-           S l -> sub0 k l}}
-
-eqb :: Nat -> Nat -> Bool
-eqb n m =
-  case n of {
-   O -> case m of {
-         O -> True;
-         S _ -> False};
-   S n' -> case m of {
-            O -> False;
-            S m' -> eqb n' m'}}
-
-leb :: Nat -> Nat -> Bool
-leb n m =
-  case n of {
-   O -> True;
-   S n' -> case m of {
-            O -> False;
-            S m' -> leb n' m'}}
-
-ltb :: Nat -> Nat -> Bool
+ltb :: Prelude.Integer -> Prelude.Integer -> Prelude.Bool
 ltb n m =
-  leb (S n) m
+  (Prelude.<=) (Prelude.succ n) m
 
-max :: Nat -> Nat -> Nat
-max n m =
-  case n of {
-   O -> m;
-   S n' -> case m of {
-            O -> n;
-            S m' -> S (max n' m')}}
-
-min :: Nat -> Nat -> Nat
-min n m =
-  case n of {
-   O -> O;
-   S n' -> case m of {
-            O -> O;
-            S m' -> S (min n' m')}}
-
-divmod :: Nat -> Nat -> Nat -> Nat -> Prod Nat Nat
+divmod :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer ->
+          Prelude.Integer -> Prod Prelude.Integer Prelude.Integer
 divmod x y q u =
-  case x of {
-   O -> Pair q u;
-   S x' -> case u of {
-            O -> divmod x' y (S q) y;
-            S u' -> divmod x' y q u'}}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> Pair q u)
+    (\x' ->
+    (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+      (\_ -> divmod x' y (Prelude.succ q) y)
+      (\u' -> divmod x' y q u')
+      u)
+    x
 
-div :: Nat -> Nat -> Nat
-div x y =
-  case y of {
-   O -> y;
-   S y' -> fst (divmod x y' O y')}
+div :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+div = (\n m -> if m Prelude.== 0 then 0 else Prelude.div n m)
 
-modulo :: Nat -> Nat -> Nat
-modulo x y =
-  case y of {
-   O -> x;
-   S y' -> sub0 y' (snd (divmod x y' O y'))}
+modulo :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+modulo = (\n m -> if m Prelude.== 0 then n else Prelude.mod n m)
 
-gcd :: Nat -> Nat -> Nat
+gcd :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
 gcd a b =
-  case a of {
-   O -> b;
-   S a' -> gcd (modulo b (S a')) (S a')}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> b)
+    (\a' -> gcd (modulo b (Prelude.succ a')) (Prelude.succ a'))
+    a
 
-lcm :: Nat -> Nat -> Nat
+lcm :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
 lcm a b =
-  mul0 a (div b (gcd a b))
+  (Prelude.*) a (div b (gcd a b))
 
 map :: (a1 -> a2) -> (List a1) -> List a2
 map f l =
@@ -175,21 +70,23 @@ map f l =
    Nil -> Nil;
    Cons a l0 -> Cons (f a) (map f l0)}
 
-seq :: Nat -> Nat -> List Nat
+seq :: Prelude.Integer -> Prelude.Integer -> List Prelude.Integer
 seq start len =
-  case len of {
-   O -> Nil;
-   S len0 -> Cons start (seq (S start) len0)}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> Nil)
+    (\len0 -> Cons start (seq (Prelude.succ start) len0))
+    len
 
-nth :: Nat -> (List a1) -> a1 -> a1
+nth :: Prelude.Integer -> (List a1) -> a1 -> a1
 nth n l default0 =
-  case n of {
-   O -> case l of {
-         Nil -> default0;
-         Cons x _ -> x};
-   S m -> case l of {
-           Nil -> default0;
-           Cons _ l' -> nth m l' default0}}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> case l of {
+            Nil -> default0;
+            Cons x _ -> x})
+    (\m -> case l of {
+            Nil -> default0;
+            Cons _ l' -> nth m l' default0})
+    n
 
 flat_map :: (a1 -> List a2) -> (List a1) -> List a2
 flat_map f l =
@@ -197,70 +94,72 @@ flat_map f l =
    Nil -> Nil;
    Cons x l0 -> app (f x) (flat_map f l0)}
 
-forallb :: (a1 -> Bool) -> (List a1) -> Bool
+forallb :: (a1 -> Prelude.Bool) -> (List a1) -> Prelude.Bool
 forallb f l =
   case l of {
-   Nil -> True;
-   Cons a l0 -> andb (f a) (forallb f l0)}
+   Nil -> Prelude.True;
+   Cons a l0 -> (Prelude.&&) (f a) (forallb f l0)}
 
-filter :: (a1 -> Bool) -> (List a1) -> List a1
+filter :: (a1 -> Prelude.Bool) -> (List a1) -> List a1
 filter f l =
   case l of {
    Nil -> Nil;
    Cons x l0 ->
     case f x of {
-     True -> Cons x (filter f l0);
-     False -> filter f l0}}
+     Prelude.True -> Cons x (filter f l0);
+     Prelude.False -> filter f l0}}
 
-find :: (a1 -> Bool) -> (List a1) -> Option a1
+find :: (a1 -> Prelude.Bool) -> (List a1) -> Option a1
 find f l =
   case l of {
    Nil -> None;
-   Cons x tl -> case f x of {
-                 True -> Some x;
-                 False -> find f tl}}
+   Cons x tl ->
+    case f x of {
+     Prelude.True -> Some x;
+     Prelude.False -> find f tl}}
 
-type TaskId = Nat
+type TaskId = Prelude.Integer
 
-type Time = Nat
+type Time = Prelude.Integer
 
 data Task =
-   MkTask Nat Nat Nat
+   MkTask Prelude.Integer Prelude.Integer Prelude.Integer
 
-task_cost :: Task -> Nat
+task_cost :: Task -> Prelude.Integer
 task_cost t =
   case t of {
    MkTask task_cost0 _ _ -> task_cost0}
 
-task_period :: Task -> Nat
+task_period :: Task -> Prelude.Integer
 task_period t =
   case t of {
    MkTask _ task_period0 _ -> task_period0}
 
-task_relative_deadline :: Task -> Nat
+task_relative_deadline :: Task -> Prelude.Integer
 task_relative_deadline t =
   case t of {
    MkTask _ _ task_relative_deadline0 -> task_relative_deadline0}
 
-expected_release :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId -> Nat ->
-                    Time
+expected_release :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId ->
+                    Prelude.Integer -> Time
 expected_release tasks offset _UU03c4_ k =
-  add (offset _UU03c4_) (mul k (task_period (tasks _UU03c4_)))
+  (Prelude.+) (offset _UU03c4_)
+    ((Prelude.*) k (task_period (tasks _UU03c4_)))
 
 expected_abs_deadline :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId ->
-                         Nat -> Time
+                         Prelude.Integer -> Time
 expected_abs_deadline tasks offset _UU03c4_ k =
-  add (expected_release tasks offset _UU03c4_ k)
+  (Prelude.+) (expected_release tasks offset _UU03c4_ k)
     (task_relative_deadline (tasks _UU03c4_))
 
 bounded_time_points :: Time -> List Time
 bounded_time_points h =
-  seq O (S h)
+  seq 0 (Prelude.succ h)
 
 task_deadline_points_upto :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId
                              -> Time -> List Time
 task_deadline_points_upto tasks offset _UU03c4_ h =
-  filter (\t -> leb t h)
+  filter (\t -> (Prelude.<=) t h)
     (map (expected_abs_deadline tasks offset _UU03c4_)
       (bounded_time_points h))
 
@@ -277,114 +176,120 @@ critical_dbf_windows_upto tasks offset enumT h =
   let {points = critical_dbf_points_upto tasks offset enumT h} in
   flat_map (\t1 ->
     map (\t2 -> Pair t1 t2)
-      (filter (\t2 -> andb (leb t1 t2) (leb t2 h)) points))
+      (filter (\t2 -> (Prelude.&&) ((Prelude.<=) t1 t2) ((Prelude.<=) t2 h))
+        points))
     points
 
 periodic_hyperperiod :: (TaskId -> Task) -> (List TaskId) -> Time
 periodic_hyperperiod tasks enumT =
   case enumT of {
-   Nil -> S O;
+   Nil -> Prelude.succ 0;
    Cons _UU03c4_ enumT' ->
     lcm (task_period (tasks _UU03c4_)) (periodic_hyperperiod tasks enumT')}
 
 periodic_max_relative_deadline :: (TaskId -> Task) -> (List TaskId) -> Time
 periodic_max_relative_deadline tasks enumT =
   case enumT of {
-   Nil -> O;
+   Nil -> 0;
    Cons _UU03c4_ enumT' ->
-    max (task_relative_deadline (tasks _UU03c4_))
+    Prelude.max (task_relative_deadline (tasks _UU03c4_))
       (periodic_max_relative_deadline tasks enumT')}
 
 jittered_index_may_be_in_window_b :: (TaskId -> Task) -> (TaskId -> Time) ->
                                      (TaskId -> Time) -> TaskId -> Time ->
-                                     Time -> Nat -> Bool
+                                     Time -> Prelude.Integer -> Prelude.Bool
 jittered_index_may_be_in_window_b tasks offset jitter _UU03c4_ t1 t2 k =
-  andb (leb (task_relative_deadline (tasks _UU03c4_)) t2)
-    (leb (max t1 (expected_release tasks offset _UU03c4_ k))
-      (min (sub t2 (task_relative_deadline (tasks _UU03c4_)))
-        (add (expected_release tasks offset _UU03c4_ k) (jitter _UU03c4_))))
+  (Prelude.&&) ((Prelude.<=) (task_relative_deadline (tasks _UU03c4_)) t2)
+    ((Prelude.<=) (Prelude.max t1 (expected_release tasks offset _UU03c4_ k))
+      (Prelude.min (sub t2 (task_relative_deadline (tasks _UU03c4_)))
+        ((Prelude.+) (expected_release tasks offset _UU03c4_ k)
+          (jitter _UU03c4_))))
 
 jittered_periodic_dbf_window :: (TaskId -> Task) -> (TaskId -> Time) ->
                                 (TaskId -> Time) -> TaskId -> Time -> Time ->
-                                Nat
+                                Prelude.Integer
 jittered_periodic_dbf_window tasks offset jitter _UU03c4_ t1 t2 =
-  mul
+  (Prelude.*)
     (length
       (filter
         (jittered_index_may_be_in_window_b tasks offset jitter _UU03c4_ t1
           t2)
-        (seq O (S t2))))
+        (seq 0 (Prelude.succ t2))))
     (task_cost (tasks _UU03c4_))
 
 taskset_jittered_periodic_dbf_window :: (TaskId -> Task) -> (TaskId -> Time)
-                                        -> (TaskId -> Time) -> (List 
-                                        TaskId) -> Time -> Time -> Nat
+                                        -> (TaskId -> Time) -> (List
+                                        TaskId) -> Time -> Time ->
+                                        Prelude.Integer
 taskset_jittered_periodic_dbf_window tasks offset jitter enumT t1 t2 =
   case enumT of {
-   Nil -> O;
+   Nil -> 0;
    Cons _UU03c4_ enumT' ->
-    add (jittered_periodic_dbf_window tasks offset jitter _UU03c4_ t1 t2)
+    (Prelude.+)
+      (jittered_periodic_dbf_window tasks offset jitter _UU03c4_ t1 t2)
       (taskset_jittered_periodic_dbf_window tasks offset jitter enumT' t1 t2)}
 
-nat_interval_count :: Nat -> Nat -> Nat
+nat_interval_count :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
 nat_interval_count lo hi =
-  case leb lo hi of {
-   True -> S (sub hi lo);
-   False -> O}
+  case (Prelude.<=) lo hi of {
+   Prelude.True -> Prelude.succ (sub hi lo);
+   Prelude.False -> 0}
 
-ceil_div_pos :: Nat -> Nat -> Nat
+ceil_div_pos :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
 ceil_div_pos n p =
-  div (sub (add n p) (S O)) p
+  div (sub ((Prelude.+) n p) (Prelude.succ 0)) p
 
-ap_first_index_at_or_after :: Nat -> Nat -> Nat -> Nat
+ap_first_index_at_or_after :: Prelude.Integer -> Prelude.Integer ->
+                              Prelude.Integer -> Prelude.Integer
 ap_first_index_at_or_after start period lo =
-  case leb lo start of {
-   True -> O;
-   False -> ceil_div_pos (sub lo start) period}
+  case (Prelude.<=) lo start of {
+   Prelude.True -> 0;
+   Prelude.False -> ceil_div_pos (sub lo start) period}
 
-ap_index_count :: Nat -> Nat -> Nat -> Nat -> Nat -> Nat
+ap_index_count :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer ->
+                  Prelude.Integer -> Prelude.Integer -> Prelude.Integer
 ap_index_count start period lo hi limit =
-  case eqb period O of {
-   True ->
-    case andb (leb lo start) (leb start hi) of {
-     True -> S limit;
-     False -> O};
-   False ->
-    case leb start hi of {
-     True ->
+  case (Prelude.==) period 0 of {
+   Prelude.True ->
+    case (Prelude.&&) ((Prelude.<=) lo start) ((Prelude.<=) start hi) of {
+     Prelude.True -> Prelude.succ limit;
+     Prelude.False -> 0};
+   Prelude.False ->
+    case (Prelude.<=) start hi of {
+     Prelude.True ->
       let {first = ap_first_index_at_or_after start period lo} in
-      let {last = min limit (div (sub hi start) period)} in
+      let {last = Prelude.min limit (div (sub hi start) period)} in
       nat_interval_count first last;
-     False -> O}}
+     Prelude.False -> 0}}
 
 jittered_periodic_fast_release_count :: (TaskId -> Task) -> (TaskId -> Time)
                                         -> (TaskId -> Time) -> TaskId -> Time
-                                        -> Time -> Nat
+                                        -> Time -> Prelude.Integer
 jittered_periodic_fast_release_count tasks offset jitter _UU03c4_ t1 t2 =
   let {d = task_relative_deadline (tasks _UU03c4_)} in
-  case andb (leb d t2) (leb t1 (sub t2 d)) of {
-   True ->
+  case (Prelude.&&) ((Prelude.<=) d t2) ((Prelude.<=) t1 (sub t2 d)) of {
+   Prelude.True ->
     ap_index_count (offset _UU03c4_) (task_period (tasks _UU03c4_))
       (sub t1 (jitter _UU03c4_)) (sub t2 d) t2;
-   False -> O}
+   Prelude.False -> 0}
 
 jittered_periodic_fast_dbf_window :: (TaskId -> Task) -> (TaskId -> Time) ->
                                      (TaskId -> Time) -> TaskId -> Time ->
-                                     Time -> Nat
+                                     Time -> Prelude.Integer
 jittered_periodic_fast_dbf_window tasks offset jitter _UU03c4_ t1 t2 =
-  mul
+  (Prelude.*)
     (jittered_periodic_fast_release_count tasks offset jitter _UU03c4_ t1 t2)
     (task_cost (tasks _UU03c4_))
 
 taskset_jittered_periodic_fast_dbf_window :: (TaskId -> Task) -> (TaskId ->
                                              Time) -> (TaskId -> Time) ->
                                              (List TaskId) -> Time -> Time ->
-                                             Nat
+                                             Prelude.Integer
 taskset_jittered_periodic_fast_dbf_window tasks offset jitter enumT t1 t2 =
   case enumT of {
-   Nil -> O;
+   Nil -> 0;
    Cons _UU03c4_ enumT' ->
-    add
+    (Prelude.+)
       (jittered_periodic_fast_dbf_window tasks offset jitter _UU03c4_ t1 t2)
       (taskset_jittered_periodic_fast_dbf_window tasks offset jitter enumT'
         t1 t2)}
@@ -401,13 +306,13 @@ jittered_compact_basis_windows basis =
 jittered_fast_compact_basis_dbf_test :: (TaskId -> Task) -> (TaskId -> Time)
                                         -> (TaskId -> Time) -> (List
                                         TaskId) -> JitteredCompactDbfBasis ->
-                                        Bool
+                                        Prelude.Bool
 jittered_fast_compact_basis_dbf_test tasks offset jitter enumT basis =
   forallb (\w ->
     case w of {
      Pair t1 t2 ->
-      andb (leb t1 t2)
-        (leb
+      (Prelude.&&) ((Prelude.<=) t1 t2)
+        ((Prelude.<=)
           (taskset_jittered_periodic_fast_dbf_window tasks offset jitter
             enumT t1 t2)
           (sub t2 t1))})
@@ -415,15 +320,15 @@ jittered_fast_compact_basis_dbf_test tasks offset jitter enumT basis =
 
 jittered_reduced_left_edge_b :: (TaskId -> Task) -> (TaskId -> Time) ->
                                 (TaskId -> Time) -> (List TaskId) -> Time ->
-                                Time -> Bool
+                                Time -> Prelude.Bool
 jittered_reduced_left_edge_b tasks offset jitter enumT t2 t1 =
-  orb (eqb t1 t2)
-    (negb
-      (eqb
+  (Prelude.||) ((Prelude.==) t1 t2)
+    (Prelude.not
+      ((Prelude.==)
         (taskset_jittered_periodic_fast_dbf_window tasks offset jitter enumT
           t1 t2)
         (taskset_jittered_periodic_fast_dbf_window tasks offset jitter enumT
-          (S t1) t2)))
+          (Prelude.succ t1) t2)))
 
 jittered_reduced_left_edges_for_t2 :: (TaskId -> Task) -> (TaskId -> Time) ->
                                       (TaskId -> Time) -> (List TaskId) ->
@@ -442,7 +347,7 @@ jittered_reduced_compact_basis_upto tasks offset jitter enumT h =
 
 data JitteredEDFCompactDbfCertificate =
    Build_JitteredEDFCompactDbfCertificate Time JitteredCompactDbfBasis
- Bool
+ Prelude.Bool
 
 jedf_compact_cutoff :: JitteredEDFCompactDbfCertificate -> Time
 jedf_compact_cutoff j =
@@ -457,64 +362,66 @@ jedf_compact_basis j =
    Build_JitteredEDFCompactDbfCertificate _ jedf_compact_basis0 _ ->
     jedf_compact_basis0}
 
-jedf_all_basis_checked :: JitteredEDFCompactDbfCertificate -> Bool
+jedf_all_basis_checked :: JitteredEDFCompactDbfCertificate -> Prelude.Bool
 jedf_all_basis_checked j =
   case j of {
    Build_JitteredEDFCompactDbfCertificate _ _ jedf_all_basis_checked0 ->
     jedf_all_basis_checked0}
 
-time_list_eqb :: (List Time) -> (List Time) -> Bool
+time_list_eqb :: (List Time) -> (List Time) -> Prelude.Bool
 time_list_eqb xs ys =
   case xs of {
    Nil -> case ys of {
-           Nil -> True;
-           Cons _ _ -> False};
+           Nil -> Prelude.True;
+           Cons _ _ -> Prelude.False};
    Cons x xs' ->
     case ys of {
-     Nil -> False;
-     Cons y ys' -> andb (eqb x y) (time_list_eqb xs' ys')}}
+     Nil -> Prelude.False;
+     Cons y ys' -> (Prelude.&&) ((Prelude.==) x y) (time_list_eqb xs' ys')}}
 
 compact_dbf_basis_row_eqb :: (Prod Time (List Time)) -> (Prod Time
-                             (List Time)) -> Bool
+                             (List Time)) -> Prelude.Bool
 compact_dbf_basis_row_eqb r1 r2 =
   case r1 of {
    Pair t2_1 left_edges1 ->
     case r2 of {
      Pair t2_2 left_edges2 ->
-      andb (eqb t2_1 t2_2) (time_list_eqb left_edges1 left_edges2)}}
+      (Prelude.&&) ((Prelude.==) t2_1 t2_2)
+        (time_list_eqb left_edges1 left_edges2)}}
 
 compact_dbf_basis_eqb :: JitteredCompactDbfBasis -> JitteredCompactDbfBasis
-                         -> Bool
+                         -> Prelude.Bool
 compact_dbf_basis_eqb xs ys =
   case xs of {
    Nil -> case ys of {
-           Nil -> True;
-           Cons _ _ -> False};
+           Nil -> Prelude.True;
+           Cons _ _ -> Prelude.False};
    Cons x xs' ->
     case ys of {
-     Nil -> False;
+     Nil -> Prelude.False;
      Cons y ys' ->
-      andb (compact_dbf_basis_row_eqb x y) (compact_dbf_basis_eqb xs' ys')}}
+      (Prelude.&&) (compact_dbf_basis_row_eqb x y)
+        (compact_dbf_basis_eqb xs' ys')}}
 
 check_jittered_edf_compact_dbf_certificate_fields :: Time ->
                                                      JitteredCompactDbfBasis
                                                      ->
                                                      JitteredEDFCompactDbfCertificate
-                                                     -> Bool
+                                                     -> Prelude.Bool
 check_jittered_edf_compact_dbf_certificate_fields expected_cutoff expected_basis cert =
-  andb
-    (andb (eqb (jedf_compact_cutoff cert) expected_cutoff)
+  (Prelude.&&)
+    ((Prelude.&&) ((Prelude.==) (jedf_compact_cutoff cert) expected_cutoff)
       (compact_dbf_basis_eqb (jedf_compact_basis cert) expected_basis))
     (jedf_all_basis_checked cert)
 
 jittered_window_dbf_test_upto :: (TaskId -> Task) -> (TaskId -> Time) ->
                                  (TaskId -> Time) -> (List TaskId) -> Time ->
-                                 Bool
+                                 Prelude.Bool
 jittered_window_dbf_test_upto tasks offset jitter enumT h =
   forallb (\w ->
     case w of {
      Pair t1 t2 ->
-      leb
+      (Prelude.<=)
         (taskset_jittered_periodic_dbf_window tasks offset jitter enumT t1
           t2)
         (sub t2 t1)})
@@ -528,64 +435,66 @@ first_jittered_window_dbf_overload_upto tasks offset jitter enumT h =
   find (\w ->
     case w of {
      Pair t1 t2 ->
-      negb
-        (leb
+      Prelude.not
+        ((Prelude.<=)
           (taskset_jittered_periodic_dbf_window tasks offset jitter enumT t1
             t2)
           (sub t2 t1))})
     (critical_dbf_windows_upto tasks offset enumT h)
 
 data ExtractedPeriodicTask =
-   MkExtractedPeriodicTask Nat Nat Nat Nat
+   MkExtractedPeriodicTask Prelude.Integer Prelude.Integer Prelude.Integer
+ Prelude.Integer
 
-extracted_task_cost :: ExtractedPeriodicTask -> Nat
+extracted_task_cost :: ExtractedPeriodicTask -> Prelude.Integer
 extracted_task_cost e =
   case e of {
    MkExtractedPeriodicTask extracted_task_cost0 _ _ _ -> extracted_task_cost0}
 
-extracted_task_period :: ExtractedPeriodicTask -> Nat
+extracted_task_period :: ExtractedPeriodicTask -> Prelude.Integer
 extracted_task_period e =
   case e of {
    MkExtractedPeriodicTask _ extracted_task_period0 _ _ ->
     extracted_task_period0}
 
-extracted_task_relative_deadline :: ExtractedPeriodicTask -> Nat
+extracted_task_relative_deadline :: ExtractedPeriodicTask -> Prelude.Integer
 extracted_task_relative_deadline e =
   case e of {
    MkExtractedPeriodicTask _ _ extracted_task_relative_deadline0 _ ->
     extracted_task_relative_deadline0}
 
-extracted_task_offset :: ExtractedPeriodicTask -> Nat
+extracted_task_offset :: ExtractedPeriodicTask -> Prelude.Integer
 extracted_task_offset e =
   case e of {
    MkExtractedPeriodicTask _ _ _ extracted_task_offset0 ->
     extracted_task_offset0}
 
 data ExtractedJitteredPeriodicTask =
-   MkExtractedJitteredPeriodicTask Nat Nat Nat Nat Nat
+   MkExtractedJitteredPeriodicTask Prelude.Integer Prelude.Integer Prelude.Integer
+ Prelude.Integer Prelude.Integer
 
-ejp_cost :: ExtractedJitteredPeriodicTask -> Nat
+ejp_cost :: ExtractedJitteredPeriodicTask -> Prelude.Integer
 ejp_cost e =
   case e of {
    MkExtractedJitteredPeriodicTask ejp_cost0 _ _ _ _ -> ejp_cost0}
 
-ejp_period :: ExtractedJitteredPeriodicTask -> Nat
+ejp_period :: ExtractedJitteredPeriodicTask -> Prelude.Integer
 ejp_period e =
   case e of {
    MkExtractedJitteredPeriodicTask _ ejp_period0 _ _ _ -> ejp_period0}
 
-ejp_relative_deadline :: ExtractedJitteredPeriodicTask -> Nat
+ejp_relative_deadline :: ExtractedJitteredPeriodicTask -> Prelude.Integer
 ejp_relative_deadline e =
   case e of {
    MkExtractedJitteredPeriodicTask _ _ ejp_relative_deadline0 _ _ ->
     ejp_relative_deadline0}
 
-ejp_offset :: ExtractedJitteredPeriodicTask -> Nat
+ejp_offset :: ExtractedJitteredPeriodicTask -> Prelude.Integer
 ejp_offset e =
   case e of {
    MkExtractedJitteredPeriodicTask _ _ _ ejp_offset0 _ -> ejp_offset0}
 
-ejp_release_jitter :: ExtractedJitteredPeriodicTask -> Nat
+ejp_release_jitter :: ExtractedJitteredPeriodicTask -> Prelude.Integer
 ejp_release_jitter e =
   case e of {
    MkExtractedJitteredPeriodicTask _ _ _ _ ejp_release_jitter0 ->
@@ -598,7 +507,8 @@ task_of_extracted_jittered _UU03c4_ =
 
 default_extracted_jittered_periodic_task :: ExtractedJitteredPeriodicTask
 default_extracted_jittered_periodic_task =
-  MkExtractedJitteredPeriodicTask (S O) (S O) (S O) O O
+  MkExtractedJitteredPeriodicTask (Prelude.succ 0) (Prelude.succ 0)
+    (Prelude.succ 0) 0 0
 
 extracted_periodic_as_jittered_zero_jitter :: ExtractedPeriodicTask ->
                                               ExtractedJitteredPeriodicTask
@@ -606,7 +516,7 @@ extracted_periodic_as_jittered_zero_jitter _UU03c4_ =
   MkExtractedJitteredPeriodicTask (extracted_task_cost _UU03c4_)
     (extracted_task_period _UU03c4_)
     (extracted_task_relative_deadline _UU03c4_)
-    (extracted_task_offset _UU03c4_) O
+    (extracted_task_offset _UU03c4_) 0
 
 jittered_tasks_of_extracted_list :: (List ExtractedJitteredPeriodicTask) ->
                                     TaskId -> Task
@@ -628,52 +538,56 @@ jitter_of_extracted_list ts _UU03c4_ =
 jittered_enumT_of_extracted_list :: (List ExtractedJitteredPeriodicTask) ->
                                     List TaskId
 jittered_enumT_of_extracted_list ts =
-  seq O (length ts)
+  seq 0 (length ts)
 
-extracted_jittered_task_wf :: ExtractedJitteredPeriodicTask -> Bool
+extracted_jittered_task_wf :: ExtractedJitteredPeriodicTask -> Prelude.Bool
 extracted_jittered_task_wf _UU03c4_ =
-  andb (andb (ltb O (ejp_cost _UU03c4_)) (ltb O (ejp_period _UU03c4_)))
-    (ltb O (ejp_relative_deadline _UU03c4_))
+  (Prelude.&&)
+    ((Prelude.&&) (ltb 0 (ejp_cost _UU03c4_)) (ltb 0 (ejp_period _UU03c4_)))
+    (ltb 0 (ejp_relative_deadline _UU03c4_))
 
-extracted_jittered_taskset_wf :: (List ExtractedJitteredPeriodicTask) -> Bool
+extracted_jittered_taskset_wf :: (List ExtractedJitteredPeriodicTask) ->
+                                 Prelude.Bool
 extracted_jittered_taskset_wf ts =
   forallb extracted_jittered_task_wf ts
 
 periodic_max_offset :: (TaskId -> Time) -> (List TaskId) -> Time
 periodic_max_offset offset enumT =
   case enumT of {
-   Nil -> O;
+   Nil -> 0;
    Cons _UU03c4_ enumT' ->
-    max (offset _UU03c4_) (periodic_max_offset offset enumT')}
+    Prelude.max (offset _UU03c4_) (periodic_max_offset offset enumT')}
 
 offset_window_dbf_cutoff_bound :: (TaskId -> Task) -> (TaskId -> Time) ->
                                   (List TaskId) -> Time
 offset_window_dbf_cutoff_bound tasks offset enumT =
   let {
-   horizon_base = add
-                    (add (periodic_max_offset offset enumT)
+   horizon_base = (Prelude.+)
+                    ((Prelude.+) (periodic_max_offset offset enumT)
                       (periodic_max_relative_deadline tasks enumT))
                     (periodic_hyperperiod tasks enumT)}
   in
-  add horizon_base (mul (S horizon_base) (periodic_hyperperiod tasks enumT))
+  (Prelude.+) horizon_base
+    ((Prelude.*) (Prelude.succ horizon_base)
+      (periodic_hyperperiod tasks enumT))
 
 jittered_max_release_jitter :: (TaskId -> Time) -> (List TaskId) -> Time
 jittered_max_release_jitter jitter enumT =
   case enumT of {
-   Nil -> O;
+   Nil -> 0;
    Cons _UU03c4_ enumT' ->
-    max (jitter _UU03c4_) (jittered_max_release_jitter jitter enumT')}
+    Prelude.max (jitter _UU03c4_) (jittered_max_release_jitter jitter enumT')}
 
 jittered_offset_window_dbf_cutoff_bound :: (TaskId -> Task) -> (TaskId ->
                                            Time) -> (TaskId -> Time) -> (List
                                            TaskId) -> Time
 jittered_offset_window_dbf_cutoff_bound tasks offset jitter enumT =
-  add (offset_window_dbf_cutoff_bound tasks offset enumT)
+  (Prelude.+) (offset_window_dbf_cutoff_bound tasks offset enumT)
     (jittered_max_release_jitter jitter enumT)
 
 jittered_offset_window_dbf_test_by_cutoff :: (TaskId -> Task) -> (TaskId ->
                                              Time) -> (TaskId -> Time) ->
-                                             (List TaskId) -> Bool
+                                             (List TaskId) -> Prelude.Bool
 jittered_offset_window_dbf_test_by_cutoff tasks offset jitter enumT =
   jittered_window_dbf_test_upto tasks offset jitter enumT
     (jittered_offset_window_dbf_cutoff_bound tasks offset jitter enumT)
@@ -689,7 +603,7 @@ extracted_jittered_offset_window_dbf_cutoff_bound ts =
 
 extracted_jittered_offset_window_dbf_test_by_cutoff :: (List
                                                        ExtractedJitteredPeriodicTask)
-                                                       -> Bool
+                                                       -> Prelude.Bool
 extracted_jittered_offset_window_dbf_test_by_cutoff ts =
   jittered_offset_window_dbf_test_by_cutoff
     (jittered_tasks_of_extracted_list ts)
@@ -699,8 +613,8 @@ extracted_jittered_offset_window_dbf_test_by_cutoff ts =
 extracted_jittered_offset_window_dbf_counterexample_by_cutoff :: (List
                                                                  ExtractedJitteredPeriodicTask)
                                                                  -> Option
-                                                                 (Prod 
-                                                                 Time 
+                                                                 (Prod
+                                                                 Time
                                                                  Time)
 extracted_jittered_offset_window_dbf_counterexample_by_cutoff ts =
   first_jittered_window_dbf_overload_upto
@@ -711,9 +625,9 @@ extracted_jittered_offset_window_dbf_counterexample_by_cutoff ts =
 
 extracted_jittered_offset_window_dbf_decide_by_cutoff :: (List
                                                          ExtractedJitteredPeriodicTask)
-                                                         -> Bool
+                                                         -> Prelude.Bool
 extracted_jittered_offset_window_dbf_decide_by_cutoff ts =
-  andb (extracted_jittered_taskset_wf ts)
+  (Prelude.&&) (extracted_jittered_taskset_wf ts)
     (extracted_jittered_offset_window_dbf_test_by_cutoff ts)
 
 jittered_periodic_offset_window_schedulability_cutoff_bound :: (List
@@ -724,15 +638,15 @@ jittered_periodic_offset_window_schedulability_cutoff_bound =
 
 jittered_periodic_offset_window_schedulability_decide :: (List
                                                          ExtractedJitteredPeriodicTask)
-                                                         -> Bool
+                                                         -> Prelude.Bool
 jittered_periodic_offset_window_schedulability_decide =
   extracted_jittered_offset_window_dbf_decide_by_cutoff
 
 jittered_periodic_offset_window_schedulability_counterexample :: (List
                                                                  ExtractedJitteredPeriodicTask)
                                                                  -> Option
-                                                                 (Prod 
-                                                                 Time 
+                                                                 (Prod
+                                                                 Time
                                                                  Time)
 jittered_periodic_offset_window_schedulability_counterexample =
   extracted_jittered_offset_window_dbf_counterexample_by_cutoff
@@ -757,10 +671,10 @@ check_jittered_edf_compact_dbf_certificate_extracted :: (List
                                                         ExtractedJitteredPeriodicTask)
                                                         ->
                                                         JitteredEDFCompactDbfCertificate
-                                                        -> Bool
+                                                        -> Prelude.Bool
 check_jittered_edf_compact_dbf_certificate_extracted ts cert =
-  andb
-    (andb (extracted_jittered_taskset_wf ts)
+  (Prelude.&&)
+    ((Prelude.&&) (extracted_jittered_taskset_wf ts)
       (check_jittered_edf_compact_dbf_certificate_fields
         (jittered_edf_compact_dbf_certificate_expected_cutoff ts)
         (jittered_edf_compact_dbf_certificate_expected_basis ts) cert))

@@ -2,32 +2,6 @@ module PeriodicEDFSchedulability where
 
 import qualified Prelude
 
-data Bool =
-   True
- | False
-
-andb :: Bool -> Bool -> Bool
-andb b1 b2 =
-  case b1 of {
-   True -> b2;
-   False -> False}
-
-orb :: Bool -> Bool -> Bool
-orb b1 b2 =
-  case b1 of {
-   True -> True;
-   False -> b2}
-
-negb :: Bool -> Bool
-negb b =
-  case b of {
-   True -> False;
-   False -> True}
-
-data Nat =
-   O
- | S Nat
-
 data Option a =
    Some a
  | None
@@ -41,25 +15,15 @@ option_map f o =
 data Prod a b =
    Pair a b
 
-fst :: (Prod a1 a2) -> a1
-fst p =
-  case p of {
-   Pair x _ -> x}
-
-snd :: (Prod a1 a2) -> a2
-snd p =
-  case p of {
-   Pair _ y -> y}
-
 data List a =
    Nil
  | Cons a (List a)
 
-length :: (List a1) -> Nat
+length :: (List a1) -> Prelude.Integer
 length l =
   case l of {
-   Nil -> O;
-   Cons _ l' -> S (length l')}
+   Nil -> 0;
+   Cons _ l' -> Prelude.succ (length l')}
 
 app :: (List a1) -> (List a1) -> List a1
 app l m =
@@ -79,105 +43,44 @@ compOpp r =
    Lt -> Gt;
    Gt -> Lt}
 
-add :: Nat -> Nat -> Nat
-add n m =
-  case n of {
-   O -> m;
-   S p -> S (add p m)}
+sub :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+sub = (\n m -> Prelude.max 0 (n Prelude.- m))
 
-mul :: Nat -> Nat -> Nat
-mul n m =
-  case n of {
-   O -> O;
-   S p -> add m (mul p m)}
+sub0 :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+sub0 = (\n m -> Prelude.max 0 (n Prelude.- m))
 
-sub :: Nat -> Nat -> Nat
-sub n m =
-  case n of {
-   O -> n;
-   S k -> case m of {
-           O -> n;
-           S l -> sub k l}}
-
-add0 :: Nat -> Nat -> Nat
-add0 n m =
-  case n of {
-   O -> m;
-   S p -> S (add0 p m)}
-
-mul0 :: Nat -> Nat -> Nat
-mul0 n m =
-  case n of {
-   O -> O;
-   S p -> add0 m (mul0 p m)}
-
-sub0 :: Nat -> Nat -> Nat
-sub0 n m =
-  case n of {
-   O -> n;
-   S k -> case m of {
-           O -> n;
-           S l -> sub0 k l}}
-
-eqb :: Nat -> Nat -> Bool
-eqb n m =
-  case n of {
-   O -> case m of {
-         O -> True;
-         S _ -> False};
-   S n' -> case m of {
-            O -> False;
-            S m' -> eqb n' m'}}
-
-leb :: Nat -> Nat -> Bool
-leb n m =
-  case n of {
-   O -> True;
-   S n' -> case m of {
-            O -> False;
-            S m' -> leb n' m'}}
-
-ltb :: Nat -> Nat -> Bool
+ltb :: Prelude.Integer -> Prelude.Integer -> Prelude.Bool
 ltb n m =
-  leb (S n) m
+  (Prelude.<=) (Prelude.succ n) m
 
-max :: Nat -> Nat -> Nat
-max n m =
-  case n of {
-   O -> m;
-   S n' -> case m of {
-            O -> n;
-            S m' -> S (max n' m')}}
-
-divmod :: Nat -> Nat -> Nat -> Nat -> Prod Nat Nat
+divmod :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer ->
+          Prelude.Integer -> Prod Prelude.Integer Prelude.Integer
 divmod x y q u =
-  case x of {
-   O -> Pair q u;
-   S x' -> case u of {
-            O -> divmod x' y (S q) y;
-            S u' -> divmod x' y q u'}}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> Pair q u)
+    (\x' ->
+    (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+      (\_ -> divmod x' y (Prelude.succ q) y)
+      (\u' -> divmod x' y q u')
+      u)
+    x
 
-div :: Nat -> Nat -> Nat
-div x y =
-  case y of {
-   O -> y;
-   S y' -> fst (divmod x y' O y')}
+div :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+div = (\n m -> if m Prelude.== 0 then 0 else Prelude.div n m)
 
-modulo :: Nat -> Nat -> Nat
-modulo x y =
-  case y of {
-   O -> x;
-   S y' -> sub0 y' (snd (divmod x y' O y'))}
+modulo :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
+modulo = (\n m -> if m Prelude.== 0 then n else Prelude.mod n m)
 
-gcd :: Nat -> Nat -> Nat
+gcd :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
 gcd a b =
-  case a of {
-   O -> b;
-   S a' -> gcd (modulo b (S a')) (S a')}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> b)
+    (\a' -> gcd (modulo b (Prelude.succ a')) (Prelude.succ a'))
+    a
 
-lcm :: Nat -> Nat -> Nat
+lcm :: Prelude.Integer -> Prelude.Integer -> Prelude.Integer
 lcm a b =
-  mul0 a (div b (gcd a b))
+  (Prelude.*) a (div b (gcd a b))
 
 map :: (a1 -> a2) -> (List a1) -> List a2
 map f l =
@@ -185,31 +88,34 @@ map f l =
    Nil -> Nil;
    Cons a l0 -> Cons (f a) (map f l0)}
 
-seq :: Nat -> Nat -> List Nat
+seq :: Prelude.Integer -> Prelude.Integer -> List Prelude.Integer
 seq start len =
-  case len of {
-   O -> Nil;
-   S len0 -> Cons start (seq (S start) len0)}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> Nil)
+    (\len0 -> Cons start (seq (Prelude.succ start) len0))
+    len
 
-nth :: Nat -> (List a1) -> a1 -> a1
+nth :: Prelude.Integer -> (List a1) -> a1 -> a1
 nth n l default0 =
-  case n of {
-   O -> case l of {
-         Nil -> default0;
-         Cons x _ -> x};
-   S m -> case l of {
-           Nil -> default0;
-           Cons _ l' -> nth m l' default0}}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> case l of {
+            Nil -> default0;
+            Cons x _ -> x})
+    (\m -> case l of {
+            Nil -> default0;
+            Cons _ l' -> nth m l' default0})
+    n
 
-nth_error :: (List a1) -> Nat -> Option a1
+nth_error :: (List a1) -> Prelude.Integer -> Option a1
 nth_error l n =
-  case n of {
-   O -> case l of {
-         Nil -> None;
-         Cons x _ -> Some x};
-   S n0 -> case l of {
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> case l of {
             Nil -> None;
-            Cons _ l' -> nth_error l' n0}}
+            Cons x _ -> Some x})
+    (\n0 -> case l of {
+             Nil -> None;
+             Cons _ l' -> nth_error l' n0})
+    n
 
 flat_map :: (a1 -> List a2) -> (List a1) -> List a2
 flat_map f l =
@@ -217,34 +123,35 @@ flat_map f l =
    Nil -> Nil;
    Cons x l0 -> app (f x) (flat_map f l0)}
 
-existsb :: (a1 -> Bool) -> (List a1) -> Bool
+existsb :: (a1 -> Prelude.Bool) -> (List a1) -> Prelude.Bool
 existsb f l =
   case l of {
-   Nil -> False;
-   Cons a l0 -> orb (f a) (existsb f l0)}
+   Nil -> Prelude.False;
+   Cons a l0 -> (Prelude.||) (f a) (existsb f l0)}
 
-forallb :: (a1 -> Bool) -> (List a1) -> Bool
+forallb :: (a1 -> Prelude.Bool) -> (List a1) -> Prelude.Bool
 forallb f l =
   case l of {
-   Nil -> True;
-   Cons a l0 -> andb (f a) (forallb f l0)}
+   Nil -> Prelude.True;
+   Cons a l0 -> (Prelude.&&) (f a) (forallb f l0)}
 
-filter :: (a1 -> Bool) -> (List a1) -> List a1
+filter :: (a1 -> Prelude.Bool) -> (List a1) -> List a1
 filter f l =
   case l of {
    Nil -> Nil;
    Cons x l0 ->
     case f x of {
-     True -> Cons x (filter f l0);
-     False -> filter f l0}}
+     Prelude.True -> Cons x (filter f l0);
+     Prelude.False -> filter f l0}}
 
-find :: (a1 -> Bool) -> (List a1) -> Option a1
+find :: (a1 -> Prelude.Bool) -> (List a1) -> Option a1
 find f l =
   case l of {
    Nil -> None;
-   Cons x tl -> case f x of {
-                 True -> Some x;
-                 False -> find f tl}}
+   Cons x tl ->
+    case f x of {
+     Prelude.True -> Some x;
+     Prelude.False -> find f tl}}
 
 combine :: (List a1) -> (List a2) -> List (Prod a1 a2)
 combine l l' =
@@ -293,11 +200,12 @@ compare :: Positive -> Positive -> Comparison
 compare =
   compare_cont Eq
 
-of_succ_nat :: Nat -> Positive
+of_succ_nat :: Prelude.Integer -> Positive
 of_succ_nat n =
-  case n of {
-   O -> XH;
-   S x -> succ (of_succ_nat x)}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> XH)
+    (\x -> succ (of_succ_nat x))
+    n
 
 compare0 :: Z -> Z -> Comparison
 compare0 x y =
@@ -313,53 +221,55 @@ compare0 x y =
                Zneg y' -> compOpp (compare x' y');
                _ -> Lt}}
 
-leb0 :: Z -> Z -> Bool
-leb0 x y =
+leb :: Z -> Z -> Prelude.Bool
+leb x y =
   case compare0 x y of {
-   Gt -> False;
-   _ -> True}
+   Gt -> Prelude.False;
+   _ -> Prelude.True}
 
-of_nat :: Nat -> Z
+of_nat :: Prelude.Integer -> Z
 of_nat n =
-  case n of {
-   O -> Z0;
-   S n0 -> Zpos (of_succ_nat n0)}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> Z0)
+    (\n0 -> Zpos (of_succ_nat n0))
+    n
 
-type JobId = Nat
+type JobId = Prelude.Integer
 
-type TaskId = Nat
+type TaskId = Prelude.Integer
 
-type CPU = Nat
+type CPU = Prelude.Integer
 
-type Time = Nat
+type Time = Prelude.Integer
 
 data Task =
-   MkTask Nat Nat Nat
+   MkTask Prelude.Integer Prelude.Integer Prelude.Integer
 
-task_cost :: Task -> Nat
+task_cost :: Task -> Prelude.Integer
 task_cost t =
   case t of {
    MkTask task_cost0 _ _ -> task_cost0}
 
-task_period :: Task -> Nat
+task_period :: Task -> Prelude.Integer
 task_period t =
   case t of {
    MkTask _ task_period0 _ -> task_period0}
 
-task_relative_deadline :: Task -> Nat
+task_relative_deadline :: Task -> Prelude.Integer
 task_relative_deadline t =
   case t of {
    MkTask _ _ task_relative_deadline0 -> task_relative_deadline0}
 
 data Job =
-   MkJob TaskId Nat Time Nat Time (Time -> Bool)
+   MkJob TaskId Prelude.Integer Time Prelude.Integer Time (Time ->
+                                                          Prelude.Bool)
 
 job_release :: Job -> Time
 job_release j =
   case j of {
    MkJob _ _ job_release0 _ _ _ -> job_release0}
 
-job_cost :: Job -> Nat
+job_cost :: Job -> Prelude.Integer
 job_cost j =
   case j of {
    MkJob _ _ _ job_cost0 _ _ -> job_cost0}
@@ -369,7 +279,7 @@ job_abs_deadline j =
   case j of {
    MkJob _ _ _ _ job_abs_deadline0 _ -> job_abs_deadline0}
 
-job_blocked :: Job -> Time -> Bool
+job_blocked :: Job -> Time -> Prelude.Bool
 job_blocked j =
   case j of {
    MkJob _ _ _ _ _ job_blocked0 -> job_blocked0}
@@ -377,8 +287,8 @@ job_blocked j =
 type Schedule = Time -> CPU -> Option JobId
 
 data EDFPrefixCert job =
-   Build_EDFPrefixCert Time (List job) (List (Option job)) (List Time) 
- (List (List Bool))
+   Build_EDFPrefixCert Time (List job) (List (Option job)) (List Time)
+ (List (List Prelude.Bool))
 
 prefix_horizon :: (EDFPrefixCert a1) -> Time
 prefix_horizon e =
@@ -400,7 +310,7 @@ prefix_completed_by e =
   case e of {
    Build_EDFPrefixCert _ _ _ prefix_completed_by0 _ -> prefix_completed_by0}
 
-prefix_backlog_free_matrix :: (EDFPrefixCert a1) -> List (List Bool)
+prefix_backlog_free_matrix :: (EDFPrefixCert a1) -> List (List Prelude.Bool)
 prefix_backlog_free_matrix e =
   case e of {
    Build_EDFPrefixCert _ _ _ _ prefix_backlog_free_matrix0 ->
@@ -415,8 +325,8 @@ transport_rep_job e =
    Build_EDFTransportClass transport_rep_job0 _ _ -> transport_rep_job0}
 
 data EDFTransportCert job =
-   Build_EDFTransportCert Time (List job) (List (EDFTransportClass job)) 
- (List Nat) (List Nat)
+   Build_EDFTransportCert Time (List job) (List (EDFTransportClass job))
+ (List Prelude.Integer) (List Prelude.Integer)
 
 transport_period :: (EDFTransportCert a1) -> Time
 transport_period e =
@@ -434,20 +344,20 @@ transport_classes e =
   case e of {
    Build_EDFTransportCert _ _ transport_classes0 _ _ -> transport_classes0}
 
-transport_job_class :: (EDFTransportCert a1) -> List Nat
+transport_job_class :: (EDFTransportCert a1) -> List Prelude.Integer
 transport_job_class e =
   case e of {
    Build_EDFTransportCert _ _ _ transport_job_class0 _ ->
     transport_job_class0}
 
-transport_job_shift :: (EDFTransportCert a1) -> List Nat
+transport_job_shift :: (EDFTransportCert a1) -> List Prelude.Integer
 transport_job_shift e =
   case e of {
    Build_EDFTransportCert _ _ _ _ transport_job_shift0 ->
     transport_job_shift0}
 
 data EDFDBFCert =
-   Build_EDFDBFCert Time (List Bool)
+   Build_EDFDBFCert Time (List Prelude.Bool)
 
 data EDFInfiniteCert job =
    Build_EDFInfiniteCert (EDFPrefixCert job) (EDFTransportCert job) EDFDBFCert
@@ -462,145 +372,164 @@ cert_transport e =
   case e of {
    Build_EDFInfiniteCert _ cert_transport0 _ -> cert_transport0}
 
-check_bool_rows_have_length :: Nat -> (List (List Bool)) -> Bool
+check_bool_rows_have_length :: Prelude.Integer -> (List (List Prelude.Bool))
+                               -> Prelude.Bool
 check_bool_rows_have_length n rows =
-  forallb (\row -> eqb (length row) n) rows
+  forallb (\row -> (Prelude.==) (length row) n) rows
 
-check_nat_entries_below :: Nat -> (List Nat) -> Bool
+check_nat_entries_below :: Prelude.Integer -> (List Prelude.Integer) ->
+                           Prelude.Bool
 check_nat_entries_below bound xs =
   forallb (\x -> ltb x bound) xs
 
-check_prefix_cert :: (EDFPrefixCert a1) -> Bool
+check_prefix_cert :: (EDFPrefixCert a1) -> Prelude.Bool
 check_prefix_cert c =
-  andb
-    (andb
-      (andb (eqb (length (prefix_slots c)) (prefix_horizon c))
-        (eqb (length (prefix_completed_by c)) (length (prefix_basis_jobs c))))
-      (eqb (length (prefix_backlog_free_matrix c))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.==) (length (prefix_slots c)) (prefix_horizon c))
+        ((Prelude.==) (length (prefix_completed_by c))
+          (length (prefix_basis_jobs c))))
+      ((Prelude.==) (length (prefix_backlog_free_matrix c))
         (length (prefix_basis_jobs c))))
     (check_bool_rows_have_length (length (prefix_basis_jobs c))
       (prefix_backlog_free_matrix c))
 
-check_transport_cert :: (EDFTransportCert a1) -> Bool
+check_transport_cert :: (EDFTransportCert a1) -> Prelude.Bool
 check_transport_cert c =
-  andb
-    (andb
-      (andb (ltb O (transport_period c))
-        (eqb (length (transport_job_class c))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&) (ltb 0 (transport_period c))
+        ((Prelude.==) (length (transport_job_class c))
           (length (transport_basis_jobs c))))
-      (eqb (length (transport_job_shift c))
+      ((Prelude.==) (length (transport_job_shift c))
         (length (transport_basis_jobs c))))
     (check_nat_entries_below (length (transport_classes c))
       (transport_job_class c))
 
-runs_on :: Schedule -> JobId -> Time -> CPU -> Bool
+runs_on :: Schedule -> JobId -> Time -> CPU -> Prelude.Bool
 runs_on sched j t c =
   case sched t c of {
-   Some j' -> eqb j' j;
-   None -> False}
+   Some j' -> (Prelude.==) j' j;
+   None -> Prelude.False}
 
-cpu_count :: Nat -> Schedule -> JobId -> Time -> Nat
+cpu_count :: Prelude.Integer -> Schedule -> JobId -> Time -> Prelude.Integer
 cpu_count m sched j t =
-  case m of {
-   O -> O;
-   S m' ->
-    add (case runs_on sched j t m' of {
-          True -> S O;
-          False -> O})
-      (cpu_count m' sched j t)}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> 0)
+    (\m' ->
+    (Prelude.+)
+      (case runs_on sched j t m' of {
+        Prelude.True -> Prelude.succ 0;
+        Prelude.False -> 0})
+      (cpu_count m' sched j t))
+    m
 
-service_job :: Nat -> Schedule -> JobId -> Time -> Nat
+service_job :: Prelude.Integer -> Schedule -> JobId -> Time ->
+               Prelude.Integer
 service_job m sched j t =
-  case t of {
-   O -> O;
-   S t' -> add (cpu_count m sched j t') (service_job m sched j t')}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> 0)
+    (\t' -> (Prelude.+) (cpu_count m sched j t') (service_job m sched j t'))
+    t
 
-eligibleb :: (JobId -> Job) -> Nat -> Schedule -> JobId -> Time -> Bool
+eligibleb :: (JobId -> Job) -> Prelude.Integer -> Schedule -> JobId -> Time
+             -> Prelude.Bool
 eligibleb jobs m sched j t =
-  andb
-    (andb (leb (job_release (jobs j)) t)
-      (negb (leb (job_cost (jobs j)) (service_job m sched j t))))
-    (negb (job_blocked (jobs j) t))
+  (Prelude.&&)
+    ((Prelude.&&) ((Prelude.<=) (job_release (jobs j)) t)
+      (Prelude.not
+        ((Prelude.<=) (job_cost (jobs j)) (service_job m sched j t))))
+    (Prelude.not (job_blocked (jobs j) t))
 
-periodic_dbf :: (TaskId -> Task) -> TaskId -> Time -> Nat
+periodic_dbf :: (TaskId -> Task) -> TaskId -> Time -> Prelude.Integer
 periodic_dbf tasks _UU03c4_ h =
   case ltb h (task_relative_deadline (tasks _UU03c4_)) of {
-   True -> O;
-   False ->
-    mul (S
+   Prelude.True -> 0;
+   Prelude.False ->
+    (Prelude.*) (Prelude.succ
       (div (sub h (task_relative_deadline (tasks _UU03c4_)))
         (task_period (tasks _UU03c4_))))
       (task_cost (tasks _UU03c4_))}
 
-taskset_periodic_dbf :: (TaskId -> Task) -> (List TaskId) -> Time -> Nat
+taskset_periodic_dbf :: (TaskId -> Task) -> (List TaskId) -> Time ->
+                        Prelude.Integer
 taskset_periodic_dbf tasks enumT h =
   case enumT of {
-   Nil -> O;
+   Nil -> 0;
    Cons _UU03c4_ enumT' ->
-    add (periodic_dbf tasks _UU03c4_ h) (taskset_periodic_dbf tasks enumT' h)}
+    (Prelude.+) (periodic_dbf tasks _UU03c4_ h)
+      (taskset_periodic_dbf tasks enumT' h)}
 
 type GenericSchedulingAlgorithm =
-  (JobId -> Job) -> Nat -> Schedule -> Time -> (List JobId) -> Option JobId
+  (JobId -> Job) -> Prelude.Integer -> Schedule -> Time -> (List JobId) ->
+  Option JobId
   -- singleton inductive, whose constructor was mkGenericSchedulingAlgorithm
-  
-choose :: GenericSchedulingAlgorithm -> (JobId -> Job) -> Nat -> Schedule ->
-          Time -> (List JobId) -> Option JobId
+
+choose :: GenericSchedulingAlgorithm -> (JobId -> Job) -> Prelude.Integer ->
+          Schedule -> Time -> (List JobId) -> Option JobId
 choose g =
   g
 
 type CandidateSource =
-  (JobId -> Job) -> Nat -> Schedule -> Time -> List JobId
+  (JobId -> Job) -> Prelude.Integer -> Schedule -> Time -> List JobId
 
 enum_candidates_of :: (List JobId) -> CandidateSource
 enum_candidates_of enumJ _ _ _ _ =
   enumJ
 
-expected_release :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId -> Nat ->
-                    Time
+expected_release :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId ->
+                    Prelude.Integer -> Time
 expected_release tasks offset _UU03c4_ k =
-  add (offset _UU03c4_) (mul k (task_period (tasks _UU03c4_)))
+  (Prelude.+) (offset _UU03c4_)
+    ((Prelude.*) k (task_period (tasks _UU03c4_)))
 
 expected_abs_deadline :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId ->
-                         Nat -> Time
+                         Prelude.Integer -> Time
 expected_abs_deadline tasks offset _UU03c4_ k =
-  add (expected_release tasks offset _UU03c4_ k)
+  (Prelude.+) (expected_release tasks offset _UU03c4_ k)
     (task_relative_deadline (tasks _UU03c4_))
 
 generated_periodic_job :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId ->
-                          Nat -> Job
+                          Prelude.Integer -> Job
 generated_periodic_job tasks offset _UU03c4_ k =
   MkJob _UU03c4_ k (expected_release tasks offset _UU03c4_ k)
     (task_cost (tasks _UU03c4_))
-    (expected_abs_deadline tasks offset _UU03c4_ k) (\_ -> False)
+    (expected_abs_deadline tasks offset _UU03c4_ k) (\_ -> Prelude.False)
 
 type PeriodicCodec =
-  TaskId -> Nat -> JobId
+  TaskId -> Prelude.Integer -> JobId
   -- singleton inductive, whose constructor was mkPeriodicCodec
-  
+
 global_periodic_job_id_of :: (TaskId -> Task) -> (TaskId -> Time) -> (JobId
-                             -> Job) -> PeriodicCodec -> TaskId -> Nat ->
-                             JobId
+                             -> Job) -> PeriodicCodec -> TaskId ->
+                             Prelude.Integer -> JobId
 global_periodic_job_id_of _ _ _ p =
   p
 
-task_position_in_enumT :: (List TaskId) -> TaskId -> Nat
+task_position_in_enumT :: (List TaskId) -> TaskId -> Prelude.Integer
 task_position_in_enumT enumT _UU03c4_ =
   case enumT of {
-   Nil -> O;
+   Nil -> 0;
    Cons x xs ->
-    case eqb x _UU03c4_ of {
-     True -> O;
-     False -> S (task_position_in_enumT xs _UU03c4_)}}
+    case (Prelude.==) x _UU03c4_ of {
+     Prelude.True -> 0;
+     Prelude.False -> Prelude.succ (task_position_in_enumT xs _UU03c4_)}}
 
-encode_job_id_from_enumT :: (List TaskId) -> TaskId -> Nat -> JobId
+encode_job_id_from_enumT :: (List TaskId) -> TaskId -> Prelude.Integer ->
+                            JobId
 encode_job_id_from_enumT enumT _UU03c4_ k =
-  add (task_position_in_enumT enumT _UU03c4_) (mul (length enumT) k)
+  (Prelude.+) (task_position_in_enumT enumT _UU03c4_)
+    ((Prelude.*) (length enumT) k)
 
-decode_job_id_from_enumT :: (List TaskId) -> JobId -> Prod Nat Nat
+decode_job_id_from_enumT :: (List TaskId) -> JobId -> Prod Prelude.Integer
+                            Prelude.Integer
 decode_job_id_from_enumT enumT j =
-  case length enumT of {
-   O -> Pair O j;
-   S n0 -> let {n = S n0} in Pair (modulo j n) (div j n)}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> Pair 0 j)
+    (\n0 ->
+    let {n = Prelude.succ n0} in Pair (modulo j n) (div j n))
+    (length enumT)
 
 canonical_periodic_jobs_from_enumT :: (TaskId -> Task) -> (TaskId -> Time) ->
                                       (List TaskId) -> JobId -> Job
@@ -609,7 +538,8 @@ canonical_periodic_jobs_from_enumT tasks offset enumT j =
    Pair pos k ->
     case nth_error enumT pos of {
      Some _UU03c4_ -> generated_periodic_job tasks offset _UU03c4_ k;
-     None -> MkJob O j O (S (task_cost (tasks O))) O (\_ -> False)}}
+     None -> MkJob 0 j 0 (Prelude.succ (task_cost (tasks 0))) 0 (\_ ->
+      Prelude.False)}}
 
 periodic_codec_of_enumT :: (TaskId -> Task) -> (TaskId -> Time) -> (List
                            TaskId) -> PeriodicCodec
@@ -619,15 +549,15 @@ periodic_codec_of_enumT _ _ =
 zero_offset_periodic_codec_of_tasks :: (TaskId -> Task) -> (List TaskId) ->
                                        PeriodicCodec
 zero_offset_periodic_codec_of_tasks tasks enumT =
-  periodic_codec_of_enumT tasks (\_ -> O) enumT
+  periodic_codec_of_enumT tasks (\_ -> 0) enumT
 
 type PeriodicFiniteHorizonCodec =
-  TaskId -> Nat -> JobId
+  TaskId -> Prelude.Integer -> JobId
   -- singleton inductive, whose constructor was mkPeriodicFiniteHorizonCodec
-  
+
 periodic_job_id_of :: (TaskId -> Task) -> (TaskId -> Time) -> (JobId -> Job)
-                      -> Time -> PeriodicFiniteHorizonCodec -> TaskId -> Nat
-                      -> JobId
+                      -> Time -> PeriodicFiniteHorizonCodec -> TaskId ->
+                      Prelude.Integer -> JobId
 periodic_job_id_of _ _ _ _ p =
   p
 
@@ -638,9 +568,9 @@ periodic_finite_horizon_codec_of tasks offset jobs _ codec =
   global_periodic_job_id_of tasks offset jobs codec
 
 enum_periodic_indices_upto :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId
-                              -> Time -> List Nat
+                              -> Time -> List Prelude.Integer
 enum_periodic_indices_upto tasks offset _UU03c4_ h =
-  filter (\k -> ltb (expected_release tasks offset _UU03c4_ k) h) (seq O h)
+  filter (\k -> ltb (expected_release tasks offset _UU03c4_ k) h) (seq 0 h)
 
 enum_periodic_jobs_upto :: (TaskId -> Task) -> (TaskId -> Time) -> (JobId ->
                            Job) -> Time -> (List TaskId) ->
@@ -659,52 +589,54 @@ enum_periodic_jobs_before tasks offset jobs enumT codec t =
     (periodic_finite_horizon_codec_of tasks offset jobs t codec)
 
 periodic_index_in_window :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId ->
-                            Time -> Time -> Nat -> Bool
+                            Time -> Time -> Prelude.Integer -> Prelude.Bool
 periodic_index_in_window tasks offset _UU03c4_ t1 t2 k =
-  andb (leb t1 (expected_release tasks offset _UU03c4_ k))
-    (leb (expected_abs_deadline tasks offset _UU03c4_ k) t2)
+  (Prelude.&&) ((Prelude.<=) t1 (expected_release tasks offset _UU03c4_ k))
+    ((Prelude.<=) (expected_abs_deadline tasks offset _UU03c4_ k) t2)
 
 periodic_dbf_window :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId -> Time
-                       -> Time -> Nat
+                       -> Time -> Prelude.Integer
 periodic_dbf_window tasks offset _UU03c4_ t1 t2 =
-  mul
+  (Prelude.*)
     (length
       (filter (periodic_index_in_window tasks offset _UU03c4_ t1 t2)
-        (seq O (S t2))))
+        (seq 0 (Prelude.succ t2))))
     (task_cost (tasks _UU03c4_))
 
 taskset_periodic_dbf_window :: (TaskId -> Task) -> (TaskId -> Time) -> (List
-                               TaskId) -> Time -> Time -> Nat
+                               TaskId) -> Time -> Time -> Prelude.Integer
 taskset_periodic_dbf_window tasks offset enumT t1 t2 =
   case enumT of {
-   Nil -> O;
+   Nil -> 0;
    Cons _UU03c4_ enumT' ->
-    add (periodic_dbf_window tasks offset _UU03c4_ t1 t2)
+    (Prelude.+) (periodic_dbf_window tasks offset _UU03c4_ t1 t2)
       (taskset_periodic_dbf_window tasks offset enumT' t1 t2)}
 
 generated_schedule_prefix :: GenericSchedulingAlgorithm -> CandidateSource ->
                              (JobId -> Job) -> Time -> Schedule
 generated_schedule_prefix alg candidates_of jobs h =
-  case h of {
-   O -> (\_ _ -> None);
-   S h' ->
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ _ _ -> None)
+    (\h' ->
     let {pref = generated_schedule_prefix alg candidates_of jobs h'} in
     (\t c ->
     case ltb t h' of {
-     True -> pref t c;
-     False ->
-      case eqb t h' of {
-       True ->
-        case eqb c O of {
-         True ->
-          choose alg jobs (S O) pref h' (candidates_of jobs (S O) pref h');
-         False -> None};
-       False -> None}})}
+     Prelude.True -> pref t c;
+     Prelude.False ->
+      case (Prelude.==) t h' of {
+       Prelude.True ->
+        case (Prelude.==) c 0 of {
+         Prelude.True ->
+          choose alg jobs (Prelude.succ 0) pref h'
+            (candidates_of jobs (Prelude.succ 0) pref h');
+         Prelude.False -> None};
+       Prelude.False -> None}}))
+    h
 
 generated_schedule :: GenericSchedulingAlgorithm -> CandidateSource -> (JobId
                       -> Job) -> Schedule
 generated_schedule alg candidates_of jobs t c =
-  generated_schedule_prefix alg candidates_of jobs (S t) t c
+  generated_schedule_prefix alg candidates_of jobs (Prelude.succ t) t c
 
 min_metric_job :: (JobId -> Z) -> (List JobId) -> Option JobId
 min_metric_job metric l =
@@ -713,13 +645,13 @@ min_metric_job metric l =
    Cons j rest ->
     case min_metric_job metric rest of {
      Some j' ->
-      case leb0 (metric j) (metric j') of {
-       True -> Some j;
-       False -> Some j'};
+      case leb (metric j) (metric j') of {
+       Prelude.True -> Some j;
+       Prelude.False -> Some j'};
      None -> Some j}}
 
-choose_min_metric :: (JobId -> Z) -> (JobId -> Job) -> Nat -> Schedule ->
-                     Time -> (List JobId) -> Option JobId
+choose_min_metric :: (JobId -> Z) -> (JobId -> Job) -> Prelude.Integer ->
+                     Schedule -> Time -> (List JobId) -> Option JobId
 choose_min_metric metric jobs m sched t candidates =
   min_metric_job metric
     (filter (\j -> eligibleb jobs m sched j t) candidates)
@@ -728,8 +660,8 @@ edf_metric :: (JobId -> Job) -> JobId -> Z
 edf_metric jobs j =
   of_nat (job_abs_deadline (jobs j))
 
-choose_edf :: (JobId -> Job) -> Nat -> Schedule -> Time -> (List JobId) ->
-              Option JobId
+choose_edf :: (JobId -> Job) -> Prelude.Integer -> Schedule -> Time -> (List
+              JobId) -> Option JobId
 choose_edf jobs m sched t candidates =
   choose_min_metric (edf_metric jobs) jobs m sched t candidates
 
@@ -741,7 +673,7 @@ periodic_candidates_before :: (TaskId -> Task) -> (TaskId -> Time) -> (JobId
                               -> Job) -> (List TaskId) -> PeriodicCodec ->
                               CandidateSource
 periodic_candidates_before tasks offset jobs enumT codec _ _ _ t =
-  enum_periodic_jobs_before tasks offset jobs enumT codec (S t)
+  enum_periodic_jobs_before tasks offset jobs enumT codec (Prelude.succ t)
 
 generated_periodic_edf_schedule_upto :: (TaskId -> Task) -> (TaskId -> Time)
                                         -> (JobId -> Job) -> Time -> (List
@@ -755,12 +687,12 @@ generated_periodic_edf_schedule_upto tasks offset jobs h enumT codec =
 
 bounded_time_points :: Time -> List Time
 bounded_time_points h =
-  seq O (S h)
+  seq 0 (Prelude.succ h)
 
 task_deadline_points_upto :: (TaskId -> Task) -> (TaskId -> Time) -> TaskId
                              -> Time -> List Time
 task_deadline_points_upto tasks offset _UU03c4_ h =
-  filter (\t -> leb t h)
+  filter (\t -> (Prelude.<=) t h)
     (map (expected_abs_deadline tasks offset _UU03c4_)
       (bounded_time_points h))
 
@@ -777,28 +709,31 @@ critical_dbf_windows_upto tasks offset enumT h =
   let {points = critical_dbf_points_upto tasks offset enumT h} in
   flat_map (\t1 ->
     map (\t2 -> Pair t1 t2)
-      (filter (\t2 -> andb (leb t1 t2) (leb t2 h)) points))
+      (filter (\t2 -> (Prelude.&&) ((Prelude.<=) t1 t2) ((Prelude.<=) t2 h))
+        points))
     points
 
-dbf_test_upto :: (TaskId -> Task) -> (List TaskId) -> Time -> Bool
+dbf_test_upto :: (TaskId -> Task) -> (List TaskId) -> Time -> Prelude.Bool
 dbf_test_upto tasks enumT h =
-  forallb (\t -> leb (taskset_periodic_dbf tasks enumT t) t)
-    (critical_dbf_points_upto tasks (\_ -> O) enumT h)
+  forallb (\t -> (Prelude.<=) (taskset_periodic_dbf tasks enumT t) t)
+    (critical_dbf_points_upto tasks (\_ -> 0) enumT h)
 
-window_dbf_test_upto :: (TaskId -> Task) -> (TaskId -> Time) -> (List 
-                        TaskId) -> Time -> Bool
+window_dbf_test_upto :: (TaskId -> Task) -> (TaskId -> Time) -> (List
+                        TaskId) -> Time -> Prelude.Bool
 window_dbf_test_upto tasks offset enumT h =
   forallb (\w ->
     case w of {
      Pair t1 t2 ->
-      leb (taskset_periodic_dbf_window tasks offset enumT t1 t2) (sub t2 t1)})
+      (Prelude.<=) (taskset_periodic_dbf_window tasks offset enumT t1 t2)
+        (sub t2 t1)})
     (critical_dbf_windows_upto tasks offset enumT h)
 
 first_dbf_overload_upto :: (TaskId -> Task) -> (List TaskId) -> Time ->
                            Option Time
 first_dbf_overload_upto tasks enumT h =
-  find (\t -> negb (leb (taskset_periodic_dbf tasks enumT t) t))
-    (critical_dbf_points_upto tasks (\_ -> O) enumT h)
+  find (\t ->
+    Prelude.not ((Prelude.<=) (taskset_periodic_dbf tasks enumT t) t))
+    (critical_dbf_points_upto tasks (\_ -> 0) enumT h)
 
 first_window_dbf_overload_upto :: (TaskId -> Task) -> (TaskId -> Time) ->
                                   (List TaskId) -> Time -> Option
@@ -807,57 +742,58 @@ first_window_dbf_overload_upto tasks offset enumT h =
   find (\w ->
     case w of {
      Pair t1 t2 ->
-      negb
-        (leb (taskset_periodic_dbf_window tasks offset enumT t1 t2)
+      Prelude.not
+        ((Prelude.<=) (taskset_periodic_dbf_window tasks offset enumT t1 t2)
           (sub t2 t1))})
     (critical_dbf_windows_upto tasks offset enumT h)
 
 periodic_hyperperiod :: (TaskId -> Task) -> (List TaskId) -> Time
 periodic_hyperperiod tasks enumT =
   case enumT of {
-   Nil -> S O;
+   Nil -> Prelude.succ 0;
    Cons _UU03c4_ enumT' ->
     lcm (task_period (tasks _UU03c4_)) (periodic_hyperperiod tasks enumT')}
 
 periodic_max_relative_deadline :: (TaskId -> Task) -> (List TaskId) -> Time
 periodic_max_relative_deadline tasks enumT =
   case enumT of {
-   Nil -> O;
+   Nil -> 0;
    Cons _UU03c4_ enumT' ->
-    max (task_relative_deadline (tasks _UU03c4_))
+    Prelude.max (task_relative_deadline (tasks _UU03c4_))
       (periodic_max_relative_deadline tasks enumT')}
 
 scalar_dbf_cutoff_bound :: (TaskId -> Task) -> (List TaskId) -> Time
 scalar_dbf_cutoff_bound tasks enumT =
-  add (periodic_max_relative_deadline tasks enumT)
-    (mul (S (periodic_max_relative_deadline tasks enumT))
+  (Prelude.+) (periodic_max_relative_deadline tasks enumT)
+    ((Prelude.*) (Prelude.succ (periodic_max_relative_deadline tasks enumT))
       (periodic_hyperperiod tasks enumT))
 
-dbf_test_by_cutoff :: (TaskId -> Task) -> (List TaskId) -> Bool
+dbf_test_by_cutoff :: (TaskId -> Task) -> (List TaskId) -> Prelude.Bool
 dbf_test_by_cutoff tasks enumT =
   dbf_test_upto tasks enumT (scalar_dbf_cutoff_bound tasks enumT)
 
 data ExtractedPeriodicTask =
-   MkExtractedPeriodicTask Nat Nat Nat Nat
+   MkExtractedPeriodicTask Prelude.Integer Prelude.Integer Prelude.Integer
+ Prelude.Integer
 
-extracted_task_cost :: ExtractedPeriodicTask -> Nat
+extracted_task_cost :: ExtractedPeriodicTask -> Prelude.Integer
 extracted_task_cost e =
   case e of {
    MkExtractedPeriodicTask extracted_task_cost0 _ _ _ -> extracted_task_cost0}
 
-extracted_task_period :: ExtractedPeriodicTask -> Nat
+extracted_task_period :: ExtractedPeriodicTask -> Prelude.Integer
 extracted_task_period e =
   case e of {
    MkExtractedPeriodicTask _ extracted_task_period0 _ _ ->
     extracted_task_period0}
 
-extracted_task_relative_deadline :: ExtractedPeriodicTask -> Nat
+extracted_task_relative_deadline :: ExtractedPeriodicTask -> Prelude.Integer
 extracted_task_relative_deadline e =
   case e of {
    MkExtractedPeriodicTask _ _ extracted_task_relative_deadline0 _ ->
     extracted_task_relative_deadline0}
 
-extracted_task_offset :: ExtractedPeriodicTask -> Nat
+extracted_task_offset :: ExtractedPeriodicTask -> Prelude.Integer
 extracted_task_offset e =
   case e of {
    MkExtractedPeriodicTask _ _ _ extracted_task_offset0 ->
@@ -870,7 +806,8 @@ task_of_extracted _UU03c4_ =
 
 default_extracted_periodic_task :: ExtractedPeriodicTask
 default_extracted_periodic_task =
-  MkExtractedPeriodicTask (S O) (S O) (S O) O
+  MkExtractedPeriodicTask (Prelude.succ 0) (Prelude.succ 0) (Prelude.succ 0)
+    0
 
 tasks_of_extracted_list :: (List ExtractedPeriodicTask) -> TaskId -> Task
 tasks_of_extracted_list ts _UU03c4_ =
@@ -882,51 +819,53 @@ offset_of_extracted_list ts _UU03c4_ =
 
 enumT_of_extracted_list :: (List ExtractedPeriodicTask) -> List TaskId
 enumT_of_extracted_list ts =
-  seq O (length ts)
+  seq 0 (length ts)
 
-extracted_task_wf :: ExtractedPeriodicTask -> Bool
+extracted_task_wf :: ExtractedPeriodicTask -> Prelude.Bool
 extracted_task_wf _UU03c4_ =
-  andb
-    (andb (ltb O (extracted_task_cost _UU03c4_))
-      (ltb O (extracted_task_period _UU03c4_)))
-    (ltb O (extracted_task_relative_deadline _UU03c4_))
+  (Prelude.&&)
+    ((Prelude.&&) (ltb 0 (extracted_task_cost _UU03c4_))
+      (ltb 0 (extracted_task_period _UU03c4_)))
+    (ltb 0 (extracted_task_relative_deadline _UU03c4_))
 
-extracted_taskset_wf :: (List ExtractedPeriodicTask) -> Bool
+extracted_taskset_wf :: (List ExtractedPeriodicTask) -> Prelude.Bool
 extracted_taskset_wf ts =
   forallb extracted_task_wf ts
 
 periodic_max_offset :: (TaskId -> Time) -> (List TaskId) -> Time
 periodic_max_offset offset enumT =
   case enumT of {
-   Nil -> O;
+   Nil -> 0;
    Cons _UU03c4_ enumT' ->
-    max (offset _UU03c4_) (periodic_max_offset offset enumT')}
+    Prelude.max (offset _UU03c4_) (periodic_max_offset offset enumT')}
 
 offset_window_dbf_cutoff_bound :: (TaskId -> Task) -> (TaskId -> Time) ->
                                   (List TaskId) -> Time
 offset_window_dbf_cutoff_bound tasks offset enumT =
   let {
-   horizon_base = add
-                    (add (periodic_max_offset offset enumT)
+   horizon_base = (Prelude.+)
+                    ((Prelude.+) (periodic_max_offset offset enumT)
                       (periodic_max_relative_deadline tasks enumT))
                     (periodic_hyperperiod tasks enumT)}
   in
-  add horizon_base (mul (S horizon_base) (periodic_hyperperiod tasks enumT))
+  (Prelude.+) horizon_base
+    ((Prelude.*) (Prelude.succ horizon_base)
+      (periodic_hyperperiod tasks enumT))
 
 offset_window_dbf_test_by_cutoff :: (TaskId -> Task) -> (TaskId -> Time) ->
-                                    (List TaskId) -> Bool
+                                    (List TaskId) -> Prelude.Bool
 offset_window_dbf_test_by_cutoff tasks offset enumT =
   window_dbf_test_upto tasks offset enumT
     (offset_window_dbf_cutoff_bound tasks offset enumT)
 
-extracted_taskset_dbf_test :: (List ExtractedPeriodicTask) -> Bool
+extracted_taskset_dbf_test :: (List ExtractedPeriodicTask) -> Prelude.Bool
 extracted_taskset_dbf_test ts =
   dbf_test_by_cutoff (tasks_of_extracted_list ts)
     (enumT_of_extracted_list ts)
 
-edf_schedulability_decide :: (List ExtractedPeriodicTask) -> Bool
+edf_schedulability_decide :: (List ExtractedPeriodicTask) -> Prelude.Bool
 edf_schedulability_decide ts =
-  andb (extracted_taskset_wf ts) (extracted_taskset_dbf_test ts)
+  (Prelude.&&) (extracted_taskset_wf ts) (extracted_taskset_dbf_test ts)
 
 edf_schedulability_counterexample :: (List ExtractedPeriodicTask) -> Option
                                      Time
@@ -937,7 +876,7 @@ edf_schedulability_counterexample ts =
       (enumT_of_extracted_list ts))
 
 extracted_offset_window_dbf_test_upto :: (List ExtractedPeriodicTask) -> Time
-                                         -> Bool
+                                         -> Prelude.Bool
 extracted_offset_window_dbf_test_upto ts h =
   window_dbf_test_upto (tasks_of_extracted_list ts)
     (offset_of_extracted_list ts) (enumT_of_extracted_list ts) h
@@ -949,9 +888,10 @@ extracted_offset_window_dbf_counterexample ts h =
     (offset_of_extracted_list ts) (enumT_of_extracted_list ts) h
 
 extracted_offset_window_dbf_decide :: (List ExtractedPeriodicTask) -> Time ->
-                                      Bool
+                                      Prelude.Bool
 extracted_offset_window_dbf_decide ts h =
-  andb (extracted_taskset_wf ts) (extracted_offset_window_dbf_test_upto ts h)
+  (Prelude.&&) (extracted_taskset_wf ts)
+    (extracted_offset_window_dbf_test_upto ts h)
 
 extracted_offset_window_dbf_cutoff_bound :: (List ExtractedPeriodicTask) ->
                                             Time
@@ -960,7 +900,7 @@ extracted_offset_window_dbf_cutoff_bound ts =
     (offset_of_extracted_list ts) (enumT_of_extracted_list ts)
 
 extracted_offset_window_dbf_test_by_cutoff :: (List ExtractedPeriodicTask) ->
-                                              Bool
+                                              Prelude.Bool
 extracted_offset_window_dbf_test_by_cutoff ts =
   offset_window_dbf_test_by_cutoff (tasks_of_extracted_list ts)
     (offset_of_extracted_list ts) (enumT_of_extracted_list ts)
@@ -974,13 +914,13 @@ extracted_offset_window_dbf_counterexample_by_cutoff ts =
     (extracted_offset_window_dbf_cutoff_bound ts)
 
 extracted_offset_window_dbf_decide_by_cutoff :: (List ExtractedPeriodicTask)
-                                                -> Bool
+                                                -> Prelude.Bool
 extracted_offset_window_dbf_decide_by_cutoff ts =
-  andb (extracted_taskset_wf ts)
+  (Prelude.&&) (extracted_taskset_wf ts)
     (extracted_offset_window_dbf_test_by_cutoff ts)
 
 periodic_conservative_schedulability_decide :: (List ExtractedPeriodicTask)
-                                               -> Bool
+                                               -> Prelude.Bool
 periodic_conservative_schedulability_decide =
   edf_schedulability_decide
 
@@ -997,7 +937,7 @@ periodic_offset_window_schedulability_cutoff_bound =
   extracted_offset_window_dbf_cutoff_bound
 
 periodic_offset_window_schedulability_decide :: (List ExtractedPeriodicTask)
-                                                -> Bool
+                                                -> Prelude.Bool
 periodic_offset_window_schedulability_decide =
   extracted_offset_window_dbf_decide_by_cutoff
 
@@ -1018,7 +958,7 @@ extracted_periodic_offsets =
 
 extracted_periodic_jobs :: (List ExtractedPeriodicTask) -> JobId -> Job
 extracted_periodic_jobs ts =
-  canonical_periodic_jobs_from_enumT (extracted_periodic_tasks ts) (\_ -> O)
+  canonical_periodic_jobs_from_enumT (extracted_periodic_tasks ts) (\_ -> 0)
     (enumT_of_extracted_list ts)
 
 extracted_offset_periodic_jobs :: (List ExtractedPeriodicTask) -> JobId ->
@@ -1029,28 +969,32 @@ extracted_offset_periodic_jobs ts =
 
 schedule_of_slots :: (List (Option JobId)) -> Schedule
 schedule_of_slots slots t c =
-  case eqb c O of {
-   True -> nth t slots None;
-   False -> None}
+  case (Prelude.==) c 0 of {
+   Prelude.True -> nth t slots None;
+   Prelude.False -> None}
 
-certified_service_prefix :: (List (Option JobId)) -> JobId -> Time -> Nat
+certified_service_prefix :: (List (Option JobId)) -> JobId -> Time ->
+                            Prelude.Integer
 certified_service_prefix slots j t =
-  case t of {
-   O -> O;
-   S t' ->
-    add (certified_service_prefix slots j t')
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> 0)
+    (\t' ->
+    (Prelude.+) (certified_service_prefix slots j t')
       (case nth t' slots None of {
-        Some j' -> case eqb j j' of {
-                    True -> S O;
-                    False -> O};
-        None -> O})}
+        Some j' ->
+         case (Prelude.==) j j' of {
+          Prelude.True -> Prelude.succ 0;
+          Prelude.False -> 0};
+        None -> 0}))
+    t
 
 certified_completed_by :: (JobId -> Job) -> (List (Option JobId)) -> JobId ->
-                          Time -> Bool
+                          Time -> Prelude.Bool
 certified_completed_by jobs slots j t =
-  leb (job_cost (jobs j)) (certified_service_prefix slots j t)
+  (Prelude.<=) (job_cost (jobs j)) (certified_service_prefix slots j t)
 
-check_prefix_completed_by :: (JobId -> Job) -> (EDFPrefixCert JobId) -> Bool
+check_prefix_completed_by :: (JobId -> Job) -> (EDFPrefixCert JobId) ->
+                             Prelude.Bool
 check_prefix_completed_by jobs c =
   forallb (\jt ->
     case jt of {
@@ -1058,122 +1002,132 @@ check_prefix_completed_by jobs c =
     (combine (prefix_basis_jobs c) (prefix_completed_by c))
 
 check_prefix_backlog_row :: (JobId -> Job) -> (List (Option JobId)) -> Time
-                            -> (List JobId) -> (List Bool) -> Bool
+                            -> (List JobId) -> (List Prelude.Bool) ->
+                            Prelude.Bool
 check_prefix_backlog_row jobs slots release_time basis row =
   case basis of {
    Nil -> case row of {
-           Nil -> True;
-           Cons _ _ -> False};
+           Nil -> Prelude.True;
+           Cons _ _ -> Prelude.False};
    Cons jj basis' ->
     case row of {
-     Nil -> False;
+     Nil -> Prelude.False;
      Cons b row' ->
-      andb
+      (Prelude.&&)
         (case b of {
-          True -> certified_completed_by jobs slots jj release_time;
-          False -> True})
+          Prelude.True -> certified_completed_by jobs slots jj release_time;
+          Prelude.False -> Prelude.True})
         (check_prefix_backlog_row jobs slots release_time basis' row')}}
 
 check_prefix_backlog_rows_with_basis :: (JobId -> Job) -> (List
                                         (Option JobId)) -> (List JobId) ->
-                                        (List JobId) -> (List (List Bool)) ->
-                                        Bool
+                                        (List JobId) -> (List
+                                        (List Prelude.Bool)) -> Prelude.Bool
 check_prefix_backlog_rows_with_basis jobs slots row_basis column_basis rows =
   case row_basis of {
    Nil -> case rows of {
-           Nil -> True;
-           Cons _ _ -> False};
+           Nil -> Prelude.True;
+           Cons _ _ -> Prelude.False};
    Cons ji basis' ->
     case rows of {
-     Nil -> False;
+     Nil -> Prelude.False;
      Cons row rows' ->
-      andb
+      (Prelude.&&)
         (check_prefix_backlog_row jobs slots (job_release (jobs ji))
           column_basis row)
         (check_prefix_backlog_rows_with_basis jobs slots basis' column_basis
           rows')}}
 
 check_prefix_backlog_rows :: (JobId -> Job) -> (List (Option JobId)) -> (List
-                             JobId) -> (List (List Bool)) -> Bool
+                             JobId) -> (List (List Prelude.Bool)) ->
+                             Prelude.Bool
 check_prefix_backlog_rows jobs slots basis rows =
   check_prefix_backlog_rows_with_basis jobs slots basis basis rows
 
 check_prefix_backlog_matrix :: (JobId -> Job) -> (EDFPrefixCert JobId) ->
-                               Bool
+                               Prelude.Bool
 check_prefix_backlog_matrix jobs c =
   check_prefix_backlog_rows jobs (prefix_slots c) (prefix_basis_jobs c)
     (prefix_backlog_free_matrix c)
 
-check_prefix_cert_semantic :: (JobId -> Job) -> (EDFPrefixCert JobId) -> Bool
+check_prefix_cert_semantic :: (JobId -> Job) -> (EDFPrefixCert JobId) ->
+                              Prelude.Bool
 check_prefix_cert_semantic jobs c =
-  andb (andb (check_prefix_cert c) (check_prefix_completed_by jobs c))
+  (Prelude.&&)
+    ((Prelude.&&) (check_prefix_cert c) (check_prefix_completed_by jobs c))
     (check_prefix_backlog_matrix jobs c)
 
-option_job_eqb :: (Option JobId) -> (Option JobId) -> Bool
+option_job_eqb :: (Option JobId) -> (Option JobId) -> Prelude.Bool
 option_job_eqb x y =
   case x of {
-   Some jx -> case y of {
-               Some jy -> eqb jx jy;
-               None -> False};
+   Some jx ->
+    case y of {
+     Some jy -> (Prelude.==) jx jy;
+     None -> Prelude.False};
    None -> case y of {
-            Some _ -> False;
-            None -> True}}
+            Some _ -> Prelude.False;
+            None -> Prelude.True}}
 
 check_prefix_slots_match_generated_edf_fast :: (TaskId -> Task) -> (TaskId ->
                                                Time) -> (JobId -> Job) ->
                                                (List TaskId) -> PeriodicCodec
                                                -> (EDFPrefixCert JobId) ->
-                                               Bool
+                                               Prelude.Bool
 check_prefix_slots_match_generated_edf_fast tasks offset jobs enumT codec c =
-  andb (check_prefix_cert c)
+  (Prelude.&&) (check_prefix_cert c)
     (forallb (\t ->
       option_job_eqb (nth t (prefix_slots c) None)
-        (choose_edf jobs (S O) (schedule_of_slots (prefix_slots c)) t
-          (periodic_candidates_before tasks offset jobs enumT codec jobs (S
-            O) (schedule_of_slots (prefix_slots c)) t)))
-      (seq O (prefix_horizon c)))
+        (choose_edf jobs (Prelude.succ 0)
+          (schedule_of_slots (prefix_slots c)) t
+          (periodic_candidates_before tasks offset jobs enumT codec jobs
+            (Prelude.succ 0) (schedule_of_slots (prefix_slots c)) t)))
+      (seq 0 (prefix_horizon c)))
 
-index_of_job :: JobId -> (List JobId) -> Option Nat
+index_of_job :: JobId -> (List JobId) -> Option Prelude.Integer
 index_of_job j basis =
   case basis of {
    Nil -> None;
    Cons j' basis' ->
-    case eqb j j' of {
-     True -> Some O;
-     False -> option_map (\x -> S x) (index_of_job j basis')}}
+    case (Prelude.==) j j' of {
+     Prelude.True -> Some 0;
+     Prelude.False ->
+      option_map (\x -> Prelude.succ x) (index_of_job j basis')}}
 
-check_job_in_basis :: (List JobId) -> JobId -> Bool
+check_job_in_basis :: (List JobId) -> JobId -> Prelude.Bool
 check_job_in_basis basis j =
   case index_of_job j basis of {
-   Some _ -> True;
-   None -> False}
+   Some _ -> Prelude.True;
+   None -> Prelude.False}
 
-check_prefix_backlog_pair :: (EDFPrefixCert JobId) -> JobId -> JobId -> Bool
+check_prefix_backlog_pair :: (EDFPrefixCert JobId) -> JobId -> JobId ->
+                             Prelude.Bool
 check_prefix_backlog_pair c target earlier =
   case index_of_job target (prefix_basis_jobs c) of {
    Some i ->
     case index_of_job earlier (prefix_basis_jobs c) of {
      Some k ->
       case nth_error (prefix_backlog_free_matrix c) i of {
-       Some row -> case nth_error row k of {
-                    Some b -> b;
-                    None -> False};
-       None -> False};
-     None -> False};
-   None -> False}
+       Some row ->
+        case nth_error row k of {
+         Some b -> b;
+         None -> Prelude.False};
+       None -> Prelude.False};
+     None -> Prelude.False};
+   None -> Prelude.False}
 
 check_prefix_backlog_free_before_release :: (EDFPrefixCert JobId) -> JobId ->
-                                            (List JobId) -> Bool
+                                            (List JobId) -> Prelude.Bool
 check_prefix_backlog_free_before_release c target relevant_jobs =
-  andb (check_job_in_basis (prefix_basis_jobs c) target)
+  (Prelude.&&) (check_job_in_basis (prefix_basis_jobs c) target)
     (forallb (check_prefix_backlog_pair c target) relevant_jobs)
 
-check_transport_job_witness :: (EDFTransportCert JobId) -> JobId -> Bool
+check_transport_job_witness :: (EDFTransportCert JobId) -> JobId ->
+                               Prelude.Bool
 check_transport_job_witness c j =
   check_job_in_basis (transport_basis_jobs c) j
 
 check_transport_jobs_witness :: (EDFTransportCert JobId) -> (List JobId) ->
-                                Bool
+                                Prelude.Bool
 check_transport_jobs_witness c jobs =
   forallb (check_transport_job_witness c) jobs
 
@@ -1183,18 +1137,18 @@ periodic_transport_residue_jobs :: (TaskId -> Task) -> (TaskId -> Time) ->
 periodic_transport_residue_jobs tasks offset jobs enumT codec period =
   flat_map (\_UU03c4_ ->
     map (global_periodic_job_id_of tasks offset jobs codec _UU03c4_)
-      (seq O period))
+      (seq 0 period))
     enumT
 
 check_periodic_transport_residue_coverage :: (EDFTransportCert JobId) ->
-                                             (List JobId) -> Bool
+                                             (List JobId) -> Prelude.Bool
 check_periodic_transport_residue_coverage transport_cert residue_jobs =
-  andb (ltb O (transport_period transport_cert))
+  (Prelude.&&) (ltb 0 (transport_period transport_cert))
     (check_transport_jobs_witness transport_cert residue_jobs)
 
-check_transport_residue_shifts :: (EDFTransportCert JobId) -> Bool
+check_transport_residue_shifts :: (EDFTransportCert JobId) -> Prelude.Bool
 check_transport_residue_shifts transport_cert =
-  forallb (\shift -> eqb shift (transport_period transport_cert))
+  forallb (\shift -> (Prelude.==) shift (transport_period transport_cert))
     (transport_job_shift transport_cert)
 
 data EDFWindowTransportPairCert =
@@ -1219,8 +1173,8 @@ window_transport_delta e =
     window_transport_delta0}
 
 data EDFWindowTransportTargetCert =
-   Build_EDFWindowTransportTargetCert JobId Nat Nat (List
-                                                    EDFWindowTransportPairCert)
+   Build_EDFWindowTransportTargetCert JobId Prelude.Integer Prelude.Integer
+ (List EDFWindowTransportPairCert)
 
 window_transport_target_job :: EDFWindowTransportTargetCert -> JobId
 window_transport_target_job e =
@@ -1228,13 +1182,13 @@ window_transport_target_job e =
    Build_EDFWindowTransportTargetCert window_transport_target_job0 _ _ _ ->
     window_transport_target_job0}
 
-window_transport_class_id :: EDFWindowTransportTargetCert -> Nat
+window_transport_class_id :: EDFWindowTransportTargetCert -> Prelude.Integer
 window_transport_class_id e =
   case e of {
    Build_EDFWindowTransportTargetCert _ window_transport_class_id0 _ _ ->
     window_transport_class_id0}
 
-window_transport_shift :: EDFWindowTransportTargetCert -> Nat
+window_transport_shift :: EDFWindowTransportTargetCert -> Prelude.Integer
 window_transport_shift e =
   case e of {
    Build_EDFWindowTransportTargetCert _ _ window_transport_shift0 _ ->
@@ -1248,24 +1202,25 @@ window_transport_pairs e =
     window_transport_pairs0}
 
 check_shifted_job_relation :: (JobId -> Job) -> JobId -> JobId ->
-                              EDFWindowTransportPairCert -> Bool
+                              EDFWindowTransportPairCert -> Prelude.Bool
 check_shifted_job_relation jobs rep target p =
   let {delta = window_transport_delta p} in
-  andb
-    (andb
-      (andb
-        (eqb (job_release (jobs target))
-          (add (job_release (jobs rep)) delta))
-        (eqb (job_abs_deadline (jobs target))
-          (add (job_abs_deadline (jobs rep)) delta)))
-      (eqb (job_release (jobs (window_target_earlier_job p)))
-        (add (job_release (jobs (window_rep_earlier_job p))) delta)))
-    (eqb (job_abs_deadline (jobs (window_target_earlier_job p)))
-      (add (job_abs_deadline (jobs (window_rep_earlier_job p))) delta))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.==) (job_release (jobs target))
+          ((Prelude.+) (job_release (jobs rep)) delta))
+        ((Prelude.==) (job_abs_deadline (jobs target))
+          ((Prelude.+) (job_abs_deadline (jobs rep)) delta)))
+      ((Prelude.==) (job_release (jobs (window_target_earlier_job p)))
+        ((Prelude.+) (job_release (jobs (window_rep_earlier_job p))) delta)))
+    ((Prelude.==) (job_abs_deadline (jobs (window_target_earlier_job p)))
+      ((Prelude.+) (job_abs_deadline (jobs (window_rep_earlier_job p)))
+        delta))
 
-check_window_transport_target :: (JobId -> Job) -> (EDFTransportCert 
+check_window_transport_target :: (JobId -> Job) -> (EDFTransportCert
                                  JobId) -> EDFWindowTransportTargetCert ->
-                                 Bool
+                                 Prelude.Bool
 check_window_transport_target jobs transport_cert target_cert =
   case index_of_job (window_transport_target_job target_cert)
          (transport_basis_jobs transport_cert) of {
@@ -1277,73 +1232,81 @@ check_window_transport_target jobs transport_cert target_cert =
         case nth_error (transport_classes transport_cert)
                (window_transport_class_id target_cert) of {
          Some cls ->
-          andb
-            (andb (eqb class_id (window_transport_class_id target_cert))
-              (eqb shift (window_transport_shift target_cert)))
+          (Prelude.&&)
+            ((Prelude.&&)
+              ((Prelude.==) class_id (window_transport_class_id target_cert))
+              ((Prelude.==) shift (window_transport_shift target_cert)))
             (forallb
               (check_shifted_job_relation jobs (transport_rep_job cls)
                 (window_transport_target_job target_cert))
               (window_transport_pairs target_cert));
-         None -> False};
-       None -> False};
-     None -> False};
-   None -> False}
+         None -> Prelude.False};
+       None -> Prelude.False};
+     None -> Prelude.False};
+   None -> Prelude.False}
 
-check_window_transport_targets :: (JobId -> Job) -> (EDFTransportCert 
+check_window_transport_targets :: (JobId -> Job) -> (EDFTransportCert
                                   JobId) -> (List
-                                  EDFWindowTransportTargetCert) -> Bool
+                                  EDFWindowTransportTargetCert) ->
+                                  Prelude.Bool
 check_window_transport_targets jobs transport_cert target_certs =
   forallb (check_window_transport_target jobs transport_cert) target_certs
 
 check_window_transport_target_entry :: (JobId -> Job) -> (EDFTransportCert
-                                       JobId) -> Nat -> Nat -> Nat ->
-                                       EDFWindowTransportTargetCert -> Bool
+                                       JobId) -> Prelude.Integer ->
+                                       Prelude.Integer -> Prelude.Integer ->
+                                       EDFWindowTransportTargetCert ->
+                                       Prelude.Bool
 check_window_transport_target_entry jobs transport_cert target class_id shift target_cert =
-  andb
-    (andb
-      (andb (eqb (window_transport_target_job target_cert) target)
-        (eqb (window_transport_class_id target_cert) class_id))
-      (eqb (window_transport_shift target_cert) shift))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.==) (window_transport_target_job target_cert) target)
+        ((Prelude.==) (window_transport_class_id target_cert) class_id))
+      ((Prelude.==) (window_transport_shift target_cert) shift))
     (check_window_transport_target jobs transport_cert target_cert)
 
 check_window_transport_target_rows_complete :: (JobId -> Job) ->
                                                (EDFTransportCert JobId) ->
                                                (List
                                                EDFWindowTransportTargetCert)
-                                               -> (List JobId) -> (List 
-                                               Nat) -> (List Nat) -> Bool
+                                               -> (List JobId) -> (List
+                                               Prelude.Integer) -> (List
+                                               Prelude.Integer) ->
+                                               Prelude.Bool
 check_window_transport_target_rows_complete jobs transport_cert target_certs basis classes shifts =
   case basis of {
    Nil ->
     case classes of {
      Nil -> case shifts of {
-             Nil -> True;
-             Cons _ _ -> False};
-     Cons _ _ -> False};
+             Nil -> Prelude.True;
+             Cons _ _ -> Prelude.False};
+     Cons _ _ -> Prelude.False};
    Cons target basis' ->
     case classes of {
-     Nil -> False;
+     Nil -> Prelude.False;
      Cons class_id classes' ->
       case shifts of {
-       Nil -> False;
+       Nil -> Prelude.False;
        Cons shift shifts' ->
         case nth_error (transport_classes transport_cert) class_id of {
          Some _ ->
-          andb
+          (Prelude.&&)
             (existsb
               (check_window_transport_target_entry jobs transport_cert target
                 class_id shift)
               target_certs)
             (check_window_transport_target_rows_complete jobs transport_cert
               target_certs basis' classes' shifts');
-         None -> False}}}}
+         None -> Prelude.False}}}}
 
 check_window_transport_targets_complete :: (JobId -> Job) ->
                                            (EDFTransportCert JobId) -> (List
                                            EDFWindowTransportTargetCert) ->
-                                           Bool
+                                           Prelude.Bool
 check_window_transport_targets_complete jobs transport_cert target_certs =
-  andb (check_window_transport_targets jobs transport_cert target_certs)
+  (Prelude.&&)
+    (check_window_transport_targets jobs transport_cert target_certs)
     (check_window_transport_target_rows_complete jobs transport_cert
       target_certs (transport_basis_jobs transport_cert)
       (transport_job_class transport_cert)
@@ -1353,33 +1316,35 @@ window_target_candidate_jobs :: (TaskId -> Task) -> (TaskId -> Time) ->
                                 (JobId -> Job) -> (List TaskId) ->
                                 PeriodicCodec -> JobId -> List JobId
 window_target_candidate_jobs tasks offset jobs enumT codec target =
-  let {h = S (job_abs_deadline (jobs target))} in
+  let {h = Prelude.succ (job_abs_deadline (jobs target))} in
   enum_periodic_jobs_upto tasks offset jobs h enumT
     (periodic_finite_horizon_codec_of tasks offset jobs h codec)
 
 window_target_relevant_earlier_jobs :: (TaskId -> Task) -> (TaskId -> Time)
                                        -> (JobId -> Job) -> (List TaskId) ->
-                                       PeriodicCodec -> JobId -> List 
+                                       PeriodicCodec -> JobId -> List
                                        JobId
 window_target_relevant_earlier_jobs tasks offset jobs enumT codec target =
   filter (\x ->
-    andb (ltb (job_release (jobs x)) (job_release (jobs target)))
-      (leb (job_abs_deadline (jobs x)) (job_abs_deadline (jobs target))))
+    (Prelude.&&) (ltb (job_release (jobs x)) (job_release (jobs target)))
+      ((Prelude.<=) (job_abs_deadline (jobs x))
+        (job_abs_deadline (jobs target))))
     (window_target_candidate_jobs tasks offset jobs enumT codec target)
 
 check_window_target_periodic :: (TaskId -> Task) -> (TaskId -> Time) ->
                                 (JobId -> Job) -> (List TaskId) ->
-                                PeriodicCodec -> JobId -> Bool
+                                PeriodicCodec -> JobId -> Prelude.Bool
 check_window_target_periodic tasks offset jobs enumT codec target =
-  existsb (eqb target)
+  existsb ((Prelude.==) target)
     (window_target_candidate_jobs tasks offset jobs enumT codec target)
 
 check_window_rep_earlier_membership :: (TaskId -> Task) -> (TaskId -> Time)
                                        -> (JobId -> Job) -> (List TaskId) ->
                                        PeriodicCodec -> JobId ->
-                                       EDFWindowTransportPairCert -> Bool
+                                       EDFWindowTransportPairCert ->
+                                       Prelude.Bool
 check_window_rep_earlier_membership tasks offset jobs enumT codec rep p =
-  existsb (eqb (window_rep_earlier_job p))
+  existsb ((Prelude.==) (window_rep_earlier_job p))
     (window_target_relevant_earlier_jobs tasks offset jobs enumT codec rep)
 
 check_window_target_rep_earlier_membership :: (TaskId -> Task) -> (TaskId ->
@@ -1387,7 +1352,7 @@ check_window_target_rep_earlier_membership :: (TaskId -> Task) -> (TaskId ->
                                               (List TaskId) -> PeriodicCodec
                                               -> JobId ->
                                               EDFWindowTransportTargetCert ->
-                                              Bool
+                                              Prelude.Bool
 check_window_target_rep_earlier_membership tasks offset jobs enumT codec rep target_cert =
   forallb
     (check_window_rep_earlier_membership tasks offset jobs enumT codec rep)
@@ -1397,17 +1362,18 @@ check_window_generated_pair_semantics :: (TaskId -> Task) -> (TaskId -> Time)
                                          -> (JobId -> Job) -> (List TaskId)
                                          -> PeriodicCodec ->
                                          (EDFTransportCert JobId) ->
-                                         EDFWindowTransportTargetCert -> Bool
+                                         EDFWindowTransportTargetCert ->
+                                         Prelude.Bool
 check_window_generated_pair_semantics tasks offset jobs enumT codec transport_cert target_cert =
   case nth_error (transport_classes transport_cert)
          (window_transport_class_id target_cert) of {
    Some cls ->
-    andb
+    (Prelude.&&)
       (check_window_target_periodic tasks offset jobs enumT codec
         (window_transport_target_job target_cert))
       (check_window_target_rep_earlier_membership tasks offset jobs enumT
         codec (transport_rep_job cls) target_cert);
-   None -> False}
+   None -> Prelude.False}
 
 check_window_generated_pair_semantics_all :: (TaskId -> Task) -> (TaskId ->
                                              Time) -> (JobId -> Job) -> (List
@@ -1415,7 +1381,7 @@ check_window_generated_pair_semantics_all :: (TaskId -> Task) -> (TaskId ->
                                              (EDFTransportCert JobId) ->
                                              (List
                                              EDFWindowTransportTargetCert) ->
-                                             Bool
+                                             Prelude.Bool
 check_window_generated_pair_semantics_all tasks offset jobs enumT codec transport_cert target_certs =
   forallb
     (check_window_generated_pair_semantics tasks offset jobs enumT codec
@@ -1427,11 +1393,11 @@ check_generated_window_pair_target_completed :: (TaskId -> Task) -> (TaskId
                                                 (List TaskId) ->
                                                 PeriodicCodec -> JobId ->
                                                 EDFWindowTransportPairCert ->
-                                                Bool
+                                                Prelude.Bool
 check_generated_window_pair_target_completed tasks offset jobs enumT codec target p =
-  leb (job_cost (jobs (window_target_earlier_job p)))
-    (service_job (S O)
-      (generated_periodic_edf_schedule_upto tasks offset jobs (S
+  (Prelude.<=) (job_cost (jobs (window_target_earlier_job p)))
+    (service_job (Prelude.succ 0)
+      (generated_periodic_edf_schedule_upto tasks offset jobs (Prelude.succ
         (job_abs_deadline (jobs target))) enumT codec)
       (window_target_earlier_job p) (job_release (jobs target)))
 
@@ -1439,7 +1405,7 @@ check_window_generated_pair_completion :: (TaskId -> Task) -> (TaskId ->
                                           Time) -> (JobId -> Job) -> (List
                                           TaskId) -> PeriodicCodec ->
                                           EDFWindowTransportTargetCert ->
-                                          Bool
+                                          Prelude.Bool
 check_window_generated_pair_completion tasks offset jobs enumT codec target_cert =
   forallb
     (check_generated_window_pair_target_completed tasks offset jobs enumT
@@ -1451,7 +1417,7 @@ check_window_generated_pair_completion_all :: (TaskId -> Task) -> (TaskId ->
                                               (List TaskId) -> PeriodicCodec
                                               -> (List
                                               EDFWindowTransportTargetCert)
-                                              -> Bool
+                                              -> Prelude.Bool
 check_window_generated_pair_completion_all tasks offset jobs enumT codec target_certs =
   forallb
     (check_window_generated_pair_completion tasks offset jobs enumT codec)
@@ -1460,20 +1426,20 @@ check_window_generated_pair_completion_all tasks offset jobs enumT codec target_
 check_window_transport_pair_for_target_earlier :: (JobId -> Job) -> JobId ->
                                                   JobId -> JobId ->
                                                   EDFWindowTransportPairCert
-                                                  -> Bool
+                                                  -> Prelude.Bool
 check_window_transport_pair_for_target_earlier jobs rep target x p =
-  andb
-    (andb
-      (andb (eqb (window_target_earlier_job p) x)
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&) ((Prelude.==) (window_target_earlier_job p) x)
         (ltb (job_release (jobs (window_rep_earlier_job p)))
           (job_release (jobs rep))))
-      (leb (job_abs_deadline (jobs (window_rep_earlier_job p)))
+      ((Prelude.<=) (job_abs_deadline (jobs (window_rep_earlier_job p)))
         (job_abs_deadline (jobs rep))))
     (check_shifted_job_relation jobs rep target p)
 
 check_window_target_pair_coverage :: (JobId -> Job) -> JobId ->
                                      EDFWindowTransportTargetCert -> (List
-                                     JobId) -> Bool
+                                     JobId) -> Prelude.Bool
 check_window_target_pair_coverage jobs rep target_cert target_earlier_jobs =
   forallb (\x ->
     existsb
@@ -1489,17 +1455,18 @@ check_window_transport_target_complete_with_pairs :: (TaskId -> Task) ->
                                                      -> (EDFTransportCert
                                                      JobId) ->
                                                      EDFWindowTransportTargetCert
-                                                     -> Bool
+                                                     -> Prelude.Bool
 check_window_transport_target_complete_with_pairs tasks offset jobs enumT codec transport_cert target_cert =
   case nth_error (transport_classes transport_cert)
          (window_transport_class_id target_cert) of {
    Some cls ->
-    andb (check_window_transport_target jobs transport_cert target_cert)
+    (Prelude.&&)
+      (check_window_transport_target jobs transport_cert target_cert)
       (check_window_target_pair_coverage jobs (transport_rep_job cls)
         target_cert
         (window_target_relevant_earlier_jobs tasks offset jobs enumT codec
           (window_transport_target_job target_cert)));
-   None -> False}
+   None -> Prelude.False}
 
 check_window_transport_targets_complete_with_pairs :: (TaskId -> Task) ->
                                                       (TaskId -> Time) ->
@@ -1509,9 +1476,9 @@ check_window_transport_targets_complete_with_pairs :: (TaskId -> Task) ->
                                                       (EDFTransportCert
                                                       JobId) -> (List
                                                       EDFWindowTransportTargetCert)
-                                                      -> Bool
+                                                      -> Prelude.Bool
 check_window_transport_targets_complete_with_pairs tasks offset jobs enumT codec transport_cert target_certs =
-  andb
+  (Prelude.&&)
     (forallb
       (check_window_transport_target_complete_with_pairs tasks offset jobs
         enumT codec transport_cert)
@@ -1521,17 +1488,18 @@ check_window_transport_targets_complete_with_pairs tasks offset jobs enumT codec
       (transport_job_class transport_cert)
       (transport_job_shift transport_cert))
 
-check_jobid_not_in :: JobId -> (List JobId) -> Bool
+check_jobid_not_in :: JobId -> (List JobId) -> Prelude.Bool
 check_jobid_not_in j xs =
-  forallb (\x -> negb (eqb j x)) xs
+  forallb (\x -> Prelude.not ((Prelude.==) j x)) xs
 
-check_jobid_list_nodup :: (List JobId) -> Bool
+check_jobid_list_nodup :: (List JobId) -> Prelude.Bool
 check_jobid_list_nodup xs =
   case xs of {
-   Nil -> True;
-   Cons x xs' -> andb (check_jobid_not_in x xs') (check_jobid_list_nodup xs')}
+   Nil -> Prelude.True;
+   Cons x xs' ->
+    (Prelude.&&) (check_jobid_not_in x xs') (check_jobid_list_nodup xs')}
 
-check_transport_basis_nodup :: (EDFTransportCert JobId) -> Bool
+check_transport_basis_nodup :: (EDFTransportCert JobId) -> Prelude.Bool
 check_transport_basis_nodup transport_cert =
   check_jobid_list_nodup (transport_basis_jobs transport_cert)
 
@@ -1540,7 +1508,7 @@ check_transport_class_rep_periodic_generated :: (TaskId -> Task) -> (TaskId
                                                 (List TaskId) ->
                                                 PeriodicCodec ->
                                                 (EDFTransportClass JobId) ->
-                                                Bool
+                                                Prelude.Bool
 check_transport_class_rep_periodic_generated tasks offset jobs enumT codec cls =
   check_window_target_periodic tasks offset jobs enumT codec
     (transport_rep_job cls)
@@ -1550,7 +1518,7 @@ check_transport_classes_rep_periodic_generated :: (TaskId -> Task) -> (TaskId
                                                   -> (List TaskId) ->
                                                   PeriodicCodec -> (List
                                                   (EDFTransportClass JobId))
-                                                  -> Bool
+                                                  -> Prelude.Bool
 check_transport_classes_rep_periodic_generated tasks offset jobs enumT codec classes =
   forallb
     (check_transport_class_rep_periodic_generated tasks offset jobs enumT
@@ -1559,24 +1527,26 @@ check_transport_classes_rep_periodic_generated tasks offset jobs enumT codec cla
 
 check_transport_class_rep_backlog :: (EDFPrefixCert JobId) ->
                                      (EDFTransportClass JobId) -> (List
-                                     JobId) -> Bool
+                                     JobId) -> Prelude.Bool
 check_transport_class_rep_backlog prefix_cert cls relevant_jobs =
   check_prefix_backlog_free_before_release prefix_cert
     (transport_rep_job cls) relevant_jobs
 
 check_transport_classes_rep_backlog :: (EDFPrefixCert JobId) -> (List
                                        (EDFTransportClass JobId)) -> (List
-                                       (List JobId)) -> Bool
+                                       (List JobId)) -> Prelude.Bool
 check_transport_classes_rep_backlog prefix_cert classes class_relevant_jobs =
   case classes of {
-   Nil -> case class_relevant_jobs of {
-           Nil -> True;
-           Cons _ _ -> False};
+   Nil ->
+    case class_relevant_jobs of {
+     Nil -> Prelude.True;
+     Cons _ _ -> Prelude.False};
    Cons cls classes' ->
     case class_relevant_jobs of {
-     Nil -> False;
+     Nil -> Prelude.False;
      Cons relevant relevant' ->
-      andb (check_transport_class_rep_backlog prefix_cert cls relevant)
+      (Prelude.&&)
+        (check_transport_class_rep_backlog prefix_cert cls relevant)
         (check_transport_classes_rep_backlog prefix_cert classes' relevant')}}
 
 transport_class_rep_relevant_jobs :: (TaskId -> Task) -> (TaskId -> Time) ->
@@ -1601,7 +1571,7 @@ check_transport_class_rep_backlog_generated :: (TaskId -> Task) -> (TaskId ->
                                                (List TaskId) -> PeriodicCodec
                                                -> (EDFPrefixCert JobId) ->
                                                (EDFTransportClass JobId) ->
-                                               Bool
+                                               Prelude.Bool
 check_transport_class_rep_backlog_generated tasks offset jobs enumT codec prefix_cert cls =
   check_transport_class_rep_backlog prefix_cert cls
     (transport_class_rep_relevant_jobs tasks offset jobs enumT codec cls)
@@ -1613,12 +1583,12 @@ check_transport_classes_rep_backlog_generated :: (TaskId -> Task) -> (TaskId
                                                  (EDFPrefixCert JobId) ->
                                                  (List
                                                  (EDFTransportClass JobId))
-                                                 -> Bool
+                                                 -> Prelude.Bool
 check_transport_classes_rep_backlog_generated tasks offset jobs enumT codec prefix_cert classes =
   case classes of {
-   Nil -> True;
+   Nil -> Prelude.True;
    Cons cls classes' ->
-    andb
+    (Prelude.&&)
       (check_transport_class_rep_backlog_generated tasks offset jobs enumT
         codec prefix_cert cls)
       (check_transport_classes_rep_backlog_generated tasks offset jobs enumT
@@ -1627,7 +1597,9 @@ check_transport_classes_rep_backlog_generated tasks offset jobs enumT codec pref
 post_reset_target_candidate_horizon :: (TaskId -> Task) -> (List TaskId) ->
                                        Time
 post_reset_target_candidate_horizon tasks enumT =
-  add (mul (S (S O)) (periodic_hyperperiod tasks enumT))
+  (Prelude.+)
+    ((Prelude.*) (Prelude.succ (Prelude.succ 0))
+      (periodic_hyperperiod tasks enumT))
     (periodic_max_relative_deadline tasks enumT)
 
 post_reset_window_targets_of_certs :: (List EDFWindowTransportTargetCert) ->
@@ -1645,14 +1617,14 @@ post_reset_window_target_jobs tasks offset jobs enumT codec =
 check_post_reset_window_target_basis_coverage :: (EDFTransportCert JobId) ->
                                                  (List
                                                  EDFWindowTransportTargetCert)
-                                                 -> Bool
+                                                 -> Prelude.Bool
 check_post_reset_window_target_basis_coverage transport_cert target_certs =
   check_transport_jobs_witness transport_cert
     (post_reset_window_targets_of_certs target_certs)
 
 check_post_reset_target_list_complete :: (List JobId) -> (List
                                          EDFWindowTransportTargetCert) ->
-                                         Bool
+                                         Prelude.Bool
 check_post_reset_target_list_complete candidate_targets target_certs =
   forallb
     (check_job_in_basis (post_reset_window_targets_of_certs target_certs))
@@ -1666,10 +1638,10 @@ check_post_reset_window_targets_complete_with_pairs :: (TaskId -> Task) ->
                                                        (EDFTransportCert
                                                        JobId) -> (List
                                                        EDFWindowTransportTargetCert)
-                                                       -> Bool
+                                                       -> Prelude.Bool
 check_post_reset_window_targets_complete_with_pairs tasks offset jobs enumT codec transport_cert target_certs =
-  andb
-    (andb
+  (Prelude.&&)
+    ((Prelude.&&)
       (check_window_transport_targets_complete_with_pairs tasks offset jobs
         enumT codec transport_cert target_certs)
       (check_window_generated_pair_semantics_all tasks offset jobs enumT
@@ -1678,39 +1650,43 @@ check_post_reset_window_targets_complete_with_pairs tasks offset jobs enumT code
       target_certs)
 
 check_hyperperiod_delta_multiple :: (TaskId -> Task) -> (List TaskId) -> Time
-                                    -> Bool
+                                    -> Prelude.Bool
 check_hyperperiod_delta_multiple tasks enumT delta =
-  eqb delta
-    (mul (periodic_hyperperiod tasks enumT)
+  (Prelude.==) delta
+    ((Prelude.*) (periodic_hyperperiod tasks enumT)
       (div delta (periodic_hyperperiod tasks enumT)))
 
 check_hyperperiod_shifted_service_pair :: (TaskId -> Task) -> (List TaskId)
                                           -> (JobId -> Job) -> JobId -> JobId
-                                          -> JobId -> JobId -> Time -> Bool
+                                          -> JobId -> JobId -> Time ->
+                                          Prelude.Bool
 check_hyperperiod_shifted_service_pair tasks enumT jobs target x target0 x0 delta =
-  andb
-    (andb
-      (andb
-        (andb
-          (andb (check_hyperperiod_delta_multiple tasks enumT delta)
-            (eqb (job_release (jobs target))
-              (add (job_release (jobs target0)) delta)))
-          (eqb (job_abs_deadline (jobs target))
-            (add (job_abs_deadline (jobs target0)) delta)))
-        (eqb (job_release (jobs x)) (add (job_release (jobs x0)) delta)))
-      (eqb (job_abs_deadline (jobs x))
-        (add (job_abs_deadline (jobs x0)) delta)))
-    (eqb (job_cost (jobs x)) (job_cost (jobs x0)))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&)
+          ((Prelude.&&) (check_hyperperiod_delta_multiple tasks enumT delta)
+            ((Prelude.==) (job_release (jobs target))
+              ((Prelude.+) (job_release (jobs target0)) delta)))
+          ((Prelude.==) (job_abs_deadline (jobs target))
+            ((Prelude.+) (job_abs_deadline (jobs target0)) delta)))
+        ((Prelude.==) (job_release (jobs x))
+          ((Prelude.+) (job_release (jobs x0)) delta)))
+      ((Prelude.==) (job_abs_deadline (jobs x))
+        ((Prelude.+) (job_abs_deadline (jobs x0)) delta)))
+    ((Prelude.==) (job_cost (jobs x)) (job_cost (jobs x0)))
 
 check_hyperperiod_block_source_pair :: (TaskId -> Task) -> (List TaskId) ->
                                        (JobId -> Job) -> JobId -> JobId ->
                                        JobId -> JobId ->
                                        EDFWindowTransportTargetCert ->
-                                       EDFWindowTransportPairCert -> Bool
+                                       EDFWindowTransportPairCert ->
+                                       Prelude.Bool
 check_hyperperiod_block_source_pair tasks enumT jobs target x target0 x0 target_cert p =
-  andb
-    (andb (eqb (window_transport_target_job target_cert) target0)
-      (eqb (window_target_earlier_job p) x0))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.==) (window_transport_target_job target_cert) target0)
+      ((Prelude.==) (window_target_earlier_job p) x0))
     (check_hyperperiod_shifted_service_pair tasks enumT jobs target x target0
       x0 (window_transport_delta p))
 
@@ -1719,7 +1695,7 @@ check_hyperperiod_block_source_pair_in_cert :: (TaskId -> Task) -> (List
                                                JobId -> JobId -> JobId ->
                                                JobId ->
                                                EDFWindowTransportTargetCert
-                                               -> Bool
+                                               -> Prelude.Bool
 check_hyperperiod_block_source_pair_in_cert tasks enumT jobs target x target0 x0 target_cert =
   existsb
     (check_hyperperiod_block_source_pair tasks enumT jobs target x target0 x0
@@ -1731,7 +1707,7 @@ check_hyperperiod_block_source_pair_in_certs :: (TaskId -> Task) -> (List
                                                 JobId -> JobId -> JobId ->
                                                 JobId -> (List
                                                 EDFWindowTransportTargetCert)
-                                                -> Bool
+                                                -> Prelude.Bool
 check_hyperperiod_block_source_pair_in_certs tasks enumT jobs target x target0 x0 target_certs =
   existsb
     (check_hyperperiod_block_source_pair_in_cert tasks enumT jobs target x
@@ -1739,7 +1715,7 @@ check_hyperperiod_block_source_pair_in_certs tasks enumT jobs target x target0 x
     target_certs
 
 data PeriodicEDFCheckedSidecarCert =
-   Build_PeriodicEDFCheckedSidecarCert (List JobId) (List (List JobId)) 
+   Build_PeriodicEDFCheckedSidecarCert (List JobId) (List (List JobId))
  (List EDFWindowTransportTargetCert) (List EDFWindowTransportTargetCert)
 
 checked_class_relevant_jobs :: PeriodicEDFCheckedSidecarCert -> List
@@ -1766,14 +1742,14 @@ checked_post_reset_window_target_certs p =
 
 type PeriodicFeasibilityCheckedSidecarCert = PeriodicEDFCheckedSidecarCert
 
-extracted_taskset_nonempty :: (List ExtractedPeriodicTask) -> Bool
+extracted_taskset_nonempty :: (List ExtractedPeriodicTask) -> Prelude.Bool
 extracted_taskset_nonempty ts =
-  ltb O (length ts)
+  ltb 0 (length ts)
 
 extracted_periodic_codec :: (List ExtractedPeriodicTask) -> PeriodicCodec
 extracted_periodic_codec ts =
   case ts of {
-   Nil -> (\_ _ -> O);
+   Nil -> (\_ _ -> 0);
    Cons e l ->
     zero_offset_periodic_codec_of_tasks (extracted_periodic_tasks (Cons e l))
       (enumT_of_extracted_list (Cons e l))}
@@ -1782,7 +1758,7 @@ extracted_offset_periodic_codec :: (List ExtractedPeriodicTask) ->
                                    PeriodicCodec
 extracted_offset_periodic_codec ts =
   case ts of {
-   Nil -> (\_ _ -> O);
+   Nil -> (\_ _ -> 0);
    Cons e l ->
     periodic_codec_of_enumT (extracted_periodic_tasks (Cons e l))
       (extracted_periodic_offsets (Cons e l))
@@ -1792,60 +1768,66 @@ check_periodic_hyperperiod_state_reset :: (TaskId -> Task) -> (TaskId ->
                                           Time) -> (JobId -> Job) -> (List
                                           TaskId) -> PeriodicCodec ->
                                           (EDFPrefixCert JobId) -> Time ->
-                                          Bool
+                                          Prelude.Bool
 check_periodic_hyperperiod_state_reset tasks offset jobs enumT codec prefix_cert hyperperiod =
   forallb (\j ->
     certified_completed_by jobs (prefix_slots prefix_cert) j hyperperiod)
     (enum_periodic_jobs_before tasks offset jobs enumT codec hyperperiod)
 
 check_transport_period_is_hyperperiod :: (TaskId -> Task) -> (List TaskId) ->
-                                         (EDFTransportCert JobId) -> Bool
+                                         (EDFTransportCert JobId) ->
+                                         Prelude.Bool
 check_transport_period_is_hyperperiod tasks enumT transport_cert =
-  eqb (transport_period transport_cert) (periodic_hyperperiod tasks enumT)
+  (Prelude.==) (transport_period transport_cert)
+    (periodic_hyperperiod tasks enumT)
 
-check_prefix_horizon_covers_hyperperiod :: (TaskId -> Task) -> (List 
-                                           TaskId) -> (EDFPrefixCert 
-                                           JobId) -> Bool
+check_prefix_horizon_covers_hyperperiod :: (TaskId -> Task) -> (List
+                                           TaskId) -> (EDFPrefixCert
+                                           JobId) -> Prelude.Bool
 check_prefix_horizon_covers_hyperperiod tasks enumT prefix_cert =
-  leb (periodic_hyperperiod tasks enumT) (prefix_horizon prefix_cert)
+  (Prelude.<=) (periodic_hyperperiod tasks enumT)
+    (prefix_horizon prefix_cert)
 
 post_reset_window_horizon :: (TaskId -> Task) -> (List TaskId) -> Time
 post_reset_window_horizon tasks enumT =
-  add (mul (S (S O)) (periodic_hyperperiod tasks enumT))
+  (Prelude.+)
+    ((Prelude.*) (Prelude.succ (Prelude.succ 0))
+      (periodic_hyperperiod tasks enumT))
     (periodic_max_relative_deadline tasks enumT)
 
 check_prefix_horizon_covers_post_reset_window :: (TaskId -> Task) -> (List
                                                  TaskId) -> (EDFPrefixCert
-                                                 JobId) -> Bool
+                                                 JobId) -> Prelude.Bool
 check_prefix_horizon_covers_post_reset_window tasks enumT prefix_cert =
-  leb (post_reset_window_horizon tasks enumT) (prefix_horizon prefix_cert)
+  (Prelude.<=) (post_reset_window_horizon tasks enumT)
+    (prefix_horizon prefix_cert)
 
 check_periodic_edf_checked_sidecar_with_jobs :: (List ExtractedPeriodicTask)
                                                 -> (TaskId -> Time) -> (JobId
                                                 -> Job) -> PeriodicCodec ->
                                                 (EDFInfiniteCert JobId) ->
                                                 PeriodicEDFCheckedSidecarCert
-                                                -> Bool
+                                                -> Prelude.Bool
 check_periodic_edf_checked_sidecar_with_jobs ts offset jobs codec cert sidecar =
-  andb
-    (andb
-      (andb
-        (andb
-          (andb
-            (andb
-              (andb
-                (andb
-                  (andb
-                    (andb
-                      (andb
-                        (andb
-                          (andb
-                            (andb
-                              (andb
-                                (andb
-                                  (andb
-                                    (andb
-                                      (andb
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&)
+          ((Prelude.&&)
+            ((Prelude.&&)
+              ((Prelude.&&)
+                ((Prelude.&&)
+                  ((Prelude.&&)
+                    ((Prelude.&&)
+                      ((Prelude.&&)
+                        ((Prelude.&&)
+                          ((Prelude.&&)
+                            ((Prelude.&&)
+                              ((Prelude.&&)
+                                ((Prelude.&&)
+                                  ((Prelude.&&)
+                                    ((Prelude.&&)
+                                      ((Prelude.&&)
                                         (check_prefix_cert_semantic jobs
                                           (cert_prefix cert))
                                         (check_prefix_slots_match_generated_edf_fast
@@ -1922,17 +1904,17 @@ check_periodic_edf_checked_sidecar_with_jobs ts offset jobs codec cert sidecar =
 check_periodic_edf_checked_sidecar :: (List ExtractedPeriodicTask) ->
                                       PeriodicCodec -> (EDFInfiniteCert
                                       JobId) -> PeriodicEDFCheckedSidecarCert
-                                      -> Bool
+                                      -> Prelude.Bool
 check_periodic_edf_checked_sidecar ts codec cert sidecar =
-  check_periodic_edf_checked_sidecar_with_jobs ts (\_ -> O)
+  check_periodic_edf_checked_sidecar_with_jobs ts (\_ -> 0)
     (extracted_periodic_jobs ts) codec cert sidecar
 
 check_periodic_edf_checked_sidecar_extracted :: (List ExtractedPeriodicTask)
                                                 -> (EDFInfiniteCert JobId) ->
                                                 PeriodicEDFCheckedSidecarCert
-                                                -> Bool
+                                                -> Prelude.Bool
 check_periodic_edf_checked_sidecar_extracted ts cert sidecar =
-  andb (extracted_taskset_nonempty ts)
+  (Prelude.&&) (extracted_taskset_nonempty ts)
     (check_periodic_edf_checked_sidecar ts (extracted_periodic_codec ts) cert
       sidecar)
 
@@ -1942,9 +1924,9 @@ check_periodic_edf_checked_sidecar_extracted_with_offsets :: (List
                                                              (EDFInfiniteCert
                                                              JobId) ->
                                                              PeriodicEDFCheckedSidecarCert
-                                                             -> Bool
+                                                             -> Prelude.Bool
 check_periodic_edf_checked_sidecar_extracted_with_offsets ts cert sidecar =
-  andb (extracted_taskset_nonempty ts)
+  (Prelude.&&) (extracted_taskset_nonempty ts)
     (check_periodic_edf_checked_sidecar_with_jobs ts
       (extracted_periodic_offsets ts) (extracted_offset_periodic_jobs ts)
       (extracted_offset_periodic_codec ts) cert sidecar)
@@ -1954,7 +1936,7 @@ check_periodic_feasibility_checked_sidecar_extracted :: (List
                                                         -> (EDFInfiniteCert
                                                         JobId) ->
                                                         PeriodicFeasibilityCheckedSidecarCert
-                                                        -> Bool
+                                                        -> Prelude.Bool
 check_periodic_feasibility_checked_sidecar_extracted =
   check_periodic_edf_checked_sidecar_extracted_with_offsets
 
@@ -1966,7 +1948,7 @@ check_periodic_policy_feasibility :: PeriodicPolicy -> (List
                                      ExtractedPeriodicTask) ->
                                      (EDFInfiniteCert JobId) ->
                                      PeriodicFeasibilityCheckedSidecarCert ->
-                                     Bool
+                                     Prelude.Bool
 check_periodic_policy_feasibility _ =
   check_periodic_feasibility_checked_sidecar_extracted
 

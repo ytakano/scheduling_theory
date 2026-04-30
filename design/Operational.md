@@ -425,6 +425,11 @@ The intended progression is:
 
 This is an adapter-local bridge built on top of the common contract ladder. It
 does not widen `Operational/Common`.
+The extracted Haskell checker may use `Integer` as the runtime representation
+of Rocq `nat` values. That extraction representation is checker-local and does
+not change `OpState`, `OpEvent`, scheduler-relation contracts, or the common
+notion of time. Future `N` kernels for bounded checks should sit in this
+checker lane and prove conversion back to the common `nat` contracts.
 
 Implemented in the current Awkernel minimal accepted-workload path:
 

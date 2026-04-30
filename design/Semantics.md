@@ -201,6 +201,12 @@ with meanings:
 - `laxity` is deadline slack, represented in `Z` so that negative laxity is expressible
 
 This is the semantic bridge used later by dynamic-metric policies such as LLF and by analysis layers.
+Extracted checkers may represent the surrounding `nat` quantities as Haskell
+`Integer`. That extraction choice does not alter the common semantic interface:
+time, service, CPU counts, and remaining cost are still specified by the Rocq
+`nat` definitions above. Any future `N`-indexed checker kernel must prove that
+its results project back to these `nat` semantics before adapter proofs may use
+it.
 
 ## Major lemma groups
 

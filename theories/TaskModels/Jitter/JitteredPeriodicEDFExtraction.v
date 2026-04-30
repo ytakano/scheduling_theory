@@ -4,6 +4,7 @@ From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFFinalCertific
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionDecision.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionSoundness.
 From RocqSched Require Import TaskModels.Jitter.JitteredPeriodicEDFExtractionTypes.
+From RocqSched Require Import Extraction.HaskellNatInteger.
 
 Extraction Language Haskell.
 

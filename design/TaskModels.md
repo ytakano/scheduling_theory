@@ -35,6 +35,11 @@ execution time, or a concrete loop counter for one periodic task are evidence
 for an adapter that reconstructs logical generated jobs. They are not new
 common-layer `JobId` structure and they do not change the common release, cost,
 deadline, `OpState`, or `OpEvent` interfaces.
+When these generated-job checks are extracted, Rocq `nat` values may appear as
+Haskell `Integer` in the checker binary. That representation is below the
+task-model interface. Future `N` kernels for finite generated-job enumeration
+or demand checks should remain checker-local and prove conversion back to the
+same `nat` task-model semantics.
 
 ## Core concepts and guarantees
 

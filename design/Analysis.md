@@ -49,6 +49,12 @@ For infinite-time zero-offset periodic clients, the same helper layer now
 provides conservative finite cutoff theorems for both scalar classical DBF and
 window DBF, so downstream proofs can replace the remaining infinite demand
 obligations with finite `vm_compute` checks.
+The common analysis statements remain phrased over the existing `nat` time and
+demand semantics. Extraction to Haskell `Integer` is only the concrete
+checker's numeric representation. Later `N`-based demand or cutoff kernels may
+be introduced for checker performance, but they belong below this common
+analysis interface and must be connected back by checker-local correctness
+lemmas.
 
 ### Example: Busy Intervals, a Busy Window, and Busy Prefixes
 

@@ -2,38 +2,6 @@ module AwkernelWorkloadAcceptance where
 
 import qualified Prelude
 
-data Bool =
-   True
- | False
-
-andb :: Bool -> Bool -> Bool
-andb b1 b2 =
-  case b1 of {
-   True -> b2;
-   False -> False}
-
-orb :: Bool -> Bool -> Bool
-orb b1 b2 =
-  case b1 of {
-   True -> True;
-   False -> b2}
-
-negb :: Bool -> Bool
-negb b =
-  case b of {
-   True -> False;
-   False -> True}
-
-data Nat =
-   O
- | S Nat
-
-nat_rec :: a1 -> (Nat -> a1 -> a1) -> Nat -> a1
-nat_rec o s n =
-  case n of {
-   O -> o;
-   S n0 -> s n0 (nat_rec o s n0)}
-
 data Option a =
    Some a
  | None
@@ -51,11 +19,11 @@ list_rec nil cons l =
    Nil -> nil;
    Cons a l0 -> cons a l0 (list_rec nil cons l0)}
 
-length :: (List a1) -> Nat
+length :: (List a1) -> Prelude.Integer
 length l =
   case l of {
-   Nil -> O;
-   Cons _ l' -> S (length l')}
+   Nil -> 0;
+   Cons _ l' -> Prelude.succ (length l')}
 
 app :: (List a1) -> (List a1) -> List a1
 app l m =
@@ -75,118 +43,84 @@ compOpp r =
    Lt -> Gt;
    Gt -> Lt}
 
-data Sumbool =
-   Left
- | Right
-
-add :: Nat -> Nat -> Nat
-add n m =
-  case n of {
-   O -> m;
-   S p -> S (add p m)}
-
-eqb :: Bool -> Bool -> Bool
+eqb :: Prelude.Bool -> Prelude.Bool -> Prelude.Bool
 eqb b1 b2 =
   case b1 of {
-   True -> b2;
-   False -> case b2 of {
-             True -> False;
-             False -> True}}
+   Prelude.True -> b2;
+   Prelude.False ->
+    case b2 of {
+     Prelude.True -> Prelude.False;
+     Prelude.False -> Prelude.True}}
 
-eqb0 :: Nat -> Nat -> Bool
-eqb0 n m =
-  case n of {
-   O -> case m of {
-         O -> True;
-         S _ -> False};
-   S n' -> case m of {
-            O -> False;
-            S m' -> eqb0 n' m'}}
-
-leb :: Nat -> Nat -> Bool
-leb n m =
-  case n of {
-   O -> True;
-   S n' -> case m of {
-            O -> False;
-            S m' -> leb n' m'}}
-
-ltb :: Nat -> Nat -> Bool
+ltb :: Prelude.Integer -> Prelude.Integer -> Prelude.Bool
 ltb n m =
-  leb (S n) m
+  (Prelude.<=) (Prelude.succ n) m
 
-eq_dec :: Nat -> Nat -> Sumbool
-eq_dec n =
-  nat_rec (\m -> case m of {
-                  O -> Left;
-                  S _ -> Right})
-    (\_ iHn m -> case m of {
-                  O -> Right;
-                  S n0 -> iHn n0})
+nth :: Prelude.Integer -> (List a1) -> a1 -> a1
+nth n l default0 =
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> case l of {
+            Nil -> default0;
+            Cons x _ -> x})
+    (\m -> case l of {
+            Nil -> default0;
+            Cons _ l' -> nth m l' default0})
     n
 
-nth :: Nat -> (List a1) -> a1 -> a1
-nth n l default0 =
-  case n of {
-   O -> case l of {
-         Nil -> default0;
-         Cons x _ -> x};
-   S m -> case l of {
-           Nil -> default0;
-           Cons _ l' -> nth m l' default0}}
-
-firstn :: Nat -> (List a1) -> List a1
+firstn :: Prelude.Integer -> (List a1) -> List a1
 firstn n l =
-  case n of {
-   O -> Nil;
-   S n0 -> case l of {
-            Nil -> Nil;
-            Cons a l0 -> Cons a (firstn n0 l0)}}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> Nil)
+    (\n0 -> case l of {
+             Nil -> Nil;
+             Cons a l0 -> Cons a (firstn n0 l0)})
+    n
 
-in_dec :: (a1 -> a1 -> Sumbool) -> a1 -> (List a1) -> Sumbool
+in_dec :: (a1 -> a1 -> Prelude.Bool) -> a1 -> (List a1) -> Prelude.Bool
 in_dec h a l =
-  list_rec Right (\a0 _ iHl ->
-    let {s = h a0 a} in case s of {
-                         Left -> Left;
-                         Right -> iHl})
-    l
+  list_rec Prelude.False (\a0 _ iHl ->
+    let {s = h a0 a} in
+    case s of {
+     Prelude.True -> Prelude.True;
+     Prelude.False -> iHl}) l
 
-nth_error :: (List a1) -> Nat -> Option a1
+nth_error :: (List a1) -> Prelude.Integer -> Option a1
 nth_error l n =
-  case n of {
-   O -> case l of {
-         Nil -> None;
-         Cons x _ -> Some x};
-   S n0 -> case l of {
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> case l of {
             Nil -> None;
-            Cons _ l' -> nth_error l' n0}}
+            Cons x _ -> Some x})
+    (\n0 -> case l of {
+             Nil -> None;
+             Cons _ l' -> nth_error l' n0})
+    n
 
-remove :: (a1 -> a1 -> Sumbool) -> a1 -> (List a1) -> List a1
-remove eq_dec0 x l =
+remove :: (a1 -> a1 -> Prelude.Bool) -> a1 -> (List a1) -> List a1
+remove eq_dec x l =
   case l of {
    Nil -> Nil;
    Cons y tl ->
-    case eq_dec0 x y of {
-     Left -> remove eq_dec0 x tl;
-     Right -> Cons y (remove eq_dec0 x tl)}}
+    case eq_dec x y of {
+     Prelude.True -> remove eq_dec x tl;
+     Prelude.False -> Cons y (remove eq_dec x tl)}}
 
-filter :: (a1 -> Bool) -> (List a1) -> List a1
+filter :: (a1 -> Prelude.Bool) -> (List a1) -> List a1
 filter f l =
   case l of {
    Nil -> Nil;
    Cons x l0 ->
     case f x of {
-     True -> Cons x (filter f l0);
-     False -> filter f l0}}
+     Prelude.True -> Cons x (filter f l0);
+     Prelude.False -> filter f l0}}
 
-nodup :: (a1 -> a1 -> Sumbool) -> (List a1) -> List a1
+nodup :: (a1 -> a1 -> Prelude.Bool) -> (List a1) -> List a1
 nodup decA l =
   case l of {
    Nil -> Nil;
    Cons x xs ->
     case in_dec decA x xs of {
-     Left -> nodup decA xs;
-     Right -> Cons x (nodup decA xs)}}
+     Prelude.True -> nodup decA xs;
+     Prelude.False -> Cons x (nodup decA xs)}}
 
 data Positive =
    XI Positive
@@ -226,11 +160,12 @@ compare :: Positive -> Positive -> Comparison
 compare =
   compare_cont Eq
 
-of_succ_nat :: Nat -> Positive
+of_succ_nat :: Prelude.Integer -> Positive
 of_succ_nat n =
-  case n of {
-   O -> XH;
-   S x -> succ (of_succ_nat x)}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> XH)
+    (\x -> succ (of_succ_nat x))
+    n
 
 compare0 :: Z -> Z -> Comparison
 compare0 x y =
@@ -246,35 +181,37 @@ compare0 x y =
                Zneg y' -> compOpp (compare x' y');
                _ -> Lt}}
 
-leb0 :: Z -> Z -> Bool
-leb0 x y =
+leb :: Z -> Z -> Prelude.Bool
+leb x y =
   case compare0 x y of {
-   Gt -> False;
-   _ -> True}
+   Gt -> Prelude.False;
+   _ -> Prelude.True}
 
-of_nat :: Nat -> Z
+of_nat :: Prelude.Integer -> Z
 of_nat n =
-  case n of {
-   O -> Z0;
-   S n0 -> Zpos (of_succ_nat n0)}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> Z0)
+    (\n0 -> Zpos (of_succ_nat n0))
+    n
 
-type JobId = Nat
+type JobId = Prelude.Integer
 
-type TaskId = Nat
+type TaskId = Prelude.Integer
 
-type CPU = Nat
+type CPU = Prelude.Integer
 
-type Time = Nat
+type Time = Prelude.Integer
 
 data Job =
-   MkJob TaskId Nat Time Nat Time (Time -> Bool)
+   MkJob TaskId Prelude.Integer Time Prelude.Integer Time (Time ->
+                                                          Prelude.Bool)
 
 job_release :: Job -> Time
 job_release j =
   case j of {
    MkJob _ _ job_release0 _ _ _ -> job_release0}
 
-job_cost :: Job -> Nat
+job_cost :: Job -> Prelude.Integer
 job_cost j =
   case j of {
    MkJob _ _ _ job_cost0 _ _ -> job_cost0}
@@ -284,7 +221,7 @@ job_abs_deadline j =
   case j of {
    MkJob _ _ _ _ job_abs_deadline0 _ -> job_abs_deadline0}
 
-job_blocked :: Job -> Time -> Bool
+job_blocked :: Job -> Time -> Prelude.Bool
 job_blocked j =
   case j of {
    MkJob _ _ _ _ _ job_blocked0 -> job_blocked0}
@@ -309,53 +246,63 @@ remove_job j xs =
   case xs of {
    Nil -> Nil;
    Cons x xs' ->
-    case eqb0 x j of {
-     True -> remove_job j xs';
-     False -> Cons x (remove_job j xs')}}
+    case (Prelude.==) x j of {
+     Prelude.True -> remove_job j xs';
+     Prelude.False -> Cons x (remove_job j xs')}}
 
-runs_on :: Schedule -> JobId -> Time -> CPU -> Bool
+runs_on :: Schedule -> JobId -> Time -> CPU -> Prelude.Bool
 runs_on sched j t c =
   case sched t c of {
-   Some j' -> eqb0 j' j;
-   None -> False}
+   Some j' -> (Prelude.==) j' j;
+   None -> Prelude.False}
 
-cpu_count :: Nat -> Schedule -> JobId -> Time -> Nat
+cpu_count :: Prelude.Integer -> Schedule -> JobId -> Time -> Prelude.Integer
 cpu_count m sched j t =
-  case m of {
-   O -> O;
-   S m' ->
-    add (case runs_on sched j t m' of {
-          True -> S O;
-          False -> O})
-      (cpu_count m' sched j t)}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> 0)
+    (\m' ->
+    (Prelude.+)
+      (case runs_on sched j t m' of {
+        Prelude.True -> Prelude.succ 0;
+        Prelude.False -> 0})
+      (cpu_count m' sched j t))
+    m
 
-service_job :: Nat -> Schedule -> JobId -> Time -> Nat
+service_job :: Prelude.Integer -> Schedule -> JobId -> Time ->
+               Prelude.Integer
 service_job m sched j t =
-  case t of {
-   O -> O;
-   S t' -> add (cpu_count m sched j t') (service_job m sched j t')}
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> 0)
+    (\t' -> (Prelude.+) (cpu_count m sched j t') (service_job m sched j t'))
+    t
 
-eligibleb :: (JobId -> Job) -> Nat -> Schedule -> JobId -> Time -> Bool
+eligibleb :: (JobId -> Job) -> Prelude.Integer -> Schedule -> JobId -> Time
+             -> Prelude.Bool
 eligibleb jobs m sched j t =
-  andb
-    (andb (leb (job_release (jobs j)) t)
-      (negb (leb (job_cost (jobs j)) (service_job m sched j t))))
-    (negb (job_blocked (jobs j) t))
+  (Prelude.&&)
+    ((Prelude.&&) ((Prelude.<=) (job_release (jobs j)) t)
+      (Prelude.not
+        ((Prelude.<=) (job_cost (jobs j)) (service_job m sched j t))))
+    (Prelude.not (job_blocked (jobs j) t))
 
 type GenericTopMSchedulingAlgorithm =
-  (JobId -> Job) -> Nat -> Schedule -> Time -> (List JobId) -> List JobId
+  (JobId -> Job) -> Prelude.Integer -> Schedule -> Time -> (List JobId) ->
+  List JobId
   -- singleton inductive, whose constructor was mkGenericTopMSchedulingAlgorithm
-  
-choose_top_m :: GenericTopMSchedulingAlgorithm -> (JobId -> Job) -> Nat ->
-                Schedule -> Time -> (List JobId) -> List JobId
+
+choose_top_m :: GenericTopMSchedulingAlgorithm -> (JobId -> Job) ->
+                Prelude.Integer -> Schedule -> Time -> (List JobId) -> List
+                JobId
 choose_top_m g =
   g
 
 data AwkernelSchedTraceEntry =
-   MkAwkernelSchedTraceEntry Nat CPU OpEvent (Option JobId) (List JobId) 
- Bool (Option JobId) (List (Option JobId)) (List Bool) (List (Option JobId))
+   MkAwkernelSchedTraceEntry Prelude.Integer CPU OpEvent (Option JobId)
+ (List JobId) Prelude.Bool (Option JobId) (List (Option JobId)) (List
+                                                                Prelude.Bool)
+ (List (Option JobId))
 
-aste_event_id :: AwkernelSchedTraceEntry -> Nat
+aste_event_id :: AwkernelSchedTraceEntry -> Prelude.Integer
 aste_event_id a =
   case a of {
    MkAwkernelSchedTraceEntry aste_event_id0 _ _ _ _ _ _ _ _ _ ->
@@ -382,7 +329,7 @@ aste_runnable a =
    MkAwkernelSchedTraceEntry _ _ _ _ aste_runnable0 _ _ _ _ _ ->
     aste_runnable0}
 
-aste_need_resched :: AwkernelSchedTraceEntry -> Bool
+aste_need_resched :: AwkernelSchedTraceEntry -> Prelude.Bool
 aste_need_resched a =
   case a of {
    MkAwkernelSchedTraceEntry _ _ _ _ _ aste_need_resched0 _ _ _ _ ->
@@ -398,7 +345,7 @@ sched_trace_primary_current :: AwkernelSchedTraceEntry -> Option JobId
 sched_trace_primary_current =
   aste_current
 
-sched_trace_primary_need_resched :: AwkernelSchedTraceEntry -> Bool
+sched_trace_primary_need_resched :: AwkernelSchedTraceEntry -> Prelude.Bool
 sched_trace_primary_need_resched =
   aste_need_resched
 
@@ -429,39 +376,41 @@ data AwkernelUnblockKind =
  | UkTimeout
 
 data AwkernelTaskPolicy =
-   AtpGlobalEDF Nat
- | AtpPrioritizedFIFO Nat
- | AtpPrioritizedRR Nat
+   AtpGlobalEDF Prelude.Integer
+ | AtpPrioritizedFIFO Prelude.Integer
+ | AtpPrioritizedRR Prelude.Integer
  | AtpPanicked
  | AtpUnsupported
 
 data AwkernelRunnableDeadlineMetadata =
-   MkAwkernelRunnableDeadlineMetadata Nat Nat (Option Nat)
+   MkAwkernelRunnableDeadlineMetadata Prelude.Integer Prelude.Integer
+ (Option Prelude.Integer)
 
-ardm_wake_time :: AwkernelRunnableDeadlineMetadata -> Nat
+ardm_wake_time :: AwkernelRunnableDeadlineMetadata -> Prelude.Integer
 ardm_wake_time a =
   case a of {
    MkAwkernelRunnableDeadlineMetadata ardm_wake_time0 _ _ -> ardm_wake_time0}
 
-ardm_absolute_deadline :: AwkernelRunnableDeadlineMetadata -> Nat
+ardm_absolute_deadline :: AwkernelRunnableDeadlineMetadata -> Prelude.Integer
 ardm_absolute_deadline a =
   case a of {
    MkAwkernelRunnableDeadlineMetadata _ ardm_absolute_deadline0 _ ->
     ardm_absolute_deadline0}
 
-ardm_periodic_loop_index :: AwkernelRunnableDeadlineMetadata -> Option Nat
+ardm_periodic_loop_index :: AwkernelRunnableDeadlineMetadata -> Option
+                            Prelude.Integer
 ardm_periodic_loop_index a =
   case a of {
    MkAwkernelRunnableDeadlineMetadata _ _ ardm_periodic_loop_index0 ->
     ardm_periodic_loop_index0}
 
 data AwkernelTaskTraceEntry =
-   MkAwkernelTaskTraceEntry Nat AwkernelTaskTraceKind JobId (Option JobId) 
- (Option AwkernelWaitClass) (Option AwkernelUnblockKind) (Option
-                                                         AwkernelTaskPolicy) 
- (Option AwkernelRunnableDeadlineMetadata) (Option Nat)
+   MkAwkernelTaskTraceEntry Prelude.Integer AwkernelTaskTraceKind JobId
+ (Option JobId) (Option AwkernelWaitClass) (Option AwkernelUnblockKind)
+ (Option AwkernelTaskPolicy) (Option AwkernelRunnableDeadlineMetadata)
+ (Option Prelude.Integer)
 
-atte_event_id :: AwkernelTaskTraceEntry -> Nat
+atte_event_id :: AwkernelTaskTraceEntry -> Prelude.Integer
 atte_event_id a =
   case a of {
    MkAwkernelTaskTraceEntry atte_event_id0 _ _ _ _ _ _ _ _ -> atte_event_id0}
@@ -505,39 +454,40 @@ atte_deadline_metadata a =
    MkAwkernelTaskTraceEntry _ _ _ _ _ _ _ atte_deadline_metadata0 _ ->
     atte_deadline_metadata0}
 
-atte_periodic_loop_index :: AwkernelTaskTraceEntry -> Option Nat
+atte_periodic_loop_index :: AwkernelTaskTraceEntry -> Option Prelude.Integer
 atte_periodic_loop_index a =
   case a of {
    MkAwkernelTaskTraceEntry _ _ _ _ _ _ _ _ atte_periodic_loop_index0 ->
     atte_periodic_loop_index0}
 
-option_job_eqb :: (Option JobId) -> (Option JobId) -> Bool
+option_job_eqb :: (Option JobId) -> (Option JobId) -> Prelude.Bool
 option_job_eqb x y =
   case x of {
-   Some j1 -> case y of {
-               Some j2 -> eqb0 j1 j2;
-               None -> False};
+   Some j1 ->
+    case y of {
+     Some j2 -> (Prelude.==) j1 j2;
+     None -> Prelude.False};
    None -> case y of {
-            Some _ -> False;
-            None -> True}}
+            Some _ -> Prelude.False;
+            None -> Prelude.True}}
 
-job_list_contains :: JobId -> (List JobId) -> Bool
+job_list_contains :: JobId -> (List JobId) -> Prelude.Bool
 job_list_contains j xs =
   case xs of {
-   Nil -> False;
-   Cons x xs' -> orb (eqb0 x j) (job_list_contains j xs')}
+   Nil -> Prelude.False;
+   Cons x xs' -> (Prelude.||) ((Prelude.==) x j) (job_list_contains j xs')}
 
 insert_job_sorted :: JobId -> (List JobId) -> List JobId
 insert_job_sorted j xs =
   case xs of {
    Nil -> Cons j Nil;
    Cons x xs' ->
-    case eqb0 j x of {
-     True -> Cons x xs';
-     False ->
-      case leb j x of {
-       True -> Cons j (Cons x xs');
-       False -> Cons x (insert_job_sorted j xs')}}}
+    case (Prelude.==) j x of {
+     Prelude.True -> Cons x xs';
+     Prelude.False ->
+      case (Prelude.<=) j x of {
+       Prelude.True -> Cons j (Cons x xs');
+       Prelude.False -> Cons x (insert_job_sorted j xs')}}}
 
 add_job_once :: JobId -> (List JobId) -> List JobId
 add_job_once =
@@ -551,148 +501,152 @@ first_some f xs =
                   Some y -> Some y;
                   None -> first_some f xs'}}
 
-pair_list_contains :: (Prod JobId JobId) -> (List (Prod JobId JobId)) -> Bool
+pair_list_contains :: (Prod JobId JobId) -> (List (Prod JobId JobId)) ->
+                      Prelude.Bool
 pair_list_contains x xs =
   case xs of {
-   Nil -> False;
+   Nil -> Prelude.False;
    Cons p xs' ->
     case p of {
      Pair a b ->
       case x of {
        Pair x1 x2 ->
-        orb (andb (eqb0 a x1) (eqb0 b x2)) (pair_list_contains x xs')}}}
+        (Prelude.||) ((Prelude.&&) ((Prelude.==) a x1) ((Prelude.==) b x2))
+          (pair_list_contains x xs')}}}
 
 add_pair_once :: (Prod JobId JobId) -> (List (Prod JobId JobId)) -> List
                  (Prod JobId JobId)
 add_pair_once x xs =
   case pair_list_contains x xs of {
-   True -> xs;
-   False -> Cons x xs}
+   Prelude.True -> xs;
+   Prelude.False -> Cons x xs}
 
-all_dependencies_ready :: JobId -> (List (Prod JobId JobId)) -> (List 
-                          JobId) -> Bool
+all_dependencies_ready :: JobId -> (List (Prod JobId JobId)) -> (List
+                          JobId) -> Prelude.Bool
 all_dependencies_ready task_id deps ready_targets =
   case deps of {
-   Nil -> True;
+   Nil -> Prelude.True;
    Cons p deps' ->
     case p of {
      Pair waiter target ->
-      case eqb0 waiter task_id of {
-       True ->
-        andb (job_list_contains target ready_targets)
+      case (Prelude.==) waiter task_id of {
+       Prelude.True ->
+        (Prelude.&&) (job_list_contains target ready_targets)
           (all_dependencies_ready task_id deps' ready_targets);
-       False -> all_dependencies_ready task_id deps' ready_targets}}}
+       Prelude.False -> all_dependencies_ready task_id deps' ready_targets}}}
 
-bool_of_option_none :: (Option a1) -> Bool
+bool_of_option_none :: (Option a1) -> Prelude.Bool
 bool_of_option_none oj =
   case oj of {
-   Some _ -> False;
-   None -> True}
+   Some _ -> Prelude.False;
+   None -> Prelude.True}
 
-bool_of_wait_class_some :: (Option AwkernelWaitClass) -> Bool
+bool_of_wait_class_some :: (Option AwkernelWaitClass) -> Prelude.Bool
 bool_of_wait_class_some owc =
   case owc of {
-   Some _ -> True;
-   None -> False}
+   Some _ -> Prelude.True;
+   None -> Prelude.False}
 
-bool_of_unblock_kind_some :: (Option AwkernelUnblockKind) -> Bool
+bool_of_unblock_kind_some :: (Option AwkernelUnblockKind) -> Prelude.Bool
 bool_of_unblock_kind_some ouk =
   case ouk of {
-   Some _ -> True;
-   None -> False}
+   Some _ -> Prelude.True;
+   None -> Prelude.False}
 
-bool_of_task_policy_none :: (Option AwkernelTaskPolicy) -> Bool
+bool_of_task_policy_none :: (Option AwkernelTaskPolicy) -> Prelude.Bool
 bool_of_task_policy_none op =
   case op of {
-   Some _ -> False;
-   None -> True}
+   Some _ -> Prelude.False;
+   None -> Prelude.True}
 
-bool_of_task_policy_some :: (Option AwkernelTaskPolicy) -> Bool
+bool_of_task_policy_some :: (Option AwkernelTaskPolicy) -> Prelude.Bool
 bool_of_task_policy_some op =
   case op of {
-   Some _ -> True;
-   None -> False}
+   Some _ -> Prelude.True;
+   None -> Prelude.False}
 
-task_policy_global_fifo_supportedb :: AwkernelTaskPolicy -> Bool
+task_policy_global_fifo_supportedb :: AwkernelTaskPolicy -> Prelude.Bool
 task_policy_global_fifo_supportedb policy =
   case policy of {
-   AtpPrioritizedFIFO _ -> True;
-   _ -> False}
+   AtpPrioritizedFIFO _ -> Prelude.True;
+   _ -> Prelude.False}
 
-task_policy_global_edf_supportedb :: AwkernelTaskPolicy -> Bool
+task_policy_global_edf_supportedb :: AwkernelTaskPolicy -> Prelude.Bool
 task_policy_global_edf_supportedb policy =
   case policy of {
-   AtpGlobalEDF _ -> True;
-   _ -> False}
+   AtpGlobalEDF _ -> Prelude.True;
+   _ -> Prelude.False}
 
-task_policy_edf_fifo_supportedb :: AwkernelTaskPolicy -> Bool
+task_policy_edf_fifo_supportedb :: AwkernelTaskPolicy -> Prelude.Bool
 task_policy_edf_fifo_supportedb policy =
-  orb (task_policy_global_edf_supportedb policy)
+  (Prelude.||) (task_policy_global_edf_supportedb policy)
     (task_policy_global_fifo_supportedb policy)
 
 option_task_policy_global_fifo_supportedb :: (Option AwkernelTaskPolicy) ->
-                                             Bool
+                                             Prelude.Bool
 option_task_policy_global_fifo_supportedb policy =
   case policy of {
    Some policy' -> task_policy_global_fifo_supportedb policy';
-   None -> False}
+   None -> Prelude.False}
 
 option_task_policy_global_edf_supportedb :: (Option AwkernelTaskPolicy) ->
-                                            Bool
+                                            Prelude.Bool
 option_task_policy_global_edf_supportedb policy =
   case policy of {
    Some policy' -> task_policy_global_edf_supportedb policy';
-   None -> False}
+   None -> Prelude.False}
 
-option_task_policy_edf_fifo_supportedb :: (Option AwkernelTaskPolicy) -> Bool
+option_task_policy_edf_fifo_supportedb :: (Option AwkernelTaskPolicy) ->
+                                          Prelude.Bool
 option_task_policy_edf_fifo_supportedb policy =
   case policy of {
    Some policy' -> task_policy_edf_fifo_supportedb policy';
-   None -> False}
+   None -> Prelude.False}
 
-wait_class_eqb :: AwkernelWaitClass -> AwkernelWaitClass -> Bool
+wait_class_eqb :: AwkernelWaitClass -> AwkernelWaitClass -> Prelude.Bool
 wait_class_eqb lhs rhs =
   case lhs of {
    WcSleep -> case rhs of {
-               WcSleep -> True;
-               WcIo -> False};
+               WcSleep -> Prelude.True;
+               WcIo -> Prelude.False};
    WcIo -> case rhs of {
-            WcSleep -> False;
-            WcIo -> True}}
+            WcSleep -> Prelude.False;
+            WcIo -> Prelude.True}}
 
-task_trace_metadata_empty :: AwkernelTaskTraceEntry -> Bool
+task_trace_metadata_empty :: AwkernelTaskTraceEntry -> Prelude.Bool
 task_trace_metadata_empty entry =
-  andb
-    (andb
-      (andb
-        (andb
-          (andb (bool_of_option_none (atte_related entry))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&)
+          ((Prelude.&&) (bool_of_option_none (atte_related entry))
             (bool_of_option_none (atte_wait_class entry)))
           (bool_of_option_none (atte_unblock_kind entry)))
         (bool_of_task_policy_none (atte_policy entry)))
       (bool_of_option_none (atte_deadline_metadata entry)))
     (bool_of_option_none (atte_periodic_loop_index entry))
 
-task_trace_has_wait_class_only :: AwkernelTaskTraceEntry -> Bool
+task_trace_has_wait_class_only :: AwkernelTaskTraceEntry -> Prelude.Bool
 task_trace_has_wait_class_only entry =
-  andb
-    (andb
-      (andb
-        (andb
-          (andb (bool_of_option_none (atte_related entry))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&)
+          ((Prelude.&&) (bool_of_option_none (atte_related entry))
             (bool_of_wait_class_some (atte_wait_class entry)))
           (bool_of_option_none (atte_unblock_kind entry)))
         (bool_of_task_policy_none (atte_policy entry)))
       (bool_of_option_none (atte_deadline_metadata entry)))
     (bool_of_option_none (atte_periodic_loop_index entry))
 
-task_trace_has_wait_and_unblock_kind :: AwkernelTaskTraceEntry -> Bool
+task_trace_has_wait_and_unblock_kind :: AwkernelTaskTraceEntry ->
+                                        Prelude.Bool
 task_trace_has_wait_and_unblock_kind entry =
-  andb
-    (andb
-      (andb
-        (andb
-          (andb (bool_of_option_none (atte_related entry))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&)
+          ((Prelude.&&) (bool_of_option_none (atte_related entry))
             (bool_of_wait_class_some (atte_wait_class entry)))
           (bool_of_unblock_kind_some (atte_unblock_kind entry)))
         (bool_of_task_policy_none (atte_policy entry)))
@@ -707,16 +661,16 @@ blocked_task_class task_id blocked =
    Cons p blocked' ->
     case p of {
      Pair blocked_task wait_class ->
-      case eqb0 blocked_task task_id of {
-       True -> Some wait_class;
-       False -> blocked_task_class task_id blocked'}}}
+      case (Prelude.==) blocked_task task_id of {
+       Prelude.True -> Some wait_class;
+       Prelude.False -> blocked_task_class task_id blocked'}}}
 
 blocked_task_contains :: JobId -> (List (Prod JobId AwkernelWaitClass)) ->
-                         Bool
+                         Prelude.Bool
 blocked_task_contains task_id blocked =
   case blocked_task_class task_id blocked of {
-   Some _ -> True;
-   None -> False}
+   Some _ -> Prelude.True;
+   None -> Prelude.False}
 
 remove_blocked_task :: JobId -> (List (Prod JobId AwkernelWaitClass)) -> List
                        (Prod JobId AwkernelWaitClass)
@@ -726,142 +680,149 @@ remove_blocked_task task_id blocked =
    Cons p blocked' ->
     case p of {
      Pair blocked_task wait_class ->
-      case eqb0 blocked_task task_id of {
-       True -> remove_blocked_task task_id blocked';
-       False -> Cons (Pair blocked_task wait_class)
+      case (Prelude.==) blocked_task task_id of {
+       Prelude.True -> remove_blocked_task task_id blocked';
+       Prelude.False -> Cons (Pair blocked_task wait_class)
         (remove_blocked_task task_id blocked')}}}
 
-periodic_job_complete_contains :: JobId -> Nat -> (List (Prod JobId Nat)) ->
-                                  Bool
+periodic_job_complete_contains :: JobId -> Prelude.Integer -> (List
+                                  (Prod JobId Prelude.Integer)) ->
+                                  Prelude.Bool
 periodic_job_complete_contains task_id loop_index completions =
   case completions of {
-   Nil -> False;
+   Nil -> Prelude.False;
    Cons p completions' ->
     case p of {
      Pair completed_task completed_loop ->
-      orb
-        (andb (eqb0 completed_task task_id) (eqb0 completed_loop loop_index))
+      (Prelude.||)
+        ((Prelude.&&) ((Prelude.==) completed_task task_id)
+          ((Prelude.==) completed_loop loop_index))
         (periodic_job_complete_contains task_id loop_index completions')}}
 
-add_periodic_job_complete_once :: JobId -> Nat -> (List (Prod JobId Nat)) ->
-                                  List (Prod JobId Nat)
+add_periodic_job_complete_once :: JobId -> Prelude.Integer -> (List
+                                  (Prod JobId Prelude.Integer)) -> List
+                                  (Prod JobId Prelude.Integer)
 add_periodic_job_complete_once task_id loop_index completions =
   case periodic_job_complete_contains task_id loop_index completions of {
-   True -> completions;
-   False -> Cons (Pair task_id loop_index) completions}
+   Prelude.True -> completions;
+   Prelude.False -> Cons (Pair task_id loop_index) completions}
 
-sched_trace_event_is_wakeup :: JobId -> AwkernelSchedTraceEntry -> Bool
+sched_trace_event_is_wakeup :: JobId -> AwkernelSchedTraceEntry ->
+                               Prelude.Bool
 sched_trace_event_is_wakeup j entry =
   case aste_event entry of {
-   EvWakeup j' -> eqb0 j' j;
-   _ -> False}
+   EvWakeup j' -> (Prelude.==) j' j;
+   _ -> Prelude.False}
 
-sched_trace_event_is_block :: JobId -> AwkernelSchedTraceEntry -> Bool
+sched_trace_event_is_block :: JobId -> AwkernelSchedTraceEntry ->
+                              Prelude.Bool
 sched_trace_event_is_block j entry =
   case aste_event entry of {
-   EvBlock j' -> eqb0 j' j;
-   _ -> False}
+   EvBlock j' -> (Prelude.==) j' j;
+   _ -> Prelude.False}
 
 sched_trace_event_is_choose :: JobId -> JobId -> AwkernelSchedTraceEntry ->
-                               Bool
+                               Prelude.Bool
 sched_trace_event_is_choose cpu j entry =
   case aste_event entry of {
-   EvChoose c' j' -> andb (eqb0 c' cpu) (eqb0 j' j);
-   _ -> False}
+   EvChoose c' j' -> (Prelude.&&) ((Prelude.==) c' cpu) ((Prelude.==) j' j);
+   _ -> Prelude.False}
 
 sched_trace_event_is_dispatch :: JobId -> JobId -> AwkernelSchedTraceEntry ->
-                                 Bool
+                                 Prelude.Bool
 sched_trace_event_is_dispatch cpu j entry =
   case aste_event entry of {
-   EvDispatch c' j' -> andb (eqb0 c' cpu) (eqb0 j' j);
-   _ -> False}
+   EvDispatch c' j' -> (Prelude.&&) ((Prelude.==) c' cpu) ((Prelude.==) j' j);
+   _ -> Prelude.False}
 
-sched_trace_event_is_complete :: JobId -> AwkernelSchedTraceEntry -> Bool
+sched_trace_event_is_complete :: JobId -> AwkernelSchedTraceEntry ->
+                                 Prelude.Bool
 sched_trace_event_is_complete j entry =
   case aste_event entry of {
-   EvComplete j' -> eqb0 j' j;
-   _ -> False}
+   EvComplete j' -> (Prelude.==) j' j;
+   _ -> Prelude.False}
 
 sched_trace_event_is_join_target_ready :: JobId -> AwkernelSchedTraceEntry ->
-                                          Bool
+                                          Prelude.Bool
 sched_trace_event_is_join_target_ready j entry =
   case aste_event entry of {
-   EvJoinTargetReady j' -> eqb0 j' j;
-   _ -> False}
+   EvJoinTargetReady j' -> (Prelude.==) j' j;
+   _ -> Prelude.False}
 
-sched_trace_event_is_stutter :: AwkernelSchedTraceEntry -> Bool
+sched_trace_event_is_stutter :: AwkernelSchedTraceEntry -> Prelude.Bool
 sched_trace_event_is_stutter entry =
   case aste_event entry of {
-   EvStutter -> True;
-   _ -> False}
+   EvStutter -> Prelude.True;
+   _ -> Prelude.False}
 
-sched_trace_is_wakeup :: JobId -> AwkernelSchedTraceEntry -> Bool
+sched_trace_is_wakeup :: JobId -> AwkernelSchedTraceEntry -> Prelude.Bool
 sched_trace_is_wakeup j entry =
-  andb
-    (andb
-      (andb
-        (andb
-          (andb (eqb0 (aste_cpu entry) O)
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&)
+          ((Prelude.&&) ((Prelude.==) (aste_cpu entry) 0)
             (sched_trace_event_is_wakeup j entry))
           (bool_of_option_none (sched_trace_primary_current entry)))
         (job_list_contains j (aste_runnable entry)))
-      (eqb (sched_trace_primary_need_resched entry) False))
+      (eqb (sched_trace_primary_need_resched entry) Prelude.False))
     (bool_of_option_none (sched_trace_primary_dispatch_target entry))
 
-sched_trace_is_block :: JobId -> AwkernelSchedTraceEntry -> Bool
+sched_trace_is_block :: JobId -> AwkernelSchedTraceEntry -> Prelude.Bool
 sched_trace_is_block j entry =
-  andb
-    (andb
-      (andb
-        (andb (eqb0 (aste_cpu entry) (S O))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&) ((Prelude.==) (aste_cpu entry) (Prelude.succ 0))
           (sched_trace_event_is_block j entry))
         (bool_of_option_none (sched_trace_primary_current entry)))
-      (eqb (sched_trace_primary_need_resched entry) True))
+      (eqb (sched_trace_primary_need_resched entry) Prelude.True))
     (bool_of_option_none (sched_trace_primary_dispatch_target entry))
 
-sched_trace_is_choose :: JobId -> AwkernelSchedTraceEntry -> Bool
+sched_trace_is_choose :: JobId -> AwkernelSchedTraceEntry -> Prelude.Bool
 sched_trace_is_choose j entry =
-  andb
-    (andb
-      (andb
-        (andb (eqb0 (aste_cpu entry) (S O))
-          (sched_trace_event_is_choose (S O) j entry))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&) ((Prelude.==) (aste_cpu entry) (Prelude.succ 0))
+          (sched_trace_event_is_choose (Prelude.succ 0) j entry))
         (bool_of_option_none (sched_trace_primary_current entry)))
       (job_list_contains j (aste_runnable entry)))
     (option_job_eqb (sched_trace_primary_dispatch_target entry) (Some j))
 
-sched_trace_is_dispatch :: JobId -> AwkernelSchedTraceEntry -> Bool
+sched_trace_is_dispatch :: JobId -> AwkernelSchedTraceEntry -> Prelude.Bool
 sched_trace_is_dispatch j entry =
-  andb
-    (andb
-      (andb
-        (andb (eqb0 (aste_cpu entry) (S O))
-          (sched_trace_event_is_dispatch (S O) j entry))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&) ((Prelude.==) (aste_cpu entry) (Prelude.succ 0))
+          (sched_trace_event_is_dispatch (Prelude.succ 0) j entry))
         (option_job_eqb (sched_trace_primary_current entry) (Some j)))
-      (eqb (sched_trace_primary_need_resched entry) False))
+      (eqb (sched_trace_primary_need_resched entry) Prelude.False))
     (bool_of_option_none (sched_trace_primary_dispatch_target entry))
 
-sched_trace_is_complete :: JobId -> AwkernelSchedTraceEntry -> Bool
+sched_trace_is_complete :: JobId -> AwkernelSchedTraceEntry -> Prelude.Bool
 sched_trace_is_complete j entry =
-  andb
-    (andb
-      (andb
-        (andb (eqb0 (aste_cpu entry) (S O))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&) ((Prelude.==) (aste_cpu entry) (Prelude.succ 0))
           (sched_trace_event_is_complete j entry))
         (bool_of_option_none (sched_trace_primary_current entry)))
-      (eqb (sched_trace_primary_need_resched entry) True))
+      (eqb (sched_trace_primary_need_resched entry) Prelude.True))
     (bool_of_option_none (sched_trace_primary_dispatch_target entry))
 
-sched_trace_is_join_target_ready :: JobId -> AwkernelSchedTraceEntry -> Bool
+sched_trace_is_join_target_ready :: JobId -> AwkernelSchedTraceEntry ->
+                                    Prelude.Bool
 sched_trace_is_join_target_ready j entry =
-  andb (eqb0 (aste_cpu entry) (S O))
+  (Prelude.&&) ((Prelude.==) (aste_cpu entry) (Prelude.succ 0))
     (sched_trace_event_is_join_target_ready j entry)
 
-sched_trace_is_stutter :: AwkernelSchedTraceEntry -> Bool
+sched_trace_is_stutter :: AwkernelSchedTraceEntry -> Prelude.Bool
 sched_trace_is_stutter entry =
-  andb
-    (andb
-      (andb (eqb0 (aste_cpu entry) (S O))
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&) ((Prelude.==) (aste_cpu entry) (Prelude.succ 0))
         (sched_trace_event_is_stutter entry))
       (bool_of_option_none (sched_trace_primary_current entry)))
     (bool_of_option_none (sched_trace_primary_dispatch_target entry))
@@ -869,10 +830,17 @@ sched_trace_is_stutter entry =
 data AwkernelTaskTraceSummary =
    MkAwkernelTaskTraceSummary (Option JobId) (List JobId) (List
                                                           (Prod JobId
-                                                          AwkernelTaskPolicy)) 
- (List (Prod Nat (Prod JobId Nat))) (List (Prod JobId JobId)) (List JobId) 
- (List (Prod JobId AwkernelWaitClass)) (List (Prod Nat (Prod JobId Bool))) 
- (List (Prod JobId Nat))
+                                                          AwkernelTaskPolicy))
+ (List (Prod Prelude.Integer (Prod JobId Prelude.Integer))) (List
+                                                            (Prod JobId
+                                                            JobId)) (List
+                                                                    JobId)
+ (List (Prod JobId AwkernelWaitClass)) (List
+                                       (Prod Prelude.Integer
+                                       (Prod JobId Prelude.Bool))) (List
+                                                                   (Prod
+                                                                   JobId
+                                                                   Prelude.Integer))
 
 atts_root_task :: AwkernelTaskTraceSummary -> Option JobId
 atts_root_task a =
@@ -894,7 +862,7 @@ atts_task_policies a =
     atts_task_policies0}
 
 atts_edf_deadlines :: AwkernelTaskTraceSummary -> List
-                      (Prod Nat (Prod JobId Nat))
+                      (Prod Prelude.Integer (Prod JobId Prelude.Integer))
 atts_edf_deadlines a =
   case a of {
    MkAwkernelTaskTraceSummary _ _ _ atts_edf_deadlines0 _ _ _ _ _ ->
@@ -920,14 +888,14 @@ atts_blocked_tasks a =
     atts_blocked_tasks0}
 
 atts_block_transitions :: AwkernelTaskTraceSummary -> List
-                          (Prod Nat (Prod JobId Bool))
+                          (Prod Prelude.Integer (Prod JobId Prelude.Bool))
 atts_block_transitions a =
   case a of {
    MkAwkernelTaskTraceSummary _ _ _ _ _ _ _ atts_block_transitions0 _ ->
     atts_block_transitions0}
 
 atts_periodic_job_completions :: AwkernelTaskTraceSummary -> List
-                                 (Prod JobId Nat)
+                                 (Prod JobId Prelude.Integer)
 atts_periodic_job_completions a =
   case a of {
    MkAwkernelTaskTraceSummary _ _ _ _ _ _ _ _
@@ -944,47 +912,51 @@ add_task_policy task_id policy policies =
   Cons (Pair task_id policy) policies
 
 task_policy_table_all_global_fifo :: (List (Prod JobId AwkernelTaskPolicy))
-                                     -> Bool
+                                     -> Prelude.Bool
 task_policy_table_all_global_fifo policies =
   case policies of {
-   Nil -> True;
+   Nil -> Prelude.True;
    Cons p policies' ->
     case p of {
      Pair _ policy ->
-      andb (task_policy_global_fifo_supportedb policy)
+      (Prelude.&&) (task_policy_global_fifo_supportedb policy)
         (task_policy_table_all_global_fifo policies')}}
 
 task_policy_table_all_global_edf :: (List (Prod JobId AwkernelTaskPolicy)) ->
-                                    Bool
+                                    Prelude.Bool
 task_policy_table_all_global_edf policies =
   case policies of {
-   Nil -> True;
+   Nil -> Prelude.True;
    Cons p policies' ->
     case p of {
      Pair _ policy ->
-      andb (task_policy_global_edf_supportedb policy)
+      (Prelude.&&) (task_policy_global_edf_supportedb policy)
         (task_policy_table_all_global_edf policies')}}
 
 task_policy_table_all_edf_fifo :: (List (Prod JobId AwkernelTaskPolicy)) ->
-                                  Bool
+                                  Prelude.Bool
 task_policy_table_all_edf_fifo policies =
   case policies of {
-   Nil -> True;
+   Nil -> Prelude.True;
    Cons p policies' ->
     case p of {
      Pair _ policy ->
-      andb (task_policy_edf_fifo_supportedb policy)
+      (Prelude.&&) (task_policy_edf_fifo_supportedb policy)
         (task_policy_table_all_edf_fifo policies')}}
 
-add_edf_deadline_evidence :: Nat -> JobId -> Nat -> (List
-                             (Prod Nat (Prod JobId Nat))) -> List
-                             (Prod Nat (Prod JobId Nat))
+add_edf_deadline_evidence :: Prelude.Integer -> JobId -> Prelude.Integer ->
+                             (List
+                             (Prod Prelude.Integer
+                             (Prod JobId Prelude.Integer))) -> List
+                             (Prod Prelude.Integer
+                             (Prod JobId Prelude.Integer))
 add_edf_deadline_evidence event_id task_id absolute_deadline deadlines =
   app deadlines (Cons (Pair event_id (Pair task_id absolute_deadline)) Nil)
 
-task_trace_edf_deadline_at_from :: Nat -> JobId -> (List
-                                   (Prod Nat (Prod JobId Nat))) -> (Option
-                                   Nat) -> Option Nat
+task_trace_edf_deadline_at_from :: Prelude.Integer -> JobId -> (List
+                                   (Prod Prelude.Integer
+                                   (Prod JobId Prelude.Integer))) -> (Option
+                                   Prelude.Integer) -> Option Prelude.Integer
 task_trace_edf_deadline_at_from event_id task_id deadlines deadline =
   case deadlines of {
    Nil -> deadline;
@@ -995,28 +967,30 @@ task_trace_edf_deadline_at_from event_id task_id deadlines deadline =
        Pair deadline_task absolute_deadline ->
         let {
          deadline' = case ltb deadline_event_id event_id of {
-                      True ->
-                       case eqb0 deadline_task task_id of {
-                        True -> Some absolute_deadline;
-                        False -> deadline};
-                      False -> deadline}}
+                      Prelude.True ->
+                       case (Prelude.==) deadline_task task_id of {
+                        Prelude.True -> Some absolute_deadline;
+                        Prelude.False -> deadline};
+                      Prelude.False -> deadline}}
         in
         task_trace_edf_deadline_at_from event_id task_id deadlines' deadline'}}}
 
-task_trace_edf_deadline_at :: AwkernelTaskTraceSummary -> Nat -> JobId ->
-                              Option Nat
+task_trace_edf_deadline_at :: AwkernelTaskTraceSummary -> Prelude.Integer ->
+                              JobId -> Option Prelude.Integer
 task_trace_edf_deadline_at summary event_id task_id =
   task_trace_edf_deadline_at_from event_id task_id
     (atts_edf_deadlines summary) None
 
-add_block_transition :: Nat -> JobId -> Bool -> (List
-                        (Prod Nat (Prod JobId Bool))) -> List
-                        (Prod Nat (Prod JobId Bool))
+add_block_transition :: Prelude.Integer -> JobId -> Prelude.Bool -> (List
+                        (Prod Prelude.Integer (Prod JobId Prelude.Bool))) ->
+                        List (Prod Prelude.Integer (Prod JobId Prelude.Bool))
 add_block_transition event_id task_id is_block transitions =
   app transitions (Cons (Pair event_id (Pair task_id is_block)) Nil)
 
-task_trace_blocked_at_from :: Nat -> JobId -> (List
-                              (Prod Nat (Prod JobId Bool))) -> Bool -> Bool
+task_trace_blocked_at_from :: Prelude.Integer -> JobId -> (List
+                              (Prod Prelude.Integer
+                              (Prod JobId Prelude.Bool))) -> Prelude.Bool ->
+                              Prelude.Bool
 task_trace_blocked_at_from event_id task_id transitions blocked =
   case transitions of {
    Nil -> blocked;
@@ -1027,26 +1001,28 @@ task_trace_blocked_at_from event_id task_id transitions blocked =
        Pair transition_task is_block ->
         let {
          blocked' = case ltb transition_event_id event_id of {
-                     True ->
-                      case eqb0 transition_task task_id of {
-                       True -> is_block;
-                       False -> blocked};
-                     False -> blocked}}
+                     Prelude.True ->
+                      case (Prelude.==) transition_task task_id of {
+                       Prelude.True -> is_block;
+                       Prelude.False -> blocked};
+                     Prelude.False -> blocked}}
         in
         task_trace_blocked_at_from event_id task_id transitions' blocked'}}}
 
-task_trace_blocked_at :: AwkernelTaskTraceSummary -> Nat -> JobId -> Bool
+task_trace_blocked_at :: AwkernelTaskTraceSummary -> Prelude.Integer -> JobId
+                         -> Prelude.Bool
 task_trace_blocked_at summary event_id task_id =
   task_trace_blocked_at_from event_id task_id
-    (atts_block_transitions summary) False
+    (atts_block_transitions summary) Prelude.False
 
 task_trace_runnable_deadline_row_valid :: AwkernelTaskTraceSummary ->
-                                          AwkernelTaskTraceEntry -> Bool
+                                          AwkernelTaskTraceEntry ->
+                                          Prelude.Bool
 task_trace_runnable_deadline_row_valid summary entry =
-  andb
-    (andb
-      (andb
-        (andb
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&)
           (job_list_contains (atte_subject entry) (atts_known_tasks summary))
           (bool_of_option_none (atte_related entry)))
         (bool_of_option_none (atte_wait_class entry)))
@@ -1057,32 +1033,34 @@ task_trace_runnable_deadline_row_valid summary entry =
         AtpGlobalEDF relative_deadline ->
          case atte_deadline_metadata entry of {
           Some deadline_metadata ->
-           andb
-             (eqb0 (ardm_absolute_deadline deadline_metadata)
-               (add (ardm_wake_time deadline_metadata) relative_deadline))
+           (Prelude.&&)
+             ((Prelude.==) (ardm_absolute_deadline deadline_metadata)
+               ((Prelude.+) (ardm_wake_time deadline_metadata)
+                 relative_deadline))
              (case ardm_periodic_loop_index deadline_metadata of {
                Some metadata_loop_index ->
                 case atte_periodic_loop_index entry of {
                  Some entry_loop_index ->
-                  eqb0 metadata_loop_index entry_loop_index;
-                 None -> False};
+                  (Prelude.==) metadata_loop_index entry_loop_index;
+                 None -> Prelude.False};
                None ->
                 case atte_periodic_loop_index entry of {
-                 Some _ -> False;
-                 None -> True}});
-          None -> False};
-        _ -> False};
-      None -> False})
+                 Some _ -> Prelude.False;
+                 None -> Prelude.True}});
+          None -> Prelude.False};
+        _ -> Prelude.False};
+      None -> Prelude.False})
 
 task_trace_periodic_job_complete_row_valid :: AwkernelTaskTraceSummary ->
-                                              AwkernelTaskTraceEntry -> Bool
+                                              AwkernelTaskTraceEntry ->
+                                              Prelude.Bool
 task_trace_periodic_job_complete_row_valid summary entry =
-  andb
-    (andb
-      (andb
-        (andb
-          (andb
-            (andb
+  (Prelude.&&)
+    ((Prelude.&&)
+      ((Prelude.&&)
+        ((Prelude.&&)
+          ((Prelude.&&)
+            ((Prelude.&&)
               (job_list_contains (atte_subject entry)
                 (atts_known_tasks summary))
               (bool_of_option_none (atte_related entry)))
@@ -1092,37 +1070,38 @@ task_trace_periodic_job_complete_row_valid summary entry =
       (bool_of_option_none (atte_deadline_metadata entry)))
     (case atte_periodic_loop_index entry of {
       Some loop_index ->
-       negb
+       Prelude.not
          (periodic_job_complete_contains (atte_subject entry) loop_index
            (atts_periodic_job_completions summary));
-      None -> False})
+      None -> Prelude.False})
 
 task_trace_entry_valid :: AwkernelTaskTraceSummary -> AwkernelTaskTraceEntry
-                          -> Bool
+                          -> Prelude.Bool
 task_trace_entry_valid summary entry =
   case atte_kind entry of {
    LkSpawn ->
-    andb
-      (negb
+    (Prelude.&&)
+      (Prelude.not
         (job_list_contains (atte_subject entry) (atts_known_tasks summary)))
       (case atte_related entry of {
         Some parent ->
-         andb
-           (andb
-             (andb
-               (andb
-                 (andb (job_list_contains parent (atts_known_tasks summary))
+         (Prelude.&&)
+           ((Prelude.&&)
+             ((Prelude.&&)
+               ((Prelude.&&)
+                 ((Prelude.&&)
+                   (job_list_contains parent (atts_known_tasks summary))
                    (bool_of_option_none (atte_wait_class entry)))
                  (bool_of_option_none (atte_unblock_kind entry)))
                (bool_of_task_policy_some (atte_policy entry)))
              (bool_of_option_none (atte_deadline_metadata entry)))
            (bool_of_option_none (atte_periodic_loop_index entry));
         None ->
-         andb
-           (andb
-             (andb
-               (andb
-                 (andb (option_job_eqb (atts_root_task summary) None)
+         (Prelude.&&)
+           ((Prelude.&&)
+             ((Prelude.&&)
+               ((Prelude.&&)
+                 ((Prelude.&&) (option_job_eqb (atts_root_task summary) None)
                    (bool_of_option_none (atte_wait_class entry)))
                  (bool_of_option_none (atte_unblock_kind entry)))
                (bool_of_task_policy_some (atte_policy entry)))
@@ -1130,16 +1109,16 @@ task_trace_entry_valid summary entry =
            (bool_of_option_none (atte_periodic_loop_index entry))});
    LkRunnableDeadline -> task_trace_runnable_deadline_row_valid summary entry;
    LkBlock ->
-    andb
-      (andb
+    (Prelude.&&)
+      ((Prelude.&&)
         (job_list_contains (atte_subject entry) (atts_known_tasks summary))
-        (negb
+        (Prelude.not
           (blocked_task_contains (atte_subject entry)
             (atts_blocked_tasks summary))))
       (task_trace_has_wait_class_only entry);
    LkUnblock ->
-    andb
-      (andb
+    (Prelude.&&)
+      ((Prelude.&&)
         (job_list_contains (atte_subject entry) (atts_known_tasks summary))
         (task_trace_has_wait_and_unblock_kind entry))
       (case atte_wait_class entry of {
@@ -1148,16 +1127,16 @@ task_trace_entry_valid summary entry =
                 (atts_blocked_tasks summary) of {
           Some blocked_wait_class ->
            wait_class_eqb wait_class blocked_wait_class;
-          None -> False};
-        None -> False});
+          None -> Prelude.False};
+        None -> Prelude.False});
    LkJoinWait ->
     case atte_related entry of {
      Some target ->
-      andb
-        (andb
-          (andb
-            (andb
-              (andb
+      (Prelude.&&)
+        ((Prelude.&&)
+          ((Prelude.&&)
+            ((Prelude.&&)
+              ((Prelude.&&)
                 (job_list_contains (atte_subject entry)
                   (atts_known_tasks summary))
                 (job_list_contains target (atts_known_tasks summary)))
@@ -1165,19 +1144,19 @@ task_trace_entry_valid summary entry =
             (bool_of_option_none (atte_unblock_kind entry)))
           (bool_of_option_none (atte_deadline_metadata entry)))
         (bool_of_option_none (atte_periodic_loop_index entry));
-     None -> False};
+     None -> Prelude.False};
    LkJoinTargetReady ->
     case atte_related entry of {
-     Some _ -> False;
+     Some _ -> Prelude.False;
      None ->
-      andb
-        (andb
-          (andb
-            (andb
-              (andb
+      (Prelude.&&)
+        ((Prelude.&&)
+          ((Prelude.&&)
+            ((Prelude.&&)
+              ((Prelude.&&)
                 (job_list_contains (atte_subject entry)
                   (atts_known_tasks summary))
-                (negb
+                (Prelude.not
                   (job_list_contains (atte_subject entry)
                     (atts_ready_targets summary))))
               (bool_of_option_none (atte_wait_class entry)))
@@ -1187,7 +1166,8 @@ task_trace_entry_valid summary entry =
    LkPeriodicJobComplete ->
     task_trace_periodic_job_complete_row_valid summary entry;
    _ ->
-    andb (job_list_contains (atte_subject entry) (atts_known_tasks summary))
+    (Prelude.&&)
+      (job_list_contains (atte_subject entry) (atts_known_tasks summary))
       (task_trace_metadata_empty entry)}
 
 task_trace_entry_step :: AwkernelTaskTraceSummary -> AwkernelTaskTraceEntry
@@ -1226,16 +1206,16 @@ task_trace_entry_step summary entry =
       Some wait_class -> wait_class;
       None -> WcSleep}))
     (atts_blocked_tasks summary))
-    (add_block_transition (atte_event_id entry) (atte_subject entry) True
-      (atts_block_transitions summary))
+    (add_block_transition (atte_event_id entry) (atte_subject entry)
+      Prelude.True (atts_block_transitions summary))
     (atts_periodic_job_completions summary);
    LkUnblock -> MkAwkernelTaskTraceSummary (atts_root_task summary)
     (atts_known_tasks summary) (atts_task_policies summary)
     (atts_edf_deadlines summary) (atts_completion_deps summary)
     (atts_ready_targets summary)
     (remove_blocked_task (atte_subject entry) (atts_blocked_tasks summary))
-    (add_block_transition (atte_event_id entry) (atte_subject entry) False
-      (atts_block_transitions summary))
+    (add_block_transition (atte_event_id entry) (atte_subject entry)
+      Prelude.False (atts_block_transitions summary))
     (atts_periodic_job_completions summary);
    LkJoinWait ->
     case atte_related entry of {
@@ -1274,34 +1254,37 @@ summarize_task_trace summary task_trace =
    Nil -> Some summary;
    Cons entry task_trace' ->
     case task_trace_entry_valid summary entry of {
-     True ->
+     Prelude.True ->
       summarize_task_trace (task_trace_entry_step summary entry) task_trace';
-     False -> None}}
+     Prelude.False -> None}}
 
-task_trace_all_global_fifo_policyb :: (List AwkernelTaskTraceEntry) -> Bool
+task_trace_all_global_fifo_policyb :: (List AwkernelTaskTraceEntry) ->
+                                      Prelude.Bool
 task_trace_all_global_fifo_policyb task_trace =
   case summarize_task_trace initial_task_trace_summary task_trace of {
    Some summary ->
     task_policy_table_all_global_fifo (atts_task_policies summary);
-   None -> False}
+   None -> Prelude.False}
 
-task_trace_all_global_edf_policyb :: (List AwkernelTaskTraceEntry) -> Bool
+task_trace_all_global_edf_policyb :: (List AwkernelTaskTraceEntry) ->
+                                     Prelude.Bool
 task_trace_all_global_edf_policyb task_trace =
   case summarize_task_trace initial_task_trace_summary task_trace of {
    Some summary ->
     task_policy_table_all_global_edf (atts_task_policies summary);
-   None -> False}
+   None -> Prelude.False}
 
-task_trace_all_edf_fifo_policyb :: (List AwkernelTaskTraceEntry) -> Bool
+task_trace_all_edf_fifo_policyb :: (List AwkernelTaskTraceEntry) ->
+                                   Prelude.Bool
 task_trace_all_edf_fifo_policyb task_trace =
   case summarize_task_trace initial_task_trace_summary task_trace of {
    Some summary ->
     task_policy_table_all_edf_fifo (atts_task_policies summary);
-   None -> False}
+   None -> Prelude.False}
 
-first_non_global_fifo_task_policy_index_from :: Nat -> (List
+first_non_global_fifo_task_policy_index_from :: Prelude.Integer -> (List
                                                 AwkernelTaskTraceEntry) ->
-                                                Option Nat
+                                                Option Prelude.Integer
 first_non_global_fifo_task_policy_index_from n task_trace =
   case task_trace of {
    Nil -> None;
@@ -1309,18 +1292,22 @@ first_non_global_fifo_task_policy_index_from n task_trace =
     case atte_kind entry of {
      LkSpawn ->
       case option_task_policy_global_fifo_supportedb (atte_policy entry) of {
-       True -> first_non_global_fifo_task_policy_index_from (S n) task_trace';
-       False -> Some n};
-     _ -> first_non_global_fifo_task_policy_index_from (S n) task_trace'}}
+       Prelude.True ->
+        first_non_global_fifo_task_policy_index_from (Prelude.succ n)
+          task_trace';
+       Prelude.False -> Some n};
+     _ ->
+      first_non_global_fifo_task_policy_index_from (Prelude.succ n)
+        task_trace'}}
 
 first_non_global_fifo_task_policy_index :: (List AwkernelTaskTraceEntry) ->
-                                           Option Nat
+                                           Option Prelude.Integer
 first_non_global_fifo_task_policy_index task_trace =
-  first_non_global_fifo_task_policy_index_from O task_trace
+  first_non_global_fifo_task_policy_index_from 0 task_trace
 
-first_non_global_edf_task_policy_index_from :: Nat -> (List
+first_non_global_edf_task_policy_index_from :: Prelude.Integer -> (List
                                                AwkernelTaskTraceEntry) ->
-                                               Option Nat
+                                               Option Prelude.Integer
 first_non_global_edf_task_policy_index_from n task_trace =
   case task_trace of {
    Nil -> None;
@@ -1328,18 +1315,22 @@ first_non_global_edf_task_policy_index_from n task_trace =
     case atte_kind entry of {
      LkSpawn ->
       case option_task_policy_global_edf_supportedb (atte_policy entry) of {
-       True -> first_non_global_edf_task_policy_index_from (S n) task_trace';
-       False -> Some n};
-     _ -> first_non_global_edf_task_policy_index_from (S n) task_trace'}}
+       Prelude.True ->
+        first_non_global_edf_task_policy_index_from (Prelude.succ n)
+          task_trace';
+       Prelude.False -> Some n};
+     _ ->
+      first_non_global_edf_task_policy_index_from (Prelude.succ n)
+        task_trace'}}
 
 first_non_global_edf_task_policy_index :: (List AwkernelTaskTraceEntry) ->
-                                          Option Nat
+                                          Option Prelude.Integer
 first_non_global_edf_task_policy_index task_trace =
-  first_non_global_edf_task_policy_index_from O task_trace
+  first_non_global_edf_task_policy_index_from 0 task_trace
 
-first_non_edf_fifo_task_policy_index_from :: Nat -> (List
+first_non_edf_fifo_task_policy_index_from :: Prelude.Integer -> (List
                                              AwkernelTaskTraceEntry) ->
-                                             Option Nat
+                                             Option Prelude.Integer
 first_non_edf_fifo_task_policy_index_from n task_trace =
   case task_trace of {
    Nil -> None;
@@ -1347,19 +1338,24 @@ first_non_edf_fifo_task_policy_index_from n task_trace =
     case atte_kind entry of {
      LkSpawn ->
       case option_task_policy_edf_fifo_supportedb (atte_policy entry) of {
-       True -> first_non_edf_fifo_task_policy_index_from (S n) task_trace';
-       False -> Some n};
-     _ -> first_non_edf_fifo_task_policy_index_from (S n) task_trace'}}
+       Prelude.True ->
+        first_non_edf_fifo_task_policy_index_from (Prelude.succ n)
+          task_trace';
+       Prelude.False -> Some n};
+     _ ->
+      first_non_edf_fifo_task_policy_index_from (Prelude.succ n) task_trace'}}
 
 first_non_edf_fifo_task_policy_index :: (List AwkernelTaskTraceEntry) ->
-                                        Option Nat
+                                        Option Prelude.Integer
 first_non_edf_fifo_task_policy_index task_trace =
-  first_non_edf_fifo_task_policy_index_from O task_trace
+  first_non_edf_fifo_task_policy_index_from 0 task_trace
 
 first_invalid_runnable_deadline_task_trace_index_from :: AwkernelTaskTraceSummary
-                                                         -> Nat -> (List
+                                                         -> Prelude.Integer
+                                                         -> (List
                                                          AwkernelTaskTraceEntry)
-                                                         -> Option Nat
+                                                         -> Option
+                                                         Prelude.Integer
 first_invalid_runnable_deadline_task_trace_index_from summary n task_trace =
   case task_trace of {
    Nil -> None;
@@ -1367,31 +1363,32 @@ first_invalid_runnable_deadline_task_trace_index_from summary n task_trace =
     case atte_kind entry of {
      LkRunnableDeadline ->
       case task_trace_runnable_deadline_row_valid summary entry of {
-       True ->
+       Prelude.True ->
         first_invalid_runnable_deadline_task_trace_index_from
-          (task_trace_entry_step summary entry) (S n) task_trace';
-       False -> Some n};
+          (task_trace_entry_step summary entry) (Prelude.succ n) task_trace';
+       Prelude.False -> Some n};
      _ ->
       let {
        summary' = case task_trace_entry_valid summary entry of {
-                   True -> task_trace_entry_step summary entry;
-                   False -> summary}}
+                   Prelude.True -> task_trace_entry_step summary entry;
+                   Prelude.False -> summary}}
       in
-      first_invalid_runnable_deadline_task_trace_index_from summary' (S n)
-        task_trace'}}
+      first_invalid_runnable_deadline_task_trace_index_from summary'
+        (Prelude.succ n) task_trace'}}
 
 first_invalid_runnable_deadline_task_trace_index :: (List
                                                     AwkernelTaskTraceEntry)
-                                                    -> Option Nat
+                                                    -> Option Prelude.Integer
 first_invalid_runnable_deadline_task_trace_index task_trace =
   first_invalid_runnable_deadline_task_trace_index_from
-    initial_task_trace_summary O task_trace
+    initial_task_trace_summary 0 task_trace
 
 data AwkernelSchedTraceAcceptanceState =
-   MkAwkernelSchedTraceAcceptanceState Bool (Option JobId) (List JobId) 
+   MkAwkernelSchedTraceAcceptanceState Prelude.Bool (Option JobId) (List
+                                                                   JobId)
  (List JobId) (List JobId) (List JobId)
 
-astas_started :: AwkernelSchedTraceAcceptanceState -> Bool
+astas_started :: AwkernelSchedTraceAcceptanceState -> Prelude.Bool
 astas_started a =
   case a of {
    MkAwkernelSchedTraceAcceptanceState astas_started0 _ _ _ _ _ ->
@@ -1429,7 +1426,7 @@ astas_blocked a =
 
 initial_sched_trace_acceptance_state :: AwkernelSchedTraceAcceptanceState
 initial_sched_trace_acceptance_state =
-  MkAwkernelSchedTraceAcceptanceState False None Nil Nil Nil Nil
+  MkAwkernelSchedTraceAcceptanceState Prelude.False None Nil Nil Nil Nil
 
 sched_trace_step_start :: AwkernelTaskTraceSummary -> AwkernelSchedTraceEntry
                           -> Option AwkernelSchedTraceAcceptanceState
@@ -1437,9 +1434,9 @@ sched_trace_step_start summary entry =
   case atts_root_task summary of {
    Some root ->
     case sched_trace_is_wakeup root entry of {
-     True -> Some (MkAwkernelSchedTraceAcceptanceState True None Nil Nil Nil
-      Nil);
-     False -> None};
+     Prelude.True -> Some (MkAwkernelSchedTraceAcceptanceState Prelude.True
+      None Nil Nil Nil Nil);
+     Prelude.False -> None};
    None -> None}
 
 sched_trace_step_after_start :: AwkernelTaskTraceSummary ->
@@ -1452,103 +1449,106 @@ sched_trace_step_after_start summary st entry =
   let {ready_targets = atts_ready_targets summary} in
   let {
    try_wakeup_job = \j ->
-    case andb
-           (andb (sched_trace_is_wakeup j entry) (job_list_contains j known))
-           (negb (job_list_contains j (astas_completed st))) of {
-     True -> Some (MkAwkernelSchedTraceAcceptanceState True
+    case (Prelude.&&)
+           ((Prelude.&&) (sched_trace_is_wakeup j entry)
+             (job_list_contains j known))
+           (Prelude.not (job_list_contains j (astas_completed st))) of {
+     Prelude.True -> Some (MkAwkernelSchedTraceAcceptanceState Prelude.True
       (astas_selected st) (astas_dispatched st) (astas_completed st)
       (astas_ready_targets st) (remove_job j (astas_blocked st)));
-     False -> None}}
+     Prelude.False -> None}}
   in
   let {
    try_block_job = \j ->
-    case andb
-           (andb
-             (andb (sched_trace_is_block j entry)
+    case (Prelude.&&)
+           ((Prelude.&&)
+             ((Prelude.&&) (sched_trace_is_block j entry)
                (job_list_contains j known))
-             (negb (job_list_contains j (astas_completed st))))
-           (negb (job_list_contains j (astas_blocked st))) of {
-     True -> Some (MkAwkernelSchedTraceAcceptanceState True None
-      (astas_dispatched st) (astas_completed st) (astas_ready_targets st)
-      (add_job_once j (astas_blocked st)));
-     False -> None}}
+             (Prelude.not (job_list_contains j (astas_completed st))))
+           (Prelude.not (job_list_contains j (astas_blocked st))) of {
+     Prelude.True -> Some (MkAwkernelSchedTraceAcceptanceState Prelude.True
+      None (astas_dispatched st) (astas_completed st)
+      (astas_ready_targets st) (add_job_once j (astas_blocked st)));
+     Prelude.False -> None}}
   in
   let {
    try_choose_job = \j ->
-    case andb
-           (andb
-             (andb
-               (andb (sched_trace_is_choose j entry)
+    case (Prelude.&&)
+           ((Prelude.&&)
+             ((Prelude.&&)
+               ((Prelude.&&) (sched_trace_is_choose j entry)
                  (job_list_contains j known))
-               (negb (job_list_contains j (astas_completed st))))
-             (negb (job_list_contains j (astas_blocked st))))
+               (Prelude.not (job_list_contains j (astas_completed st))))
+             (Prelude.not (job_list_contains j (astas_blocked st))))
            (option_job_eqb (astas_selected st) None) of {
-     True -> Some (MkAwkernelSchedTraceAcceptanceState True (Some j)
-      (astas_dispatched st) (astas_completed st) (astas_ready_targets st)
-      (astas_blocked st));
-     False -> None}}
+     Prelude.True -> Some (MkAwkernelSchedTraceAcceptanceState Prelude.True
+      (Some j) (astas_dispatched st) (astas_completed st)
+      (astas_ready_targets st) (astas_blocked st));
+     Prelude.False -> None}}
   in
   let {
    try_spurious_dispatch_job = \j ->
-    case andb
-           (andb
-             (andb
-               (andb (sched_trace_is_dispatch j entry)
+    case (Prelude.&&)
+           ((Prelude.&&)
+             ((Prelude.&&)
+               ((Prelude.&&) (sched_trace_is_dispatch j entry)
                  (option_job_eqb (astas_selected st) (Some j)))
                (job_list_contains j known))
-             (negb (job_list_contains j (astas_completed st))))
+             (Prelude.not (job_list_contains j (astas_completed st))))
            (task_trace_blocked_at summary (aste_event_id entry) j) of {
-     True -> Some (MkAwkernelSchedTraceAcceptanceState True None
-      (astas_dispatched st) (astas_completed st) (astas_ready_targets st)
-      (astas_blocked st));
-     False -> None}}
+     Prelude.True -> Some (MkAwkernelSchedTraceAcceptanceState Prelude.True
+      None (astas_dispatched st) (astas_completed st)
+      (astas_ready_targets st) (astas_blocked st));
+     Prelude.False -> None}}
   in
   let {
    try_dispatch_job = \j ->
-    case andb
-           (andb
-             (andb (sched_trace_is_dispatch j entry)
+    case (Prelude.&&)
+           ((Prelude.&&)
+             ((Prelude.&&) (sched_trace_is_dispatch j entry)
                (option_job_eqb (astas_selected st) (Some j)))
-             (negb (job_list_contains j (astas_blocked st))))
-           (negb (task_trace_blocked_at summary (aste_event_id entry) j)) of {
-     True -> Some (MkAwkernelSchedTraceAcceptanceState True None
-      (add_job_once j (astas_dispatched st)) (astas_completed st)
+             (Prelude.not (job_list_contains j (astas_blocked st))))
+           (Prelude.not
+             (task_trace_blocked_at summary (aste_event_id entry) j)) of {
+     Prelude.True -> Some (MkAwkernelSchedTraceAcceptanceState Prelude.True
+      None (add_job_once j (astas_dispatched st)) (astas_completed st)
       (astas_ready_targets st) (astas_blocked st));
-     False -> None}}
+     Prelude.False -> None}}
   in
   let {
    try_join_target_ready = \j ->
-    case andb
-           (andb
-             (andb (sched_trace_is_join_target_ready j entry)
+    case (Prelude.&&)
+           ((Prelude.&&)
+             ((Prelude.&&) (sched_trace_is_join_target_ready j entry)
                (job_list_contains j known))
              (job_list_contains j ready_targets))
-           (negb (job_list_contains j (astas_ready_targets st))) of {
-     True -> Some (MkAwkernelSchedTraceAcceptanceState True None
-      (astas_dispatched st) (astas_completed st)
+           (Prelude.not (job_list_contains j (astas_ready_targets st))) of {
+     Prelude.True -> Some (MkAwkernelSchedTraceAcceptanceState Prelude.True
+      None (astas_dispatched st) (astas_completed st)
       (add_job_once j (astas_ready_targets st)) (astas_blocked st));
-     False -> None}}
+     Prelude.False -> None}}
   in
   let {
    try_complete_job = \j ->
-    case andb
-           (andb
-             (andb
-               (andb
-                 (andb (sched_trace_is_complete j entry)
+    case (Prelude.&&)
+           ((Prelude.&&)
+             ((Prelude.&&)
+               ((Prelude.&&)
+                 ((Prelude.&&) (sched_trace_is_complete j entry)
                    (job_list_contains j (astas_dispatched st)))
-                 (negb (job_list_contains j (astas_completed st))))
-               (negb (job_list_contains j (astas_blocked st))))
-             (negb (task_trace_blocked_at summary (aste_event_id entry) j)))
+                 (Prelude.not (job_list_contains j (astas_completed st))))
+               (Prelude.not (job_list_contains j (astas_blocked st))))
+             (Prelude.not
+               (task_trace_blocked_at summary (aste_event_id entry) j)))
            (all_dependencies_ready j deps (astas_ready_targets st)) of {
-     True -> Some (MkAwkernelSchedTraceAcceptanceState True None
-      (astas_dispatched st) (add_job_once j (astas_completed st))
+     Prelude.True -> Some (MkAwkernelSchedTraceAcceptanceState Prelude.True
+      None (astas_dispatched st) (add_job_once j (astas_completed st))
       (astas_ready_targets st) (astas_blocked st));
-     False -> None}}
+     Prelude.False -> None}}
   in
   case sched_trace_is_stutter entry of {
-   True -> Some st;
-   False ->
+   Prelude.True -> Some st;
+   Prelude.False ->
     case first_some try_wakeup_job known of {
      Some st' -> Some st';
      None ->
@@ -1574,39 +1574,40 @@ sched_trace_step :: AwkernelTaskTraceSummary ->
                     AwkernelSchedTraceAcceptanceState
 sched_trace_step summary st entry =
   case astas_started st of {
-   True -> sched_trace_step_after_start summary st entry;
-   False -> sched_trace_step_start summary entry}
+   Prelude.True -> sched_trace_step_after_start summary st entry;
+   Prelude.False -> sched_trace_step_start summary entry}
 
 accept_sched_trace_from :: AwkernelTaskTraceSummary ->
                            AwkernelSchedTraceAcceptanceState -> (List
-                           AwkernelSchedTraceEntry) -> Bool
+                           AwkernelSchedTraceEntry) -> Prelude.Bool
 accept_sched_trace_from summary st sched_trace =
   case sched_trace of {
    Nil ->
     case atts_root_task summary of {
      Some root -> job_list_contains root (astas_completed st);
-     None -> False};
+     None -> Prelude.False};
    Cons entry sched_trace' ->
     case sched_trace_step summary st entry of {
      Some st' -> accept_sched_trace_from summary st' sched_trace';
-     None -> False}}
+     None -> Prelude.False}}
 
 sched_trace_family_member :: AwkernelTaskTraceSummary -> (List
-                             AwkernelSchedTraceEntry) -> Bool
+                             AwkernelSchedTraceEntry) -> Prelude.Bool
 sched_trace_family_member summary sched_trace =
   accept_sched_trace_from summary initial_sched_trace_acceptance_state
     sched_trace
 
 awk_workload_accepts_sched_trace :: (List AwkernelTaskTraceEntry) -> (List
-                                    AwkernelSchedTraceEntry) -> Bool
+                                    AwkernelSchedTraceEntry) -> Prelude.Bool
 awk_workload_accepts_sched_trace task_trace sched_trace =
   case summarize_task_trace initial_task_trace_summary task_trace of {
    Some summary -> sched_trace_family_member summary sched_trace;
-   None -> False}
+   None -> Prelude.False}
 
 empty_sched_trace_entry :: AwkernelSchedTraceEntry
 empty_sched_trace_entry =
-  MkAwkernelSchedTraceEntry O O EvStutter None Nil False None Nil Nil Nil
+  MkAwkernelSchedTraceEntry 0 0 EvStutter None Nil Prelude.False None Nil Nil
+    Nil
 
 min_metric_job :: (JobId -> Z) -> (List JobId) -> Option JobId
 min_metric_job metric l =
@@ -1615,28 +1616,30 @@ min_metric_job metric l =
    Cons j rest ->
     case min_metric_job metric rest of {
      Some j' ->
-      case leb0 (metric j) (metric j') of {
-       True -> Some j;
-       False -> Some j'};
+      case leb (metric j) (metric j') of {
+       Prelude.True -> Some j;
+       Prelude.False -> Some j'};
      None -> Some j}}
 
-choose_min_metric :: (JobId -> Z) -> (JobId -> Job) -> Nat -> Schedule ->
-                     Time -> (List JobId) -> Option JobId
+choose_min_metric :: (JobId -> Z) -> (JobId -> Job) -> Prelude.Integer ->
+                     Schedule -> Time -> (List JobId) -> Option JobId
 choose_min_metric metric jobs m sched t candidates =
   min_metric_job metric
     (filter (\j -> eligibleb jobs m sched j t) candidates)
 
-choose_top_m_by_metric :: Nat -> (JobId -> Z) -> (JobId -> Job) -> Nat ->
-                          Schedule -> Time -> (List JobId) -> List JobId
+choose_top_m_by_metric :: Prelude.Integer -> (JobId -> Z) -> (JobId -> Job)
+                          -> Prelude.Integer -> Schedule -> Time -> (List
+                          JobId) -> List JobId
 choose_top_m_by_metric k metric jobs m sched t candidates =
-  case k of {
-   O -> Nil;
-   S k' ->
+  (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+    (\_ -> Nil)
+    (\k' ->
     case choose_min_metric metric jobs m sched t candidates of {
      Some j -> Cons j
       (choose_top_m_by_metric k' metric jobs m sched t
-        (remove eq_dec j candidates));
-     None -> Nil}}
+        (remove (Prelude.==) j candidates));
+     None -> Nil})
+    k
 
 make_metric_top_m_algorithm :: ((JobId -> Job) -> JobId -> Z) ->
                                GenericTopMSchedulingAlgorithm
@@ -1651,13 +1654,13 @@ global_edf_top_m_spec :: GenericTopMSchedulingAlgorithm
 global_edf_top_m_spec =
   make_metric_top_m_algorithm global_edf_metric_of_jobs
 
-fifo_eligible_candidates :: (JobId -> Job) -> Nat -> Schedule -> Time ->
-                            (List JobId) -> List JobId
+fifo_eligible_candidates :: (JobId -> Job) -> Prelude.Integer -> Schedule ->
+                            Time -> (List JobId) -> List JobId
 fifo_eligible_candidates jobs m sched t candidates =
-  filter (\j -> eligibleb jobs m sched j t) (nodup eq_dec candidates)
+  filter (\j -> eligibleb jobs m sched j t) (nodup (Prelude.==) candidates)
 
-choose_top_m_fifo :: (JobId -> Job) -> Nat -> Schedule -> Time -> (List
-                     JobId) -> List JobId
+choose_top_m_fifo :: (JobId -> Job) -> Prelude.Integer -> Schedule -> Time ->
+                     (List JobId) -> List JobId
 choose_top_m_fifo jobs m sched t candidates =
   firstn m (fifo_eligible_candidates jobs m sched t candidates)
 
@@ -1674,8 +1677,8 @@ option_job_to_list oj =
 append_job_once_preserving :: (List JobId) -> JobId -> List JobId
 append_job_once_preserving xs j =
   case job_list_contains j xs of {
-   True -> xs;
-   False -> app xs (Cons j Nil)}
+   Prelude.True -> xs;
+   Prelude.False -> app xs (Cons j Nil)}
 
 append_jobs_once_preserving :: (List JobId) -> (List JobId) -> List JobId
 append_jobs_once_preserving acc xs =
@@ -1705,64 +1708,69 @@ sched_trace_fifo_head entry =
    Nil -> None;
    Cons j _ -> Some j}
 
-sched_trace_global_fifo_rowb :: AwkernelSchedTraceEntry -> Bool
+sched_trace_global_fifo_rowb :: AwkernelSchedTraceEntry -> Prelude.Bool
 sched_trace_global_fifo_rowb entry =
   case aste_event entry of {
    EvChoose cpu j ->
-    andb (andb (eqb0 (aste_cpu entry) (S O)) (eqb0 cpu (S O)))
+    (Prelude.&&)
+      ((Prelude.&&) ((Prelude.==) (aste_cpu entry) (Prelude.succ 0))
+        ((Prelude.==) cpu (Prelude.succ 0)))
       (option_job_eqb (sched_trace_fifo_head entry) (Some j));
-   _ -> True}
+   _ -> Prelude.True}
 
-sched_trace_global_fifo_checkb :: (List AwkernelSchedTraceEntry) -> Bool
+sched_trace_global_fifo_checkb :: (List AwkernelSchedTraceEntry) ->
+                                  Prelude.Bool
 sched_trace_global_fifo_checkb sched_trace =
   case sched_trace of {
-   Nil -> True;
+   Nil -> Prelude.True;
    Cons entry sched_trace' ->
-    andb (sched_trace_global_fifo_rowb entry)
+    (Prelude.&&) (sched_trace_global_fifo_rowb entry)
       (sched_trace_global_fifo_checkb sched_trace')}
 
-first_non_fifo_sched_trace_index_from :: Nat -> (List
+first_non_fifo_sched_trace_index_from :: Prelude.Integer -> (List
                                          AwkernelSchedTraceEntry) -> Option
-                                         Nat
+                                         Prelude.Integer
 first_non_fifo_sched_trace_index_from n sched_trace =
   case sched_trace of {
    Nil -> None;
    Cons entry sched_trace' ->
     case sched_trace_global_fifo_rowb entry of {
-     True -> first_non_fifo_sched_trace_index_from (S n) sched_trace';
-     False -> Some n}}
+     Prelude.True ->
+      first_non_fifo_sched_trace_index_from (Prelude.succ n) sched_trace';
+     Prelude.False -> Some n}}
 
 first_non_fifo_sched_trace_index :: (List AwkernelSchedTraceEntry) -> Option
-                                    Nat
+                                    Prelude.Integer
 first_non_fifo_sched_trace_index sched_trace =
-  first_non_fifo_sched_trace_index_from O sched_trace
+  first_non_fifo_sched_trace_index_from 0 sched_trace
 
 awk_workload_accepts_global_fifo_sched_trace :: (List AwkernelTaskTraceEntry)
                                                 -> (List
                                                 AwkernelSchedTraceEntry) ->
-                                                Bool
+                                                Prelude.Bool
 awk_workload_accepts_global_fifo_sched_trace task_trace sched_trace =
-  andb
-    (andb (awk_workload_accepts_sched_trace task_trace sched_trace)
+  (Prelude.&&)
+    ((Prelude.&&) (awk_workload_accepts_sched_trace task_trace sched_trace)
       (task_trace_all_global_fifo_policyb task_trace))
     (sched_trace_global_fifo_checkb sched_trace)
 
-job_list_eqb :: (List JobId) -> (List JobId) -> Bool
+job_list_eqb :: (List JobId) -> (List JobId) -> Prelude.Bool
 job_list_eqb xs ys =
   case xs of {
    Nil -> case ys of {
-           Nil -> True;
-           Cons _ _ -> False};
+           Nil -> Prelude.True;
+           Cons _ _ -> Prelude.False};
    Cons x xs' ->
     case ys of {
-     Nil -> False;
-     Cons y ys' -> andb (eqb0 x y) (job_list_eqb xs' ys')}}
+     Nil -> Prelude.False;
+     Cons y ys' -> (Prelude.&&) ((Prelude.==) x y) (job_list_eqb xs' ys')}}
 
-task_trace_blocks_at :: (List AwkernelTaskTraceEntry) -> Nat -> Nat -> Bool
+task_trace_blocks_at :: (List AwkernelTaskTraceEntry) -> Prelude.Integer ->
+                        Prelude.Integer -> Prelude.Bool
 task_trace_blocks_at task_trace event_id task_id =
   case summarize_task_trace initial_task_trace_summary task_trace of {
    Some summary -> task_trace_blocked_at summary event_id task_id;
-   None -> False}
+   None -> Prelude.False}
 
 workload_scheduler_relation_candidates :: (List AwkernelTaskTraceEntry) ->
                                           AwkernelSchedTraceEntry -> List
@@ -1770,52 +1778,56 @@ workload_scheduler_relation_candidates :: (List AwkernelTaskTraceEntry) ->
 workload_scheduler_relation_candidates task_trace entry =
   case aste_event entry of {
    EvChoose cpu j ->
-    case andb (eqb0 cpu (S O))
-           (negb (task_trace_blocks_at task_trace (aste_event_id entry) j)) of {
-     True -> sched_trace_fifo_candidates entry;
-     False -> Nil};
+    case (Prelude.&&) ((Prelude.==) cpu (Prelude.succ 0))
+           (Prelude.not
+             (task_trace_blocks_at task_trace (aste_event_id entry) j)) of {
+     Prelude.True -> sched_trace_fifo_candidates entry;
+     Prelude.False -> Nil};
    _ -> Nil}
 
 workload_scheduler_relation_choice :: (List AwkernelTaskTraceEntry) ->
-                                      AwkernelSchedTraceEntry -> List 
+                                      AwkernelSchedTraceEntry -> List
                                       JobId
 workload_scheduler_relation_choice task_trace entry =
   case aste_event entry of {
    EvChoose cpu j ->
-    case andb (eqb0 cpu (S O))
-           (negb (task_trace_blocks_at task_trace (aste_event_id entry) j)) of {
-     True -> Cons j Nil;
-     False -> Nil};
+    case (Prelude.&&) ((Prelude.==) cpu (Prelude.succ 0))
+           (Prelude.not
+             (task_trace_blocks_at task_trace (aste_event_id entry) j)) of {
+     Prelude.True -> Cons j Nil;
+     Prelude.False -> Nil};
    _ -> Nil}
 
 workload_scheduler_relation_schedule :: (List AwkernelTaskTraceEntry) ->
                                         (List AwkernelSchedTraceEntry) ->
                                         Schedule
 workload_scheduler_relation_schedule task_trace sched_trace t c =
-  case ltb c (S O) of {
-   True ->
+  case ltb c (Prelude.succ 0) of {
+   Prelude.True ->
     nth_error
       (workload_scheduler_relation_choice task_trace
         (nth t sched_trace empty_sched_trace_entry))
       c;
-   False -> None}
+   Prelude.False -> None}
 
-task_trace_has_completeb :: JobId -> (List AwkernelTaskTraceEntry) -> Bool
+task_trace_has_completeb :: JobId -> (List AwkernelTaskTraceEntry) ->
+                            Prelude.Bool
 task_trace_has_completeb task_id task_trace =
   case task_trace of {
-   Nil -> False;
+   Nil -> Prelude.False;
    Cons entry task_trace' ->
     case atte_kind entry of {
      LkComplete ->
-      orb (eqb0 (atte_subject entry) task_id)
+      (Prelude.||) ((Prelude.==) (atte_subject entry) task_id)
         (task_trace_has_completeb task_id task_trace');
      _ -> task_trace_has_completeb task_id task_trace'}}
 
 count_scheduler_relation_service :: (List AwkernelTaskTraceEntry) -> JobId ->
-                                    (List AwkernelSchedTraceEntry) -> Nat
+                                    (List AwkernelSchedTraceEntry) ->
+                                    Prelude.Integer
 count_scheduler_relation_service task_trace task_id sched_trace =
   case sched_trace of {
-   Nil -> O;
+   Nil -> 0;
    Cons entry sched_trace' ->
     let {
      rest = count_scheduler_relation_service task_trace task_id sched_trace'}
@@ -1824,60 +1836,65 @@ count_scheduler_relation_service task_trace task_id sched_trace =
      Nil -> rest;
      Cons j l ->
       case l of {
-       Nil -> case eqb0 j task_id of {
-               True -> S rest;
-               False -> rest};
+       Nil ->
+        case (Prelude.==) j task_id of {
+         Prelude.True -> Prelude.succ rest;
+         Prelude.False -> rest};
        Cons _ _ -> rest}}}
 
-first_scheduler_visible_index_from :: (List AwkernelTaskTraceEntry) -> Nat ->
-                                      Nat -> (List AwkernelSchedTraceEntry)
-                                      -> Option Nat
+first_scheduler_visible_index_from :: (List AwkernelTaskTraceEntry) ->
+                                      Prelude.Integer -> Prelude.Integer ->
+                                      (List AwkernelSchedTraceEntry) ->
+                                      Option Prelude.Integer
 first_scheduler_visible_index_from task_trace task_id n sched_trace =
   case sched_trace of {
    Nil -> None;
    Cons entry sched_trace' ->
     case job_list_contains task_id
            (workload_scheduler_relation_candidates task_trace entry) of {
-     True -> Some n;
-     False ->
-      first_scheduler_visible_index_from task_trace task_id (S n)
+     Prelude.True -> Some n;
+     Prelude.False ->
+      first_scheduler_visible_index_from task_trace task_id (Prelude.succ n)
         sched_trace'}}
 
 first_scheduler_visible_index :: (List AwkernelTaskTraceEntry) -> JobId ->
-                                 (List AwkernelSchedTraceEntry) -> Option 
-                                 Nat
+                                 (List AwkernelSchedTraceEntry) -> Option
+                                 Prelude.Integer
 first_scheduler_visible_index task_trace task_id sched_trace =
-  first_scheduler_visible_index_from task_trace task_id O sched_trace
+  first_scheduler_visible_index_from task_trace task_id 0 sched_trace
 
 reconstructed_scheduler_relation_release :: (List AwkernelTaskTraceEntry) ->
                                             JobId -> (List
-                                            AwkernelSchedTraceEntry) -> Nat
+                                            AwkernelSchedTraceEntry) ->
+                                            Prelude.Integer
 reconstructed_scheduler_relation_release task_trace task_id sched_trace =
   case first_scheduler_visible_index task_trace task_id sched_trace of {
    Some t -> t;
-   None -> O}
+   None -> 0}
 
 reconstructed_scheduler_relation_cost :: (List AwkernelTaskTraceEntry) ->
                                          (List AwkernelSchedTraceEntry) ->
-                                         JobId -> Nat
+                                         JobId -> Prelude.Integer
 reconstructed_scheduler_relation_cost task_trace sched_trace task_id =
   let {
    service = count_scheduler_relation_service task_trace task_id sched_trace}
   in
   case task_trace_has_completeb task_id task_trace of {
-   True -> case service of {
-            O -> S O;
-            S _ -> service};
-   False -> S service}
+   Prelude.True ->
+    (\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))
+      (\_ -> Prelude.succ 0)
+      (\_ -> service)
+      service;
+   Prelude.False -> Prelude.succ service}
 
 reconstructed_scheduler_relation_abs_deadline :: (List
                                                  AwkernelTaskTraceEntry) ->
                                                  (List
                                                  AwkernelSchedTraceEntry) ->
-                                                 JobId -> Nat
+                                                 JobId -> Prelude.Integer
 reconstructed_scheduler_relation_abs_deadline task_trace sched_trace task_id =
-  add
-    (add
+  (Prelude.+)
+    ((Prelude.+)
       (reconstructed_scheduler_relation_release task_trace task_id
         sched_trace)
       (reconstructed_scheduler_relation_cost task_trace sched_trace task_id))
@@ -1886,24 +1903,24 @@ reconstructed_scheduler_relation_abs_deadline task_trace sched_trace task_id =
 workload_scheduler_relation_jobs :: (List AwkernelTaskTraceEntry) -> (List
                                     AwkernelSchedTraceEntry) -> JobId -> Job
 workload_scheduler_relation_jobs task_trace sched_trace task_id =
-  MkJob task_id O
+  MkJob task_id 0
     (reconstructed_scheduler_relation_release task_trace task_id sched_trace)
     (reconstructed_scheduler_relation_cost task_trace sched_trace task_id)
     (reconstructed_scheduler_relation_abs_deadline task_trace sched_trace
       task_id)
-    (\_ -> False)
+    (\_ -> Prelude.False)
 
 workload_global_fifo_scheduler_relation_rowb :: (List AwkernelTaskTraceEntry)
                                                 -> (List
                                                 AwkernelSchedTraceEntry) ->
                                                 Time ->
                                                 AwkernelSchedTraceEntry ->
-                                                Bool
+                                                Prelude.Bool
 workload_global_fifo_scheduler_relation_rowb task_trace sched_trace t entry =
   job_list_eqb
     (choose_top_m global_fifo_top_m_spec
-      (workload_scheduler_relation_jobs task_trace sched_trace) (S O)
-      (workload_scheduler_relation_schedule task_trace sched_trace) t
+      (workload_scheduler_relation_jobs task_trace sched_trace) (Prelude.succ
+      0) (workload_scheduler_relation_schedule task_trace sched_trace) t
       (workload_scheduler_relation_candidates task_trace entry))
     (workload_scheduler_relation_choice task_trace entry)
 
@@ -1911,63 +1928,67 @@ sched_trace_global_fifo_scheduler_relation_check_from :: (List
                                                          AwkernelTaskTraceEntry)
                                                          -> (List
                                                          AwkernelSchedTraceEntry)
-                                                         -> Nat -> (List
+                                                         -> Prelude.Integer
+                                                         -> (List
                                                          AwkernelSchedTraceEntry)
-                                                         -> Bool
+                                                         -> Prelude.Bool
 sched_trace_global_fifo_scheduler_relation_check_from task_trace sched_trace t remaining =
   case remaining of {
-   Nil -> True;
+   Nil -> Prelude.True;
    Cons entry remaining' ->
-    andb
+    (Prelude.&&)
       (workload_global_fifo_scheduler_relation_rowb task_trace sched_trace t
         entry)
       (sched_trace_global_fifo_scheduler_relation_check_from task_trace
-        sched_trace (S t) remaining')}
+        sched_trace (Prelude.succ t) remaining')}
 
 sched_trace_global_fifo_scheduler_relation_checkb :: (List
                                                      AwkernelTaskTraceEntry)
                                                      -> (List
                                                      AwkernelSchedTraceEntry)
-                                                     -> Bool
+                                                     -> Prelude.Bool
 sched_trace_global_fifo_scheduler_relation_checkb task_trace sched_trace =
   sched_trace_global_fifo_scheduler_relation_check_from task_trace
-    sched_trace O sched_trace
+    sched_trace 0 sched_trace
 
 first_non_scheduler_relation_sched_trace_index_from :: (List
                                                        AwkernelTaskTraceEntry)
                                                        -> (List
                                                        AwkernelSchedTraceEntry)
-                                                       -> Nat -> (List
+                                                       -> Prelude.Integer ->
+                                                       (List
                                                        AwkernelSchedTraceEntry)
-                                                       -> Option Nat
+                                                       -> Option
+                                                       Prelude.Integer
 first_non_scheduler_relation_sched_trace_index_from task_trace sched_trace t remaining =
   case remaining of {
    Nil -> None;
    Cons entry remaining' ->
     case workload_global_fifo_scheduler_relation_rowb task_trace sched_trace
            t entry of {
-     True ->
+     Prelude.True ->
       first_non_scheduler_relation_sched_trace_index_from task_trace
-        sched_trace (S t) remaining';
-     False -> Some t}}
+        sched_trace (Prelude.succ t) remaining';
+     Prelude.False -> Some t}}
 
 first_non_scheduler_relation_sched_trace_index :: (List
                                                   AwkernelTaskTraceEntry) ->
                                                   (List
                                                   AwkernelSchedTraceEntry) ->
-                                                  Option Nat
+                                                  Option Prelude.Integer
 first_non_scheduler_relation_sched_trace_index task_trace sched_trace =
   first_non_scheduler_relation_sched_trace_index_from task_trace sched_trace
-    O sched_trace
+    0 sched_trace
 
 awk_workload_accepts_global_fifo_scheduler_relation_sched_trace :: (List
                                                                    AwkernelTaskTraceEntry)
                                                                    -> (List
                                                                    AwkernelSchedTraceEntry)
-                                                                   -> Bool
+                                                                   ->
+                                                                   Prelude.Bool
 awk_workload_accepts_global_fifo_scheduler_relation_sched_trace task_trace sched_trace =
-  andb
-    (andb (awk_workload_accepts_sched_trace task_trace sched_trace)
+  (Prelude.&&)
+    ((Prelude.&&) (awk_workload_accepts_sched_trace task_trace sched_trace)
       (task_trace_all_global_fifo_policyb task_trace))
     (sched_trace_global_fifo_scheduler_relation_checkb task_trace
       sched_trace)
@@ -1980,53 +2001,56 @@ task_policy_table_lookup task_id policies =
    Cons p policies' ->
     case p of {
      Pair policy_task policy ->
-      case eqb0 policy_task task_id of {
-       True -> Some policy;
-       False -> task_policy_table_lookup task_id policies'}}}
+      case (Prelude.==) policy_task task_id of {
+       Prelude.True -> Some policy;
+       Prelude.False -> task_policy_table_lookup task_id policies'}}}
 
 task_trace_summary_policy_at :: AwkernelTaskTraceSummary -> JobId -> Option
                                 AwkernelTaskPolicy
 task_trace_summary_policy_at summary task_id =
   task_policy_table_lookup task_id (atts_task_policies summary)
 
-sched_trace_candidate_is_edfb :: AwkernelTaskTraceSummary -> JobId -> Bool
+sched_trace_candidate_is_edfb :: AwkernelTaskTraceSummary -> JobId ->
+                                 Prelude.Bool
 sched_trace_candidate_is_edfb summary task_id =
   case task_trace_summary_policy_at summary task_id of {
    Some policy -> task_policy_global_edf_supportedb policy;
-   None -> False}
+   None -> Prelude.False}
 
-filter_sched_trace_edf_candidates :: AwkernelTaskTraceSummary -> (List 
+filter_sched_trace_edf_candidates :: AwkernelTaskTraceSummary -> (List
                                      JobId) -> List JobId
 filter_sched_trace_edf_candidates summary candidates =
   case candidates of {
    Nil -> Nil;
    Cons j candidates' ->
     case sched_trace_candidate_is_edfb summary j of {
-     True -> Cons j (filter_sched_trace_edf_candidates summary candidates');
-     False -> filter_sched_trace_edf_candidates summary candidates'}}
+     Prelude.True -> Cons j
+      (filter_sched_trace_edf_candidates summary candidates');
+     Prelude.False -> filter_sched_trace_edf_candidates summary candidates'}}
 
 sched_trace_edf_deadline_presentb :: AwkernelTaskTraceSummary ->
-                                     AwkernelSchedTraceEntry -> JobId -> Bool
+                                     AwkernelSchedTraceEntry -> JobId ->
+                                     Prelude.Bool
 sched_trace_edf_deadline_presentb summary entry task_id =
   case task_trace_edf_deadline_at summary (aste_event_id entry) task_id of {
-   Some _ -> True;
-   None -> False}
+   Some _ -> Prelude.True;
+   None -> Prelude.False}
 
 sched_trace_edf_candidate_deadline_validb :: AwkernelTaskTraceSummary ->
                                              AwkernelSchedTraceEntry -> JobId
-                                             -> Bool
+                                             -> Prelude.Bool
 sched_trace_edf_candidate_deadline_validb summary entry task_id =
-  orb (negb (sched_trace_candidate_is_edfb summary task_id))
+  (Prelude.||) (Prelude.not (sched_trace_candidate_is_edfb summary task_id))
     (sched_trace_edf_deadline_presentb summary entry task_id)
 
 sched_trace_edf_candidate_deadlines_validb :: AwkernelTaskTraceSummary ->
                                               AwkernelSchedTraceEntry ->
-                                              (List JobId) -> Bool
+                                              (List JobId) -> Prelude.Bool
 sched_trace_edf_candidate_deadlines_validb summary entry candidates =
   case candidates of {
-   Nil -> True;
+   Nil -> Prelude.True;
    Cons j candidates' ->
-    andb (sched_trace_edf_candidate_deadline_validb summary entry j)
+    (Prelude.&&) (sched_trace_edf_candidate_deadline_validb summary entry j)
       (sched_trace_edf_candidate_deadlines_validb summary entry candidates')}
 
 workload_edf_fifo_scheduler_relation_jobs :: AwkernelTaskTraceSummary ->
@@ -2035,7 +2059,7 @@ workload_edf_fifo_scheduler_relation_jobs :: AwkernelTaskTraceSummary ->
                                              -> AwkernelSchedTraceEntry ->
                                              JobId -> Job
 workload_edf_fifo_scheduler_relation_jobs summary task_trace sched_trace entry task_id =
-  MkJob task_id O
+  MkJob task_id 0
     (reconstructed_scheduler_relation_release task_trace task_id sched_trace)
     (reconstructed_scheduler_relation_cost task_trace sched_trace task_id)
     (case task_trace_edf_deadline_at summary (aste_event_id entry) task_id of {
@@ -2043,7 +2067,7 @@ workload_edf_fifo_scheduler_relation_jobs summary task_trace sched_trace entry t
       None ->
        reconstructed_scheduler_relation_abs_deadline task_trace sched_trace
          task_id})
-    (\_ -> False)
+    (\_ -> Prelude.False)
 
 workload_edf_fifo_scheduler_relation_row_choice :: (List
                                                    AwkernelTaskTraceEntry) ->
@@ -2058,101 +2082,107 @@ workload_edf_fifo_scheduler_relation_row_choice task_trace sched_trace summary t
   let {candidates = workload_scheduler_relation_candidates task_trace entry}
   in
   case sched_trace_edf_candidate_deadlines_validb summary entry candidates of {
-   True ->
+   Prelude.True ->
     case filter_sched_trace_edf_candidates summary candidates of {
      Nil ->
       choose_top_m global_fifo_top_m_spec
-        (workload_scheduler_relation_jobs task_trace sched_trace) (S O)
+        (workload_scheduler_relation_jobs task_trace sched_trace)
+        (Prelude.succ 0)
         (workload_scheduler_relation_schedule task_trace sched_trace) t
         candidates;
      Cons j l ->
       choose_top_m global_edf_top_m_spec
         (workload_edf_fifo_scheduler_relation_jobs summary task_trace
           sched_trace entry)
-        (S O) (workload_scheduler_relation_schedule task_trace sched_trace) t
-        (Cons j l)};
-   False -> Nil}
+        (Prelude.succ 0)
+        (workload_scheduler_relation_schedule task_trace sched_trace) t (Cons
+        j l)};
+   Prelude.False -> Nil}
 
 workload_edf_fifo_scheduler_relation_rowb :: (List AwkernelTaskTraceEntry) ->
                                              (List AwkernelSchedTraceEntry)
                                              -> Time ->
-                                             AwkernelSchedTraceEntry -> Bool
+                                             AwkernelSchedTraceEntry ->
+                                             Prelude.Bool
 workload_edf_fifo_scheduler_relation_rowb task_trace sched_trace t entry =
   case summarize_task_trace initial_task_trace_summary task_trace of {
    Some summary ->
-    andb
+    (Prelude.&&)
       (sched_trace_edf_candidate_deadlines_validb summary entry
         (workload_scheduler_relation_candidates task_trace entry))
       (job_list_eqb
         (workload_edf_fifo_scheduler_relation_row_choice task_trace
           sched_trace summary t entry)
         (workload_scheduler_relation_choice task_trace entry));
-   None -> False}
+   None -> Prelude.False}
 
 sched_trace_edf_fifo_scheduler_relation_check_from :: (List
                                                       AwkernelTaskTraceEntry)
                                                       -> (List
                                                       AwkernelSchedTraceEntry)
-                                                      -> Nat -> (List
+                                                      -> Prelude.Integer ->
+                                                      (List
                                                       AwkernelSchedTraceEntry)
-                                                      -> Bool
+                                                      -> Prelude.Bool
 sched_trace_edf_fifo_scheduler_relation_check_from task_trace sched_trace t remaining =
   case remaining of {
-   Nil -> True;
+   Nil -> Prelude.True;
    Cons entry remaining' ->
-    andb
+    (Prelude.&&)
       (workload_edf_fifo_scheduler_relation_rowb task_trace sched_trace t
         entry)
       (sched_trace_edf_fifo_scheduler_relation_check_from task_trace
-        sched_trace (S t) remaining')}
+        sched_trace (Prelude.succ t) remaining')}
 
 sched_trace_edf_fifo_scheduler_relation_checkb :: (List
                                                   AwkernelTaskTraceEntry) ->
                                                   (List
                                                   AwkernelSchedTraceEntry) ->
-                                                  Bool
+                                                  Prelude.Bool
 sched_trace_edf_fifo_scheduler_relation_checkb task_trace sched_trace =
-  sched_trace_edf_fifo_scheduler_relation_check_from task_trace sched_trace O
+  sched_trace_edf_fifo_scheduler_relation_check_from task_trace sched_trace 0
     sched_trace
 
 first_non_edf_fifo_scheduler_relation_sched_trace_index_from :: (List
                                                                 AwkernelTaskTraceEntry)
                                                                 -> (List
                                                                 AwkernelSchedTraceEntry)
-                                                                -> Nat ->
-                                                                (List
+                                                                ->
+                                                                Prelude.Integer
+                                                                -> (List
                                                                 AwkernelSchedTraceEntry)
-                                                                -> Option 
-                                                                Nat
+                                                                -> Option
+                                                                Prelude.Integer
 first_non_edf_fifo_scheduler_relation_sched_trace_index_from task_trace sched_trace t remaining =
   case remaining of {
    Nil -> None;
    Cons entry remaining' ->
     case workload_edf_fifo_scheduler_relation_rowb task_trace sched_trace t
            entry of {
-     True ->
+     Prelude.True ->
       first_non_edf_fifo_scheduler_relation_sched_trace_index_from task_trace
-        sched_trace (S t) remaining';
-     False -> Some t}}
+        sched_trace (Prelude.succ t) remaining';
+     Prelude.False -> Some t}}
 
 first_non_edf_fifo_scheduler_relation_sched_trace_index :: (List
                                                            AwkernelTaskTraceEntry)
                                                            -> (List
                                                            AwkernelSchedTraceEntry)
-                                                           -> Option 
-                                                           Nat
+                                                           -> Option
+                                                           Prelude.Integer
 first_non_edf_fifo_scheduler_relation_sched_trace_index task_trace sched_trace =
   first_non_edf_fifo_scheduler_relation_sched_trace_index_from task_trace
-    sched_trace O sched_trace
+    sched_trace 0 sched_trace
 
 awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace :: (List
                                                                 AwkernelTaskTraceEntry)
                                                                 -> (List
                                                                 AwkernelSchedTraceEntry)
-                                                                -> Bool
+                                                                ->
+                                                                Prelude.Bool
 awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace task_trace sched_trace =
-  andb
-    (andb (awk_workload_accepts_sched_trace task_trace sched_trace)
+  (Prelude.&&)
+    ((Prelude.&&) (awk_workload_accepts_sched_trace task_trace sched_trace)
       (task_trace_all_edf_fifo_policyb task_trace))
     (sched_trace_edf_fifo_scheduler_relation_checkb task_trace sched_trace)
 

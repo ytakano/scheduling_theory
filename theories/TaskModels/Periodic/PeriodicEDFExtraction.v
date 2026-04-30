@@ -9,6 +9,7 @@ From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportWitnessChe
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFTransportCoverageChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicEDFWindowTransportChecker.
 From RocqSched Require Import TaskModels.Periodic.PeriodicPolicyAnalysis.
+From RocqSched Require Import Extraction.HaskellNatInteger.
 
 Extraction Language Haskell.
 

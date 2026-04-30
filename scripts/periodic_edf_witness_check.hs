@@ -21,10 +21,10 @@ import System.Exit (exitFailure, exitSuccess)
 import Text.Read (readMaybe)
 
 data ParsedTask = ParsedTask
-  { parsedCost :: Int
-  , parsedPeriod :: Int
-  , parsedDeadline :: Int
-  , parsedOffset :: Int
+  { parsedCost :: Integer
+  , parsedPeriod :: Integer
+  , parsedDeadline :: Integer
+  , parsedOffset :: Integer
   }
   deriving (Eq, Show)
 
@@ -44,49 +44,49 @@ data CertJson = CertJson
   }
 
 data PrefixJson = PrefixJson
-  { prefixHorizonJson :: Int
-  , prefixBasisJobsJson :: [Int]
-  , prefixSlotsJson :: [Maybe Int]
-  , prefixCompletedByJson :: [Int]
+  { prefixHorizonJson :: Integer
+  , prefixBasisJobsJson :: [Integer]
+  , prefixSlotsJson :: [Maybe Integer]
+  , prefixCompletedByJson :: [Integer]
   , prefixBacklogFreeMatrixJson :: [[Bool]]
   }
 
 data TransportJson = TransportJson
-  { transportPeriodJson :: Int
-  , transportBasisJobsJson :: [Int]
+  { transportPeriodJson :: Integer
+  , transportBasisJobsJson :: [Integer]
   , transportClassesJson :: [TransportClassJson]
-  , transportJobClassJson :: [Int]
-  , transportJobShiftJson :: [Int]
+  , transportJobClassJson :: [Integer]
+  , transportJobShiftJson :: [Integer]
   }
 
 data TransportClassJson = TransportClassJson
-  { transportRepJobJson :: Int
-  , transportCompletionOffsetJson :: Int
-  , transportBacklogOffsetJson :: Int
+  { transportRepJobJson :: Integer
+  , transportCompletionOffsetJson :: Integer
+  , transportBacklogOffsetJson :: Integer
   }
 
 data DbfJson = DbfJson
-  { dbfCutoffJson :: Int
+  { dbfCutoffJson :: Integer
   , dbfOkTableJson :: [Bool]
   }
 
 data SidecarJson = SidecarJson
-  { sidecarCandidateJobsJson :: [Int]
-  , sidecarClassRelevantJobsJson :: [[Int]]
+  { sidecarCandidateJobsJson :: [Integer]
+  , sidecarClassRelevantJobsJson :: [[Integer]]
   , sidecarWindowTargetCertsJson :: [WindowTargetCertJson]
   , sidecarPostResetWindowTargetCertsJson :: [WindowTargetCertJson]
   }
 
 data WindowPairCertJson = WindowPairCertJson
-  { windowTargetEarlierJobJson :: Int
-  , windowRepEarlierJobJson :: Int
-  , windowTransportDeltaJson :: Int
+  { windowTargetEarlierJobJson :: Integer
+  , windowRepEarlierJobJson :: Integer
+  , windowTransportDeltaJson :: Integer
   }
 
 data WindowTargetCertJson = WindowTargetCertJson
-  { windowTransportTargetJobJson :: Int
-  , windowTransportClassIdJson :: Int
-  , windowTransportShiftJson :: Int
+  { windowTransportTargetJobJson :: Integer
+  , windowTransportClassIdJson :: Integer
+  , windowTransportShiftJson :: Integer
   , windowTransportPairsJson :: [WindowPairCertJson]
   }
 
@@ -209,8 +209,8 @@ runCheck useOffsets taskPath witnessPath = do
                           then EDF.check_periodic_edf_checked_sidecar_extracted_with_offsets input cert sidecar
                           else EDF.check_periodic_edf_checked_sidecar_extracted input cert sidecar
                   case accepted of
-                    EDF.True -> putStrLn "ACCEPT" >> exitSuccess
-                    EDF.False -> reject "extracted checker rejected witness"
+                    True -> putStrLn "ACCEPT" >> exitSuccess
+                    False -> reject "extracted checker rejected witness"
 
 reject :: String -> IO ()
 reject err = do
@@ -364,14 +364,14 @@ parseTaskRow (lineNo, line) =
         "line " ++ show lineNo ++ ": expected 3 or 4 columns, got "
           ++ show (length cols)
 
-parsePositive :: Int -> String -> String -> Either String Int
+parsePositive :: Int -> String -> String -> Either String Integer
 parsePositive lineNo name text =
   case readMaybe text of
     Just n | n > 0 -> Right n
     Just _ -> Left ("line " ++ show lineNo ++ ": " ++ name ++ " must be positive")
     Nothing -> Left ("line " ++ show lineNo ++ ": invalid " ++ name ++ ": " ++ text)
 
-parseNonnegative :: Int -> String -> String -> Either String Int
+parseNonnegative :: Int -> String -> String -> Either String Integer
 parseNonnegative lineNo name text =
   case readMaybe text of
     Just n | n >= 0 -> Right n
@@ -405,31 +405,31 @@ toEDFTask task =
     (toNat (parsedDeadline task))
     (toNat (parsedOffset task))
 
-checkedNat :: String -> Int -> Either String EDF.Nat
+checkedNat :: String -> Integer -> Either String Integer
 checkedNat label n
-  | n >= 0 = Right (toNat n)
+  | n >= 0 = Right n
   | otherwise = Left (label ++ " must be nonnegative")
 
-checkedNatList :: String -> [Int] -> Either String (EDF.List EDF.Nat)
+checkedNatList :: String -> [Integer] -> Either String (EDF.List Integer)
 checkedNatList label xs =
   toEDFList <$> traverse (checkedNat label) xs
 
-checkedNatRows :: String -> [[Int]] -> Either String (EDF.List (EDF.List EDF.Nat))
+checkedNatRows :: String -> [[Integer]] -> Either String (EDF.List (EDF.List Integer))
 checkedNatRows label rows =
   toEDFList <$> traverse (checkedNatList label) rows
 
-checkedSlotList :: String -> [Maybe Int] -> Either String (EDF.List (EDF.Option EDF.Nat))
+checkedSlotList :: String -> [Maybe Integer] -> Either String (EDF.List (EDF.Option Integer))
 checkedSlotList label slots =
   toEDFList <$> traverse checkedSlot slots
   where
     checkedSlot Nothing = Right EDF.None
     checkedSlot (Just n) = EDF.Some <$> checkedNat label n
 
-checkedBoolList :: String -> [Bool] -> Either String (EDF.List EDF.Bool)
+checkedBoolList :: String -> [Bool] -> Either String (EDF.List Bool)
 checkedBoolList _ xs =
   Right (toEDFList (map toEDFBool xs))
 
-checkedBoolRows :: String -> [[Bool]] -> Either String (EDF.List (EDF.List EDF.Bool))
+checkedBoolRows :: String -> [[Bool]] -> Either String (EDF.List (EDF.List Bool))
 checkedBoolRows label rows =
   toEDFList <$> traverse (checkedBoolList label) rows
 
@@ -437,14 +437,11 @@ toEDFList :: [a] -> EDF.List a
 toEDFList =
   foldr EDF.Cons EDF.Nil
 
-toNat :: Int -> EDF.Nat
-toNat n
-  | n <= 0 = EDF.O
-  | otherwise = EDF.S (toNat (n - 1))
+toNat :: Integer -> Integer
+toNat n = n
 
-toEDFBool :: Bool -> EDF.Bool
-toEDFBool True = EDF.True
-toEDFBool False = EDF.False
+toEDFBool :: Bool -> Bool
+toEDFBool = id
 
 trim :: String -> String
 trim =

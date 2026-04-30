@@ -25,11 +25,11 @@ import System.Exit (exitFailure, exitSuccess)
 import Text.Read (readMaybe)
 
 data ParsedTask = ParsedTask
-  { parsedCost :: Int
-  , parsedPeriod :: Int
-  , parsedDeadline :: Int
-  , parsedOffset :: Int
-  , parsedJitter :: Int
+  { parsedCost :: Integer
+  , parsedPeriod :: Integer
+  , parsedDeadline :: Integer
+  , parsedOffset :: Integer
+  , parsedJitter :: Integer
   }
   deriving (Eq, Show)
 
@@ -46,14 +46,14 @@ newtype CertJson = CertJson
   }
 
 data DbfJson = DbfJson
-  { dbfCutoffJson :: Int
+  { dbfCutoffJson :: Integer
   , dbfBasisJson :: [BasisRowJson]
   , dbfAllBasisCheckedJson :: Bool
   }
 
 data BasisRowJson = BasisRowJson
-  { basisT2Json :: Int
-  , basisLeftEdgesJson :: [Int]
+  { basisT2Json :: Integer
+  , basisLeftEdgesJson :: [Integer]
   }
 
 instance FromJSON Witness where
@@ -117,8 +117,8 @@ runCheck taskPath witnessPath = do
             Right () ->
               case checkWitness tasks witness of
                 Left err -> reject err
-                Right EDF.True -> putStrLn "ACCEPT" >> exitSuccess
-                Right EDF.False -> reject "extracted checker rejected witness"
+                Right True -> putStrLn "ACCEPT" >> exitSuccess
+                Right False -> reject "extracted checker rejected witness"
 
 emitExpectedWitness :: FilePath -> FilePath -> IO ()
 emitExpectedWitness taskPath witnessPath = do
@@ -127,27 +127,34 @@ emitExpectedWitness taskPath witnessPath = do
     Left err -> reject ("invalid CSV: " ++ err)
     Right tasks -> do
       let input = toEDFList (map toEDFTask tasks)
-          cutoff =
-            fromNat (EDF.jittered_edf_compact_dbf_certificate_expected_cutoff input)
-          basis =
-            map fromEDFBasisRow
-              (fromEDFList (EDF.jittered_edf_compact_dbf_certificate_expected_basis input))
-          dbfObject =
-            object
-              [ "cutoff" .= cutoff
-              , "basis" .= basis
-              , "all_basis_checked" .= True
-              ]
-          witness =
-            object
-              [ "schema_version" .= (3 :: Int)
-              , "policy" .= ("jittered-periodic-edf" :: String)
-              , "domain" .= ("uniprocessor" :: String)
-              , "task_hash" .= taskHash tasks
-              , "cert" .= object
-                  [ "dbf" .= dbfObject ]
-              ]
-      LBS.writeFile witnessPath (encode witness)
+      case buildExpectedWitness tasks input of
+        Left err -> reject err
+        Right witness -> LBS.writeFile witnessPath (encode witness)
+
+buildExpectedWitness :: [ParsedTask] -> EDF.List EDF.ExtractedJitteredPeriodicTask -> Either String Value
+buildExpectedWitness tasks input = do
+  cutoff <-
+    checkedNatInteger
+      "expected dbf.cutoff"
+      (EDF.jittered_edf_compact_dbf_certificate_expected_cutoff input)
+  basis <-
+    traverse fromEDFBasisRow
+      (fromEDFList (EDF.jittered_edf_compact_dbf_certificate_expected_basis input))
+  let dbfObject =
+        object
+          [ "cutoff" .= cutoff
+          , "basis" .= basis
+          , "all_basis_checked" .= True
+          ]
+  pure $
+    object
+      [ "schema_version" .= (3 :: Int)
+      , "policy" .= ("jittered-periodic-edf" :: String)
+      , "domain" .= ("uniprocessor" :: String)
+      , "task_hash" .= taskHash tasks
+      , "cert" .= object
+          [ "dbf" .= dbfObject ]
+      ]
 
 reject :: String -> IO ()
 reject err = do
@@ -166,7 +173,7 @@ validateWitnessMetadata tasks witness
       Left "task_hash mismatch"
   | otherwise = Right ()
 
-checkWitness :: [ParsedTask] -> Witness -> Either String EDF.Bool
+checkWitness :: [ParsedTask] -> Witness -> Either String Bool
 checkWitness tasks witness =
   let input = toEDFList (map toEDFTask tasks)
       dbf = certDbf (witnessCert witness)
@@ -234,14 +241,14 @@ parseTaskRow (lineNo, line) =
         "line " ++ show lineNo ++ ": expected 5 columns, got "
           ++ show (length cols)
 
-parsePositive :: Int -> String -> String -> Either String Int
+parsePositive :: Int -> String -> String -> Either String Integer
 parsePositive lineNo name text =
   case readMaybe text of
     Just n | n > 0 -> Right n
     Just _ -> Left ("line " ++ show lineNo ++ ": " ++ name ++ " must be positive")
     Nothing -> Left ("line " ++ show lineNo ++ ": invalid " ++ name ++ ": " ++ text)
 
-parseNonnegative :: Int -> String -> String -> Either String Int
+parseNonnegative :: Int -> String -> String -> Either String Integer
 parseNonnegative lineNo name text =
   case readMaybe text of
     Just n | n >= 0 -> Right n
@@ -277,9 +284,14 @@ toEDFTask task =
     (toNat (parsedOffset task))
     (toNat (parsedJitter task))
 
-checkedNat :: String -> Int -> Either String EDF.Nat
+checkedNat :: String -> Integer -> Either String Integer
 checkedNat label n
-  | n >= 0 = Right (toNat n)
+  | n >= 0 = Right n
+  | otherwise = Left (label ++ " must be nonnegative")
+
+checkedNatInteger :: String -> Integer -> Either String Integer
+checkedNatInteger label n
+  | n >= 0 = Right n
   | otherwise = Left (label ++ " must be nonnegative")
 
 checkedBasisRows :: String -> [BasisRowJson] -> Either String (EDF.List (EDF.Prod EDF.Time (EDF.List EDF.Time)))
@@ -299,25 +311,21 @@ fromEDFList :: EDF.List a -> [a]
 fromEDFList EDF.Nil = []
 fromEDFList (EDF.Cons x xs) = x : fromEDFList xs
 
-toNat :: Int -> EDF.Nat
-toNat n
-  | n <= 0 = EDF.O
-  | otherwise = EDF.S (toNat (n - 1))
+toNat :: Integer -> Integer
+toNat n = n
 
-fromNat :: EDF.Nat -> Int
-fromNat EDF.O = 0
-fromNat (EDF.S n) = 1 + fromNat n
+toEDFBool :: Bool -> Bool
+toEDFBool = id
 
-toEDFBool :: Bool -> EDF.Bool
-toEDFBool True = EDF.True
-toEDFBool False = EDF.False
-
-fromEDFBasisRow :: EDF.Prod EDF.Time (EDF.List EDF.Time) -> Value
-fromEDFBasisRow (EDF.Pair t2 leftEdges) =
-  object
-    [ "t2" .= fromNat t2
-    , "left_edges" .= map fromNat (fromEDFList leftEdges)
-    ]
+fromEDFBasisRow :: EDF.Prod EDF.Time (EDF.List EDF.Time) -> Either String Value
+fromEDFBasisRow (EDF.Pair t2 leftEdges) = do
+  t2Json <- checkedNatInteger "expected basis[].t2" t2
+  leftEdgesJson <- traverse (checkedNatInteger "expected basis[].left_edges[]") (fromEDFList leftEdges)
+  pure $
+    object
+      [ "t2" .= t2Json
+      , "left_edges" .= leftEdgesJson
+      ]
 
 trim :: String -> String
 trim =
