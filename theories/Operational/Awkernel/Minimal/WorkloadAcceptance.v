@@ -1,5 +1,6 @@
 From Stdlib Require Import List Bool Arith Arith.PeanoNat Lia.
 From RocqSched Require Import Foundation.Base.
+From RocqSched Require Import Operational.Common.DispatchModel.
 From RocqSched Require Import Operational.Common.Step.
 From RocqSched Require Import Operational.Awkernel.Minimal.CapturedTraceSyntax.
 Import ListNotations.
@@ -857,7 +858,8 @@ Definition sched_trace_step_start
   | None => None
   end.
 
-Definition sched_trace_step_after_start
+Definition sched_trace_step_after_start_with_model
+    (model : DispatchModel)
     (summary : AwkernelTaskTraceSummary)
     (st : AwkernelSchedTraceAcceptanceState)
     (entry : AwkernelSchedTraceEntry) : option AwkernelSchedTraceAcceptanceState :=
@@ -904,6 +906,7 @@ Definition sched_trace_step_after_start
          option_job_eqb (astas_selected st) (Some j) &&
          job_list_contains j known &&
          negb (job_list_contains j (astas_completed st)) &&
+         dispatch_model_allows_spurious_dispatch model &&
          task_trace_blocked_at summary (aste_event_id entry) j
       then Some (mkAwkernelSchedTraceAcceptanceState true None (astas_dispatched st) (astas_completed st) (astas_ready_targets st) (astas_blocked st))
       else None in
@@ -957,15 +960,41 @@ Definition sched_trace_step_after_start
            end
        end.
 
-Definition sched_trace_step
+Definition sched_trace_step_after_start
+    (summary : AwkernelTaskTraceSummary)
+    (st : AwkernelSchedTraceAcceptanceState)
+    (entry : AwkernelSchedTraceEntry) : option AwkernelSchedTraceAcceptanceState :=
+  sched_trace_step_after_start_with_model StrictDispatchModel summary st entry.
+
+Definition sched_trace_step_after_start_spurious
+    (summary : AwkernelTaskTraceSummary)
+    (st : AwkernelSchedTraceAcceptanceState)
+    (entry : AwkernelSchedTraceEntry) : option AwkernelSchedTraceAcceptanceState :=
+  sched_trace_step_after_start_with_model SpuriousDispatchModel summary st entry.
+
+Definition sched_trace_step_with_model
+    (model : DispatchModel)
     (summary : AwkernelTaskTraceSummary)
     (st : AwkernelSchedTraceAcceptanceState)
     (entry : AwkernelSchedTraceEntry) : option AwkernelSchedTraceAcceptanceState :=
   if astas_started st
-  then sched_trace_step_after_start summary st entry
+  then sched_trace_step_after_start_with_model model summary st entry
   else sched_trace_step_start summary entry.
 
-Fixpoint accept_sched_trace_from
+Definition sched_trace_step
+    (summary : AwkernelTaskTraceSummary)
+    (st : AwkernelSchedTraceAcceptanceState)
+    (entry : AwkernelSchedTraceEntry) : option AwkernelSchedTraceAcceptanceState :=
+  sched_trace_step_with_model StrictDispatchModel summary st entry.
+
+Definition sched_trace_step_spurious
+    (summary : AwkernelTaskTraceSummary)
+    (st : AwkernelSchedTraceAcceptanceState)
+    (entry : AwkernelSchedTraceEntry) : option AwkernelSchedTraceAcceptanceState :=
+  sched_trace_step_with_model SpuriousDispatchModel summary st entry.
+
+Fixpoint accept_sched_trace_from_with_model
+    (model : DispatchModel)
     (summary : AwkernelTaskTraceSummary)
     (st : AwkernelSchedTraceAcceptanceState)
     (sched_trace : list AwkernelSchedTraceEntry) : bool :=
@@ -976,31 +1005,83 @@ Fixpoint accept_sched_trace_from
       | None => false
       end
   | entry :: sched_trace' =>
-      match sched_trace_step summary st entry with
-      | Some st' => accept_sched_trace_from summary st' sched_trace'
+      match sched_trace_step_with_model model summary st entry with
+      | Some st' => accept_sched_trace_from_with_model model summary st' sched_trace'
       | None => false
       end
   end.
 
+Definition accept_sched_trace_from
+    (summary : AwkernelTaskTraceSummary)
+    (st : AwkernelSchedTraceAcceptanceState)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  accept_sched_trace_from_with_model
+    StrictDispatchModel summary st sched_trace.
+
+Definition accept_sched_trace_from_spurious
+    (summary : AwkernelTaskTraceSummary)
+    (st : AwkernelSchedTraceAcceptanceState)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  accept_sched_trace_from_with_model
+    SpuriousDispatchModel summary st sched_trace.
+
+Definition sched_trace_family_member_with_model
+    (model : DispatchModel)
+    (summary : AwkernelTaskTraceSummary)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  accept_sched_trace_from_with_model
+    model summary initial_sched_trace_acceptance_state sched_trace.
+
 Definition sched_trace_family_member
     (summary : AwkernelTaskTraceSummary)
     (sched_trace : list AwkernelSchedTraceEntry) : bool :=
-  accept_sched_trace_from summary initial_sched_trace_acceptance_state sched_trace.
+  sched_trace_family_member_with_model StrictDispatchModel summary sched_trace.
+
+Definition sched_trace_family_member_spurious
+    (summary : AwkernelTaskTraceSummary)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  sched_trace_family_member_with_model SpuriousDispatchModel summary sched_trace.
+
+Definition awk_workload_accepts_sched_trace_with_model
+    (model : DispatchModel)
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  match summarize_task_trace initial_task_trace_summary task_trace with
+  | Some summary => sched_trace_family_member_with_model model summary sched_trace
+  | None => false
+  end.
 
 Definition awk_workload_accepts_sched_trace
     (task_trace : list AwkernelTaskTraceEntry)
     (sched_trace : list AwkernelSchedTraceEntry) : bool :=
-  match summarize_task_trace initial_task_trace_summary task_trace with
-  | Some summary => sched_trace_family_member summary sched_trace
-  | None => false
-  end.
+  awk_workload_accepts_sched_trace_with_model
+    StrictDispatchModel task_trace sched_trace.
 
-Definition accepted_workload_sched_trace_family
+Definition awk_workload_accepts_sched_trace_spurious
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  awk_workload_accepts_sched_trace_with_model
+    SpuriousDispatchModel task_trace sched_trace.
+
+Definition accepted_workload_sched_trace_family_with_model
+    (model : DispatchModel)
     (task_trace : list AwkernelTaskTraceEntry)
     (sched_trace : list AwkernelSchedTraceEntry) : Prop :=
   exists summary,
     summarize_task_trace initial_task_trace_summary task_trace = Some summary /\
-    sched_trace_family_member summary sched_trace = true.
+    sched_trace_family_member_with_model model summary sched_trace = true.
+
+Definition accepted_workload_sched_trace_family
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : Prop :=
+  accepted_workload_sched_trace_family_with_model
+    StrictDispatchModel task_trace sched_trace.
+
+Definition accepted_workload_sched_trace_family_spurious
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : Prop :=
+  accepted_workload_sched_trace_family_with_model
+    SpuriousDispatchModel task_trace sched_trace.
 
 Lemma awk_workload_accepts_sched_trace_sound :
   forall task_trace sched_trace,
@@ -1008,11 +1089,16 @@ Lemma awk_workload_accepts_sched_trace_sound :
     accepted_workload_sched_trace_family task_trace sched_trace.
 Proof.
   intros task_trace sched_trace Haccept.
-  unfold awk_workload_accepts_sched_trace in Haccept.
+  unfold awk_workload_accepts_sched_trace,
+         awk_workload_accepts_sched_trace_with_model in Haccept.
+  unfold accepted_workload_sched_trace_family,
+         accepted_workload_sched_trace_family_with_model.
   destruct (summarize_task_trace initial_task_trace_summary task_trace) as [summary|] eqn:Hsummary;
     simpl in Haccept; try discriminate.
   exists summary.
-  split; assumption.
+  split.
+  - reflexivity.
+  - exact Haccept.
 Qed.
 
 Lemma awk_workload_accepts_sched_trace_complete :
@@ -1021,7 +1107,10 @@ Lemma awk_workload_accepts_sched_trace_complete :
     awk_workload_accepts_sched_trace task_trace sched_trace = true.
 Proof.
   intros task_trace sched_trace [summary [Hsummary Hsched]].
-  unfold awk_workload_accepts_sched_trace.
+  unfold accepted_workload_sched_trace_family,
+         accepted_workload_sched_trace_family_with_model in Hsched.
+  unfold awk_workload_accepts_sched_trace,
+         awk_workload_accepts_sched_trace_with_model.
   rewrite Hsummary.
   exact Hsched.
 Qed.
@@ -1145,7 +1234,8 @@ Lemma sched_trace_step_after_start_cpu_in_range :
     aste_cpu entry < 2.
 Proof.
   intros summary st entry st' Hstep.
-  unfold sched_trace_step_after_start in Hstep.
+  unfold sched_trace_step_after_start,
+         sched_trace_step_after_start_with_model in Hstep.
   set (known := atts_known_tasks summary) in *.
   set (deps := atts_completion_deps summary) in *.
   set (ready_targets := atts_ready_targets summary) in *.
@@ -1200,6 +1290,7 @@ Proof.
               option_job_eqb (astas_selected st) (Some j) &&
               job_list_contains j known &&
               negb (job_list_contains j (astas_completed st)) &&
+              dispatch_model_allows_spurious_dispatch StrictDispatchModel &&
               task_trace_blocked_at summary (aste_event_id entry) j
            then Some
                   (mkAwkernelSchedTraceAcceptanceState
@@ -1306,6 +1397,7 @@ Proof.
                option_job_eqb (astas_selected st) (Some j) &&
                job_list_contains j known &&
                negb (job_list_contains j (astas_completed st)) &&
+               dispatch_model_allows_spurious_dispatch StrictDispatchModel &&
                task_trace_blocked_at summary (aste_event_id entry) j) eqn:Hcond;
               simpl in Hj; try discriminate.
             inversion Hj; subst.
@@ -1361,7 +1453,7 @@ Lemma sched_trace_step_cpu_in_range :
     aste_cpu entry < 2.
 Proof.
   intros summary st entry st' Hstep.
-  unfold sched_trace_step in Hstep.
+  unfold sched_trace_step, sched_trace_step_with_model in Hstep.
   destruct (astas_started st) eqn:Hstarted.
   - eapply sched_trace_step_after_start_cpu_in_range; eauto.
   - eapply sched_trace_step_start_cpu_in_range; eauto.
@@ -1373,13 +1465,16 @@ Lemma accept_sched_trace_from_cpus_in_range :
     Forall (fun entry => aste_cpu entry < 2) sched_trace.
 Proof.
   intros summary st sched_trace.
+  unfold accept_sched_trace_from.
   revert st.
   induction sched_trace as [|entry sched_trace IH]; intros st Haccept; simpl in Haccept.
   - constructor.
-  - destruct (sched_trace_step summary st entry) as [st'|] eqn:Hstep;
+  - destruct (sched_trace_step_with_model StrictDispatchModel summary st entry) as [st'|] eqn:Hstep;
       try discriminate.
     constructor.
-    + eapply sched_trace_step_cpu_in_range; eauto.
+    + eapply sched_trace_step_cpu_in_range.
+      unfold sched_trace_step, sched_trace_step_with_model.
+      exact Hstep.
     + apply (IH st'). exact Haccept.
 Qed.
 

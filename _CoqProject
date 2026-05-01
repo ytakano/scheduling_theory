@@ -104,6 +104,7 @@ theories/Operational/Common/Invariants.v
 theories/Operational/Common/StepLemmas.v
 theories/Operational/Common/Execution.v
 theories/Operational/Common/LabeledExecution.v
+theories/Operational/Common/DispatchModel.v
 theories/Operational/Common/DelayModel.v
 theories/Operational/Common/DelayBudget.v
 theories/Operational/Common/ProjectionLemmas.v
