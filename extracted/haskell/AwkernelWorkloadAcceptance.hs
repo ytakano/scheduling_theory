@@ -13,11 +13,15 @@ data List a =
    Nil
  | Cons a (List a)
 
-list_rec :: a2 -> (a1 -> (List a1) -> a2 -> a2) -> (List a1) -> a2
-list_rec nil cons l =
+list_rect :: a2 -> (a1 -> (List a1) -> a2 -> a2) -> (List a1) -> a2
+list_rect f f0 l =
   case l of {
-   Nil -> nil;
-   Cons a l0 -> cons a l0 (list_rec nil cons l0)}
+   Nil -> f;
+   Cons y l0 -> f0 y l0 (list_rect f f0 l0)}
+
+list_rec :: a2 -> (a1 -> (List a1) -> a2 -> a2) -> (List a1) -> a2
+list_rec =
+  list_rect
 
 length :: (List a1) -> Prelude.Integer
 length l =

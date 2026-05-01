@@ -86,9 +86,15 @@ Proof.
   - exact HenumT_complete.
   - exact HenumT_sound.
   - unfold generated_periodic_edf_schedule_on_finite_horizon.
-    eapply generated_schedule_scheduler_rel with
-      (J := periodic_jobset_upto T tasks offset jobs H)
-      (cand_spec := Hcand_spec).
+    eapply
+      (generated_schedule_scheduler_rel
+         edf_generic_spec
+         (periodic_jobset_upto T tasks offset jobs H)
+         (enum_candidates_of
+            (generated_periodic_edf_finite_enumJ
+               T tasks offset jobs H enumT codec))
+         Hcand_spec
+         jobs).
     intros s1 s2 t Hagree.
     exact (edf_choose_agrees_before
              (periodic_jobset_upto T tasks offset jobs H)

@@ -535,7 +535,7 @@ jittered_reduced_compact_basis_row tasks offset jitter enumT t2 =
   Pair t2 (jittered_reduced_left_edges_for_t2 tasks offset jitter enumT t2)
 
 jittered_reduced_compact_basis_range :: (TaskId -> Task) -> (TaskId -> Time)
-                                        -> (TaskId -> Time) -> (List
+                                        -> (TaskId -> Time) -> (List 
                                         TaskId) -> Time -> Time ->
                                         JitteredCompactDbfBasis
 jittered_reduced_compact_basis_range tasks offset jitter enumT lo hi =
@@ -1118,3 +1118,4 @@ check_jittered_edf_compact_dbf_certificate_ranges_extracted ts ranges actual_ran
       (jittered_tasks_of_extracted_list ts)
       (jittered_offset_of_extracted_list ts) (jitter_of_extracted_list ts)
       (jittered_enumT_of_extracted_list ts) actual_ranges)
+

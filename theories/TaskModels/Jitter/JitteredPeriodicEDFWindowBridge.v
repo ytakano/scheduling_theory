@@ -664,9 +664,13 @@ Proof.
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched).
   {
     unfold sched.
-    eapply generated_schedule_scheduler_rel with
-      (J := jittered_periodic_jobset_upto T tasks offset jitter jobs H)
-      (cand_spec := Hcand_spec).
+    eapply
+      (generated_schedule_scheduler_rel
+         edf_generic_spec
+         (jittered_periodic_jobset_upto T tasks offset jitter jobs H)
+         (enum_candidates_of enumJ)
+         Hcand_spec
+         jobs).
     intros s1 s2 t Hagree.
     eapply edf_choose_agrees_before; eauto.
   }
@@ -772,9 +776,13 @@ Proof.
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched).
   {
     unfold sched.
-    eapply generated_schedule_scheduler_rel with
-      (J := jittered_periodic_jobset_upto T tasks offset jitter jobs H)
-      (cand_spec := Hcand_spec).
+    eapply
+      (generated_schedule_scheduler_rel
+         edf_generic_spec
+         (jittered_periodic_jobset_upto T tasks offset jitter jobs H)
+         (enum_candidates_of enumJ)
+         Hcand_spec
+         jobs).
     intros s1 s2 t Hagree.
     eapply edf_choose_agrees_before; eauto.
   }
@@ -842,9 +850,13 @@ Proof.
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched).
   {
     unfold sched.
-    eapply generated_schedule_scheduler_rel with
-      (J := jittered_periodic_jobset_upto T tasks offset jitter jobs H)
-      (cand_spec := Hcand_spec).
+    eapply
+      (generated_schedule_scheduler_rel
+         edf_generic_spec
+         (jittered_periodic_jobset_upto T tasks offset jitter jobs H)
+         (enum_candidates_of enumJ)
+         Hcand_spec
+         jobs).
     intros s1 s2 t Hagree.
     eapply edf_choose_agrees_before; eauto.
   }

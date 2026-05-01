@@ -133,9 +133,11 @@ Proof.
   intros T tasks offset H enumT jobs codec sched j t1 t2
          Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hsched Hj Hwit Ht1rel Hj_H Hcarry_free Hdbf.
-  eapply periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon
-    with (codec := codec)
-         (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec);
+  eapply
+    (periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon
+       T tasks offset H enumT
+       (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+       jobs codec sched j t1 t2);
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
@@ -207,9 +209,11 @@ Proof.
   intros T tasks offset H enumT jobs codec sched j t1 t2
          Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hsched Hj Hwit Hj_H Hbridge Hdbf.
-  eapply periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_busy_prefix_bridge
-    with (codec := codec)
-         (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec);
+  eapply
+    (periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_busy_prefix_bridge
+       T tasks offset H enumT
+       (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+       jobs codec sched j t1 t2);
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
@@ -283,9 +287,11 @@ Proof.
   intros T tasks offset H enumT jobs codec sched j t1 t2
          Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hsched Hj Hwit Hj_H Hbridge Hdbf.
-  eapply periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_no_carry_in_bridge
-    with (codec := codec)
-         (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec);
+  eapply
+    (periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_no_carry_in_bridge
+       T tasks offset H enumT
+       (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+       jobs codec sched j t1 t2);
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
@@ -365,9 +371,11 @@ Proof.
   intros T tasks offset H enumT jobs codec sched
          Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hsched Hjob_bridge Hdbf.
-  eapply periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon
-    with (codec := codec)
-         (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec);
+  eapply
+    (periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon
+       T tasks offset H enumT
+       (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+       jobs codec sched);
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
@@ -704,9 +712,11 @@ Proof.
     exists sched.
     split.
     - eapply single_cpu_algorithm_valid. exact Hsched.
-    - eapply periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon_with_no_carry_in_bridge
-        with (codec := codec)
-             (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec);
+    - eapply
+        (periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon_with_no_carry_in_bridge
+           T tasks offset H enumT
+           (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+           jobs codec sched);
         eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
   }
   eapply periodic_edf_optimality_on_finite_horizon_auto; eauto.
@@ -762,9 +772,13 @@ Proof.
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched).
   {
     unfold sched.
-    eapply generated_schedule_scheduler_rel with
-      (J := periodic_jobset_upto T tasks offset jobs H)
-      (cand_spec := Hcand_spec).
+    eapply
+      (generated_schedule_scheduler_rel
+         edf_generic_spec
+         (periodic_jobset_upto T tasks offset jobs H)
+         (enum_candidates_of enumJ)
+         Hcand_spec
+         jobs).
     intros s1 s2 t Hagree.
     eapply edf_choose_agrees_before; eauto.
   }
@@ -826,9 +840,13 @@ Proof.
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched).
   {
     unfold sched.
-    eapply generated_schedule_scheduler_rel with
-      (J := periodic_jobset_upto T tasks offset jobs H)
-      (cand_spec := Hcand_spec).
+    eapply
+      (generated_schedule_scheduler_rel
+         edf_generic_spec
+         (periodic_jobset_upto T tasks offset jobs H)
+         (enum_candidates_of enumJ)
+         Hcand_spec
+         jobs).
     intros s1 s2 t Hagree.
     eapply edf_choose_agrees_before; eauto.
   }

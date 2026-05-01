@@ -209,5 +209,5 @@ Proof.
 Qed.
 
 (* Backward-compatible alias for single_cpu_algorithm_schedulable_by_on_intro. *)
-Abbreviation single_cpu_algorithm_schedulable_by_on :=
+Definition single_cpu_algorithm_schedulable_by_on :=
   single_cpu_algorithm_schedulable_by_on_intro.

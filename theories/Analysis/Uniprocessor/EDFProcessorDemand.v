@@ -1157,9 +1157,10 @@ Proof.
          Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hsched Hj Hwit Ht1rel Hj_H Hcarry_free Hdbf.
   eapply
-    periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_window_and_no_carry_in
-    with (codec := codec)
-         (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec);
+    (periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_window_and_no_carry_in
+       T tasks offset H enumT
+       (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+       jobs codec);
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
@@ -1373,9 +1374,13 @@ Proof.
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched).
   {
     unfold sched.
-    eapply generated_schedule_scheduler_rel with
-      (J := periodic_jobset_upto T tasks offset jobs H)
-      (cand_spec := Hcand_spec).
+    eapply
+      (generated_schedule_scheduler_rel
+         edf_generic_spec
+         (periodic_jobset_upto T tasks offset jobs H)
+         (enum_candidates_of enumJ)
+         Hcand_spec
+         jobs).
     intros s1 s2 t Hagree.
     eapply edf_choose_agrees_before; eauto.
   }
@@ -1476,9 +1481,13 @@ Proof.
     scheduler_rel (edf_scheduler (enum_candidates_of enumJ)) jobs 1 sched).
   {
     unfold sched.
-    eapply generated_schedule_scheduler_rel with
-      (J := periodic_jobset_upto T tasks offset jobs H)
-      (cand_spec := Hcand_spec).
+    eapply
+      (generated_schedule_scheduler_rel
+         edf_generic_spec
+         (periodic_jobset_upto T tasks offset jobs H)
+         (enum_candidates_of enumJ)
+         Hcand_spec
+         jobs).
     intros s1 s2 t Hagree.
     eapply edf_choose_agrees_before; eauto.
   }
@@ -1642,8 +1651,9 @@ Proof.
     intros j Hj.
     destruct (Hjob_bridge j Hj) as
         [Hj_H [t1 [t2 [Hwit [Ht1rel Hcarry_free]]]]].
-    eapply periodic_window_dbf_implies_no_deadline_miss_under_edf
-      with (codec := codec) (t1 := t1) (t2 := t2); eauto.
+    eapply
+      (periodic_window_dbf_implies_no_deadline_miss_under_edf
+         T tasks offset H enumT jobs codec sched j t1 t2); eauto.
 Qed.
 
 Theorem periodic_window_dbf_implies_edf_feasible_on_finite_horizon_with_busy_prefix_bridge :
@@ -1686,10 +1696,12 @@ Proof.
       (periodic_edf_busy_prefix_bridge_specialize
          T tasks offset jobs H sched j t1 t2 Hbridge Hwit)
       as [Ht1rel Hcarry_free].
-    eapply periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in
-      with (codec := codec)
-           (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
-           (t1 := t1) (t2 := t2); eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
+    eapply
+      (periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in
+         T tasks offset H enumT
+         (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+         jobs codec sched j t1 t2);
+      eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
 Theorem periodic_window_dbf_implies_edf_feasible_on_finite_horizon_with_busy_prefix :
@@ -1735,8 +1747,10 @@ Proof.
     intros j Hj.
     destruct (Hjob_bridge j Hj) as
         [Hj_H [t1 [t2 [Hwit [Ht1rel Hcarry_free]]]]].
-    eapply periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in
-      with (codec := codec)
-           (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
-           (t1 := t1) (t2 := t2); eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
+    eapply
+      (periodic_window_dbf_implies_no_deadline_miss_under_edf_if_covering_busy_prefix_and_no_carry_in
+         T tasks offset H enumT
+         (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+         jobs codec sched j t1 t2);
+      eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.

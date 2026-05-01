@@ -114,21 +114,21 @@ Proof.
                   T tasks offset jitter jobs HH codec))))
       jobs 1).
   {
-    eapply jittered_periodic_finite_optimality_lift
-      with
-      (local_scheduler := llf_scheduler)
-      (Hoptimal := llf_optimality_on_finite_jobs)
-      (T := T)
-      (T_bool := task_in_list_b enumT)
-      (tasks := tasks)
-      (offset := offset)
-      (jitter := jitter)
-      (H := HH)
-      (enumJ := enum_jittered_periodic_jobs_upto
-                  T tasks offset jitter jobs HH enumT
-                  (jittered_periodic_finite_horizon_codec_of
-                     T tasks offset jitter jobs HH codec))
-      (jobs := jobs).
+    eapply
+      (jittered_periodic_finite_optimality_lift
+         llf_scheduler
+         llf_optimality_on_finite_jobs
+         T
+         (task_in_list_b enumT)
+         tasks
+         offset
+         jitter
+         HH
+         (enum_jittered_periodic_jobs_upto
+            T tasks offset jitter jobs HH enumT
+            (jittered_periodic_finite_horizon_codec_of
+               T tasks offset jitter jobs HH codec))
+         jobs).
     - intros τ.
       rewrite task_in_list_b_spec.
       split; [apply HenumT_sound | apply HenumT_complete].

@@ -118,20 +118,26 @@ Proof.
         (generated_periodic_edf_schedule_upto T tasks offset jobs HH enumT codec)).
     {
       unfold generated_periodic_edf_schedule_upto.
-      eapply generated_schedule_scheduler_rel with
-        (J := periodic_jobset_upto T tasks offset jobs HH)
-        (cand_spec := enum_candidates_spec
-          (periodic_jobset_upto T tasks offset jobs HH)
-          (enum_periodic_jobs_upto T tasks offset jobs HH enumT
-             (periodic_finite_horizon_codec_of T tasks offset jobs HH codec))
-          (enum_periodic_jobs_upto_complete
-             T tasks offset jobs HH enumT
-             (periodic_finite_horizon_codec_of T tasks offset jobs HH codec)
-             Hwf HenumT_complete)
-          (enum_periodic_jobs_upto_sound
-             T tasks offset jobs HH enumT
-             (periodic_finite_horizon_codec_of T tasks offset jobs HH codec)
-             HenumT_sound)).
+      eapply
+        (generated_schedule_scheduler_rel
+           edf_generic_spec
+           (periodic_jobset_upto T tasks offset jobs HH)
+           (enum_candidates_of
+              (enum_periodic_jobs_upto T tasks offset jobs HH enumT
+                 (periodic_finite_horizon_codec_of T tasks offset jobs HH codec)))
+           (enum_candidates_spec
+              (periodic_jobset_upto T tasks offset jobs HH)
+              (enum_periodic_jobs_upto T tasks offset jobs HH enumT
+                 (periodic_finite_horizon_codec_of T tasks offset jobs HH codec))
+              (enum_periodic_jobs_upto_complete
+                 T tasks offset jobs HH enumT
+                 (periodic_finite_horizon_codec_of T tasks offset jobs HH codec)
+                 Hwf HenumT_complete)
+              (enum_periodic_jobs_upto_sound
+                 T tasks offset jobs HH enumT
+                 (periodic_finite_horizon_codec_of T tasks offset jobs HH codec)
+                 HenumT_sound))
+           jobs).
       intros s1 s2 t Hagree.
       exact
         (edf_choose_agrees_before

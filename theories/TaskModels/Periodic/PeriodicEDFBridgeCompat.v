@@ -93,9 +93,11 @@ Proof.
   intros T tasks offset H enumT jobs codec sched j t1 t2
          Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hsched Hj Hwit Ht1rel Hj_H Hcarry_free Hdbf.
-  eapply periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_busy_prefix
-    with (codec := codec)
-         (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec);
+  eapply
+    (periodic_edf_no_deadline_miss_from_window_dbf_on_finite_horizon_with_busy_prefix
+       T tasks offset H enumT
+       (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+       jobs codec sched j t1 t2);
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
@@ -173,9 +175,11 @@ Proof.
   intros T tasks offset H enumT jobs codec sched
          Hwf Hnonblocked HnodupT HenumT_complete HenumT_sound
          Hsched Hjob_bridge Hdbf.
-  eapply periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon_with_busy_prefix
-    with (codec := codec)
-         (enumJ := enum_periodic_jobs_upto T tasks offset jobs H enumT codec);
+  eapply
+    (periodic_edf_feasible_schedule_from_window_dbf_on_finite_horizon_with_busy_prefix
+       T tasks offset H enumT
+       (enum_periodic_jobs_upto T tasks offset jobs H enumT codec)
+       jobs codec sched);
     eauto using enum_periodic_jobs_upto_complete, enum_periodic_jobs_upto_sound.
 Qed.
 
