@@ -191,6 +191,15 @@ composition. Diagnostics such as unsupported-policy, EDF deadline metadata,
 and EDF/FIFO scheduler-rule rejection are concrete checker outputs, not
 refinement-layer obligations.
 
+The same boundary applies to dispatch-model selection. `DispatchModel` is a
+common type because common adapter contracts need to state whether a downstream
+adapter is using the strict or spurious dispatch interpretation. It is not a
+new source of common events: spurious dispatch is not an `OpEvent`, not an
+`op_step`, and not a refinement arrow. When the Awkernel workload adapter uses
+the spurious model, it is accepting runtime-local blocked dispatch evidence
+only; such rows are filtered before abstract progress, completion, service,
+candidate-source, and scheduler-relation facts are built.
+
 - Operational/Common: projection theorem ladder and adapter contract ladder.
 - Adapter layer: concrete witness construction from runtime observables.
 - Refinement: executable chooser-to-policy, bounded-delay/service-lag, and

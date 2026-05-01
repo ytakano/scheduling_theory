@@ -216,6 +216,18 @@ candidate table, and service accounting. This preserves the common invariant
 that blocked work is not eligible, without adding `spurious wakeup` to the
 common event vocabulary.
 
+`DispatchModel` belongs to the common layer only as a selector for the adapter
+contract shape. `StrictDispatchModel` requires every accepted dispatch row to
+project to ordinary scheduler progress. `SpuriousDispatchModel` permits an
+adapter to accept a raw dispatch observation that cannot be projected as an
+abstract dispatch because the target is still blocked in the adapter summary.
+That permission does not add a common `OpEvent`, does not add an `op_step`
+case, and does not let the row contribute to progress, completion,
+`service_job`, candidate-source facts, or scheduler-relation facts. The current
+Awkernel workload adapter chooses the spurious model for workload acceptance so
+that runtime-local blocked dispatch evidence can be diagnosed without widening
+the common operational interface.
+
 This distinction matters for multiple-worker support. The common layer already
 supports generic single-CPU and top-`m` scheduler-relation packages. An
 adapter may therefore widen its local `sched_trace` semantics from a

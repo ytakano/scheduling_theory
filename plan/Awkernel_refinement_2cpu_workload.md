@@ -47,6 +47,16 @@ multiple-worker support も同じ方針で扱う。広げるのは common layer 
 adapter-local な `sched_trace` の意味であり、同じ emitted artifact から
 logical worker capacity `m` の schedule を読む。
 
+dispatch の受理方針も同じ境界で扱う。`DispatchModel` は common layer にある
+selector type だが、spurious dispatch は common な `OpEvent` でも `op_step` でもない。
+`StrictDispatchModel` では accepted dispatch row は abstract dispatch progress へ
+射影される必要がある。`SpuriousDispatchModel` では、task_trace summary 上まだ
+blocked な target に対する raw dispatch row を、Awkernel adapter-local evidence として
+受け入れられる。ただしその row は progress、completion、service accounting、
+candidate relation、scheduler-relation witness へは寄与しない。current workload
+acceptance で Awkernel adapter が Spurious を選ぶ理由は、runtime-local な blocked
+dispatch evidence を診断可能にしつつ common interface を広げないためである。
+
 ## Acceptance artifacts: sched_trace と task_trace
 
 current procedure が checker input として使う emitted artifact は 2 つある。
@@ -283,6 +293,9 @@ acceptance lane は `sched_trace + task_trace` を入力に取り、少なくと
   capacity `m` の logical worker schedule を返す adapter-local interpretation
   になる。これは acceptance lane における primary な
   scheduler-policy check である。  
+  `SpuriousDispatchModel` で受理された blocked dispatch row は、この witness へは
+  入れない。したがってその row は `GlobalFIFO` relation、candidate table、
+  abstract service、completion/progress fact のいずれも作らない。  
   Rocq では `workload_scheduler_relation_candidates`、
   `workload_scheduler_relation_choice`、
   `workload_scheduler_relation_schedule`、
