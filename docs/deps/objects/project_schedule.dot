@@ -1,0 +1,34 @@
+digraph project_schedule {
+  graph [ratio=0.5]
+  node [style=filled]
+Base_CPU [label="CPU", URL=<Base.html#CPU>, fillcolor="#F070D1"] ;
+Base_JobId [label="JobId", URL=<Base.html#JobId>, fillcolor="#F070D1"] ;
+Base_Schedule [label="Schedule", URL=<Base.html#Schedule>, fillcolor="#F070D1"] ;
+Base_Time [label="Time", URL=<Base.html#Time>, fillcolor="#F070D1"] ;
+State_OpState [label="OpState", URL=<State.html#OpState>, fillcolor="#E2CDFA"] ;
+State_op_current [label="op_current", URL=<State.html#op_current>, fillcolor="#F070D1"] ;
+Trace_OpTrace [label="OpTrace", URL=<Trace.html#OpTrace>, fillcolor="#F070D1"] ;
+_bool [label="bool", URL=<.html#bool>, fillcolor="#E2CDFA"] ;
+_list [label="list", URL=<.html#list>, fillcolor="#E2CDFA"] ;
+_nat [label="nat", URL=<.html#nat>, fillcolor="#E2CDFA"] ;
+_option [label="option", URL=<.html#option>, fillcolor="#E2CDFA"] ;
+_project_schedule [label="project_schedule", URL=<.html#project_schedule>, peripheries=3, fillcolor="#F070D1"] ;
+  Base_CPU -> _nat [] ;
+  Base_JobId -> _nat [] ;
+  Base_Schedule -> Base_CPU [] ;
+  Base_Schedule -> Base_JobId [] ;
+  Base_Schedule -> Base_Time [] ;
+  Base_Schedule -> _option [] ;
+  Base_Time -> _nat [] ;
+  State_OpState -> Base_CPU [] ;
+  State_OpState -> Base_JobId [] ;
+  State_OpState -> _bool [] ;
+  State_OpState -> _list [] ;
+  State_OpState -> _option [] ;
+  State_op_current -> State_OpState [] ;
+  Trace_OpTrace -> Base_Time [] ;
+  Trace_OpTrace -> State_OpState [] ;
+  _project_schedule -> Base_Schedule [] ;
+  _project_schedule -> State_op_current [] ;
+  _project_schedule -> Trace_OpTrace [] ;
+}

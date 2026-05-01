@@ -1,0 +1,4 @@
+digraph periodic_dbf {
+  graph [ratio=0.5]
+  node [style=filled]
+}

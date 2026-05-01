@@ -1,0 +1,34 @@
+digraph awk_workload_accepts_sched_trace_spurious {
+  graph [ratio=0.5]
+  node [style=filled]
+DispatchModel_SpuriousDispatchModel [label="SpuriousDispatchModel", URL=<DispatchModel.html#SpuriousDispatchModel>, fillcolor="#7FAAFF"] ;
+_AwkernelTaskTraceSummary [label="AwkernelTaskTraceSummary", URL=<.html#AwkernelTaskTraceSummary>, fillcolor="#E2CDFA"] ;
+_None [label="None", URL=<.html#None>, fillcolor="#7FAAFF"] ;
+_accept_sched_trace_from_with_model [label="accept_sched_trace_from_with_model", URL=<.html#accept_sched_trace_from_with_model>, fillcolor="#F070D1"] ;
+_awk_workload_accepts_sched_trace_spurious [label="awk_workload_accepts_sched_trace_spurious", URL=<.html#awk_workload_accepts_sched_trace_spurious>, peripheries=3, fillcolor="#F070D1"] ;
+_awk_workload_accepts_sched_trace_with_model [label="awk_workload_accepts_sched_trace_with_model", URL=<.html#awk_workload_accepts_sched_trace_with_model>, fillcolor="#F070D1"] ;
+_initial_sched_trace_acceptance_state [label="initial_sched_trace_acceptance_state", URL=<.html#initial_sched_trace_acceptance_state>, fillcolor="#F070D1"] ;
+_initial_task_trace_summary [label="initial_task_trace_summary", URL=<.html#initial_task_trace_summary>, fillcolor="#F070D1"] ;
+_mkAwkernelTaskTraceSummary [label="mkAwkernelTaskTraceSummary", URL=<.html#mkAwkernelTaskTraceSummary>, fillcolor="#7FAAFF"] ;
+_nil [label="nil", URL=<.html#nil>, fillcolor="#7FAAFF"] ;
+_sched_trace_family_member_with_model [label="sched_trace_family_member_with_model", URL=<.html#sched_trace_family_member_with_model>, fillcolor="#F070D1"] ;
+_summarize_task_trace [label="summarize_task_trace", URL=<.html#summarize_task_trace>, fillcolor="#F070D1"] ;
+_task_trace_entry_step [label="task_trace_entry_step", URL=<.html#task_trace_entry_step>, fillcolor="#F070D1"] ;
+_task_trace_entry_valid [label="task_trace_entry_valid", URL=<.html#task_trace_entry_valid>, fillcolor="#F070D1"] ;
+  _awk_workload_accepts_sched_trace_spurious -> DispatchModel_SpuriousDispatchModel [] ;
+  _awk_workload_accepts_sched_trace_spurious -> _awk_workload_accepts_sched_trace_with_model [] ;
+  _awk_workload_accepts_sched_trace_with_model -> _initial_task_trace_summary [] ;
+  _awk_workload_accepts_sched_trace_with_model -> _sched_trace_family_member_with_model [] ;
+  _awk_workload_accepts_sched_trace_with_model -> _summarize_task_trace [] ;
+  _initial_sched_trace_acceptance_state -> _None [] ;
+  _initial_sched_trace_acceptance_state -> _nil [] ;
+  _initial_task_trace_summary -> _AwkernelTaskTraceSummary [] ;
+  _initial_task_trace_summary -> _None [] ;
+  _initial_task_trace_summary -> _mkAwkernelTaskTraceSummary [] ;
+  _initial_task_trace_summary -> _nil [] ;
+  _sched_trace_family_member_with_model -> _accept_sched_trace_from_with_model [] ;
+  _sched_trace_family_member_with_model -> _initial_sched_trace_acceptance_state [] ;
+  _summarize_task_trace -> _task_trace_entry_step [] ;
+  _summarize_task_trace -> _task_trace_entry_valid [] ;
+  _task_trace_entry_step -> _mkAwkernelTaskTraceSummary [] ;
+}

@@ -1,0 +1,4 @@
+digraph awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious {
+  graph [ratio=0.5]
+  node [style=filled]
+}

@@ -1,0 +1,5 @@
+digraph DispatchModel {
+  graph [ratio=0.5]
+  node [style=filled]
+_DispatchModel [label="DispatchModel", URL=<.html#DispatchModel>, peripheries=3, fillcolor="#E2CDFA"] ;
+}

@@ -337,4 +337,7 @@ bench-jittered-edf-witness:: sched-witness-gen build-jittered-edf-witness-check
 		./scripts/bench_jittered_edf_witness_pipeline; \
 	fi
 
-.PHONY: extract-periodic-edf-sched-hs extract-jittered-edf-sched-hs build-periodic-edf-witness-check build-jittered-edf-witness-check sched-witness-gen test-sched-witness-gen-determinism test-sched-witness-gen-jittered-parse test-periodic-edf-witness-pipeline test-jittered-edf-witness-pipeline test-jittered-edf-witness-check bench-periodic-edf-witness bench-jittered-edf-witness
+deps-graph::
+	./scripts/visualize_deps.py --out docs/deps --depth 3
+
+.PHONY: extract-periodic-edf-sched-hs extract-jittered-edf-sched-hs build-periodic-edf-witness-check build-jittered-edf-witness-check sched-witness-gen test-sched-witness-gen-determinism test-sched-witness-gen-jittered-parse test-periodic-edf-witness-pipeline test-jittered-edf-witness-pipeline test-jittered-edf-witness-check bench-periodic-edf-witness bench-jittered-edf-witness deps-graph

@@ -1,0 +1,29 @@
+digraph pipeline {
+  rankdir=LR;
+  graph [fontsize=10, labelloc=t, label="Checker trust and refinement pipelines"];
+  node [shape=box, style="rounded,filled", fontsize=10, fillcolor="#eeeeee"];
+  edge [color="#555555"];
+
+  subgraph cluster_edf {
+    label="EDF";
+    color="#9fc5e8";
+    edf_csv [label="CSV periodic task set", fillcolor="#d9eaf7"];
+    edf_gen [label="untrusted Rust witness generator", fillcolor="#f4cccc"];
+    edf_cbor [label="CBOR witness", fillcolor="#fff2cc"];
+    edf_hs [label="extracted Haskell checker", fillcolor="#d9ead3"];
+    edf_thm [label="Rocq soundness theorem", fillcolor="#d9ead3"];
+    edf_csv -> edf_gen -> edf_cbor -> edf_hs -> edf_thm;
+  }
+
+  subgraph cluster_awk {
+    label="Awkernel";
+    color="#b6d7a8";
+    awk_raw [label="raw Awkernel trace", fillcolor="#fff2cc"];
+    awk_norm [label="scheduler-facing event trace", fillcolor="#d9eaf7"];
+    awk_check [label="spurious trace checker", fillcolor="#d9ead3"];
+    awk_sched [label="projected schedule", fillcolor="#d9eaf7"];
+    awk_service [label="service / completion", fillcolor="#d9eaf7"];
+    awk_refine [label="policy / refinement theorem", fillcolor="#d9ead3"];
+    awk_raw -> awk_norm -> awk_check -> awk_sched -> awk_service -> awk_refine;
+  }
+}

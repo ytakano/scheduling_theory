@@ -1,0 +1,23 @@
+digraph AwkernelTaskTraceEntry {
+  graph [ratio=0.5]
+  node [style=filled]
+Base_JobId [label="JobId", URL=<Base.html#JobId>, fillcolor="#F070D1"] ;
+_AwkernelRunnableDeadlineMetadata [label="AwkernelRunnableDeadlineMetadata", URL=<.html#AwkernelRunnableDeadlineMetadata>, fillcolor="#E2CDFA"] ;
+_AwkernelTaskPolicy [label="AwkernelTaskPolicy", URL=<.html#AwkernelTaskPolicy>, fillcolor="#E2CDFA"] ;
+_AwkernelTaskTraceEntry [label="AwkernelTaskTraceEntry", URL=<.html#AwkernelTaskTraceEntry>, peripheries=3, fillcolor="#E2CDFA"] ;
+_AwkernelTaskTraceKind [label="AwkernelTaskTraceKind", URL=<.html#AwkernelTaskTraceKind>, fillcolor="#E2CDFA"] ;
+_AwkernelUnblockKind [label="AwkernelUnblockKind", URL=<.html#AwkernelUnblockKind>, fillcolor="#E2CDFA"] ;
+_AwkernelWaitClass [label="AwkernelWaitClass", URL=<.html#AwkernelWaitClass>, fillcolor="#E2CDFA"] ;
+_nat [label="nat", URL=<.html#nat>, fillcolor="#E2CDFA"] ;
+_option [label="option", URL=<.html#option>, fillcolor="#E2CDFA"] ;
+  Base_JobId -> _nat [] ;
+  _AwkernelRunnableDeadlineMetadata -> _nat [] ;
+  _AwkernelRunnableDeadlineMetadata -> _option [] ;
+  _AwkernelTaskPolicy -> _nat [] ;
+  _AwkernelTaskTraceEntry -> Base_JobId [] ;
+  _AwkernelTaskTraceEntry -> _AwkernelRunnableDeadlineMetadata [] ;
+  _AwkernelTaskTraceEntry -> _AwkernelTaskPolicy [] ;
+  _AwkernelTaskTraceEntry -> _AwkernelTaskTraceKind [] ;
+  _AwkernelTaskTraceEntry -> _AwkernelUnblockKind [] ;
+  _AwkernelTaskTraceEntry -> _AwkernelWaitClass [] ;
+}

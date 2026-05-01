@@ -1,0 +1,20 @@
+digraph AwkernelSchedTraceEntry {
+  graph [ratio=0.5]
+  node [style=filled]
+Base_CPU [label="CPU", URL=<Base.html#CPU>, fillcolor="#F070D1"] ;
+Base_JobId [label="JobId", URL=<Base.html#JobId>, fillcolor="#F070D1"] ;
+Step_OpEvent [label="OpEvent", URL=<Step.html#OpEvent>, fillcolor="#E2CDFA"] ;
+_AwkernelSchedTraceEntry [label="AwkernelSchedTraceEntry", URL=<.html#AwkernelSchedTraceEntry>, peripheries=3, fillcolor="#E2CDFA"] ;
+_bool [label="bool", URL=<.html#bool>, fillcolor="#E2CDFA"] ;
+_list [label="list", URL=<.html#list>, fillcolor="#E2CDFA"] ;
+_nat [label="nat", URL=<.html#nat>, fillcolor="#E2CDFA"] ;
+_option [label="option", URL=<.html#option>, fillcolor="#E2CDFA"] ;
+  Base_CPU -> _nat [] ;
+  Base_JobId -> _nat [] ;
+  Step_OpEvent -> Base_CPU [] ;
+  Step_OpEvent -> Base_JobId [] ;
+  _AwkernelSchedTraceEntry -> Step_OpEvent [] ;
+  _AwkernelSchedTraceEntry -> _bool [] ;
+  _AwkernelSchedTraceEntry -> _list [] ;
+  _AwkernelSchedTraceEntry -> _option [] ;
+}

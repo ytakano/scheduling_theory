@@ -1,0 +1,58 @@
+digraph awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious {
+  graph [ratio=0.5]
+  node [style=filled]
+Base_JobId [label="JobId", URL=<Base.html#JobId>, fillcolor="#F070D1"] ;
+DispatchModel_SpuriousDispatchModel [label="SpuriousDispatchModel", URL=<DispatchModel.html#SpuriousDispatchModel>, fillcolor="#7FAAFF"] ;
+WorkloadAcceptance_AwkernelTaskTraceSummary [label="AwkernelTaskTraceSummary", URL=<WorkloadAcceptance.html#AwkernelTaskTraceSummary>, fillcolor="#E2CDFA"] ;
+WorkloadAcceptance_awk_workload_accepts_sched_trace_spurious [label="awk_workload_accepts_sched_trace_spurious", URL=<WorkloadAcceptance.html#awk_workload_accepts_sched_trace_spurious>, fillcolor="#F070D1"] ;
+WorkloadAcceptance_awk_workload_accepts_sched_trace_with_model [label="awk_workload_accepts_sched_trace_with_model", URL=<WorkloadAcceptance.html#awk_workload_accepts_sched_trace_with_model>, fillcolor="#F070D1"] ;
+WorkloadAcceptance_initial_task_trace_summary [label="initial_task_trace_summary", URL=<WorkloadAcceptance.html#initial_task_trace_summary>, fillcolor="#F070D1"] ;
+WorkloadAcceptance_mkAwkernelTaskTraceSummary [label="mkAwkernelTaskTraceSummary", URL=<WorkloadAcceptance.html#mkAwkernelTaskTraceSummary>, fillcolor="#7FAAFF"] ;
+WorkloadAcceptance_sched_trace_family_member_with_model [label="sched_trace_family_member_with_model", URL=<WorkloadAcceptance.html#sched_trace_family_member_with_model>, fillcolor="#F070D1"] ;
+WorkloadAcceptance_summarize_task_trace [label="summarize_task_trace", URL=<WorkloadAcceptance.html#summarize_task_trace>, fillcolor="#F070D1"] ;
+WorkloadAcceptance_task_policy_edf_fifo_supportedb [label="task_policy_edf_fifo_supportedb", URL=<WorkloadAcceptance.html#task_policy_edf_fifo_supportedb>, fillcolor="#F070D1"] ;
+WorkloadAcceptance_task_policy_table_all_edf_fifo [label="task_policy_table_all_edf_fifo", URL=<WorkloadAcceptance.html#task_policy_table_all_edf_fifo>, fillcolor="#F070D1"] ;
+WorkloadAcceptance_task_trace_all_edf_fifo_policyb [label="task_trace_all_edf_fifo_policyb", URL=<WorkloadAcceptance.html#task_trace_all_edf_fifo_policyb>, fillcolor="#F070D1"] ;
+WorkloadAcceptance_task_trace_entry_step [label="task_trace_entry_step", URL=<WorkloadAcceptance.html#task_trace_entry_step>, fillcolor="#F070D1"] ;
+WorkloadAcceptance_task_trace_entry_valid [label="task_trace_entry_valid", URL=<WorkloadAcceptance.html#task_trace_entry_valid>, fillcolor="#F070D1"] ;
+_None [label="None", URL=<.html#None>, fillcolor="#7FAAFF"] ;
+_andb [label="andb", URL=<.html#andb>, fillcolor="#F070D1"] ;
+_awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious [label="awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious", URL=<.html#awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious>, peripheries=3, fillcolor="#F070D1"] ;
+_list [label="list", URL=<.html#list>, fillcolor="#E2CDFA"] ;
+_nil [label="nil", URL=<.html#nil>, fillcolor="#7FAAFF"] ;
+_prod [label="prod", URL=<.html#prod>, fillcolor="#E2CDFA"] ;
+_sched_trace_edf_fifo_scheduler_relation_check_from [label="sched_trace_edf_fifo_scheduler_relation_check_from", URL=<.html#sched_trace_edf_fifo_scheduler_relation_check_from>, fillcolor="#F070D1"] ;
+_sched_trace_edf_fifo_scheduler_relation_checkb [label="sched_trace_edf_fifo_scheduler_relation_checkb", URL=<.html#sched_trace_edf_fifo_scheduler_relation_checkb>, fillcolor="#F070D1"] ;
+_workload_edf_fifo_scheduler_relation_rowb [label="workload_edf_fifo_scheduler_relation_rowb", URL=<.html#workload_edf_fifo_scheduler_relation_rowb>, fillcolor="#F070D1"] ;
+  WorkloadAcceptance_AwkernelTaskTraceSummary -> Base_JobId [] ;
+  WorkloadAcceptance_AwkernelTaskTraceSummary -> _list [] ;
+  WorkloadAcceptance_AwkernelTaskTraceSummary -> _prod [] ;
+  WorkloadAcceptance_awk_workload_accepts_sched_trace_spurious -> DispatchModel_SpuriousDispatchModel [] ;
+  WorkloadAcceptance_awk_workload_accepts_sched_trace_spurious -> WorkloadAcceptance_awk_workload_accepts_sched_trace_with_model [] ;
+  WorkloadAcceptance_awk_workload_accepts_sched_trace_with_model -> WorkloadAcceptance_initial_task_trace_summary [] ;
+  WorkloadAcceptance_awk_workload_accepts_sched_trace_with_model -> WorkloadAcceptance_sched_trace_family_member_with_model [] ;
+  WorkloadAcceptance_awk_workload_accepts_sched_trace_with_model -> WorkloadAcceptance_summarize_task_trace [] ;
+  WorkloadAcceptance_initial_task_trace_summary -> WorkloadAcceptance_AwkernelTaskTraceSummary [] ;
+  WorkloadAcceptance_initial_task_trace_summary -> WorkloadAcceptance_mkAwkernelTaskTraceSummary [] ;
+  WorkloadAcceptance_initial_task_trace_summary -> _None [] ;
+  WorkloadAcceptance_initial_task_trace_summary -> _nil [] ;
+  WorkloadAcceptance_mkAwkernelTaskTraceSummary -> Base_JobId [] ;
+  WorkloadAcceptance_mkAwkernelTaskTraceSummary -> _list [] ;
+  WorkloadAcceptance_mkAwkernelTaskTraceSummary -> _prod [] ;
+  WorkloadAcceptance_summarize_task_trace -> WorkloadAcceptance_task_trace_entry_step [] ;
+  WorkloadAcceptance_summarize_task_trace -> WorkloadAcceptance_task_trace_entry_valid [] ;
+  WorkloadAcceptance_task_policy_table_all_edf_fifo -> Base_JobId [] ;
+  WorkloadAcceptance_task_policy_table_all_edf_fifo -> WorkloadAcceptance_task_policy_edf_fifo_supportedb [] ;
+  WorkloadAcceptance_task_policy_table_all_edf_fifo -> _andb [] ;
+  WorkloadAcceptance_task_policy_table_all_edf_fifo -> _list [] ;
+  WorkloadAcceptance_task_policy_table_all_edf_fifo -> _prod [] ;
+  WorkloadAcceptance_task_trace_all_edf_fifo_policyb -> WorkloadAcceptance_initial_task_trace_summary [] ;
+  WorkloadAcceptance_task_trace_all_edf_fifo_policyb -> WorkloadAcceptance_summarize_task_trace [] ;
+  WorkloadAcceptance_task_trace_all_edf_fifo_policyb -> WorkloadAcceptance_task_policy_table_all_edf_fifo [] ;
+  WorkloadAcceptance_task_trace_entry_step -> WorkloadAcceptance_mkAwkernelTaskTraceSummary [] ;
+  _awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious -> WorkloadAcceptance_awk_workload_accepts_sched_trace_spurious [] ;
+  _awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious -> WorkloadAcceptance_task_trace_all_edf_fifo_policyb [] ;
+  _awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious -> _sched_trace_edf_fifo_scheduler_relation_checkb [] ;
+  _sched_trace_edf_fifo_scheduler_relation_check_from -> _workload_edf_fifo_scheduler_relation_rowb [] ;
+  _sched_trace_edf_fifo_scheduler_relation_checkb -> _sched_trace_edf_fifo_scheduler_relation_check_from [] ;
+}

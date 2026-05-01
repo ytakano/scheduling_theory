@@ -1,0 +1,5 @@
+digraph AwkernelTaskTraceKind {
+  graph [ratio=0.5]
+  node [style=filled]
+_AwkernelTaskTraceKind [label="AwkernelTaskTraceKind", URL=<.html#AwkernelTaskTraceKind>, peripheries=3, fillcolor="#E2CDFA"] ;
+}

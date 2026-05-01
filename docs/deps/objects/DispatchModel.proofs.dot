@@ -1,0 +1,4 @@
+digraph DispatchModel {
+  graph [ratio=0.5]
+  node [style=filled]
+}
