@@ -62,8 +62,11 @@ current procedure が checker input として使う emitted artifact は 2 つ�
     emitted metadata であり、common layer の `OpState`、`OpEvent`、または
     semantic time ではない。acceptance checker は自然数として parse するが、
     extracted `AwkernelSchedTraceEntry` には渡さない
-  - `runnable` column は adapter が projection した runnable view であり、
-    concrete scheduler queue の dump ではない
+  - `runnable` column は adapter が projection した scheduler queue-visible
+    runnable view であり、`TaskInfo.state` そのものや concrete scheduler queue の
+    raw dump ではない。ここでの意味は `op_runnable` へ対応させる
+    proof-facing observation であり、どの runtime state transition や queue hook が
+    その observation を正当化するかは Awkernel adapter layer の責務である
   - adapter は同じ emitted `sched_trace` から worker-slot occupancy と
     dispatch interval を再構成し、logical worker capacity `m` の
     scheduler-facing schedule を読む
@@ -85,6 +88,7 @@ current procedure が checker input として使う emitted artifact は 2 つ�
     join-target readiness、completion を要約するための task-family fact stream であり、Rocq では
     `AwkernelTaskTraceEntry` と `AwkernelTaskTraceSummary` に対応する
   - `Runnable` は projected task state が runnable になった lifecycle fact であり、
+    `sched_trace.runnable` / `op_runnable` の queue-visible scheduler view や
     concrete scheduler queue への enqueue 完了を観測する record ではない
 
 この 2 つは adapter-local emitted artifact であり、common layer に追加された API ではない。
@@ -109,7 +113,8 @@ trace buffer、`event_id` ordering、serial capture backend はこの Prop の�
 
 - task spawn
 - task becomes runnable
-  (Awkernel では `TaskInfo` state transition の観測であり、
+  (Awkernel では `TaskInfo` state transition 由来の lifecycle fact であり、
+  `sched_trace.runnable` / `op_runnable` の queue-visible scheduler view や
   scheduler queue insertion の観測ではない)
 - scheduler choose
 - scheduler dispatch
@@ -302,8 +307,10 @@ acceptance lane は `sched_trace + task_trace` を入力に取り、少なくと
   がその bool/Prop 境界を固定する。
 
 この checker は fixed job-id example に依存せず、task_trace summary が与える
-known task 集合の上で sched_trace matching を行う。runnable list の順序自体は意味論に使わず、
-membership だけを使う。
+known task 集合の上で sched_trace matching を行う。ここで使う runnable list は
+adapter が `sched_trace.runnable` として projection した scheduler queue-visible
+view であり、`TaskInfo.state` から直接読んだ task lifecycle state ではない。
+list の順序自体は意味論に使わず、membership だけを使う。
 
 ### task_trace 側で見る record kind
 

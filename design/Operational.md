@@ -60,7 +60,9 @@ Record OpState : Type := mkOpState {
 records only the common observables needed by the operational bridge:
 
 - `op_current`: which job currently occupies each CPU,
-- `op_runnable`: a runnable-job view,
+- `op_runnable`: a proof-facing runnable-job view, as projected by an adapter
+  from scheduler queue-visible behavior rather than from a concrete task-state
+  field,
 - `op_need_resched`: per-CPU reschedule requests,
 - `op_dispatch_target`: per-CPU dispatch intentions.
 
@@ -187,6 +189,9 @@ Their role is intentionally adapter-local:
   `OpTrace`,
 - `task_trace` is an emitted task-family summary artifact, not a common event
   interface,
+- `sched_trace.runnable` is the adapter-projected scheduler queue-visible
+  runnable view used to justify `op_runnable`; it is not Awkernel
+  `TaskInfo.state` and not a raw dump of a concrete queue layout,
 - every accepted `task_trace` row uses the adapter's explicit TSV schema:
   `event_id kind subject related wait_class unblock_kind policy policy_param`,
   optionally followed by periodic loop or deadline metadata; historical rows
