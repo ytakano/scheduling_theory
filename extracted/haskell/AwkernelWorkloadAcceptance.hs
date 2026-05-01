@@ -1606,15 +1606,15 @@ sched_trace_step_after_start_with_model model summary st entry =
         case first_some try_choose_job known of {
          Some st' -> Some st';
          None ->
-          case first_some try_spurious_dispatch_job known of {
+          case first_some try_dispatch_job known of {
            Some st' -> Some st';
            None ->
-            case first_some try_dispatch_job known of {
+            case first_some try_join_target_ready known of {
              Some st' -> Some st';
              None ->
-              case first_some try_join_target_ready known of {
+              case first_some try_complete_job known of {
                Some st' -> Some st';
-               None -> first_some try_complete_job known}}}}}}}
+               None -> first_some try_spurious_dispatch_job known}}}}}}}
 
 sched_trace_step_with_model :: DispatchModel -> AwkernelTaskTraceSummary ->
                                AwkernelSchedTraceAcceptanceState ->

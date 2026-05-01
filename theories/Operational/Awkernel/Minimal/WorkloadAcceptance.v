@@ -944,15 +944,15 @@ Definition sched_trace_step_after_start_with_model
                match first_some try_choose_job known with
                | Some st' => Some st'
                | None =>
-                   match first_some try_spurious_dispatch_job known with
+                   match first_some try_dispatch_job known with
                    | Some st' => Some st'
                    | None =>
-                       match first_some try_dispatch_job known with
+                       match first_some try_join_target_ready known with
                        | Some st' => Some st'
                        | None =>
-                           match first_some try_join_target_ready known with
+                           match first_some try_complete_job known with
                            | Some st' => Some st'
-                           | None => first_some try_complete_job known
+                           | None => first_some try_spurious_dispatch_job known
                            end
                        end
                    end
@@ -1083,6 +1083,285 @@ Definition accepted_workload_sched_trace_family_spurious
   accepted_workload_sched_trace_family_with_model
     SpuriousDispatchModel task_trace sched_trace.
 
+Lemma first_some_some_early :
+  forall A B (f : A -> option B) xs y,
+    first_some f xs = Some y ->
+    exists x, In x xs /\ f x = Some y.
+Proof.
+  intros A B f xs.
+  induction xs as [|x xs IH]; intros y H.
+  - simpl in H. discriminate.
+  - simpl in H.
+    destruct (f x) as [z|] eqn:Hfx.
+    + inversion H; subst.
+      exists x. split; [left; reflexivity|assumption].
+    + apply IH in H as [x' [Hin Hfx']].
+      exists x'. split; [right; assumption|assumption].
+Qed.
+
+Lemma dispatch_model_strict_step_allows_spurious_step :
+  forall summary st entry st',
+    sched_trace_step_after_start_with_model
+      StrictDispatchModel summary st entry = Some st' ->
+    sched_trace_step_after_start_with_model
+      SpuriousDispatchModel summary st entry = Some st'.
+Proof.
+  intros summary st entry st' Hstep.
+  unfold sched_trace_step_after_start_with_model in *.
+  repeat
+    match goal with
+    | H : context [if ?b then _ else _] |- _ =>
+        destruct b eqn:?; simpl in H; try discriminate
+    | |- context [if ?b then _ else _] =>
+        destruct b eqn:?; simpl; try exact Hstep
+    | H : context [match ?x with _ => _ end] |- _ =>
+        destruct x eqn:?; simpl in H; try discriminate
+    | |- context [match ?x with _ => _ end] =>
+        destruct x eqn:?; simpl; try exact Hstep
+    end;
+    try (inversion Hstep; subst; reflexivity).
+  all: try (destruct st'; simpl in *; congruence).
+  all:
+    try match goal with
+        | H : first_some
+                (fun j : JobId =>
+                   if ?cond && false && ?tail then Some _ else None)
+                _ = Some _ |- _ =>
+            apply first_some_some_early in H;
+            destruct H as [? [_ H]];
+            repeat rewrite Bool.andb_false_r in H;
+            simpl in H;
+            discriminate
+        end.
+Qed.
+
+Lemma sched_trace_step_strict_implies_spurious :
+  forall summary st entry st',
+    sched_trace_step_with_model
+      StrictDispatchModel summary st entry = Some st' ->
+    sched_trace_step_with_model
+      SpuriousDispatchModel summary st entry = Some st'.
+Proof.
+  intros summary st entry st' Hstep.
+  unfold sched_trace_step_with_model in *.
+  destruct (astas_started st) eqn:Hstarted.
+  - apply dispatch_model_strict_step_allows_spurious_step.
+    exact Hstep.
+  - exact Hstep.
+Qed.
+
+Lemma accept_sched_trace_from_strict_implies_spurious :
+  forall summary st sched_trace,
+    accept_sched_trace_from_with_model
+      StrictDispatchModel summary st sched_trace = true ->
+    accept_sched_trace_from_with_model
+      SpuriousDispatchModel summary st sched_trace = true.
+Proof.
+  intros summary st sched_trace.
+  revert st.
+  induction sched_trace as [|entry sched_trace IH]; intros st Haccept; simpl in *.
+  - exact Haccept.
+  - destruct (sched_trace_step_with_model StrictDispatchModel summary st entry)
+      as [st'|] eqn:Hstep; try discriminate.
+    rewrite (sched_trace_step_strict_implies_spurious summary st entry st' Hstep).
+    apply IH.
+    exact Haccept.
+Qed.
+
+Lemma sched_trace_family_member_strict_implies_spurious :
+  forall summary sched_trace,
+    sched_trace_family_member summary sched_trace = true ->
+    sched_trace_family_member_spurious summary sched_trace = true.
+Proof.
+  intros summary sched_trace Hfamily.
+  unfold sched_trace_family_member, sched_trace_family_member_spurious,
+    sched_trace_family_member_with_model in *.
+  apply accept_sched_trace_from_strict_implies_spurious.
+  exact Hfamily.
+Qed.
+
+Lemma awk_workload_accepts_sched_trace_strict_implies_spurious :
+  forall task_trace sched_trace,
+    awk_workload_accepts_sched_trace task_trace sched_trace = true ->
+    awk_workload_accepts_sched_trace_spurious task_trace sched_trace = true.
+Proof.
+  intros task_trace sched_trace Haccept.
+  unfold awk_workload_accepts_sched_trace,
+    awk_workload_accepts_sched_trace_spurious,
+    awk_workload_accepts_sched_trace_with_model in *.
+  destruct (summarize_task_trace initial_task_trace_summary task_trace)
+    as [summary|] eqn:Hsummary; try discriminate.
+  apply sched_trace_family_member_strict_implies_spurious.
+  exact Haccept.
+Qed.
+
+Lemma accepted_workload_sched_trace_family_strict_implies_spurious :
+  forall task_trace sched_trace,
+    accepted_workload_sched_trace_family task_trace sched_trace ->
+    accepted_workload_sched_trace_family_spurious task_trace sched_trace.
+Proof.
+  intros task_trace sched_trace [summary [Hsummary Hfamily]].
+  exists summary.
+  split; [exact Hsummary|].
+  unfold sched_trace_family_member in Hfamily.
+  unfold sched_trace_family_member_spurious,
+    sched_trace_family_member_with_model.
+  apply accept_sched_trace_from_strict_implies_spurious.
+  exact Hfamily.
+Qed.
+
+Definition sched_trace_entry_is_spurious_dispatch
+    (summary : AwkernelTaskTraceSummary)
+    (st : AwkernelSchedTraceAcceptanceState)
+    (entry : AwkernelSchedTraceEntry) : bool :=
+  match aste_event entry, astas_selected st with
+  | EvDispatch _ j, Some selected =>
+      Nat.eqb selected j &&
+      job_list_contains j (atts_known_tasks summary) &&
+      negb (job_list_contains j (astas_completed st)) &&
+      task_trace_blocked_at summary (aste_event_id entry) j
+  | _, _ => false
+  end.
+
+Lemma spurious_dispatch_excludes_normal_dispatch_first_some :
+  forall summary st entry st',
+    sched_trace_entry_is_spurious_dispatch summary st entry = true ->
+    first_some
+      (fun j : JobId =>
+         if
+           sched_trace_is_dispatch j entry &&
+           option_job_eqb (astas_selected st) (Some j) &&
+           negb (job_list_contains j (astas_blocked st)) &&
+           negb (task_trace_blocked_at summary (aste_event_id entry) j)
+         then
+           Some
+             {|
+               astas_started := true;
+               astas_selected := None;
+               astas_dispatched := add_job_once j (astas_dispatched st);
+               astas_completed := astas_completed st;
+               astas_ready_targets := astas_ready_targets st;
+               astas_blocked := astas_blocked st
+             |}
+         else None)
+      (atts_known_tasks summary) = Some st' ->
+    False.
+Proof.
+  intros summary st entry st' Hspurious Hnormal.
+  unfold sched_trace_entry_is_spurious_dispatch in Hspurious.
+  apply first_some_some_early in Hnormal as [j_normal [_ Hnormal]].
+  destruct entry as
+      [event_id cpu event current runnable need_resched dispatch_target
+       worker_current worker_need_resched worker_dispatch_target].
+  simpl in *.
+  destruct event; simpl in Hspurious; try discriminate.
+  destruct (astas_selected st) as [selected|] eqn:Hselected; try discriminate.
+  unfold sched_trace_is_dispatch, sched_trace_event_is_dispatch in Hnormal.
+  simpl in Hnormal.
+  repeat
+    match goal with
+    | H : context [if ?b then _ else _] |- _ =>
+        destruct b eqn:?; simpl in H; try discriminate
+    end.
+  repeat
+    match goal with
+    | H : _ && _ = true |- _ =>
+        apply Bool.andb_true_iff in H as [? ?]
+    | H : Nat.eqb _ _ = true |- _ =>
+        apply Nat.eqb_eq in H; subst
+    | H : negb ?b = true |- _ =>
+        apply Bool.negb_true_iff in H
+    end.
+  congruence.
+Qed.
+
+Lemma spurious_dispatch_step_preserves_progress_fields :
+  forall summary st entry st',
+    sched_trace_entry_is_spurious_dispatch summary st entry = true ->
+    sched_trace_step_after_start_with_model
+      SpuriousDispatchModel summary st entry = Some st' ->
+    astas_selected st' = None /\
+    astas_dispatched st' = astas_dispatched st /\
+    astas_completed st' = astas_completed st /\
+    astas_ready_targets st' = astas_ready_targets st /\
+    astas_blocked st' = astas_blocked st.
+Proof.
+  intros summary st entry st' Hspurious Hstep.
+  pose proof Hspurious as Hspurious_original.
+  unfold sched_trace_entry_is_spurious_dispatch in Hspurious.
+  destruct (aste_event entry) as
+      [j_wakeup|j_block|j_ready|j_complete|c_req|c_handle|c_choose j_choose
+      |c_dispatch j_dispatch|c_preempt old new| |] eqn:Hevent;
+    try discriminate.
+  destruct (astas_selected st) as [selected|] eqn:Hselected; try discriminate.
+  unfold sched_trace_step_after_start_with_model in Hstep.
+  unfold sched_trace_is_stutter, sched_trace_event_is_stutter,
+    sched_trace_is_wakeup, sched_trace_event_is_wakeup,
+    sched_trace_is_block, sched_trace_event_is_block,
+    sched_trace_is_choose, sched_trace_event_is_choose,
+    sched_trace_is_join_target_ready, sched_trace_event_is_join_target_ready,
+    sched_trace_is_complete, sched_trace_event_is_complete in Hstep.
+  rewrite Hevent in Hstep.
+  simpl in Hstep.
+  repeat
+    match goal with
+    | H : context [if ?b then _ else _] |- _ =>
+        destruct b eqn:?; simpl in H; try discriminate
+    | H : context [match ?x with _ => _ end] |- _ =>
+        destruct x eqn:?; simpl in H; try discriminate
+    end;
+    try (inversion Hstep; subst; repeat split; reflexivity).
+  all:
+    repeat rewrite Bool.andb_false_r in *;
+    repeat rewrite Bool.andb_false_l in *;
+    simpl in *;
+    try discriminate.
+  all:
+    try match goal with
+        | H : first_some (fun _ : JobId => None) _ = Some _ |- _ =>
+            apply first_some_some_early in H;
+            destruct H as [? [_ H]];
+            discriminate
+        end.
+  all:
+    try match goal with
+        | Hnormal : first_some
+              (fun j : JobId =>
+                 if
+                   sched_trace_is_dispatch j ?entry &&
+                   option_job_eqb (astas_selected ?st) (Some j) &&
+                   negb (job_list_contains j (astas_blocked ?st)) &&
+                   negb (task_trace_blocked_at ?summary (aste_event_id ?entry) j)
+                 then Some _ else None) (atts_known_tasks ?summary) = Some _,
+          Hspurious_original : sched_trace_entry_is_spurious_dispatch ?summary ?st ?entry = true |- _ =>
+            exfalso;
+            eapply spurious_dispatch_excludes_normal_dispatch_first_some;
+            [exact Hspurious_original|exact Hnormal]
+        end.
+  all:
+    try match goal with
+        | Hspurious_step : first_some
+              (fun j : JobId =>
+                 if
+                   sched_trace_is_dispatch j ?entry &&
+                   option_job_eqb (astas_selected ?st) (Some j) &&
+                   job_list_contains j (atts_known_tasks ?summary) &&
+                   negb (job_list_contains j (astas_completed ?st)) &&
+                   true &&
+                   task_trace_blocked_at ?summary (aste_event_id ?entry) j
+                 then Some _ else None) (atts_known_tasks ?summary) = Some ?st' |- _ =>
+            apply first_some_some_early in Hspurious_step;
+            destruct Hspurious_step as [j [_ Hspurious_step]];
+            repeat
+              match goal with
+              | H : context [if ?b then _ else _] |- _ =>
+                  destruct b eqn:?; simpl in H; try discriminate
+              end;
+            inversion Hspurious_step; subst; repeat split; reflexivity
+        end.
+  all: inversion Hstep; subst; repeat split; reflexivity.
+Qed.
+
 Lemma awk_workload_accepts_sched_trace_sound :
   forall task_trace sched_trace,
     awk_workload_accepts_sched_trace task_trace sched_trace = true ->
@@ -1110,6 +1389,38 @@ Proof.
   unfold accepted_workload_sched_trace_family,
          accepted_workload_sched_trace_family_with_model in Hsched.
   unfold awk_workload_accepts_sched_trace,
+         awk_workload_accepts_sched_trace_with_model.
+  rewrite Hsummary.
+  exact Hsched.
+Qed.
+
+Lemma awk_workload_accepts_sched_trace_spurious_sound :
+  forall task_trace sched_trace,
+    awk_workload_accepts_sched_trace_spurious task_trace sched_trace = true ->
+    accepted_workload_sched_trace_family_spurious task_trace sched_trace.
+Proof.
+  intros task_trace sched_trace Haccept.
+  unfold awk_workload_accepts_sched_trace_spurious,
+         awk_workload_accepts_sched_trace_with_model in Haccept.
+  unfold accepted_workload_sched_trace_family_spurious,
+         accepted_workload_sched_trace_family_with_model.
+  destruct (summarize_task_trace initial_task_trace_summary task_trace) as [summary|] eqn:Hsummary;
+    simpl in Haccept; try discriminate.
+  exists summary.
+  split.
+  - reflexivity.
+  - exact Haccept.
+Qed.
+
+Lemma awk_workload_accepts_sched_trace_spurious_complete :
+  forall task_trace sched_trace,
+    accepted_workload_sched_trace_family_spurious task_trace sched_trace ->
+    awk_workload_accepts_sched_trace_spurious task_trace sched_trace = true.
+Proof.
+  intros task_trace sched_trace [summary [Hsummary Hsched]].
+  unfold accepted_workload_sched_trace_family_spurious,
+         accepted_workload_sched_trace_family_with_model in Hsched.
+  unfold awk_workload_accepts_sched_trace_spurious,
          awk_workload_accepts_sched_trace_with_model.
   rewrite Hsummary.
   exact Hsched.
@@ -1387,52 +1698,38 @@ Proof.
             inversion Hj; subst.
           peel_andb_left.
           eapply sched_trace_is_choose_cpu_in_range; eauto. }
-        { destruct (first_some try_spurious_dispatch_job known) as [st4s|] eqn:Hspurious_dispatches.
+        { destruct (first_some try_dispatch_job known) as [st4|] eqn:Hdispatches.
           - inversion Hstep; subst.
-            apply first_some_some in Hspurious_dispatches.
-            destruct Hspurious_dispatches as [j [_ Hj]].
-            unfold try_spurious_dispatch_job in Hj.
+            apply first_some_some in Hdispatches.
+            destruct Hdispatches as [j [_ Hj]].
+            unfold try_dispatch_job in Hj.
             destruct
               (sched_trace_is_dispatch j entry &&
                option_job_eqb (astas_selected st) (Some j) &&
-               job_list_contains j known &&
-               negb (job_list_contains j (astas_completed st)) &&
-               dispatch_model_allows_spurious_dispatch StrictDispatchModel &&
-               task_trace_blocked_at summary (aste_event_id entry) j) eqn:Hcond;
+               negb (job_list_contains j (astas_blocked st)) &&
+               negb (task_trace_blocked_at summary (aste_event_id entry) j)) eqn:Hcond;
               simpl in Hj; try discriminate.
             inversion Hj; subst.
             peel_andb_left.
             eapply sched_trace_is_dispatch_cpu_in_range; eauto.
-          - destruct (first_some try_dispatch_job known) as [st4|] eqn:Hdispatches.
+          - destruct (first_some try_join_target_ready known) as [st5|] eqn:Hready.
             + inversion Hstep; subst.
-              apply first_some_some in Hdispatches.
-              destruct Hdispatches as [j [_ Hj]].
-              unfold try_dispatch_job in Hj.
+              apply first_some_some in Hready.
+              destruct Hready as [j [_ Hj]].
+              unfold try_join_target_ready in Hj.
               destruct
-                (sched_trace_is_dispatch j entry &&
-                 option_job_eqb (astas_selected st) (Some j) &&
-                 negb (job_list_contains j (astas_blocked st)) &&
-                 negb (task_trace_blocked_at summary (aste_event_id entry) j)) eqn:Hcond;
+                (sched_trace_is_join_target_ready j entry &&
+                 job_list_contains j known &&
+                 job_list_contains j ready_targets &&
+                 negb (job_list_contains j (astas_ready_targets st))) eqn:Hcond;
                 simpl in Hj; try discriminate.
               inversion Hj; subst.
               peel_andb_left.
-              eapply sched_trace_is_dispatch_cpu_in_range; eauto.
-            + destruct (first_some try_join_target_ready known) as [st5|] eqn:Hready.
+              eapply sched_trace_is_join_target_ready_cpu_in_range; eauto.
+            + destruct (first_some try_complete_job known) as [st6|] eqn:Hcomplete.
               * inversion Hstep; subst.
-                apply first_some_some in Hready.
-                destruct Hready as [j [_ Hj]].
-                unfold try_join_target_ready in Hj.
-                destruct
-                  (sched_trace_is_join_target_ready j entry &&
-                   job_list_contains j known &&
-                   job_list_contains j ready_targets &&
-                   negb (job_list_contains j (astas_ready_targets st))) eqn:Hcond;
-                  simpl in Hj; try discriminate.
-                inversion Hj; subst.
-                peel_andb_left.
-                eapply sched_trace_is_join_target_ready_cpu_in_range; eauto.
-              * apply first_some_some in Hstep.
-                destruct Hstep as [j [_ Hj]].
+                apply first_some_some in Hcomplete.
+                destruct Hcomplete as [j [_ Hj]].
                 unfold try_complete_job in Hj.
                 destruct
                   (sched_trace_is_complete j entry &&
@@ -1444,7 +1741,20 @@ Proof.
                   simpl in Hj; try discriminate.
                 inversion Hj; subst.
                 peel_andb_left.
-                eapply sched_trace_is_complete_cpu_in_range; eauto. }
+                eapply sched_trace_is_complete_cpu_in_range; eauto.
+              * apply first_some_some in Hstep.
+                destruct Hstep as [j [_ Hj]].
+                unfold try_spurious_dispatch_job in Hj.
+                destruct
+                  (sched_trace_is_dispatch j entry &&
+                   option_job_eqb (astas_selected st) (Some j) &&
+                   job_list_contains j known &&
+                   negb (job_list_contains j (astas_completed st)) &&
+                   dispatch_model_allows_spurious_dispatch StrictDispatchModel &&
+                   task_trace_blocked_at summary (aste_event_id entry) j) eqn:Hcond;
+                  simpl in Hj; try discriminate.
+                peel_andb_left.
+                eapply sched_trace_is_dispatch_cpu_in_range; eauto. }
 Qed.
 
 Lemma sched_trace_step_cpu_in_range :

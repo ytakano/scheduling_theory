@@ -235,6 +235,76 @@ Definition workload_scheduler_relation_schedule
         c
     else None.
 
+Lemma workload_scheduler_relation_candidates_dispatch_nil :
+  forall task_trace entry cpu job,
+    aste_event entry = EvDispatch cpu job ->
+    workload_scheduler_relation_candidates task_trace entry = [].
+Proof.
+  intros task_trace entry cpu job Hevent.
+  unfold workload_scheduler_relation_candidates.
+  rewrite Hevent.
+  reflexivity.
+Qed.
+
+Lemma workload_scheduler_relation_choice_dispatch_nil :
+  forall task_trace entry cpu job,
+    aste_event entry = EvDispatch cpu job ->
+    workload_scheduler_relation_choice task_trace entry = [].
+Proof.
+  intros task_trace entry cpu job Hevent.
+  unfold workload_scheduler_relation_choice.
+  rewrite Hevent.
+  reflexivity.
+Qed.
+
+Lemma workload_scheduler_relation_schedule_dispatch_none :
+  forall task_trace sched_trace t entry cpu job c,
+    nth_error sched_trace t = Some entry ->
+    aste_event entry = EvDispatch cpu job ->
+    workload_scheduler_relation_schedule task_trace sched_trace t c = None.
+Proof.
+  intros task_trace sched_trace t entry cpu job c Hentry Hevent.
+  unfold workload_scheduler_relation_schedule.
+  destruct (c <? 1) eqn:Hcpu; [|reflexivity].
+  assert (Ht : t < length sched_trace).
+  { apply nth_error_Some.
+    rewrite Hentry.
+    discriminate.
+  }
+  assert
+    (Hnth :
+       nth_error sched_trace t =
+       Some (nth t sched_trace empty_sched_trace_entry)).
+  { apply nth_error_nth'. exact Ht. }
+  rewrite Hnth in Hentry.
+  inversion Hentry; subst entry.
+  rewrite (workload_scheduler_relation_choice_dispatch_nil
+             task_trace
+             (nth t sched_trace empty_sched_trace_entry)
+             cpu job Hevent).
+  destruct c; reflexivity.
+Qed.
+
+Lemma blocked_dispatch_row_excluded_from_scheduler_relation :
+  forall task_trace sched_trace t entry cpu job c,
+    nth_error sched_trace t = Some entry ->
+    aste_event entry = EvDispatch cpu job ->
+    task_trace_blocks_at task_trace (aste_event_id entry) job = true ->
+    workload_scheduler_relation_candidates task_trace entry = [] /\
+    workload_scheduler_relation_choice task_trace entry = [] /\
+    workload_scheduler_relation_schedule task_trace sched_trace t c = None.
+Proof.
+  intros task_trace sched_trace t entry cpu job c Hentry Hevent _.
+  repeat split.
+  - eapply workload_scheduler_relation_candidates_dispatch_nil.
+    exact Hevent.
+  - eapply workload_scheduler_relation_choice_dispatch_nil.
+    exact Hevent.
+  - eapply workload_scheduler_relation_schedule_dispatch_none.
+    + exact Hentry.
+    + exact Hevent.
+Qed.
+
 Fixpoint task_trace_has_completeb
     (task_id : JobId) (task_trace : list AwkernelTaskTraceEntry) : bool :=
   match task_trace with
@@ -1064,6 +1134,44 @@ Proof.
   reflexivity.
 Qed.
 
+Lemma awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_spurious_sound :
+  forall task_trace sched_trace,
+    awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_spurious
+      task_trace sched_trace = true ->
+    accepted_workload_global_fifo_scheduler_relation_family_spurious
+      task_trace sched_trace.
+Proof.
+  intros task_trace sched_trace Haccept.
+  unfold awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_spurious in Haccept.
+  apply Bool.andb_true_iff in Haccept as [Hfamily_policy Hrel].
+  apply Bool.andb_true_iff in Hfamily_policy as [Hfamily Hpolicy].
+  split.
+  - apply awk_workload_accepts_sched_trace_spurious_sound.
+    exact Hfamily.
+  - split.
+    + exact Hpolicy.
+    + apply sched_trace_global_fifo_scheduler_relation_check_from_sound.
+      exact Hrel.
+Qed.
+
+Lemma awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_spurious_complete :
+  forall task_trace sched_trace,
+    accepted_workload_global_fifo_scheduler_relation_family_spurious
+      task_trace sched_trace ->
+    awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_spurious
+      task_trace sched_trace = true.
+Proof.
+  intros task_trace sched_trace [Hfamily [Hpolicy Hrel]].
+  unfold awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_spurious.
+  unfold sched_trace_global_fifo_scheduler_relation_checkb.
+  rewrite (awk_workload_accepts_sched_trace_spurious_complete task_trace sched_trace Hfamily).
+  rewrite Hpolicy.
+  rewrite
+    (sched_trace_global_fifo_scheduler_relation_check_from_complete
+       task_trace sched_trace 0 sched_trace Hrel).
+  reflexivity.
+Qed.
+
 Lemma workload_edf_fifo_scheduler_relation_rowb_sound :
   forall task_trace sched_trace t entry,
     workload_edf_fifo_scheduler_relation_rowb task_trace sched_trace t entry = true ->
@@ -1199,6 +1307,44 @@ Proof.
   unfold awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace.
   unfold sched_trace_edf_fifo_scheduler_relation_checkb.
   rewrite (awk_workload_accepts_sched_trace_complete task_trace sched_trace Hfamily).
+  rewrite Hpolicy.
+  rewrite
+    (sched_trace_edf_fifo_scheduler_relation_check_from_complete
+       task_trace sched_trace 0 sched_trace Hrel).
+  reflexivity.
+Qed.
+
+Lemma awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious_sound :
+  forall task_trace sched_trace,
+    awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious
+      task_trace sched_trace = true ->
+    accepted_workload_edf_fifo_scheduler_relation_family_spurious
+      task_trace sched_trace.
+Proof.
+  intros task_trace sched_trace Haccept.
+  unfold awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious in Haccept.
+  apply Bool.andb_true_iff in Haccept as [Hfamily_policy Hrel].
+  apply Bool.andb_true_iff in Hfamily_policy as [Hfamily Hpolicy].
+  split.
+  - apply awk_workload_accepts_sched_trace_spurious_sound.
+    exact Hfamily.
+  - split.
+    + exact Hpolicy.
+    + apply sched_trace_edf_fifo_scheduler_relation_check_from_sound.
+      exact Hrel.
+Qed.
+
+Lemma awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious_complete :
+  forall task_trace sched_trace,
+    accepted_workload_edf_fifo_scheduler_relation_family_spurious
+      task_trace sched_trace ->
+    awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious
+      task_trace sched_trace = true.
+Proof.
+  intros task_trace sched_trace [Hfamily [Hpolicy Hrel]].
+  unfold awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious.
+  unfold sched_trace_edf_fifo_scheduler_relation_checkb.
+  rewrite (awk_workload_accepts_sched_trace_spurious_complete task_trace sched_trace Hfamily).
   rewrite Hpolicy.
   rewrite
     (sched_trace_edf_fifo_scheduler_relation_check_from_complete
@@ -2196,6 +2342,54 @@ Proof.
     reflexivity.
 Qed.
 
+Lemma awk_workload_checker_acceptance_spurious_global_fifo_scheduler_rel_from_fifo_table :
+  forall task_trace sched_trace table,
+    awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_spurious
+      task_trace sched_trace = true ->
+    workload_fifo_candidate_table_contract task_trace sched_trace table ->
+    scheduler_rel
+      (top_m_algorithm_schedule global_fifo_top_m_spec
+         (candidate_source_of_table table))
+      (workload_scheduler_relation_jobs task_trace sched_trace)
+      1
+      (workload_scheduler_relation_schedule task_trace sched_trace).
+Proof.
+  intros task_trace sched_trace table Haccept Htable.
+  pose proof
+    (awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_spurious_sound
+       task_trace sched_trace Haccept)
+    as [_ [_ Hrelation]].
+  pose proof
+    (workload_fifo_candidate_table_contract_eq
+       task_trace sched_trace table Htable) as Htable_eq.
+  subst table.
+  unfold top_m_algorithm_schedule.
+  simpl.
+  intros t c.
+  unfold workload_scheduler_relation_schedule.
+  destruct (c <? 1) eqn:Hcpu; [|reflexivity].
+  rewrite workload_fifo_candidate_source_matches_relation_candidates.
+  destruct (lt_dec t (length sched_trace)) as [Ht | Ht].
+  - assert
+      (Hentry :
+         nth_error sched_trace t =
+         Some (nth t sched_trace empty_sched_trace_entry)).
+    { apply nth_error_nth'. exact Ht. }
+    pose proof
+      (sched_trace_global_fifo_scheduler_relation_family_nth
+         task_trace
+         sched_trace
+         t
+         (nth t sched_trace empty_sched_trace_entry)
+         Hrelation
+         Hentry) as Hrow.
+    unfold workload_global_fifo_scheduler_relation_row in Hrow.
+    rewrite <- Hrow.
+    reflexivity.
+  - rewrite nth_overflow by lia.
+    reflexivity.
+Qed.
+
 Lemma awk_workload_checker_acceptance_global_fifo_scheduler_rel :
   forall task_trace sched_trace,
     awk_workload_accepts_global_fifo_scheduler_relation_sched_trace
@@ -2210,6 +2404,24 @@ Lemma awk_workload_checker_acceptance_global_fifo_scheduler_rel :
 Proof.
   intros task_trace sched_trace Haccept.
   eapply awk_workload_checker_acceptance_global_fifo_scheduler_rel_from_fifo_table.
+  - exact Haccept.
+  - apply workload_fifo_candidate_table_contract_canonical.
+Qed.
+
+Lemma awk_workload_checker_acceptance_spurious_global_fifo_scheduler_rel :
+  forall task_trace sched_trace,
+    awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_spurious
+      task_trace sched_trace = true ->
+    scheduler_rel
+      (top_m_algorithm_schedule global_fifo_top_m_spec
+      (candidate_source_of_table
+            (workload_fifo_candidate_table task_trace sched_trace)))
+      (workload_scheduler_relation_jobs task_trace sched_trace)
+      1
+      (workload_scheduler_relation_schedule task_trace sched_trace).
+Proof.
+  intros task_trace sched_trace Haccept.
+  eapply awk_workload_checker_acceptance_spurious_global_fifo_scheduler_rel_from_fifo_table.
   - exact Haccept.
   - apply workload_fifo_candidate_table_contract_canonical.
 Qed.
