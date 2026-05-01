@@ -146,10 +146,24 @@ Definition accepted_workload_global_fifo_sched_trace_family
   task_trace_all_global_fifo_policyb task_trace = true /\
   sched_trace_global_fifo_family sched_trace.
 
+Definition accepted_workload_global_fifo_sched_trace_family_spurious
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : Prop :=
+  accepted_workload_sched_trace_family_spurious task_trace sched_trace /\
+  task_trace_all_global_fifo_policyb task_trace = true /\
+  sched_trace_global_fifo_family sched_trace.
+
 Definition awk_workload_accepts_global_fifo_sched_trace
     (task_trace : list AwkernelTaskTraceEntry)
     (sched_trace : list AwkernelSchedTraceEntry) : bool :=
   awk_workload_accepts_sched_trace task_trace sched_trace &&
+  task_trace_all_global_fifo_policyb task_trace &&
+  sched_trace_global_fifo_checkb sched_trace.
+
+Definition awk_workload_accepts_global_fifo_sched_trace_spurious
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  awk_workload_accepts_sched_trace_spurious task_trace sched_trace &&
   task_trace_all_global_fifo_policyb task_trace &&
   sched_trace_global_fifo_checkb sched_trace.
 
@@ -418,10 +432,24 @@ Definition accepted_workload_global_fifo_scheduler_relation_family
   task_trace_all_global_fifo_policyb task_trace = true /\
   sched_trace_global_fifo_scheduler_relation_family task_trace sched_trace.
 
+Definition accepted_workload_global_fifo_scheduler_relation_family_spurious
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : Prop :=
+  accepted_workload_sched_trace_family_spurious task_trace sched_trace /\
+  task_trace_all_global_fifo_policyb task_trace = true /\
+  sched_trace_global_fifo_scheduler_relation_family task_trace sched_trace.
+
 Definition awk_workload_accepts_global_fifo_scheduler_relation_sched_trace
     (task_trace : list AwkernelTaskTraceEntry)
     (sched_trace : list AwkernelSchedTraceEntry) : bool :=
   awk_workload_accepts_sched_trace task_trace sched_trace &&
+  task_trace_all_global_fifo_policyb task_trace &&
+  sched_trace_global_fifo_scheduler_relation_checkb task_trace sched_trace.
+
+Definition awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_spurious
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  awk_workload_accepts_sched_trace_spurious task_trace sched_trace &&
   task_trace_all_global_fifo_policyb task_trace &&
   sched_trace_global_fifo_scheduler_relation_checkb task_trace sched_trace.
 
@@ -680,10 +708,24 @@ Definition accepted_workload_edf_fifo_scheduler_relation_family
   task_trace_all_edf_fifo_policyb task_trace = true /\
   sched_trace_edf_fifo_scheduler_relation_family task_trace sched_trace.
 
+Definition accepted_workload_edf_fifo_scheduler_relation_family_spurious
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : Prop :=
+  accepted_workload_sched_trace_family_spurious task_trace sched_trace /\
+  task_trace_all_edf_fifo_policyb task_trace = true /\
+  sched_trace_edf_fifo_scheduler_relation_family task_trace sched_trace.
+
 Definition awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace
     (task_trace : list AwkernelTaskTraceEntry)
     (sched_trace : list AwkernelSchedTraceEntry) : bool :=
   awk_workload_accepts_sched_trace task_trace sched_trace &&
+  task_trace_all_edf_fifo_policyb task_trace &&
+  sched_trace_edf_fifo_scheduler_relation_checkb task_trace sched_trace.
+
+Definition awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious
+    (task_trace : list AwkernelTaskTraceEntry)
+    (sched_trace : list AwkernelSchedTraceEntry) : bool :=
+  awk_workload_accepts_sched_trace_spurious task_trace sched_trace &&
   task_trace_all_edf_fifo_policyb task_trace &&
   sched_trace_edf_fifo_scheduler_relation_checkb task_trace sched_trace.
 

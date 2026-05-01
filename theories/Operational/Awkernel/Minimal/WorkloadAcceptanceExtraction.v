@@ -13,6 +13,7 @@ Extraction "extracted/haskell/AwkernelWorkloadAcceptance.hs"
   AwkernelTaskTraceEntry
   AwkernelSchedTraceEntry
   awk_workload_accepts_sched_trace
+  awk_workload_accepts_sched_trace_spurious
   task_trace_all_global_fifo_policyb
   task_trace_all_global_edf_policyb
   task_trace_all_edf_fifo_policyb
@@ -24,6 +25,9 @@ Extraction "extracted/haskell/AwkernelWorkloadAcceptance.hs"
   first_non_scheduler_relation_sched_trace_index
   first_non_edf_fifo_scheduler_relation_sched_trace_index
   awk_workload_accepts_global_fifo_sched_trace
+  awk_workload_accepts_global_fifo_sched_trace_spurious
   awk_workload_accepts_global_fifo_scheduler_relation_sched_trace
+  awk_workload_accepts_global_fifo_scheduler_relation_sched_trace_spurious
   sched_trace_edf_fifo_scheduler_relation_checkb
-  awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace.
+  awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace
+  awk_workload_accepts_edf_fifo_scheduler_relation_sched_trace_spurious.
